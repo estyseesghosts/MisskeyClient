@@ -43,12 +43,14 @@ fun HomeFeed(
     onLoadMore: () -> Unit,
     onSignIn: () -> Unit,
     ownedPosts: List<OwnedPost> = state.ownedPosts,
+    onScrollDirectionChanged: (Boolean) -> Unit = {},
     onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
 ) {
     val list = rememberLazyListState()
     val currentState by rememberUpdatedState(state)
     val loadMore by rememberUpdatedState(onLoadMore)
+    val scrollDirectionChanged by rememberUpdatedState(onScrollDirectionChanged)
     LaunchedEffect(list) {
         snapshotFlow {
             val s = currentState
@@ -56,8 +58,22 @@ fun HomeFeed(
                 (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) >= s.posts.size - 5
         }.distinctUntilChanged().collect { if (it) loadMore() }
     }
+    LaunchedEffect(list) {
+        var previousIndex = list.firstVisibleItemIndex
+        var previousOffset = list.firstVisibleItemScrollOffset
+        snapshotFlow { list.firstVisibleItemIndex to list.firstVisibleItemScrollOffset }
+            .distinctUntilChanged()
+            .collect { (index, offset) ->
+                when {
+                    index > previousIndex || (index == previousIndex && offset > previousOffset) -> scrollDirectionChanged(false)
+                    index < previousIndex || (index == previousIndex && offset < previousOffset) -> scrollDirectionChanged(true)
+                }
+                previousIndex = index
+                previousOffset = offset
+            }
+    }
     PullToRefreshBox(isRefreshing = state.loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
-        LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 12.dp)) {
+        LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
             if (state.error != null) item {
                 Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth().padding(16.dp), shape = MaterialTheme.shapes.large) {
                     Column(Modifier.padding(16.dp)) {

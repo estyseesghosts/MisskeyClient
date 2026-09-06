@@ -4,6 +4,8 @@ package me.foxtails.palustris.ui
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -13,10 +15,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.OwnedPost
@@ -52,8 +56,11 @@ fun PalustrisApp(
     var warningEnabled by rememberSaveable { mutableStateOf(savedWarning.isNotEmpty()) }
     var discardDialog by rememberSaveable { mutableStateOf(false) }
     var signOutDialog by remember { mutableStateOf(false) }
+    var navigationVisible by rememberSaveable { mutableStateOf(true) }
     val hasChanges = draft != savedDraft || (if (warningEnabled) warning else "") != savedWarning
     val closeComposer = { if (hasChanges) discardDialog = true else page = null }
+
+    LaunchedEffect(destination, page) { navigationVisible = true }
 
     BackHandler(enabled = page != null || destination != Destination.Home) {
         when {
@@ -78,8 +85,9 @@ fun PalustrisApp(
                     }
                 }
             }
-            Scaffold(
-                modifier = Modifier.weight(1f),
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                Scaffold(
+                modifier = Modifier.fillMaxSize(),
                 topBar = {
                     when {
                         page == "Compose" -> TopAppBar(
@@ -128,43 +136,6 @@ fun PalustrisApp(
                         )
                     }
                 },
-                bottomBar = {
-                    if (!wide && page != "Compose") Box(
-                        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Surface(
-                            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            shadowElevation = 6.dp,
-                        ) {
-                            NavigationBar(
-                                modifier = Modifier.height(60.dp),
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                windowInsets = WindowInsets(0, 0, 0, 0),
-                            ) {
-                                Destination.entries.forEachIndexed { index, item ->
-                                    if (index == 2) Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                                        FilledIconButton(onClick = { page = "Compose" }, modifier = Modifier.size(48.dp)) {
-                                            Icon(AppIcons.Edit, "Compose post")
-                                        }
-                                    }
-                                    NavigationBarItem(
-                                        selected = destination == item,
-                                        onClick = { destination = item; page = null },
-                                        icon = { Icon(item.icon, contentDescription = item.label) },
-                                        colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                                        ),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                },
             ) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
                     when (page) {
@@ -184,6 +155,7 @@ fun PalustrisApp(
                                 onLoadMore = onLoadMore,
                                 onSignIn = onSignOut,
                                 ownedPosts = ownedPosts ?: feedState.ownedPosts,
+                                onScrollDirectionChanged = { navigationVisible = it },
                                 onReact = onReact,
                                 onReply = onReply,
                             )
@@ -192,6 +164,51 @@ fun PalustrisApp(
                             Destination.Notifications -> NotificationsScreen(connected = account != null)
                             Destination.Profile -> ProfileScreen(account = account) { sheet = "Accounts" }
                         } }
+                    }
+                }
+            }
+                if (!wide && page != "Compose") {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = navigationVisible,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).zIndex(1f),
+                    ) {
+                        Box(
+                            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Surface(
+                                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
+                                shadowElevation = 6.dp,
+                            ) {
+                                NavigationBar(
+                                    modifier = Modifier.height(60.dp),
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
+                                    windowInsets = WindowInsets(0, 0, 0, 0),
+                                ) {
+                                    Destination.entries.forEachIndexed { index, item ->
+                                        if (index == 2) Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                            FilledIconButton(onClick = { page = "Compose" }, modifier = Modifier.size(48.dp)) {
+                                                Icon(AppIcons.Edit, "Compose post")
+                                            }
+                                        }
+                                        NavigationBarItem(
+                                            selected = destination == item,
+                                            onClick = { destination = item; page = null },
+                                            icon = { Icon(item.icon, contentDescription = item.label) },
+                                            colors = NavigationBarItemDefaults.colors(
+                                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                indicatorColor = Color.Transparent,
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
