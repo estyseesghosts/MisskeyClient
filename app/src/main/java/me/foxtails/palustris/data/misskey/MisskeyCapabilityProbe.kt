@@ -4,13 +4,21 @@ import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Timeline
+import org.json.JSONArray
 import org.json.JSONObject
 
 class MisskeyCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
     override suspend fun probeCapabilities(connection: Connection): ServerCapabilities {
         val meta = JSONObject(api.get(connection.origin, "meta").body)
         require(meta.optString("version").isNotBlank()) { "This server did not return Misskey-compatible information." }
-        return ServerCapabilities(timelines = setOf(Timeline.Home), capabilitiesLastUpdated = System.currentTimeMillis())
+        val timelines = meta.optJSONArray("timelines")?.let(::parseTimelines) ?: setOf(Timeline.Home)
+        return ServerCapabilities(timelines = timelines, capabilitiesLastUpdated = System.currentTimeMillis())
+    }
+
+    private fun parseTimelines(values: JSONArray): Set<Timeline> = buildSet {
+        for (index in 0 until values.length()) {
+            runCatching { add(Timeline.valueOf(values.getString(index))) }
+        }
     }
 }
 

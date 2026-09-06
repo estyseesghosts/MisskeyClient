@@ -10,6 +10,12 @@ class AppRegistrationCache {
 
     fun get(origin: String): AppRegistration? = registrations[origin]
 
+    suspend fun getOrPut(origin: String, create: suspend () -> AppRegistration): AppRegistration {
+        get(origin)?.let { return it }
+        val created = create()
+        return synchronized(this) { get(origin) ?: created.also { put(origin, it) } }
+    }
+
     fun put(origin: String, registration: AppRegistration) {
         registrations[origin] = registration
     }

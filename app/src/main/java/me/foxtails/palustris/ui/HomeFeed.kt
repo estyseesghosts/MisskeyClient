@@ -37,7 +37,15 @@ internal fun openExternal(context: Context, url: String?) {
 }
 
 @Composable
-fun HomeFeed(state: FeedState, onRefresh: () -> Unit, onLoadMore: () -> Unit, onSignIn: () -> Unit) {
+fun HomeFeed(
+    state: FeedState,
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit,
+    onSignIn: () -> Unit,
+    ownedPosts: List<OwnedPost> = state.ownedPosts,
+    onReact: (OwnedPost) -> Unit = {},
+    onReply: (OwnedPost) -> Unit = {},
+) {
     val list = rememberLazyListState()
     val currentState by rememberUpdatedState(state)
     val loadMore by rememberUpdatedState(onLoadMore)
@@ -63,8 +71,9 @@ fun HomeFeed(state: FeedState, onRefresh: () -> Unit, onLoadMore: () -> Unit, on
             if (state.posts.isEmpty() && !state.loading && state.error == null) item {
                 Box(Modifier.fillParentMaxSize()) { EmptyState(AppIcons.Home, "Your home feed is quiet", "Posts from accounts you follow will appear here. Pull down to refresh.") }
             }
-            items(state.posts, key = { "${it.id.connection}/${it.id.value}" }) { post ->
-                PostRow(post)
+            val rows = ownedPosts.ifEmpty { state.posts.map { OwnedPost(it.author.id, it) } }
+            items(rows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
+                PostRow(ownedPost, onReact, onReply)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
             }
             if (state.loadingMore) item {
@@ -90,7 +99,8 @@ fun AccountAvatar(account: Account, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PostRow(post: Post) {
+private fun PostRow(ownedPost: OwnedPost, onReact: (OwnedPost) -> Unit, onReply: (OwnedPost) -> Unit) {
+    val post = ownedPost.post
     val context = LocalContext.current
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth()) {
@@ -152,6 +162,8 @@ private fun PostRow(post: Post) {
             Icon(AppIcons.Chat, "Replies", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(" ${post.replyCount}   ·   ${post.reshareCount} reshares", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.weight(1f))
+            TextButton(onClick = { onReply(ownedPost) }) { Text("Reply") }
+            TextButton(onClick = { onReact(ownedPost) }) { Text("React") }
             TextButton(onClick = { openExternal(context, post.url) }) { Text("Open post") }
         }
     }

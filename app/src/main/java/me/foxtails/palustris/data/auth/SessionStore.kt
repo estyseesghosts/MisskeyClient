@@ -57,8 +57,15 @@ interface SessionStore {
 }
 
 /** AES-GCM per-account storage with one shared non-exportable Android Keystore key. */
-class EncryptedSessionStore(context: Context) : SessionStore {
-    private val accountFiles = AccountFileStore(context)
+class EncryptedSessionStore private constructor(
+    context: Context,
+    private val accountFiles: AccountFileStore,
+) : SessionStore {
+    constructor(context: Context) : this(context, AccountFileStore(context))
+
+    internal constructor(context: Context, key: javax.crypto.SecretKey) :
+        this(context, AccountFileStore(context, key))
+
     private val accountsDirectory = File(context.noBackupFilesDir, "accounts")
     private val indexFile = AtomicFile(File(accountsDirectory, "index.json"))
     private val pendingFile = File(accountsDirectory, "pending.enc")

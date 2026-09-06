@@ -17,6 +17,7 @@ class MisskeySource(
     private val accountId: AccountId? = null,
     private val capabilityProbe: CapabilityProbe = MisskeyCapabilityProbe(api),
     private val capabilityCache: CapabilityCache = CapabilityCache(),
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : SocialSource {
     private val cacheKey = CapabilityCacheKey(origin, accountId ?: AccountId(Connection(origin, Protocol.MISSKEY), "anonymous"))
     private val _capabilities = MutableStateFlow(ServerCapabilities(timelines = setOf(Timeline.Home)))
@@ -49,7 +50,7 @@ class MisskeySource(
     }
 
     private suspend fun refreshCapabilities() {
-        val now = System.currentTimeMillis()
+        val now = clock()
         if (now - capabilities.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS) return
         capabilityCache.get(cacheKey)?.takeIf {
             now - it.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.ui.*
 import me.foxtails.palustris.domain.*
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,5 +51,21 @@ class SignInScreenTest {
         capture("home-feed")
         compose.onNodeWithText("Hide content").performClick()
         compose.onNodeWithText(post.text).assertDoesNotExist()
+    }
+    @Test fun feedActionsPreserveTheAccountThatFetchedThePost() {
+        val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
+        val post = Post(EntityId("https://example.org", "post"), account, "Post", System.currentTimeMillis(), Audience.Public)
+        val ownedPost = OwnedPost(account.id, post)
+        var reactedPost: OwnedPost? = null
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(
+                account = account,
+                feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost)),
+                onReact = { reactedPost = it },
+            )
+        } }
+
+        compose.onNodeWithText("React").performClick()
+        assertEquals(account.id, reactedPost?.fetchedBy)
     }
 }

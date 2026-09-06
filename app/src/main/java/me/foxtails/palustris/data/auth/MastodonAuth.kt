@@ -28,9 +28,7 @@ class MastodonAuth(
     override suspend fun prepare(input: String): PendingLogin = try {
         val origin = ServerAddress.normalize(input)
         val api = apiFor(origin)
-        val registration = appRegistrationCache.get(origin) ?: registerApp(origin, api).also {
-            appRegistrationCache.put(origin, it)
-        }
+        val registration = appRegistrationCache.getOrPut(origin) { registerApp(origin, api) }
         val supportsPkce = detectPkceSupport(origin, api)
         val verifier = if (supportsPkce) generateCodeVerifier() else null
         val challenge = verifier?.let(::codeChallenge)

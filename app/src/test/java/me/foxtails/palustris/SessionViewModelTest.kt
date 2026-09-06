@@ -8,7 +8,9 @@ import me.foxtails.palustris.data.auth.*
 import me.foxtails.palustris.data.misskey.ApiFailure
 import me.foxtails.palustris.data.misskey.MisskeyErrorMapper
 import me.foxtails.palustris.domain.*
-import me.foxtails.palustris.ui.SessionViewModel
+import me.foxtails.palustris.ui.AccountManager
+import me.foxtails.palustris.ui.AccountSyncCoordinator
+import me.foxtails.palustris.ui.FeedViewModel
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -36,12 +38,20 @@ class SessionViewModelTest {
                 value?.let { sessions[it.accountId] = it }
             }
         var pending: PendingLogin? = null
+        val readAccountIds = mutableListOf<AccountId>()
+        val writtenAccountIds = mutableListOf<AccountId>()
         var index = initialAccount?.let { account ->
             AccountIndex(accounts = listOf(AccountRef(account.id, account.handle, account.avatarUrl, account.displayName)), activeAccountId = account.id)
         } ?: AccountIndex()
 
-        override fun read(accountId: AccountId) = sessions[accountId]
-        override fun write(accountId: AccountId, session: Session) { sessions[accountId] = session }
+        override fun read(accountId: AccountId): Session? {
+            readAccountIds += accountId
+            return sessions[accountId]
+        }
+        override fun write(accountId: AccountId, session: Session) {
+            writtenAccountIds += accountId
+            sessions[accountId] = session
+        }
         override fun delete(accountId: AccountId) { sessions.remove(accountId) }
         override fun readIndex() = index
         override fun writeIndex(index: AccountIndex) { this.index = index }
@@ -72,27 +82,29 @@ class SessionViewModelTest {
         try {
             val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
             val source = Source()
-            val model = SessionViewModel(store, auth(login), { source }, StandardTestDispatcher(testScheduler))
-            owner.put("session", model)
+            val accountManager = AccountManager(store, auth(login), StandardTestDispatcher(testScheduler))
+            val feedModel = FeedViewModel(login.account.id, source, AccountSyncCoordinator())
+            owner.put("account", accountManager)
+            owner.put("feed", feedModel)
             advanceUntilIdle()
-            assertEquals("@alice@example.org", model.session.value.account?.handle)
-            assertEquals(1, model.feed.value.posts.size)
-            model.loadMore(); advanceUntilIdle()
-            assertEquals(listOf("2", "1"), model.feed.value.posts.map { it.id.value })
+            assertEquals("@alice@example.org", accountManager.session.value.account?.handle)
+            assertEquals(1, feedModel.feed.value.posts.size)
+            assertEquals(login.account.id, feedModel.feed.value.ownedPosts.single().fetchedBy)
+            feedModel.loadMore(); advanceUntilIdle()
+            assertEquals(listOf("2", "1"), feedModel.feed.value.posts.map { it.id.value })
             source.error = IOException()
-            model.refresh(); advanceUntilIdle()
-            assertEquals(2, model.feed.value.posts.size)
-            assertNotNull(model.feed.value.error)
+            feedModel.refresh(); advanceUntilIdle()
+            assertEquals(2, feedModel.feed.value.posts.size)
+            assertNotNull(feedModel.feed.value.error)
             source.error = null
-            model.refresh(); advanceUntilIdle()
-            assertNull(model.feed.value.error)
+            feedModel.refresh(); advanceUntilIdle()
+            assertNull(feedModel.feed.value.error)
             source.error = ApiFailure(401)
-            model.refresh(); advanceUntilIdle()
-            assertTrue(model.feed.value.needsSignIn)
-            model.signOut(); advanceUntilIdle()
+            feedModel.refresh(); advanceUntilIdle()
+            assertTrue(feedModel.feed.value.needsSignIn)
+            accountManager.signOut(); advanceUntilIdle()
             assertNull(store.storedSession)
-            assertNull(model.session.value.account)
-            assertTrue(model.feed.value.posts.isEmpty())
+            assertNull(accountManager.session.value.account)
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
 
@@ -103,12 +115,12 @@ class SessionViewModelTest {
             val store = MemoryStore()
             val result = login
             val dispatcher = StandardTestDispatcher(testScheduler)
-            val first = SessionViewModel(store, auth(result), { Source() }, dispatcher)
+            val first = AccountManager(store, auth(result), dispatcher)
             owner.put("first", first)
             advanceUntilIdle()
             first.signIn("https://example.org"); advanceUntilIdle()
             assertNotNull(store.pending)
-            val restored = SessionViewModel(store, auth(result), { Source() }, dispatcher)
+            val restored = AccountManager(store, auth(result), dispatcher)
             owner.put("restored", restored)
             advanceUntilIdle()
             assertTrue(restored.session.value.pending)
@@ -131,7 +143,7 @@ class SessionViewModelTest {
             val newLogin = LoginSession("https://new.example", "new-token", JSONObject("""{"id":"new","username":"new"}"""))
             val existingSession = Session(existingLogin.account.id, existingLogin.token, ServerCapabilities())
             val store = MemoryStore(existingSession, existingLogin.account)
-            val model = SessionViewModel(store, auth(newLogin), { Source() }, StandardTestDispatcher(testScheduler))
+            val model = AccountManager(store, auth(newLogin), StandardTestDispatcher(testScheduler))
             owner.put("isolated", model)
             advanceUntilIdle()
 
@@ -143,6 +155,8 @@ class SessionViewModelTest {
             assertEquals(existingSession, store.sessions[existingSession.accountId])
             assertEquals(newLogin.token, store.sessions[newLogin.account.id]?.token)
             assertEquals(setOf(existingLogin.account.id, newLogin.account.id), store.index.accounts.map { it.accountId }.toSet())
+            assertEquals(listOf(existingSession.accountId), store.readAccountIds)
+            assertEquals(listOf(newLogin.account.id), store.writtenAccountIds)
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
 }

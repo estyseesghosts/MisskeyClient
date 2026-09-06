@@ -15,28 +15,51 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import me.foxtails.palustris.data.SocialSourceFactory
 
 @Composable
-fun ConnectedApp(model: SessionViewModel) {
-    val state by model.session.collectAsStateWithLifecycle()
-    val feed by model.feed.collectAsStateWithLifecycle()
+fun ConnectedApp(
+    accountManager: AccountManager,
+    sourceFactory: SocialSourceFactory,
+) {
+    val state by accountManager.session.collectAsStateWithLifecycle()
+    val activeSession by accountManager.activeSession.collectAsStateWithLifecycle()
+    val feedModel = activeSession?.let { session ->
+        hiltViewModel<FeedViewModel, FeedViewModel.Factory>(
+            key = "feed-${session.accountId}",
+            creationCallback = { factory ->
+                factory.create(session.accountId, sourceFactory.create(session))
+            },
+        )
+    }
+    val feed by if (feedModel != null) feedModel.feed.collectAsStateWithLifecycle()
+    else remember { mutableStateOf(FeedState()) }
     val context = LocalContext.current
     LaunchedEffect(state.browserUrl) {
         state.browserUrl?.let { url ->
-            model.browserOpened()
+            accountManager.browserOpened()
             try { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
-            catch (_: android.content.ActivityNotFoundException) { model.browserFailed() }
+            catch (_: android.content.ActivityNotFoundException) { accountManager.browserFailed() }
         }
     }
     when {
         state.starting -> PalustrisTheme { Surface(Modifier.fillMaxSize()) {
             Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         } }
-        state.account == null -> PalustrisTheme { SignInScreen(state, model::signIn, model::finishSignIn, model::reopenBrowser, model::signOut) }
+        state.account == null -> PalustrisTheme {
+            SignInScreen(state, accountManager::signIn, accountManager::finishSignIn, accountManager::reopenBrowser, accountManager::signOut)
+        }
         else -> key(state.account!!.id) {
-            PalustrisApp(account = state.account, feedState = feed, onRefresh = model::refresh,
-                onLoadMore = model::loadMore, onSignOut = model::signOut)
+            PalustrisApp(
+                account = state.account,
+                feedState = feed,
+                onRefresh = { feedModel?.refresh() },
+                onLoadMore = { feedModel?.loadMore() },
+                onSignOut = accountManager::signOut,
+                ownedPosts = feed.ownedPosts,
+            )
         }
     }
 }

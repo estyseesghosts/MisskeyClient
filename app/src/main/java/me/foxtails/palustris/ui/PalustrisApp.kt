@@ -19,6 +19,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.OwnedPost
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
@@ -32,6 +33,9 @@ fun PalustrisApp(
     onRefresh: () -> Unit = {},
     onLoadMore: () -> Unit = {},
     onSignOut: () -> Unit = {},
+    ownedPosts: List<OwnedPost>? = null,
+    onReact: (OwnedPost) -> Unit = {},
+    onReply: (OwnedPost) -> Unit = {},
 ) = PalustrisTheme {
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("local_draft", Context.MODE_PRIVATE) }
@@ -174,7 +178,15 @@ fun PalustrisApp(
                         })
                         "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                         else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                            Destination.Home -> if (feedState != null) HomeFeed(feedState, onRefresh, onLoadMore, onSignOut)
+                            Destination.Home -> if (feedState != null) HomeFeed(
+                                state = feedState,
+                                onRefresh = onRefresh,
+                                onLoadMore = onLoadMore,
+                                onSignIn = onSignOut,
+                                ownedPosts = ownedPosts ?: feedState.ownedPosts,
+                                onReact = onReact,
+                                onReply = onReply,
+                            )
                                 else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                             Destination.Search -> SearchScreen()
                             Destination.Notifications -> NotificationsScreen(connected = account != null)

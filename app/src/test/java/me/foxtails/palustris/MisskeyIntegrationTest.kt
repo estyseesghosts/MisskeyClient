@@ -18,7 +18,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
-class MisskeyIntegrationTest {
+class MisskeyIntegrationTest : MisskeySourceContractTest() {
     private val user = """{"id":"user-a","username":"alice","name":"Alice","host":null}"""
     private fun note(id: String) = """{"id":"$id","createdAt":"2026-09-06T10:00:00Z","user":$user,"text":"Hello","visibility":"home"}"""
 

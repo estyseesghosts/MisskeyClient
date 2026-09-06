@@ -6,4 +6,5 @@ data class Notification(
     val account: Account,
     val post: Post? = null,
     val createdAtEpochMillis: Long = 0,
+    val isRead: Boolean = false,
 )

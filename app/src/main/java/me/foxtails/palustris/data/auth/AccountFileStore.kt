@@ -23,7 +23,12 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /** Stores one encrypted session file for each account. */
-class AccountFileStore(context: Context) {
+class AccountFileStore internal constructor(
+    context: Context,
+    private val suppliedKey: SecretKey?,
+) {
+    constructor(context: Context) : this(context, null)
+
     private val accountsDirectory = File(context.noBackupFilesDir, "accounts")
 
     fun read(accountId: AccountId): Session? {
@@ -96,6 +101,7 @@ class AccountFileStore(context: Context) {
     }
 
     private fun key(): SecretKey {
+        suppliedKey?.let { return it }
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey("palustris.session", null) as? SecretKey)?.let { return it }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {

@@ -6,35 +6,26 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import me.foxtails.palustris.data.auth.EncryptedSessionStore
-import me.foxtails.palustris.data.auth.MisskeyAuth
-import me.foxtails.palustris.data.misskey.HttpClientPool
-import me.foxtails.palustris.data.misskey.MisskeyApi
-import me.foxtails.palustris.data.misskey.MisskeySource
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import me.foxtails.palustris.data.SocialSourceFactory
+import me.foxtails.palustris.ui.AccountManager
 import me.foxtails.palustris.ui.ConnectedApp
-import me.foxtails.palustris.ui.SessionViewModel
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val model by viewModels<SessionViewModel> {
-        viewModelFactory { initializer {
-            val clientPool = HttpClientPool()
-            SessionViewModel(EncryptedSessionStore(applicationContext), MisskeyAuth(clientPool), sourceFactory = {
-                MisskeySource(it.accountId.connection.origin, it.token,
-                    MisskeyApi(clientPool.clientFor(it.accountId.connection)), accountId = it.accountId)
-            })
-        } }
-    }
+    private val accountManager by viewModels<AccountManager>()
+    @Inject lateinit var sourceFactory: SocialSourceFactory
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (savedInstanceState == null) intent.dataString?.let(model::callback)
-        setContent { ConnectedApp(model) }
+        if (savedInstanceState == null) intent.dataString?.let(accountManager::callback)
+        setContent { ConnectedApp(accountManager, sourceFactory) }
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        intent.dataString?.let(model::callback)
+        intent.dataString?.let(accountManager::callback)
     }
 }
