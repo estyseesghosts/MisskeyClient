@@ -9,7 +9,8 @@ import org.json.JSONObject
 
 class MisskeyCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
     override suspend fun probeCapabilities(connection: Connection): ServerCapabilities {
-        val meta = JSONObject(api.get(connection.origin, "meta").body)
+        // Misskey's HTTP API is POST-based, including the unauthenticated meta endpoint.
+        val meta = JSONObject(api.post(connection.origin, "meta").body)
         require(meta.optString("version").isNotBlank()) { "This server did not return Misskey-compatible information." }
         val timelines = meta.optJSONArray("timelines")?.let(::parseTimelines) ?: setOf(Timeline.Home)
         return ServerCapabilities(timelines = timelines, capabilitiesLastUpdated = System.currentTimeMillis())
