@@ -1,0 +1,198 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
+package me.foxtails.palustris.ui
+
+import android.content.Context
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import me.foxtails.palustris.domain.Timeline
+
+private enum class Destination(val label: String, val icon: ImageVector) {
+    Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
+    Notifications("Notifications", AppIcons.Notifications), Profile("Profile", AppIcons.Person),
+}
+
+@Composable
+fun PalustrisApp() = PalustrisTheme {
+    val context = LocalContext.current
+    val preferences = remember { context.getSharedPreferences("local_draft", Context.MODE_PRIVATE) }
+    var destination by rememberSaveable { mutableStateOf(Destination.Home) }
+    var timeline by rememberSaveable { mutableStateOf(Timeline.Home) }
+    var page by rememberSaveable { mutableStateOf<String?>(null) }
+    var sheet by rememberSaveable { mutableStateOf<String?>(null) }
+    var overflow by remember { mutableStateOf(false) }
+    val screenStates = rememberSaveableStateHolder()
+    var savedDraft by rememberSaveable { mutableStateOf(preferences.getString("text", "").orEmpty()) }
+    var draft by rememberSaveable { mutableStateOf(savedDraft) }
+    var savedWarning by rememberSaveable { mutableStateOf(preferences.getString("warning", "").orEmpty()) }
+    var warning by rememberSaveable { mutableStateOf(savedWarning) }
+    var warningEnabled by rememberSaveable { mutableStateOf(savedWarning.isNotEmpty()) }
+    var discardDialog by rememberSaveable { mutableStateOf(false) }
+    val hasChanges = draft != savedDraft || (if (warningEnabled) warning else "") != savedWarning
+    val closeComposer = { if (hasChanges) discardDialog = true else page = null }
+
+    BackHandler(enabled = page != null || destination != Destination.Home) {
+        when {
+            page == "Compose" -> closeComposer()
+            page != null -> page = null
+            else -> destination = Destination.Home
+        }
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= 600.dp
+        Row(Modifier.fillMaxSize()) {
+            if (wide && page != "Compose") {
+                NavigationRail(Modifier.fillMaxHeight(), header = {
+                    FloatingActionButton(onClick = { page = "Compose" }, modifier = Modifier.padding(vertical = 16.dp)) {
+                        Icon(AppIcons.Edit, "Compose post")
+                    }
+                }) {
+                    Destination.entries.forEach { item ->
+                        NavigationRailItem(selected = destination == item, onClick = { destination = item; page = null },
+                            icon = { Icon(item.icon, item.label) }, label = { Text(item.label) })
+                    }
+                }
+            }
+            Scaffold(
+                modifier = Modifier.weight(1f),
+                topBar = {
+                    when {
+                        page == "Compose" -> TopAppBar(
+                            title = { Text("New post") },
+                            navigationIcon = { ActionIcon(AppIcons.Close, "Close composer", closeComposer) },
+                            actions = {
+                                TextButton(enabled = draft.isNotBlank(), onClick = {
+                                    savedDraft = draft
+                                    savedWarning = if (warningEnabled) warning else ""
+                                    preferences.edit().putString("text", savedDraft).putString("warning", savedWarning).apply()
+                                    page = "Drafts"
+                                }) { Text("Save draft") }
+                            },
+                        )
+                        page != null -> TopAppBar(title = { Text(page!!) }, navigationIcon = {
+                            ActionIcon(AppIcons.Back, "Back", { page = null })
+                        })
+                        destination == Destination.Home -> TopAppBar(
+                            title = {
+                                Row(Modifier.clickable { sheet = "Timelines" }.padding(vertical = 12.dp)) {
+                                    Text(timeline.name)
+                                    Spacer(Modifier.width(8.dp))
+                                    Icon(AppIcons.Expand, "Choose timeline")
+                                }
+                            },
+                            navigationIcon = { ActionIcon(AppIcons.Home, "Choose timeline", { sheet = "Timelines" }) },
+                            actions = {
+                                Box {
+                                    ActionIcon(AppIcons.More, "More options", { overflow = true })
+                                    DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                                        listOf("Bookmarks", "Drafts", "About").forEach { title ->
+                                            DropdownMenuItem(text = { Text(title) }, onClick = { overflow = false; page = title })
+                                        }
+                                    }
+                                }
+                            },
+                        )
+                        destination == Destination.Notifications -> TopAppBar(title = { Text("Notifications") })
+                        destination == Destination.Profile -> TopAppBar(
+                            title = { Column { Text("Your profile"); Text("0 posts", style = MaterialTheme.typography.bodyMedium) } },
+                            actions = {
+                                ActionIcon(AppIcons.Bookmark, "Bookmarks", { page = "Bookmarks" })
+                                ActionIcon(AppIcons.Folder, "Drafts", { page = "Drafts" })
+                                ActionIcon(AppIcons.More, "Accounts", { sheet = "Accounts" })
+                            },
+                        )
+                    }
+                },
+                bottomBar = {
+                    if (!wide && page != "Compose") NavigationBar {
+                        Destination.entries.forEach { item ->
+                            NavigationBarItem(
+                                selected = destination == item,
+                                onClick = { destination = item; page = null },
+                                icon = {
+                                    if (item == Destination.Profile) Avatar(Modifier.size(24.dp))
+                                    else Icon(item.icon, contentDescription = null)
+                                },
+                                label = { Text(item.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            )
+                        }
+                    }
+                },
+                floatingActionButton = {
+                    if (!wide && page == null && destination != Destination.Search) FloatingActionButton(onClick = { page = "Compose" }) {
+                        Icon(AppIcons.Edit, "Compose post")
+                    }
+                },
+            ) { padding ->
+                Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
+                    when (page) {
+                        "Compose" -> ComposeScreen(draft, { draft = it }, warning, { warning = it }, warningEnabled, { warningEnabled = it })
+                        "Bookmarks" -> EmptyState(AppIcons.Bookmark, "No bookmarks yet", "Posts you save will appear here.")
+                        "Drafts" -> DraftsScreen(savedDraft, {
+                            draft = savedDraft; warning = savedWarning; warningEnabled = savedWarning.isNotEmpty(); page = "Compose"
+                        }, {
+                            savedDraft = ""; draft = ""; savedWarning = ""; warning = ""; warningEnabled = false
+                            preferences.edit().clear().apply()
+                        })
+                        "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "An offline UI preview. Accounts and publishing will be available in a future update.")
+                        else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
+                            Destination.Home -> EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                            Destination.Search -> SearchScreen()
+                            Destination.Notifications -> NotificationsScreen()
+                            Destination.Profile -> ProfileScreen { sheet = "Accounts" }
+                        } }
+                    }
+                }
+            }
+        }
+    }
+    if (sheet != null) ModalBottomSheet(onDismissRequest = { sheet = null }) {
+        Text(sheet!!, Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.headlineSmall)
+        if (sheet == "Timelines") {
+            Timeline.entries.forEach { item ->
+                ListItem(
+                    modifier = Modifier.clickable { timeline = item; sheet = null },
+                    headlineContent = { Text(item.name) },
+                    supportingContent = { Text(when (item) {
+                        Timeline.Home -> "Posts from people you follow"
+                        Timeline.Local -> "Posts from your server"
+                        Timeline.Federated -> "Posts from across the fediverse"
+                    }) },
+                    leadingContent = { Icon(if (item == Timeline.Home) AppIcons.Home else AppIcons.Globe, null) },
+                    trailingContent = { if (timeline == item) Icon(AppIcons.Check, "Selected") },
+                )
+            }
+            Text("Timeline preview", Modifier.padding(24.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            ListItem(headlineContent = { Text("No accounts connected") }, supportingContent = { Text("Account connections are not available in this preview.") }, leadingContent = { Avatar(Modifier.size(48.dp)) })
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+    if (discardDialog) AlertDialog(
+        onDismissRequest = { discardDialog = false },
+        title = { Text("Discard changes?") },
+        text = { Text("Your unsaved changes will be lost. Any previously saved draft will remain.") },
+        confirmButton = { TextButton(onClick = {
+            draft = savedDraft; warning = savedWarning; warningEnabled = savedWarning.isNotEmpty()
+            discardDialog = false; page = null
+        }) { Text("Discard") } },
+        dismissButton = { TextButton(onClick = { discardDialog = false }) { Text("Keep editing") } },
+    )
+}
+
+@Preview(showBackground = true, device = "spec:width=411dp,height=891dp,dpi=420")
+@Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun AppPreview() { PalustrisApp() }
