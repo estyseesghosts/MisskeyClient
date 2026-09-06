@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.Account
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
@@ -25,7 +26,13 @@ private enum class Destination(val label: String, val icon: ImageVector) {
 }
 
 @Composable
-fun PalustrisApp() = PalustrisTheme {
+fun PalustrisApp(
+    account: Account? = null,
+    feedState: FeedState? = null,
+    onRefresh: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
+    onSignOut: () -> Unit = {},
+) = PalustrisTheme {
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("local_draft", Context.MODE_PRIVATE) }
     var destination by rememberSaveable { mutableStateOf(Destination.Home) }
@@ -40,6 +47,7 @@ fun PalustrisApp() = PalustrisTheme {
     var warning by rememberSaveable { mutableStateOf(savedWarning) }
     var warningEnabled by rememberSaveable { mutableStateOf(savedWarning.isNotEmpty()) }
     var discardDialog by rememberSaveable { mutableStateOf(false) }
+    var signOutDialog by remember { mutableStateOf(false) }
     val hasChanges = draft != savedDraft || (if (warningEnabled) warning else "") != savedWarning
     val closeComposer = { if (hasChanges) discardDialog = true else page = null }
 
@@ -107,7 +115,7 @@ fun PalustrisApp() = PalustrisTheme {
                         )
                         destination == Destination.Notifications -> TopAppBar(title = { Text("Notifications") })
                         destination == Destination.Profile -> TopAppBar(
-                            title = { Column { Text("Your profile"); Text("0 posts", style = MaterialTheme.typography.bodyMedium) } },
+                            title = { Column { Text(account?.displayName ?: "Your profile"); Text(account?.handle ?: "0 posts", style = MaterialTheme.typography.bodyMedium, maxLines = 1) } },
                             actions = {
                                 ActionIcon(AppIcons.Bookmark, "Bookmarks", { page = "Bookmarks" })
                                 ActionIcon(AppIcons.Folder, "Drafts", { page = "Drafts" })
@@ -156,20 +164,21 @@ fun PalustrisApp() = PalustrisTheme {
             ) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
                     when (page) {
-                        "Compose" -> ComposeScreen(draft, { draft = it }, warning, { warning = it }, warningEnabled, { warningEnabled = it })
-                        "Bookmarks" -> EmptyState(AppIcons.Bookmark, "No bookmarks yet", "Posts you save will appear here.")
+                        "Compose" -> ComposeScreen(draft, { draft = it }, warning, { warning = it }, warningEnabled, { warningEnabled = it }, account)
+                        "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")
                         "Drafts" -> DraftsScreen(savedDraft, {
                             draft = savedDraft; warning = savedWarning; warningEnabled = savedWarning.isNotEmpty(); page = "Compose"
                         }, {
                             savedDraft = ""; draft = ""; savedWarning = ""; warning = ""; warningEnabled = false
                             preferences.edit().clear().apply()
                         })
-                        "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "An offline UI preview. Accounts and publishing will be available in a future update.")
+                        "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                         else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                            Destination.Home -> EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                            Destination.Home -> if (feedState != null) HomeFeed(feedState, onRefresh, onLoadMore, onSignOut)
+                                else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                             Destination.Search -> SearchScreen()
-                            Destination.Notifications -> NotificationsScreen()
-                            Destination.Profile -> ProfileScreen { sheet = "Accounts" }
+                            Destination.Notifications -> NotificationsScreen(connected = account != null)
+                            Destination.Profile -> ProfileScreen(account = account) { sheet = "Accounts" }
                         } }
                     }
                 }
@@ -179,7 +188,7 @@ fun PalustrisApp() = PalustrisTheme {
     if (sheet != null) ModalBottomSheet(onDismissRequest = { sheet = null }) {
         Text(sheet!!, Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.headlineSmall)
         if (sheet == "Timelines") {
-            Timeline.entries.forEach { item ->
+            (if (account != null) listOf(Timeline.Home) else Timeline.entries).forEach { item ->
                 ListItem(
                     modifier = Modifier.clickable { timeline = item; sheet = null },
                     headlineContent = { Text(item.name) },
@@ -192,12 +201,19 @@ fun PalustrisApp() = PalustrisTheme {
                     trailingContent = { if (timeline == item) Icon(AppIcons.Check, "Selected") },
                 )
             }
-            Text("Timeline preview", Modifier.padding(24.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (account != null) "More timelines coming later" else "Timeline preview", Modifier.padding(24.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            ListItem(headlineContent = { Text("No accounts connected") }, supportingContent = { Text("Account connections are not available in this preview.") }, leadingContent = { Avatar(Modifier.size(48.dp)) })
+            ListItem(headlineContent = { Text(account?.displayName ?: "No accounts connected") },
+                supportingContent = { Text(account?.handle ?: "Account connections are not available in this preview.") },
+                leadingContent = { if (account != null) AccountAvatar(account, Modifier.size(48.dp)) else Avatar(Modifier.size(48.dp)) })
+            if (account != null) TextButton(onClick = { sheet = null; signOutDialog = true }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Sign out") }
             Spacer(Modifier.height(32.dp))
         }
     }
+    if (signOutDialog) AlertDialog(onDismissRequest = { signOutDialog = false },
+        title = { Text("Sign out?") }, text = { Text("Your sign-in will be removed from this device. Local drafts will remain.") },
+        confirmButton = { TextButton(onClick = { signOutDialog = false; onSignOut() }) { Text("Sign out") } },
+        dismissButton = { TextButton(onClick = { signOutDialog = false }) { Text("Cancel") } })
     if (discardDialog) AlertDialog(
         onDismissRequest = { discardDialog = false },
         title = { Text("Discard changes?") },

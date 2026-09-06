@@ -24,8 +24,9 @@ data class ServerCapabilities(
     val canPublish: Boolean = false,
 )
 
-data class Attachment(val url: String, val mimeType: String, val description: String?)
-data class Reaction(val emoji: String, val count: Int, val selected: Boolean)
+data class Attachment(val url: String, val mimeType: String, val description: String?, val previewUrl: String? = null, val sensitive: Boolean = false)
+data class Reaction(val emoji: String, val count: Int, val selected: Boolean, val imageUrl: String? = null)
+data class PollOption(val text: String, val votes: Int)
 data class Post(
     val id: EntityId,
     val author: Account,
@@ -38,12 +39,17 @@ data class Post(
     val replyTo: EntityId? = null,
     val reactions: List<Reaction> = emptyList(),
     val availableActions: Set<PostAction> = emptySet(),
+    val url: String? = null,
+    val replyCount: Int = 0,
+    val reshareCount: Int = 0,
+    val quote: Post? = null,
+    val pollOptions: List<PollOption> = emptyList(),
 )
 
 /** Cursor semantics belong to the adapter: Mastodon and Misskey paginate differently. */
 data class Page<T>(val items: List<T>, val nextCursor: String? = null)
 
-/** Future boundary. No implementation is connected in this UI-only application. */
+/** Transport-independent boundary implemented by individual server adapters. */
 interface SocialSource {
     val capabilities: ServerCapabilities
     suspend fun timeline(timeline: Timeline, cursor: String? = null): Page<Post>

@@ -5,6 +5,9 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.activity.compose.setContent
+import org.junit.Before
+import me.foxtails.palustris.ui.PalustrisApp
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -19,6 +22,7 @@ import java.io.File
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class NavigationTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @Before fun previewShell() { compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp() } } }
 
     @After fun clearDraft() {
         compose.activity.getSharedPreferences("local_draft", Context.MODE_PRIVATE).edit().clear().commit()
@@ -63,6 +67,9 @@ class NavigationTest {
         screenshot("compose")
         compose.onNodeWithText("Save draft").performClick()
         compose.activityRule.scenario.recreate()
+        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp() } }
+        compose.onNodeWithContentDescription("More options").performClick()
+        compose.onNodeWithText("Drafts").performClick()
         compose.onNodeWithText("A draft stored only on this device.").assertIsDisplayed()
         compose.onNodeWithText("Delete draft").performClick()
         compose.onNodeWithText("Cancel").performClick()
