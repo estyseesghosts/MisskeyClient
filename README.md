@@ -15,7 +15,7 @@ The debug APK is produced at `app/build/outputs/apk/debug/app-debug.apk`. Local 
 
 ## Screens
 
-- Home: Moshidon-style title/timeline chooser, overflow menu, and compose floating action button.
+- Home: Moshidon-style title/timeline chooser, overflow menu, and a floating pill navigation bar with a central compose button.
 - Search: rounded search field with Posts, Hashtags, News, and For you tabs.
 - Notifications: All and Mentions tabs.
 - Profile: 144 dp cover area, overlapping rounded avatar, account controls, follower counts, and Posts/Replies/Media/About tabs.

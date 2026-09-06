@@ -6,14 +6,15 @@ import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Timeline
@@ -116,23 +117,40 @@ fun PalustrisApp() = PalustrisTheme {
                     }
                 },
                 bottomBar = {
-                    if (!wide && page != "Compose") NavigationBar {
-                        Destination.entries.forEach { item ->
-                            NavigationBarItem(
-                                selected = destination == item,
-                                onClick = { destination = item; page = null },
-                                icon = {
-                                    if (item == Destination.Profile) Avatar(Modifier.size(24.dp))
-                                    else Icon(item.icon, contentDescription = null)
-                                },
-                                label = { Text(item.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            )
+                    if (!wide && page != "Compose") Box(
+                        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Surface(
+                            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            shadowElevation = 6.dp,
+                        ) {
+                            NavigationBar(
+                                modifier = Modifier.height(60.dp),
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                windowInsets = WindowInsets(0, 0, 0, 0),
+                            ) {
+                                Destination.entries.forEachIndexed { index, item ->
+                                    if (index == 2) Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                        FilledIconButton(onClick = { page = "Compose" }, modifier = Modifier.size(48.dp)) {
+                                            Icon(AppIcons.Edit, "Compose post")
+                                        }
+                                    }
+                                    NavigationBarItem(
+                                        selected = destination == item,
+                                        onClick = { destination = item; page = null },
+                                        icon = { Icon(item.icon, contentDescription = item.label) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                        ),
+                                    )
+                                }
+                            }
                         }
-                    }
-                },
-                floatingActionButton = {
-                    if (!wide && page == null && destination != Destination.Search) FloatingActionButton(onClick = { page = "Compose" }) {
-                        Icon(AppIcons.Edit, "Compose post")
                     }
                 },
             ) { padding ->
