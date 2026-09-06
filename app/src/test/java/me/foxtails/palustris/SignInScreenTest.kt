@@ -38,7 +38,7 @@ class SignInScreenTest {
         capture("sign-in")
     }
     @Test fun contentWarningsRequireExplicitReveal() {
-        val account = Account(EntityId("https://example.org", "a"), "A person", "@person@example.org")
+        val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "a"), "A person", "@person@example.org")
         val post = Post(EntityId("https://example.org", "p"), account, "Text hidden by a content warning", System.currentTimeMillis(), Audience.Public, contentWarning = "Spoilers")
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(account = account, feedState = FeedState(posts = listOf(post)))

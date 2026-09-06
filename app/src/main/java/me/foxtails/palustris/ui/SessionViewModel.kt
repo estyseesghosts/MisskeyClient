@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import me.foxtails.palustris.data.auth.*
 import me.foxtails.palustris.data.misskey.*
 import me.foxtails.palustris.domain.*
-import java.io.IOException
 
 // Shared screen state contains domain models, never transport DTOs or credentials.
 data class FeedState(val posts: List<Post> = emptyList(), val loading: Boolean = false,
@@ -21,14 +20,14 @@ data class SessionUi(val starting: Boolean = true, val busy: Boolean = false,
 class SessionViewModel(
     private val store: SessionStore,
     private val auth: AuthGateway,
-    private val sourceFactory: (LoginSession) -> SocialSource,
+    private val sourceFactory: (Session) -> SocialSource,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
     private val _session = MutableStateFlow(SessionUi())
     val session = _session.asStateFlow()
     private val _feed = MutableStateFlow(FeedState())
     val feed = _feed.asStateFlow()
-    private var login: LoginSession? = null
+    private var login: Session? = null
     private var pending: PendingLogin? = null
     private var source: SocialSource? = null
     private var feedJob: Job? = null
@@ -37,10 +36,21 @@ class SessionViewModel(
 
     init { viewModelScope.launch {
         try {
-            val saved = withContext(ioDispatcher) { store.read() }
-            login = saved.session
-            pending = saved.pending?.takeIf { it.isFresh(System.currentTimeMillis()) }
-            if (login != null) connected(login!!) else {
+            val restored = withContext(ioDispatcher) {
+                val index = store.readIndex()
+                val activeAccountId = index.activeAccountId ?: index.accounts.firstOrNull()?.accountId
+                activeAccountId?.let { accountId ->
+                    store.read(accountId)?.let { session ->
+                        session to index.accounts.firstOrNull { it.accountId == accountId }?.toAccount()
+                    }
+                }
+            }
+            pending = withContext(ioDispatcher) { store.readPending()?.takeIf { it.isFresh(System.currentTimeMillis()) } }
+            if (restored != null) {
+                val (session, account) = restored
+                login = session
+                connected(session, account ?: Account(session.accountId, session.accountId.localId, session.accountId.localId))
+            } else {
                 _session.value = SessionUi(starting = false, pending = pending != null, origin = pending?.origin)
                 deferredCallback?.let { callback(it) }
             }
@@ -56,7 +66,7 @@ class SessionViewModel(
             _session.value = _session.value.copy(busy = true, error = null)
             try {
                 val next = auth.prepare(input)
-                withContext(ioDispatcher) { store.write(StoredLogin(pending = next)) }
+                withContext(ioDispatcher) { store.writePending(next) }
                 pending = next
                 _session.value = SessionUi(starting = false, pending = true, origin = next.origin, browserUrl = auth.browserUrl(next))
             } catch (e: Exception) { failAuth(e) }
@@ -68,7 +78,10 @@ class SessionViewModel(
     fun callback(value: String) {
         if (_session.value.starting) { deferredCallback = value; return }
         val request = pending ?: return
-        if (AuthCallback.matches(value, request, System.currentTimeMillis())) finishSignIn()
+        if (AuthCallback.matches(value, request, System.currentTimeMillis())) {
+            pending = request.copy(authorizationCode = AuthCallback.authorizationCode(value))
+            finishSignIn()
+        }
         else _session.value = _session.value.copy(error = "This sign-in callback is invalid or expired. Please try again.")
     }
     fun finishSignIn() {
@@ -78,9 +91,17 @@ class SessionViewModel(
             _session.value = _session.value.copy(busy = true, error = null, browserUrl = null)
             try {
                 val result = auth.complete(request)
-                withContext(ioDispatcher) { store.write(StoredLogin(session = result)) }
+                val account = result.account
+                val session = Session(account.id, result.token, ServerCapabilities())
+                withContext(ioDispatcher) {
+                    store.write(account.id, session)
+                    store.writeProfile(account.id, result.user)
+                    val index = store.readIndex()
+                    store.writeIndex(index.withAccount(account).copy(activeAccountId = account.id))
+                    store.clearPending()
+                }
                 pending = null
-                connected(result)
+                connected(session, account)
             } catch (e: Exception) { failAuth(e) }
         }
     }
@@ -88,9 +109,9 @@ class SessionViewModel(
         if (e is CancellationException) throw e
         _session.value = _session.value.copy(busy = false, error = message(e), browserUrl = null)
     }
-    private fun connected(value: LoginSession) {
+    private fun connected(value: Session, account: Account) {
         login = value; source = sourceFactory(value)
-        _session.value = SessionUi(starting = false, account = value.account, origin = value.origin)
+        _session.value = SessionUi(starting = false, account = account, origin = value.accountId.connection.origin)
         refresh()
     }
     fun refresh() {
@@ -121,27 +142,39 @@ class SessionViewModel(
     private fun feedFailure(e: Exception) {
         if (e is CancellationException) throw e
         _feed.value = _feed.value.copy(loading = false, loadingMore = false, error = message(e),
-            needsSignIn = e is ApiFailure && (e.status == 401 || e.status == 403))
+            needsSignIn = e is SourceError.Unauthorized)
     }
     fun signOut() {
         authJob?.cancel(); feedJob?.cancel()
         viewModelScope.launch {
             try {
-                withContext(ioDispatcher) { store.clear() }
+                withContext(ioDispatcher) {
+                    login?.accountId?.let { accountId ->
+                        store.delete(accountId)
+                        val index = store.readIndex()
+                        store.writeIndex(index.copy(
+                            accounts = index.accounts.filterNot { it.accountId == accountId },
+                            activeAccountId = index.accounts.firstOrNull { it.accountId != accountId }?.accountId,
+                        ))
+                    }
+                    store.clearPending()
+                }
                 login = null; source = null; pending = null; deferredCallback = null
                 _feed.value = FeedState(); _session.value = SessionUi(starting = false)
             } catch (e: Exception) { failAuth(e) }
         }
     }
     private fun message(e: Exception): String = when (e) {
-        is ApiFailure -> when (e.status) {
-            401, 403 -> "Access was denied. Sign in again and allow access to your account and timeline."
-            429 -> "This instance is busy. Wait a moment and try again."
-            404 -> "This instance does not support the requested Misskey feature."
-            else -> "The instance could not complete the request. Please try again."
-        }
-        is IllegalArgumentException -> e.message ?: "Please check the instance address and try again."
-        is IOException -> "Could not reach the instance. Check your connection and try again."
+        is SourceError.Unauthorized -> "Access was denied. Sign in again and allow access to your account and timeline."
+        is SourceError.RateLimited -> "This instance is busy. Wait a moment and try again."
+        is SourceError.Unsupported -> "This instance doesn't support ${e.feature}."
+        is SourceError.NetworkUnavailable -> "Could not reach the instance. Check your connection and try again."
+        is SourceError.ServerError -> e.detail ?: "Could not complete the request. Please try again."
         else -> "Could not complete the request. Please try again."
     }
+}
+
+private fun AccountIndex.withAccount(account: Account): AccountIndex {
+    val ref = AccountRef(account.id, account.handle, account.avatarUrl, account.displayName)
+    return copy(accounts = accounts.filterNot { it.accountId == account.id } + ref)
 }

@@ -2,10 +2,13 @@ package me.foxtails.palustris
 
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.auth.*
+import me.foxtails.palustris.data.mastodon.MastodonErrorMapper
 import me.foxtails.palustris.data.misskey.*
 import me.foxtails.palustris.domain.*
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.Headers
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -24,6 +27,23 @@ class MisskeyIntegrationTest {
         listOf("http://example.org", "https://user:pass@example.org", "example.org/path", "example.org?token=secret", "example.org#x", "file:///etc/passwd").forEach {
             assertThrows(IllegalArgumentException::class.java) { ServerAddress.normalize(it) }
         }
+    }
+
+    @Test fun connectionValidationRequiresNormalizedHttpsOrigin() {
+        assertTrue(Connection("https://example.org", Protocol.MISSKEY).isValid())
+        assertTrue(Connection("https://example.org/", Protocol.MASTODON).isValid())
+        assertFalse(Connection("example.org", Protocol.MISSKEY).isValid())
+        assertFalse(Connection("http://example.org", Protocol.MISSKEY).isValid())
+        assertFalse(Connection("https://user:pass@example.org", Protocol.MISSKEY).isValid())
+    }
+
+    @Test fun accountIdentityUsesOriginAndLocalIdNotProtocol() {
+        val misskey = AccountId(Connection("https://example.org", Protocol.MISSKEY), "same-id")
+        val mastodon = AccountId(Connection("https://example.org", Protocol.MASTODON), "same-id")
+        val otherAccount = AccountId(Connection("https://example.org", Protocol.MISSKEY), "other-id")
+        assertEquals(misskey, mastodon)
+        assertEquals(misskey.hashCode(), mastodon.hashCode())
+        assertNotEquals(misskey, otherAccount)
     }
 
     @Test fun callbackRequiresCorrectSessionOriginPathAndFreshness() {
@@ -57,15 +77,18 @@ class MisskeyIntegrationTest {
     @Test fun homeFeedUsesOuterRenoteCursorAndMapsSensitiveMediaAndQuotes() = runBlocking {
         MockWebServer().use { server ->
             val renote = """{"id":"outer-id","createdAt":"2026-09-06T11:00:00Z","user":$user,"text":null,"renote":${note("original-id")}}"""
+            server.enqueue(MockResponse().setBody("""{"version":"2026.1.0"}"""))
             server.enqueue(MockResponse().setBody("[$renote]"))
             server.enqueue(MockResponse().setBody("[]"))
             val source = MisskeySource(server.url("/").toString().removeSuffix("/"), "test-token", MisskeyApi())
             val page = source.timeline(Timeline.Home)
             assertEquals("outer-id", page.nextCursor)
             assertEquals("outer-id", page.items.single().id.value)
+            assertEquals(AccountId(Connection(server.url("/").toString().removeSuffix("/"), Protocol.MISSKEY), "user-a"), page.items.single().author.id)
             assertEquals("Alice", page.items.single().resharedBy?.displayName)
             assertEquals(Audience.Unlisted, page.items.single().audience)
             assertTrue(page.items.single().url!!.endsWith("/notes/original-id"))
+            assertEquals("/api/meta", server.takeRequest().path)
             val first = server.takeRequest()
             assertEquals("/api/notes/timeline", first.path)
             assertEquals("test-token", JSONObject(first.body.readUtf8()).getString("i"))
@@ -92,5 +115,69 @@ class MisskeyIntegrationTest {
             } catch (e: ApiFailure) { assertEquals(307, e.status) }
             assertEquals(0, destination.requestCount)
         } }
+    }
+
+    @Test fun httpResponseExposesHeadersAndMastodonNextCursor() {
+        val response = HttpResponse("body", Headers.headersOf(
+            "Link", "<https://example.org/api/v1/timelines/home?max_id=10>; rel=\"next\", <https://example.org/prev>; rel=\"prev\"",
+        ))
+        assertEquals("body", response.body)
+        assertNotNull(response.linkHeader())
+        assertEquals("https://example.org/api/v1/timelines/home?max_id=10", response.linkHeaderCursor())
+    }
+
+    @Test fun mastodonCallbackAndTokenExchangeUseOpaqueStateAndCode() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"access_token":"mastodon-token"}"""))
+            server.enqueue(MockResponse().setBody("""{"id":"mastodon-user","username":"alice","acct":"alice","display_name":"Alice","avatar":"https://example.org/avatar.png","note":"<p>Hello</p>"}"""))
+            val origin = server.url("/").toString().removeSuffix("/")
+            val pending = PendingLogin(origin, "oauth-state", System.currentTimeMillis(), Protocol.MASTODON,
+                clientId = "client-id", clientSecret = "client-secret", codeVerifier = "verifier",
+                codeChallenge = "challenge", authorizationCode = "auth-code")
+            assertTrue(AuthCallback.matches("palustris://auth/mastodon?code=auth-code&state=oauth-state", pending, System.currentTimeMillis()))
+            val auth = MastodonAuth(MisskeyApi())
+            val result = auth.complete(pending)
+            assertEquals("mastodon-token", result.token)
+            assertEquals(Protocol.MASTODON, result.protocol)
+            assertEquals(AccountId(Connection(origin, Protocol.MASTODON), "mastodon-user"), result.account.id)
+            assertEquals("@alice@${server.hostName}", result.account.handle)
+            val tokenRequest = server.takeRequest()
+            assertEquals("/oauth/token", tokenRequest.path)
+            val tokenBody = tokenRequest.body.readUtf8()
+            assertEquals("authorization_code", tokenBody.substringAfter("grant_type=").substringBefore('&'))
+            assertTrue(tokenBody.contains("code_verifier=verifier"))
+            assertEquals("Bearer mastodon-token", server.takeRequest().getHeader("Authorization"))
+        }
+    }
+
+    @Test fun mastodonBrowserUrlIncludesPkceWhenAvailable() {
+        val pending = PendingLogin("https://example.org", "state", System.currentTimeMillis(), Protocol.MASTODON,
+            clientId = "client-id", codeChallenge = "challenge")
+        val url = MastodonAuth(MisskeyApi()).browserUrl(pending).toHttpUrl()
+        assertEquals("/oauth/authorize", url.encodedPath)
+        assertEquals("client-id", url.queryParameter("client_id"))
+        assertEquals("challenge", url.queryParameter("code_challenge"))
+        assertEquals("S256", url.queryParameter("code_challenge_method"))
+        assertEquals("state", url.queryParameter("state"))
+    }
+
+    @Test fun protocolErrorsMapToSharedSourceErrors() {
+        assertSame(SourceError.Unauthorized, MisskeyErrorMapper.map(ApiFailure(401)))
+        assertSame(SourceError.RateLimited, MastodonErrorMapper.map(429))
+        assertEquals("server exploded", (MastodonErrorMapper.map(500, """{"error":"server exploded"}""") as SourceError.ServerError).detail)
+        assertEquals("timeline", (MisskeyErrorMapper.map(ApiFailure(404, "timeline")) as SourceError.Unsupported).feature)
+    }
+
+    @Test fun unsupportedSocialSourceOperationsUseSharedError() = runBlocking {
+        val source = object : SocialSource {
+            override val capabilities = ServerCapabilities()
+            override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
+        }
+        try {
+            source.search("hello")
+            fail("Unsupported operation should throw")
+        } catch (error: SourceError.Unsupported) {
+            assertEquals("search", error.feature)
+        }
     }
 }

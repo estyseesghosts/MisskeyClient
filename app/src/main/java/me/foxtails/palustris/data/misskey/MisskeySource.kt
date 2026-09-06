@@ -2,21 +2,77 @@ package me.foxtails.palustris.data.misskey
 
 import me.foxtails.palustris.domain.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
 
-class MisskeySource(private val origin: String, private val token: String, private val api: MisskeyApi) : SocialSource {
-    override val capabilities = ServerCapabilities(timelines = setOf(Timeline.Home))
+class MisskeySource(
+    private val origin: String,
+    private val token: String,
+    private val api: MisskeyApi,
+    private val accountId: AccountId? = null,
+    private val capabilityProbe: CapabilityProbe = MisskeyCapabilityProbe(api),
+    private val capabilityCache: CapabilityCache = CapabilityCache(),
+) : SocialSource {
+    private val cacheKey = CapabilityCacheKey(origin, accountId ?: AccountId(Connection(origin, Protocol.MISSKEY), "anonymous"))
+    private val _capabilities = MutableStateFlow(ServerCapabilities(timelines = setOf(Timeline.Home)))
+    val capabilitiesFlow: StateFlow<ServerCapabilities> = _capabilities
+    override val capabilities: ServerCapabilities get() = _capabilities.value
+
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = withContext(Dispatchers.IO) {
-        require(timeline in capabilities.timelines)
-        val params = JSONObject().put("i", token).put("limit", 30)
-        if (cursor != null) params.put("untilId", cursor)
-        val notes = JSONArray(api.post(origin, "notes/timeline", params))
-        Page((0 until notes.length()).map { MisskeyMapper.post(notes.getJSONObject(it), origin) },
-            // Use the OUTER renote ID, not the displayed original note, for pagination.
-            if (notes.length() > 0) notes.getJSONObject(notes.length() - 1).getString("id") else null)
+        try {
+            refreshCapabilities()
+            if (timeline !in capabilities.timelines) throw SourceError.Unsupported("timeline:$timeline")
+            val params = JSONObject().put("i", token).put("limit", 30)
+            if (cursor != null) params.put("untilId", cursor)
+            val notes = JSONArray(api.post(origin, "notes/timeline", params).body)
+            Page((0 until notes.length()).map { MisskeyMapper.post(notes.getJSONObject(it), origin) },
+                // Use the OUTER renote ID, not the displayed original note, for pagination.
+                if (notes.length() > 0) notes.getJSONObject(notes.length() - 1).getString("id") else null)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: SourceError) {
+            throw e
+        } catch (e: ApiFailure) {
+            if (e.status == 404 || e.code.equals("NOT_SUPPORTED", ignoreCase = true)) {
+                capabilityCache.remove(cacheKey)
+                _capabilities.value = capabilities.copy(capabilitiesLastUpdated = 0)
+            }
+            throw MisskeyErrorMapper.map(e)
+        } catch (e: Exception) {
+            throw MisskeyErrorMapper.map(e)
+        }
+    }
+
+    private suspend fun refreshCapabilities() {
+        val now = System.currentTimeMillis()
+        if (now - capabilities.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS) return
+        capabilityCache.get(cacheKey)?.takeIf {
+            now - it.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS
+        }?.let {
+            _capabilities.value = it
+            return
+        }
+        try {
+            capabilityProbe.probeCapabilities(Connection(origin, Protocol.MISSKEY)).also {
+                _capabilities.value = it
+                capabilityCache.put(cacheKey, it)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            capabilityCache.remove(cacheKey)
+            _capabilities.value = capabilities.copy(capabilitiesLastUpdated = 0)
+            throw if (e is SourceError) e else MisskeyErrorMapper.map(e)
+        }
+    }
+
+    private companion object {
+        const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
     }
 }
 
@@ -24,7 +80,7 @@ object MisskeyMapper {
     fun account(json: JSONObject, origin: String): Account {
         val username = json.getString("username")
         val host = json.nullableString("host") ?: java.net.URI(origin).host
-        return Account(EntityId(origin, json.getString("id")), json.nullableString("name") ?: username,
+        return Account(AccountId(Connection(origin, Protocol.MISSKEY), json.getString("id")), json.nullableString("name") ?: username,
             "@$username@$host", json.nullableString("avatarUrl"), json.nullableString("description").orEmpty())
     }
 

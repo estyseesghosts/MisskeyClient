@@ -10,6 +10,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import me.foxtails.palustris.data.auth.EncryptedSessionStore
 import me.foxtails.palustris.data.auth.MisskeyAuth
+import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.misskey.MisskeySource
 import me.foxtails.palustris.ui.ConnectedApp
@@ -18,9 +19,10 @@ import me.foxtails.palustris.ui.SessionViewModel
 class MainActivity : ComponentActivity() {
     private val model by viewModels<SessionViewModel> {
         viewModelFactory { initializer {
-            val api = MisskeyApi()
-            SessionViewModel(EncryptedSessionStore(applicationContext), MisskeyAuth(api), sourceFactory = {
-                MisskeySource(it.origin, it.token, api)
+            val clientPool = HttpClientPool()
+            SessionViewModel(EncryptedSessionStore(applicationContext), MisskeyAuth(clientPool), sourceFactory = {
+                MisskeySource(it.accountId.connection.origin, it.token,
+                    MisskeyApi(clientPool.clientFor(it.accountId.connection)), accountId = it.accountId)
             })
         } }
     }

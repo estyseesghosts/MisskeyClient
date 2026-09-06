@@ -25,18 +25,33 @@ object ServerAddress {
     }
 }
 
-class ApiFailure(val status: Int, val code: String? = null) : IOException("Server request failed ($status)")
+class ApiFailure(val status: Int, val code: String? = null, val body: String? = null) : IOException("Server request failed ($status)")
 
-/** No redirects: an authenticated POST must never forward its token to another host. */
+/** No redirects: an authenticated request must never forward its token to another host. */
 class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
     .followRedirects(false).followSslRedirects(false)
     .connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
     .callTimeout(40, TimeUnit.SECONDS).build()) {
-    suspend fun post(origin: String, endpoint: String, body: JSONObject = JSONObject()): String = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url("$origin/api/$endpoint")
+    suspend fun post(origin: String, endpoint: String, body: JSONObject = JSONObject()): HttpResponse =
+        execute(Request.Builder().url("$origin/api/$endpoint")
             .header("Accept", "application/json")
             .header("User-Agent", "Palustris/0.1 (Android)")
-            .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build()
+            .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build())
+
+    suspend fun postForm(origin: String, endpoint: String, fields: Map<String, String>): HttpResponse =
+        execute(Request.Builder().url("$origin/$endpoint")
+            .header("Accept", "application/json")
+            .header("User-Agent", "Palustris/0.1 (Android)")
+            .post(FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build()).build())
+
+    suspend fun get(origin: String, endpoint: String, bearerToken: String? = null): HttpResponse =
+        execute(Request.Builder().url("$origin/api/$endpoint")
+            .header("Accept", "application/json")
+            .header("User-Agent", "Palustris/0.1 (Android)")
+            .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
+            .get().build())
+
+    private suspend fun execute(request: Request): HttpResponse = withContext(Dispatchers.IO) {
         suspendCancellableCoroutine { continuation ->
             val call = client.newCall(request)
             continuation.invokeOnCancellation { call.cancel() }
@@ -48,9 +63,9 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
                             val text = it.body?.string().orEmpty()
                             if (!it.isSuccessful) {
                                 val code = runCatching { JSONObject(text).optJSONObject("error")?.optString("code") }.getOrNull()
-                                throw ApiFailure(it.code, code)
+                                throw ApiFailure(it.code, code, text)
                             }
-                            continuation.resume(text)
+                            continuation.resume(HttpResponse(text, it.headers))
                         } catch (e: Exception) { if (!continuation.isCancelled) continuation.resumeWithException(e) }
                     }
                 }
