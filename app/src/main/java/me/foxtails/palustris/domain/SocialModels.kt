@@ -55,8 +55,11 @@ value class NotificationCursor(val value: String)
 data class NotificationQuery(
     val categories: Set<NotificationCategory> = setOf(NotificationCategory.All),
     val limit: Int = 30,
+    val grouped: Boolean = false,
 ) {
     init { require(limit in 1..100) { "Notification page size must be between 1 and 100." } }
+
+    val isAll: Boolean get() = NotificationCategory.All in categories
 }
 
 sealed interface NotificationUnreadState {

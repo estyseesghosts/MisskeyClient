@@ -9,6 +9,8 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationDestination
+import me.foxtails.palustris.domain.NotificationGroup
+import me.foxtails.palustris.domain.NotificationGroupId
 import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
@@ -101,12 +103,69 @@ object MastodonMapper {
             id = EntityId(origin, json.getString("id")),
             accountId = receivingAccountId,
             createdAtEpochMillis = parseInstant(json.optString("created_at")),
-            activity = rawType.toNotificationActivity(),
+            activity = rawType.toNotificationActivity(
+                isReplyToReceivingAccount = json.optJSONObject("status")
+                    ?.optString("in_reply_to_account_id") == receivingAccountId.localId,
+            ),
             actors = listOfNotNull(actor),
             target = target,
             destination = target?.let(NotificationDestination::InApp),
             post = mappedPost,
             rawType = rawType,
+        )
+    }
+
+    /** Maps the v2 grouped response without turning a group key into an event identity. */
+    fun groupedNotification(
+        json: JSONObject,
+        accounts: Map<String, Account>,
+        statuses: Map<String, Post>,
+        origin: String,
+        receivingAccountId: AccountId,
+    ): Notification {
+        val rawType = json.optString("type").ifBlank { "unknown" }
+        val groupKey = json.optString("group_key").ifBlank {
+            "ungrouped-${json.optString("most_recent_notification_id").ifBlank { json.optString("latest_page_notification_id") }}"
+        }
+        val groupActorIds = json.optJSONArray("sample_account_ids")?.let { ids ->
+            (0 until ids.length()).mapNotNull { ids.optString(it).takeIf(String::isNotBlank) }
+        }.orEmpty()
+        val actorPreviews = groupActorIds.mapNotNull(accounts::get)
+        val statusId = json.optString("status_id").takeIf(String::isNotBlank)
+        val mappedPost = statusId?.let(statuses::get)
+            ?: runCatching { json.optJSONObject("status")?.let { post(it, origin) } }.getOrNull()
+        val fallback = json.optJSONObject("fallback")?.let {
+            runCatching { notification(it, origin, receivingAccountId) }.getOrNull()
+        }
+        val actors = actorPreviews.ifEmpty { fallback?.actors.orEmpty() }
+        val target = mappedPost?.let { NotificationTarget.Post(it.id) }
+            ?: actors.firstOrNull()?.let { actor ->
+                if (rawType in PROFILE_TARGET_TYPES) NotificationTarget.Profile(actor.id) else null
+            }
+        val notificationId = json.optString("most_recent_notification_id").ifBlank {
+            json.optString("latest_page_notification_id").ifBlank { groupKey }
+        }
+        val count = if (json.has("notifications_count")) json.optInt("notifications_count") else null
+        val group = NotificationGroup(
+            id = NotificationGroupId(receivingAccountId, groupKey),
+            actorPreviews = actors,
+            totalCount = count?.takeIf { it > 0 },
+        )
+        return Notification(
+            id = EntityId(origin, notificationId),
+            accountId = receivingAccountId,
+            createdAtEpochMillis = parseInstant(json.optString("created_at"))
+                .takeIf { it > 0 }
+                ?: mappedPost?.publishedAtEpochMillis
+                ?: fallback?.createdAtEpochMillis
+                ?: 0L,
+            activity = fallback?.activity ?: rawType.toNotificationActivity(),
+            actors = actors,
+            target = target,
+            destination = target?.let(NotificationDestination::InApp),
+            post = mappedPost ?: fallback?.post,
+            rawType = rawType,
+            group = group,
         )
     }
 
@@ -134,19 +193,27 @@ object MastodonMapper {
     private val MASTODON_ACTIONS = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.Bookmark)
 }
 
-private fun String.toNotificationActivity(): NotificationActivity = when (this) {
-    "mention" -> NotificationActivity.Mention
+private fun String.toNotificationActivity(isReplyToReceivingAccount: Boolean = false): NotificationActivity = when (this) {
+    "mention" -> if (isReplyToReceivingAccount) {
+        NotificationActivity.Reply
+    } else {
+        NotificationActivity.Mention
+    }
     "reply" -> NotificationActivity.Reply
-    "reblog" -> NotificationActivity.Reshare
+    "reblog", "boost" -> NotificationActivity.Reshare
     "quote" -> NotificationActivity.Quote
-    "favourite" -> NotificationActivity.Favourite
+    "favourite", "favorite" -> NotificationActivity.Favourite
     "follow" -> NotificationActivity.Follow
     "follow_request" -> NotificationActivity.FollowRequest
     "status" -> NotificationActivity.SubscribedPost
     "poll" -> NotificationActivity.PollResult()
-    "update", "quoted_update" -> NotificationActivity.PostUpdate
-    "admin.sign_up", "admin.report" -> NotificationActivity.System.Moderation("Account event")
+    "update" -> NotificationActivity.PostUpdate
+    "quoted_update" -> NotificationActivity.QuotedPostUpdate
+    "admin.sign_up", "admin.report", "moderated", "moderation_warning", "moderation" ->
+        NotificationActivity.System.Moderation("Moderation event")
     "severed_relationships" -> NotificationActivity.System.RelationshipChange("Relationship changed")
+    "annual_report", "added_to_collection", "collection_update" ->
+        NotificationActivity.System.AppEvent("Account event")
     else -> NotificationActivity.Unknown("New activity")
 }
 

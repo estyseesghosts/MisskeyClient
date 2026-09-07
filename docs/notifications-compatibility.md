@@ -8,7 +8,7 @@ release supports every notification feature.
 
 | Concern | Misskey-family baseline | Mastodon baseline | App behavior |
 |---|---|---|---|
-| Listing | `POST /api/i/notifications`; `sinceId`/`untilId`; requests must send `markAsRead=false` | `GET /api/v1/notifications`; type filters and absolute `Link` continuations | Misskey listing remains a Milestone 2 adapter task; Mastodon uses opaque cursors and the v1 compatibility path |
+| Listing | `POST /api/i/notifications`; `sinceId`/`untilId`; requests must send `markAsRead=false` | `GET /api/v1/notifications`; type filters and absolute `Link` continuations | Both adapters use account/query-bound opaque cursors; Mastodon v1 is the compatibility path and v2 is opt-in grouping |
 | Read acknowledgement | Account-wide `POST /api/notifications/mark-all-as-read` | Notification timeline marker through `/api/v1/markers` | Modeled as explicit acknowledgement; no fetch implicitly marks the inbox read |
 | Unread knowledge | User-level unread fields vary by server version; individual notification records do not guarantee a read flag | Timeline markers and server-specific support vary | `Exact`, `LowerBound`, `Boolean`, `None`, and `Unknown` are distinct |
 | Grouping | Optional `i/notifications-grouped`, with Misskey-specific paging | Optional `/api/v2/notifications`; older servers use v1 | Group identity is account-scoped and never replaces notification identity |
@@ -41,6 +41,30 @@ workspace, so this matrix does not claim registration, delivery, decryption, or
 unregistration success. The implementation keeps push capability and requested
 access explicit so the connector spike can be added without changing the shared
 domain boundary.
+
+## Milestone 2 implementation evidence
+
+The REST adapters now cover the planned notification foundation:
+
+- Misskey uses `markAsRead=false` for every listing, supports include-type filters,
+  `sinceId`/`untilId` traversal, explicit unread lookup, account-wide read-all,
+  follow-request actions, actorless/system records, and Misskey-specific grouped
+  reaction/renote shapes.
+- Mastodon supports v1 type filters, previous/next Link continuations, v2 grouped
+  notifications with actor/status expansion, unread-count lookup, follow-request
+  actions, safe optional-status mapping, and the quote-specific `quoted_update`
+  activity.
+- Adapter cursors carry the receiving account, query fingerprint, API variant, and
+  direction. Continuations are validated for origin, route, credentials, and
+  repeated-cursor termination before a bearer token is attached.
+- Synthetic contract coverage is in
+  `NotificationAdapterContractTest`; malformed optional records remain renderable,
+  required notification identity remains diagnosed, and grouped rows retain a
+  separate account-scoped group identity.
+
+Live authenticated server delivery and device presentation remain intentionally
+unverified until the user-provided UnifiedPush distributor and test accounts are
+available.
 
 References: [Mastodon applications](https://docs.joinmastodon.org/methods/apps/),
 [Mastodon push subscriptions](https://docs.joinmastodon.org/methods/push/),

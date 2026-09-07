@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
+import java.util.Base64
 
 class MisskeySource(
     private val origin: String,
@@ -127,6 +128,114 @@ class MisskeySource(
         Unit
     }
 
+    override suspend fun notifications(cursor: String?): Page<Notification> {
+        val page = notifications(NotificationQuery(), cursor?.let(::NotificationCursor))
+        return Page(page.items, page.olderCursor?.value)
+    }
+
+    override suspend fun notifications(query: NotificationQuery, cursor: NotificationCursor?): NotificationPage = request {
+        loadNotifications(query, cursor, NotificationCursorDirection.Older)
+    }
+
+    override suspend fun fetchNewerNotifications(
+        query: NotificationQuery,
+        checkpoint: NotificationCheckpoint,
+    ): NotificationPage = request {
+        validateCheckpoint(query, checkpoint)
+        val cursor = checkpoint.newest ?: return@request emptyNotificationPage(query)
+        loadNotifications(query, cursor, NotificationCursorDirection.Newer)
+    }
+
+    override suspend fun fetchOlderNotifications(
+        query: NotificationQuery,
+        checkpoint: NotificationCheckpoint,
+    ): NotificationPage = request {
+        validateCheckpoint(query, checkpoint)
+        val cursor = checkpoint.oldest ?: return@request emptyNotificationPage(query)
+        loadNotifications(query, cursor, NotificationCursorDirection.Older)
+    }
+
+    override suspend fun notificationUnreadState(): NotificationUnreadState = request {
+        val json = JSONObject(api.post(origin, "i", JSONObject().put("i", token)).body)
+        when {
+            json.has("notificationCount") && !json.isNull("notificationCount") ->
+                NotificationUnreadState.Exact(json.optInt("notificationCount").coerceAtLeast(0))
+            json.has("hasUnreadNotification") && !json.isNull("hasUnreadNotification") ->
+                if (json.optBoolean("hasUnreadNotification")) NotificationUnreadState.Present else NotificationUnreadState.None
+            else -> NotificationUnreadState.Unknown
+        }
+    }
+
+    override suspend fun acknowledgeNotifications(): NotificationAcknowledgement = request {
+        val account = requireAccountId()
+        api.post(origin, "notifications/mark-all-as-read", JSONObject().put("i", token))
+        NotificationAcknowledgement(account, NotificationUnreadState.None, clock())
+    }
+
+    override suspend fun respondToFollowRequest(id: EntityId, accept: Boolean) = request {
+        val endpoint = if (accept) "following/requests/accept" else "following/requests/reject"
+        api.post(origin, endpoint, JSONObject().put("i", token).put("userId", id.value))
+        Unit
+    }
+
+    private suspend fun loadNotifications(
+        query: NotificationQuery,
+        cursor: NotificationCursor?,
+        direction: NotificationCursorDirection,
+    ): NotificationPage {
+        val account = requireAccountId()
+        val types = query.misskeyTypes()
+        if (!query.isAll && types.isEmpty()) return emptyNotificationPage(query)
+        val decoded = cursor?.let { MisskeyNotificationCursorCodec.decode(it, account, query, direction) }
+        val body = JSONObject()
+            .put("i", token)
+            .put("limit", query.limit)
+            // Misskey defaults this to true and performs account-wide acknowledgement.
+            .put("markAsRead", false)
+        if (!query.isAll) body.put("includeTypes", JSONArray(types))
+        decoded?.rawId?.let {
+            if (direction == NotificationCursorDirection.Newer) body.put("sinceId", it)
+            else body.put("untilId", it)
+        }
+        val endpoint = if (query.grouped) "i/notifications-grouped" else "i/notifications"
+        val values = JSONArray(api.post(origin, endpoint, body).body)
+        val items = (0 until values.length()).map { index ->
+            MisskeyMapper.notification(values.getJSONObject(index), origin, account)
+        }
+        val newest = items.firstOrNull()?.let {
+            MisskeyNotificationCursorCodec.encode(account, query, NotificationCursorDirection.Newer, it.id.value)
+        } ?: if (direction == NotificationCursorDirection.Newer) cursor else null
+        val oldest = items.lastOrNull()?.let {
+            if (it.id.value == decoded?.rawId && direction == NotificationCursorDirection.Older) null
+            else MisskeyNotificationCursorCodec.encode(account, query, NotificationCursorDirection.Older, it.id.value)
+        }
+        return NotificationPage(
+            items = items,
+            olderCursor = oldest,
+            newerCursor = newest,
+            checkpoint = NotificationCheckpoint(
+                accountId = account,
+                query = query,
+                newest = newest,
+                oldest = oldest ?: if (direction == NotificationCursorDirection.Older) cursor else null,
+                capturedAtEpochMillis = clock(),
+            ),
+        )
+    }
+
+    private fun requireAccountId(): AccountId = accountId ?: throw SourceError.Unsupported("notifications.account")
+
+    private fun validateCheckpoint(query: NotificationQuery, checkpoint: NotificationCheckpoint) {
+        if (checkpoint.accountId != requireAccountId() || checkpoint.query != query) {
+            throw SourceError.Unsupported("notifications.checkpoint")
+        }
+    }
+
+    private fun emptyNotificationPage(query: NotificationQuery) = NotificationPage(
+        items = emptyList(),
+        checkpoint = NotificationCheckpoint(requireAccountId(), query, capturedAtEpochMillis = clock()),
+    )
+
     private suspend fun <T> request(
         invalidateCapabilitiesOnNotFound: Boolean = false,
         block: suspend () -> T,
@@ -185,6 +294,73 @@ class MisskeySource(
 
 private fun NotificationCapabilities.takeVerifiedOr(previous: NotificationCapabilities): NotificationCapabilities =
     if (this == NotificationCapabilities()) previous else this
+
+private enum class NotificationCursorDirection { Older, Newer }
+
+private object MisskeyNotificationCursorCodec {
+    data class Decoded(val rawId: String)
+
+    fun encode(
+        accountId: AccountId,
+        query: NotificationQuery,
+        direction: NotificationCursorDirection,
+        rawId: String,
+    ): NotificationCursor {
+        val payload = JSONObject()
+            .put("origin", accountId.connection.origin)
+            .put("account", accountId.localId)
+            .put("query", query.fingerprint())
+            .put("direction", direction.name)
+            .put("id", rawId)
+        return NotificationCursor(Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(payload.toString().toByteArray(Charsets.UTF_8)))
+    }
+
+    fun decode(
+        cursor: NotificationCursor,
+        accountId: AccountId,
+        query: NotificationQuery,
+        direction: NotificationCursorDirection,
+    ): Decoded {
+        val json = runCatching {
+            JSONObject(String(Base64.getUrlDecoder().decode(cursor.value), Charsets.UTF_8))
+        }.getOrElse { throw SourceError.Unsupported("notifications.cursor") }
+        if (json.optString("origin") != accountId.connection.origin ||
+            json.optString("account") != accountId.localId ||
+            json.optString("query") != query.fingerprint() ||
+            json.optString("direction") != direction.name
+        ) {
+            throw SourceError.Unsupported("notifications.cursor")
+        }
+        return Decoded(json.optString("id").takeIf(String::isNotBlank)
+            ?: throw SourceError.Unsupported("notifications.cursor"))
+    }
+}
+
+private fun NotificationQuery.fingerprint(): String = buildString {
+    append(categories.map { it.name }.sorted().joinToString(","))
+    append('|').append(limit).append('|').append(grouped)
+}
+
+private fun NotificationQuery.misskeyTypes(): List<String> {
+    if (isAll) return emptyList()
+    return categories.flatMap { category ->
+        when (category) {
+            NotificationCategory.All -> emptyList()
+            NotificationCategory.Mentions -> listOf("mention", "reply")
+            NotificationCategory.Replies -> listOf("reply")
+            NotificationCategory.Quotes -> listOf("quote")
+            NotificationCategory.Social -> listOf(
+                "note", "renote", "reaction", "follow", "receiveFollowRequest", "followRequestAccepted",
+            )
+            NotificationCategory.Polls -> listOf("pollEnded")
+            NotificationCategory.System -> listOf(
+                "scheduledNotePosted", "scheduledNotePostFailed", "roleAssigned", "achievementEarned",
+                "exportCompleted", "login", "createToken", "app", "test", "chatRoomInvitationReceived",
+            )
+        }
+    }.distinct()
+}
 
 private fun Audience.toMisskeyVisibility(): String = when (this) {
     Audience.Public -> "public"
@@ -245,12 +421,43 @@ object MisskeyMapper {
     fun notification(json: JSONObject, origin: String, receivingAccountId: AccountId): Notification {
         val rawType = json.optString("type").ifBlank { "unknown" }
         val actor = runCatching { json.optJSONObject("user")?.let { account(it, origin) } }.getOrNull()
+        val groupedActors = when (rawType) {
+            "reaction:grouped" -> json.optJSONArray("reactions")?.let { values ->
+                (0 until values.length()).mapNotNull { index ->
+                    runCatching { values.optJSONObject(index)?.optJSONObject("user")?.let { account(it, origin) } }
+                        .getOrNull()
+                }
+            }.orEmpty()
+            "renote:grouped" -> json.optJSONArray("users")?.let { values ->
+                (0 until values.length()).mapNotNull { index ->
+                    runCatching { values.optJSONObject(index)?.let { account(it, origin) } }.getOrNull()
+                }
+            }.orEmpty()
+            else -> emptyList()
+        }
+        val actors = groupedActors.ifEmpty { listOfNotNull(actor) }
         val mappedPost = runCatching { json.optJSONObject("note")?.let { post(it, origin) } }.getOrNull()
+        val noteId = json.nullableString("noteId")
+        val canonicalPostId = when {
+            rawType == "renote" -> json.nullableString("targetNoteId") ?: noteId
+            else -> noteId
+        }
+        val canonicalTarget = canonicalPostId?.let { NotificationTarget.Post(EntityId(origin, it)) }
         val target = when {
+            canonicalTarget != null -> canonicalTarget
             mappedPost != null -> NotificationTarget.Post(mappedPost.id)
-            actor != null && rawType in PROFILE_TARGET_TYPES -> NotificationTarget.Profile(actor.id)
+            actors.firstOrNull() != null && rawType in PROFILE_TARGET_TYPES ->
+                NotificationTarget.Profile(actors.first().id)
             else -> null
         }
+        val group = if (rawType.endsWith(":grouped")) {
+            val groupTarget = canonicalPostId ?: mappedPost?.id?.value ?: "unknown"
+            NotificationGroup(
+                id = NotificationGroupId(receivingAccountId, "$rawType:$groupTarget"),
+                actorPreviews = actors,
+                totalCount = actors.size.takeIf { it > 0 },
+            )
+        } else null
         return Notification(
             id = EntityId(origin, json.getString("id")),
             accountId = receivingAccountId,
@@ -258,11 +465,12 @@ object MisskeyMapper {
                 Instant.parse(json.optString("createdAt")).toEpochMilli()
             }.getOrDefault(0L),
             activity = rawType.toNotificationActivity(json),
-            actors = listOfNotNull(actor),
+            actors = actors,
             target = target,
             destination = target?.let(NotificationDestination::InApp),
             post = mappedPost,
             rawType = rawType,
+            group = group,
         )
     }
 
@@ -270,12 +478,18 @@ object MisskeyMapper {
 }
 
 private fun String.toNotificationActivity(json: JSONObject): NotificationActivity = when (this) {
+    "note" -> NotificationActivity.SubscribedPost
     "mention" -> NotificationActivity.Mention
     "reply" -> NotificationActivity.Reply
     "renote" -> NotificationActivity.Reshare
+    "renote:grouped" -> NotificationActivity.Reshare
     "quote" -> NotificationActivity.Quote
-    "reaction" -> {
-        val identity = json.nullableString("reaction") ?: json.nullableString("emoji") ?: "reaction"
+    "reaction", "reaction:grouped" -> {
+        val firstReaction = json.optJSONArray("reactions")?.optJSONObject(0)
+        val identity = json.nullableString("reaction")
+            ?: json.nullableString("emoji")
+            ?: firstReaction?.nullableString("reaction")
+            ?: "reaction"
         val imageUrl = json.optJSONObject("customEmoji")?.nullableString("url")
             ?: json.optJSONObject("emoji")?.nullableString("url")
         NotificationActivity.EmojiReaction(NotificationReaction(
@@ -287,9 +501,23 @@ private fun String.toNotificationActivity(json: JSONObject): NotificationActivit
     "follow" -> NotificationActivity.Follow
     "receiveFollowRequest", "followRequest" -> NotificationActivity.FollowRequest
     "followRequestAccepted" -> NotificationActivity.AcceptedRequest
-    "app" -> NotificationActivity.System.AppEvent("Application event")
-    "achievement", "role" -> NotificationActivity.System.RoleOrAchievement("Account achievement")
+    "pollEnded" -> NotificationActivity.PollResult()
+    "scheduledNotePosted" -> NotificationActivity.SubscribedPost
+    "scheduledNotePostFailed" -> NotificationActivity.System.AppEvent("Scheduled post failed")
+    "app" -> NotificationActivity.System.AppEvent(
+        json.nullableString("customHeader") ?: "Application event",
+        json.nullableString("customBody"),
+    )
+    "achievementEarned", "achievement", "roleAssigned", "role" ->
+        NotificationActivity.System.RoleOrAchievement(
+            json.nullableString("achievement") ?: "Account achievement",
+        )
     "moderation", "moderationWarning" -> NotificationActivity.System.Moderation("Moderation event")
     "relationship" -> NotificationActivity.System.RelationshipChange("Relationship changed")
+    "chatRoomInvitationReceived" -> NotificationActivity.Unknown("Chat invitation is not available")
+    "exportCompleted" -> NotificationActivity.System.AppEvent("Export completed")
+    "login" -> NotificationActivity.System.AppEvent("New sign-in")
+    "createToken" -> NotificationActivity.System.AppEvent("Access token created")
+    "test" -> NotificationActivity.System.AppEvent("Test notification")
     else -> NotificationActivity.Unknown("New activity")
 }
