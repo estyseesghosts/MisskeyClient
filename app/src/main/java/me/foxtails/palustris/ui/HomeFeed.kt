@@ -53,6 +53,8 @@ internal fun openExternal(context: Context, url: String?) {
 
 private val PostMetadataVerticalPadding = 2.dp * 1.06f
 private val PostChromeHeight = 44.dp + (PostMetadataVerticalPadding * 2f)
+private val PostInteractionRowHeight = 48.dp
+private val PostInteractionIconSize = 24.dp
 
 @Composable
 fun HomeFeed(
@@ -146,15 +148,15 @@ fun HomeFeed(
 }
 
 @Composable
-fun AccountAvatar(account: Account, modifier: Modifier = Modifier) {
+fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemantics: Boolean = true) {
     Box(
         modifier
             .clip(CircleShape)
-            .semantics(mergeDescendants = true) {
+            .then(if (exposeSemantics) Modifier.semantics(mergeDescendants = true) {
                 contentDescription = "Profile picture of ${account.displayName}"
-            },
+            } else Modifier),
     ) {
-        Avatar(Modifier.fillMaxSize())
+        Avatar(Modifier.fillMaxSize(), description = null)
         AsyncImage(model = account.avatarUrl, contentDescription = null, contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize())
     }
@@ -372,7 +374,7 @@ private fun InteractionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(PostChromeHeight)
+            .height(PostInteractionRowHeight)
             .padding(horizontal = 8.dp)
             .semantics { contentDescription = "Post actions" },
         verticalAlignment = Alignment.CenterVertically,
@@ -447,14 +449,14 @@ private fun InteractionButton(
     onLongClick: (() -> Unit)? = null,
 ) {
     Box(
-        modifier = modifier.height(PostChromeHeight).combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
+        modifier = modifier.height(PostInteractionRowHeight).combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
             .semantics { contentDescription = label; role = Role.Button },
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             icon,
             label,
-            Modifier.size(28.dp),
+            Modifier.size(PostInteractionIconSize),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f),
         )
     }

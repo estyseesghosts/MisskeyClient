@@ -7,6 +7,12 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.activity.compose.setContent
 import org.junit.Before
+import org.junit.Assert.assertEquals
+import me.foxtails.palustris.data.auth.AccountRef
+import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.PalustrisApp
 import org.junit.After
 import org.junit.Rule
@@ -109,5 +115,41 @@ class NavigationTest {
         compose.onNodeWithText("Edit profile coming soon").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithContentDescription("Edit profile").assertIsDisplayed()
+    }
+
+    @Test fun profileAvatarLongPressOpensExistingAccountSwitcher() {
+        val current = Account(
+            AccountId(Connection("https://example.org", Protocol.MASTODON), "current"),
+            "Current account",
+            "@current@example.org",
+            "https://example.org/current.png",
+        )
+        val other = Account(
+            AccountId(Connection("https://other.example", Protocol.MISSKEY), "other"),
+            "Other account",
+            "@other@other.example",
+        )
+        var switchedTo: AccountId? = null
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(
+                account = current,
+                accounts = listOf(
+                    AccountRef(current.id, current.handle, current.avatarUrl, current.displayName),
+                    AccountRef(other.id, other.handle, other.avatarUrl, other.displayName),
+                ),
+                onSwitchAccount = { switchedTo = it },
+            )
+        } }
+
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription("Profile").assertIsSelected()
+        compose.onNodeWithText("Other account").assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("Profile").performTouchInput { longClick() }
+        compose.onNodeWithText("Other account").assertIsDisplayed()
+        compose.onNodeWithText("@other@other.example").assertIsDisplayed()
+        compose.onNodeWithText("Other account").performClick()
+        assertEquals(other.id, switchedTo)
+        compose.onNodeWithContentDescription("Profile").assertIsSelected()
     }
 }

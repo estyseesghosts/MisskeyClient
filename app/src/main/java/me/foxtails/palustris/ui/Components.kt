@@ -35,9 +35,9 @@ fun EmptyState(icon: ImageVector, title: String, subtitle: String, modifier: Mod
 }
 
 @Composable
-fun Avatar(modifier: Modifier = Modifier) {
+fun Avatar(modifier: Modifier = Modifier, description: String? = "Profile avatar") {
     Surface(
-        modifier.semantics { contentDescription = "Profile avatar" },
+        modifier.then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.secondaryContainer,
     ) {

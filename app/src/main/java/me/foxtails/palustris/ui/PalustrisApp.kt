@@ -1,4 +1,7 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.foundation.ExperimentalFoundationApi::class,
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+)
 
 package me.foxtails.palustris.ui
 
@@ -6,6 +9,7 @@ import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -63,6 +67,8 @@ private fun contextualActionFor(
 private fun CompactContextualNavigationBar(
     destination: Destination,
     action: ContextualBottomAction,
+    account: Account?,
+    onOpenAccounts: () -> Unit,
     onDestinationSelected: (Destination) -> Unit,
 ) {
     Row(
@@ -94,20 +100,33 @@ private fun CompactContextualNavigationBar(
                                 color = MaterialTheme.colorScheme.secondaryContainer,
                             ) {}
                         }
-                        IconButton(
-                            onClick = { onDestinationSelected(item) },
-                            modifier = Modifier.size(48.dp).semantics {
+                        val itemModifier = if (item == Destination.Profile) {
+                            Modifier.size(48.dp).combinedClickable(
+                                onClick = { onDestinationSelected(item) },
+                                onLongClick = onOpenAccounts,
+                            )
+                        } else {
+                            Modifier.size(48.dp).clickable { onDestinationSelected(item) }
+                        }
+                        Box(
+                            modifier = itemModifier.semantics {
                                 contentDescription = item.label
                                 this.selected = selected
                                 role = Role.Tab
                             },
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Icon(
-                                item.icon,
-                                contentDescription = null,
-                                tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            if (item == Destination.Profile) {
+                                if (account != null) AccountAvatar(account, Modifier.size(30.dp), exposeSemantics = false)
+                                else Avatar(Modifier.size(30.dp), description = null)
+                            } else {
+                                Icon(
+                                    item.icon,
+                                    contentDescription = null,
+                                    tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
@@ -342,6 +361,8 @@ fun PalustrisApp(
                                     onMessages = { page = "Messages" },
                                     onEditProfile = { page = "Edit profile" },
                                 ),
+                                account = account,
+                                onOpenAccounts = { sheet = "Accounts" },
                                 onDestinationSelected = { selectedDestination ->
                                     destination = selectedDestination
                                     page = null

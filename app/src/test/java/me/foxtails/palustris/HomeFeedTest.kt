@@ -57,7 +57,12 @@ class HomeFeedTest {
         val heightDp = height / compose.activity.resources.displayMetrics.density
         assertTrue("metadata row should remain compact, was $heightDp dp", heightDp <= 52f)
         val actionHeight = compose.onNodeWithContentDescription("Post actions").fetchSemanticsNode().boundsInRoot.height
-        assertTrue("metadata and action rows should match", kotlin.math.abs(height - actionHeight) <= 1f)
+        val actionHeightDp = actionHeight / compose.activity.resources.displayMetrics.density
+        assertTrue("action row should remain a 48dp touch row, was $actionHeightDp dp", actionHeightDp in 47f..49f)
+        assertTrue("action row should be shorter than metadata", actionHeight < height)
+        val replyHeightDp = compose.onNodeWithContentDescription("Reply").fetchSemanticsNode().boundsInRoot.height /
+            compose.activity.resources.displayMetrics.density
+        assertTrue("action button should retain a comfortable touch target", replyHeightDp >= 47f)
     }
 
     @Test fun terminalTagsMoveToSummaryAndPopupWhileInlineTagsStayInBody() {
