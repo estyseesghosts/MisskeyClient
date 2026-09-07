@@ -110,6 +110,61 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         assertNull(post.resharedBy)
     }
 
+    @Test fun capabilityProbeUsesMisskeyDisableFlagsForTimelines() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody(
+                JSONObject().put("version", "2026.1.0")
+                    .put("disableLocalTimeline", false)
+                    .put("disableGlobalTimeline", true).toString(),
+            ))
+            val connection = Connection(server.url("/").toString().removeSuffix("/"), Protocol.MISSKEY)
+            val capabilities = MisskeyCapabilityProbe(MisskeyApi()).probeCapabilities(connection)
+
+            assertEquals(setOf(Timeline.Home, Timeline.Local, Timeline.Social), capabilities.timelines)
+            assertFalse(Timeline.Federated in capabilities.timelines)
+        }
+    }
+
+    @Test fun misskeyTimelineRoutesUseNativeEndpoints() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"version":"2026.1.0"}"""))
+            repeat(3) { server.enqueue(MockResponse().setBody("[]")) }
+            val source = MisskeySource(server.url("/").toString().removeSuffix("/"), "test-token", MisskeyApi())
+
+            source.timeline(Timeline.Local)
+            source.timeline(Timeline.Social)
+            source.timeline(Timeline.Federated)
+
+            assertEquals("/api/meta", server.takeRequest().path)
+            assertEquals("/api/notes/local-timeline", server.takeRequest().path)
+            assertEquals("/api/notes/hybrid-timeline", server.takeRequest().path)
+            assertEquals("/api/notes/global-timeline", server.takeRequest().path)
+        }
+    }
+
+    @Test fun postAndThreadCombineAncestorsRootAndChildren() = runBlocking {
+        MockWebServer().use { server ->
+            val root = JSONObject(note("root")).put("replyId", "parent").toString()
+            val parent = JSONObject(note("parent")).toString()
+            val child = JSONObject(note("child")).toString()
+            server.enqueue(MockResponse().setBody(root))
+            server.enqueue(MockResponse().setBody(root))
+            server.enqueue(MockResponse().setBody(parent))
+            server.enqueue(MockResponse().setBody("[$child]"))
+            val source = MisskeySource(server.url("/").toString().removeSuffix("/"), "test-token", MisskeyApi())
+            val rootId = EntityId(server.url("/").toString().removeSuffix("/"), "root")
+
+            assertEquals("root", source.post(rootId).id.value)
+            val thread = source.thread(rootId)
+
+            assertEquals(listOf("parent", "root", "child"), thread.map { it.id.value })
+            assertEquals("/api/notes/show", server.takeRequest().path)
+            assertEquals("/api/notes/show", server.takeRequest().path)
+            assertEquals("/api/notes/show", server.takeRequest().path)
+            assertEquals("/api/notes/children", server.takeRequest().path)
+        }
+    }
+
     @Test fun authenticatedPostNeverFollowsRedirects() = runBlocking {
         MockWebServer().use { server -> MockWebServer().use { destination ->
             server.enqueue(MockResponse().setResponseCode(307).addHeader("Location", destination.url("/steal")))

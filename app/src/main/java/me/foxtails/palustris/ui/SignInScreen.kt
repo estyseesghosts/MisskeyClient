@@ -55,8 +55,8 @@ fun ConnectedApp(
             PalustrisApp(
                 account = state.account,
                 feedState = feed,
-                onRefresh = { feedModel?.refresh() },
-                onLoadMore = { feedModel?.loadMore() },
+                onRefresh = { timeline -> feedModel?.refresh(timeline) },
+                onLoadMore = { timeline -> feedModel?.loadMore(timeline) },
                 onSignOut = accountManager::signOut,
                 ownedPosts = feed.ownedPosts,
             )

@@ -34,8 +34,8 @@ private enum class Destination(val label: String, val icon: ImageVector) {
 fun PalustrisApp(
     account: Account? = null,
     feedState: FeedState? = null,
-    onRefresh: () -> Unit = {},
-    onLoadMore: () -> Unit = {},
+    onRefresh: (Timeline) -> Unit = {},
+    onLoadMore: (Timeline) -> Unit = {},
     onSignOut: () -> Unit = {},
     ownedPosts: List<OwnedPost>? = null,
     onReact: (OwnedPost) -> Unit = {},
@@ -57,10 +57,16 @@ fun PalustrisApp(
     var discardDialog by rememberSaveable { mutableStateOf(false) }
     var signOutDialog by remember { mutableStateOf(false) }
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
+    val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
     val hasChanges = draft != savedDraft || (if (warningEnabled) warning else "") != savedWarning
     val closeComposer = { if (hasChanges) discardDialog = true else page = null }
 
     LaunchedEffect(destination, page) { navigationVisible = true }
+    LaunchedEffect(availableTimelines) {
+        if (timeline !in availableTimelines) {
+            timeline = Timeline.Home
+        }
+    }
 
     BackHandler(enabled = page != null || destination != Destination.Home) {
         when {
@@ -151,8 +157,8 @@ fun PalustrisApp(
                         else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
                             Destination.Home -> if (feedState != null) HomeFeed(
                                 state = feedState,
-                                onRefresh = onRefresh,
-                                onLoadMore = onLoadMore,
+                                onRefresh = { onRefresh(timeline) },
+                                onLoadMore = { onLoadMore(timeline) },
                                 onSignIn = onSignOut,
                                 ownedPosts = ownedPosts ?: feedState.ownedPosts,
                                 onScrollDirectionChanged = { navigationVisible = it },
@@ -217,20 +223,26 @@ fun PalustrisApp(
     if (sheet != null) ModalBottomSheet(onDismissRequest = { sheet = null }) {
         Text(sheet!!, Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.headlineSmall)
         if (sheet == "Timelines") {
-            (if (account != null) listOf(Timeline.Home) else Timeline.entries).forEach { item ->
+            Timeline.entries.filter { it in availableTimelines }.forEach { item ->
                 ListItem(
-                    modifier = Modifier.clickable { timeline = item; sheet = null },
+                    modifier = Modifier.clickable {
+                        val changed = item != timeline
+                        timeline = item
+                        sheet = null
+                        if (changed) onRefresh(item)
+                    },
                     headlineContent = { Text(item.name) },
                     supportingContent = { Text(when (item) {
                         Timeline.Home -> "Posts from people you follow"
                         Timeline.Local -> "Posts from your server"
+                        Timeline.Social -> "Posts from your server and people it follows"
                         Timeline.Federated -> "Posts from across the fediverse"
                     }) },
                     leadingContent = { Icon(if (item == Timeline.Home) AppIcons.Home else AppIcons.Globe, null) },
                     trailingContent = { if (timeline == item) Icon(AppIcons.Check, "Selected") },
                 )
             }
-            Text(if (account != null) "More timelines coming later" else "Timeline preview", Modifier.padding(24.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (account != null) "Timelines are detected from this server" else "Timeline preview", Modifier.padding(24.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             ListItem(headlineContent = { Text(account?.displayName ?: "No accounts connected") },
                 supportingContent = { Text(account?.handle ?: "Account connections are not available in this preview.") },

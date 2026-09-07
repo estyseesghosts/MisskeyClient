@@ -24,22 +24,63 @@ class MisskeySource(
     val capabilitiesFlow: StateFlow<ServerCapabilities> = _capabilities
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
-    override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = withContext(Dispatchers.IO) {
-        try {
+    override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request(invalidateCapabilitiesOnNotFound = true) {
             refreshCapabilities()
             if (timeline !in capabilities.timelines) throw SourceError.Unsupported("timeline:$timeline")
             val params = JSONObject().put("i", token).put("limit", 30)
             if (cursor != null) params.put("untilId", cursor)
-            val notes = JSONArray(api.post(origin, "notes/timeline", params).body)
+            val endpoint = when (timeline) {
+                Timeline.Home -> "notes/timeline"
+                Timeline.Local -> "notes/local-timeline"
+                Timeline.Social -> "notes/hybrid-timeline"
+                Timeline.Federated -> "notes/global-timeline"
+            }
+            val notes = JSONArray(api.post(origin, endpoint, params).body)
             Page((0 until notes.length()).map { MisskeyMapper.post(notes.getJSONObject(it), origin) },
                 // Use the OUTER renote ID, not the displayed original note, for pagination.
                 if (notes.length() > 0) notes.getJSONObject(notes.length() - 1).getString("id") else null)
+    }
+
+    override suspend fun post(id: EntityId): Post = request {
+        val response = api.post(origin, "notes/show", JSONObject().put("i", token).put("noteId", id.value))
+        MisskeyMapper.post(JSONObject(response.body), origin)
+    }
+
+    override suspend fun thread(rootId: EntityId): List<Post> = request {
+        val root = post(rootId)
+        val ancestors = mutableListOf<Post>()
+        val visited = mutableSetOf(root.id)
+        var current = root
+        while (current.replyTo != null && visited.add(current.replyTo)) {
+            val parent = post(current.replyTo!!)
+            ancestors += parent
+            current = parent
+        }
+        ancestors.reverse()
+
+        val childrenResponse = api.post(
+            origin,
+            "notes/children",
+            JSONObject().put("i", token).put("noteId", rootId.value).put("limit", 30),
+        )
+        val descendants = JSONArray(childrenResponse.body).let { children ->
+            (0 until children.length()).map { index -> MisskeyMapper.post(children.getJSONObject(index), origin) }
+        }
+        (ancestors + root + descendants).distinctBy { it.id }
+    }
+
+    private suspend fun <T> request(
+        invalidateCapabilitiesOnNotFound: Boolean = false,
+        block: suspend () -> T,
+    ): T = withContext(Dispatchers.IO) {
+        try {
+            block()
         } catch (e: CancellationException) {
             throw e
         } catch (e: SourceError) {
             throw e
         } catch (e: ApiFailure) {
-            if (e.status == 404 || e.code.equals("NOT_SUPPORTED", ignoreCase = true)) {
+            if (invalidateCapabilitiesOnNotFound && (e.status == 404 || e.code.equals("NOT_SUPPORTED", ignoreCase = true))) {
                 capabilityCache.remove(cacheKey)
                 _capabilities.value = capabilities.copy(capabilitiesLastUpdated = 0)
             }

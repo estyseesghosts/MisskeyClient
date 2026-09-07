@@ -4,7 +4,6 @@ import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Timeline
-import org.json.JSONArray
 import org.json.JSONObject
 
 class MisskeyCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
@@ -12,14 +11,15 @@ class MisskeyCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
         // Misskey's HTTP API is POST-based, including the unauthenticated meta endpoint.
         val meta = JSONObject(api.post(connection.origin, "meta").body)
         require(meta.optString("version").isNotBlank()) { "This server did not return Misskey-compatible information." }
-        val timelines = meta.optJSONArray("timelines")?.let(::parseTimelines) ?: setOf(Timeline.Home)
-        return ServerCapabilities(timelines = timelines, capabilitiesLastUpdated = System.currentTimeMillis())
-    }
-
-    private fun parseTimelines(values: JSONArray): Set<Timeline> = buildSet {
-        for (index in 0 until values.length()) {
-            runCatching { add(Timeline.valueOf(values.getString(index))) }
+        val timelines = buildSet {
+            add(Timeline.Home)
+            if (!meta.optBoolean("disableLocalTimeline")) {
+                add(Timeline.Local)
+                add(Timeline.Social)
+            }
+            if (!meta.optBoolean("disableGlobalTimeline")) add(Timeline.Federated)
         }
+        return ServerCapabilities(timelines = timelines, capabilitiesLastUpdated = System.currentTimeMillis())
     }
 }
 

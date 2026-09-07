@@ -34,16 +34,17 @@ class FeedViewModel @AssistedInject constructor(
         }
     }
 
-    fun refresh() {
+    fun refresh(timeline: Timeline = Timeline.Home) {
         feedJob?.cancel()
         feedJob = viewModelScope.launch {
             _feed.value = _feed.value.copy(loading = true, loadingMore = false, error = null)
             try {
-                val page = source.timeline(Timeline.Home)
+                val page = source.timeline(timeline)
                 val posts = page.items.distinctBy { it.id }
                 _feed.value = FeedState(
                     posts = posts,
                     ownedPosts = posts.map { OwnedPost(accountId, it) },
+                    timelines = source.capabilities.timelines,
                     nextCursor = page.nextCursor,
                 )
             } catch (e: Exception) {
@@ -52,14 +53,14 @@ class FeedViewModel @AssistedInject constructor(
         }
     }
 
-    fun loadMore() {
+    fun loadMore(timeline: Timeline = Timeline.Home) {
         val state = _feed.value
         val cursor = state.nextCursor ?: return
         if (state.loading || state.loadingMore || state.needsSignIn) return
         feedJob = viewModelScope.launch {
             _feed.value = state.copy(loadingMore = true, error = null)
             try {
-                val page = source.timeline(Timeline.Home, cursor)
+                val page = source.timeline(timeline, cursor)
                 _feed.value = _feed.value.copy(
                     posts = (state.posts + page.items).distinctBy { it.id },
                     ownedPosts = (state.ownedPosts + page.items.map { OwnedPost(accountId, it) })

@@ -11,7 +11,7 @@ data class Account(
     val biography: String = "",
 )
 
-enum class Timeline { Home, Local, Federated }
+enum class Timeline { Home, Local, Social, Federated }
 enum class Audience { Public, Unlisted, Followers, Direct }
 enum class PostAction { Reply, Reshare, Favorite, React, Bookmark }
 

@@ -149,9 +149,11 @@ open class MisskeySourceContractTest : SocialSourceContractTest() {
     }
 
     override fun enqueueCapabilities(server: MockWebServer, timelines: Set<Timeline>) {
+        val localTimelinesEnabled = Timeline.Local in timelines || Timeline.Social in timelines
         server.enqueue(okhttp3.mockwebserver.MockResponse().setBody(
             org.json.JSONObject().put("version", "2026.1.0")
-                .put("timelines", org.json.JSONArray(timelines.map(Timeline::name))).toString(),
+                .put("disableLocalTimeline", !localTimelinesEnabled)
+                .put("disableGlobalTimeline", Timeline.Federated !in timelines).toString(),
         ))
     }
 
