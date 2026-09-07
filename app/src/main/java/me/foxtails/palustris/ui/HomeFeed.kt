@@ -177,7 +177,7 @@ private fun PostRow(
     val post = ownedPost.post
     val context = LocalContext.current
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
-    val presentation = remember(post.text) { splitTrailingHashtags(post.text) }
+    val presentation = remember(post.text) { parseHashtagBlocks(post.text) }
     val contentVisible = post.contentWarning == null || expanded
     Column(Modifier.fillMaxWidth()) {
         post.resharedBy?.let {
@@ -186,7 +186,7 @@ private fun PostRow(
         }
         PostMetadataRow(
             post = post,
-            trailingHashtags = presentation.trailingHashtags.takeIf { contentVisible }.orEmpty(),
+            filteredHashtags = presentation.filteredHashtags.takeIf { contentVisible }.orEmpty(),
             onOpenProfile = { onOpenProfile(post.author) },
         )
         if (post.replyTo != null) Text("Reply", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
@@ -246,7 +246,7 @@ private fun PostRow(
 }
 
 @Composable
-private fun PostMetadataRow(post: Post, trailingHashtags: List<String>, onOpenProfile: () -> Unit) {
+private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenProfile: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -268,9 +268,9 @@ private fun PostMetadataRow(post: Post, trailingHashtags: List<String>, onOpenPr
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (trailingHashtags.isNotEmpty()) {
+        if (filteredHashtags.isNotEmpty()) {
             Spacer(Modifier.width(4.dp))
-            TerminalHashtagSummary(trailingHashtags)
+            FilteredHashtagSummary(filteredHashtags)
         }
     }
 }
@@ -287,7 +287,7 @@ private fun postTimestamp(post: Post): String? = if (post.publishedAtEpochMillis
 }
 
 @Composable
-private fun TerminalHashtagSummary(hashtags: List<String>) {
+private fun FilteredHashtagSummary(hashtags: List<String>) {
     var menuVisible by rememberSaveable(hashtags) { mutableStateOf(false) }
     val label = if (hashtags.size == 1) hashtags.first() else "${hashtags.first()} +${hashtags.size - 1}"
     Box {

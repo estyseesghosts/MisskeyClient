@@ -77,6 +77,26 @@ class HomeFeedTest {
         compose.onNodeWithContentDescription("Hashtag #sunset").assertIsDisplayed()
     }
 
+    @Test fun detachedDecorativeBlocksDisappearFromBodyAndAllTagsReachPopup() {
+        show(
+            Post(
+                postId("detached-tags"),
+                account,
+                "First paragraph.\n#Scape ✨ #ForestFriday ✨ …\nSecond paragraph.\n#one • #two\nA #visible inline tag remains.",
+                0,
+                Audience.Public,
+            ),
+        )
+
+        compose.onNodeWithText("First paragraph.\nSecond paragraph.\nA #visible inline tag remains.").assertIsDisplayed()
+        compose.onNodeWithText("First paragraph.\n#Scape ✨ #ForestFriday ✨ …").assertDoesNotExist()
+        compose.onNodeWithContentDescription("4 hashtags: #Scape, #ForestFriday, #one and #two").performClick()
+        compose.onNodeWithContentDescription("Hashtag #Scape").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Hashtag #ForestFriday").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Hashtag #one").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Hashtag #two").assertIsDisplayed()
+    }
+
     @Test fun tagOnlyPostDoesNotRenderAnEmptyBody() {
         show(Post(postId("tag-only"), account, "#onlytag #two", 0, Audience.Public))
 

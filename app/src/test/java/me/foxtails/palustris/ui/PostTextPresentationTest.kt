@@ -5,79 +5,117 @@ import org.junit.Test
 
 class PostTextPresentationTest {
     @Test fun textWithoutHashtagsRemainsUnchanged() {
-        assertEquals(
-            PostTextPresentation("A post about #photography today.", emptyList()),
-            splitTrailingHashtags("A post about #photography today."),
-        )
+        assertPresentation("A post about #photography today.", "A post about #photography today.")
     }
 
     @Test fun inlineHashtagRemainsInVisibleText() {
-        assertEquals(
-            PostTextPresentation("A #useful inline tag remains in this sentence", emptyList()),
-            splitTrailingHashtags("A #useful inline tag remains in this sentence"),
-        )
+        assertPresentation("A #useful inline tag remains in this sentence", "A #useful inline tag remains in this sentence")
     }
 
     @Test fun oneTerminalHashtagIsExtracted() {
-        assertEquals(
-            PostTextPresentation("A post", listOf("#photography")),
-            splitTrailingHashtags("A post #photography"),
+        assertPresentation("A post #photography", "A post", "#photography")
+    }
+
+    @Test fun severalTerminalHashtagsPreserveOrderSpellingAndDuplicates() {
+        assertPresentation(
+            "A post #Photo #sunset #Photo #東京2026",
+            "A post",
+            "#Photo", "#sunset", "#Photo", "#東京2026",
         )
     }
 
-    @Test fun severalTerminalHashtagsPreserveOrderAndSpelling() {
-        assertEquals(
-            PostTextPresentation("A post", listOf("#Photo", "#sunset", "#東京2026")),
-            splitTrailingHashtags("A post #Photo #sunset #東京2026"),
-        )
+    @Test fun terminalHashtagsMayBeSeparatedByCrLf() {
+        assertPresentation("A post\r\n#one\r\n#two", "A post", "#one", "#two")
     }
 
-    @Test fun terminalHashtagsMayBeSeparatedByNewlines() {
-        assertEquals(
-            PostTextPresentation("A post", listOf("#one", "#two")),
-            splitTrailingHashtags("A post\n#one\n#two"),
-        )
+    @Test fun detachedBlocksMayUseCrLfWithoutDamagingProseBreaks() {
+        assertPresentation("Before\r\n#one ✨ #two\r\nAfter", "Before\r\nAfter", "#one", "#two")
     }
 
     @Test fun hashtagOnlyTextProducesAnEmptyBody() {
-        assertEquals(
-            PostTextPresentation("", listOf("#onlytag", "#two")),
-            splitTrailingHashtags("#onlytag #two"),
+        assertPresentation("#onlytag #two", "", "#onlytag", "#two")
+    }
+
+    @Test fun trailingWhitespaceAndRelayMarkersAreNotIncludedInVisibleText() {
+        assertPresentation("A post #tag  \n\uFFFC\u200B\uFEFF\u00A0", "A post", "#tag")
+    }
+
+    @Test fun unicodeNumbersUnderscoresAndCombiningMarksAreValidIdentifiers() {
+        assertPresentation("A post #2026_release #Cafe\u0301 #日本語", "A post", "#2026_release", "#Cafe\u0301", "#日本語")
+    }
+
+    @Test fun emojiSeparatedBlockAtEndIsRemovedAsOneBlock() {
+        val text = "A quiet walk.\n#Scape ✨ #ForestFriday ✨ …"
+        assertPresentation(text, "A quiet walk.", "#Scape", "#ForestFriday")
+    }
+
+    @Test fun suppliedRelayedPostTextKeepsProseAndRemovesDecorativeTagLine() {
+        val text = "A quiet walk through the woods.\n\n#Scape ✨ #ForestFriday ✨ …\n\nThe light was beautiful."
+        assertPresentation(text, "A quiet walk through the woods.\n\nThe light was beautiful.", "#Scape", "#ForestFriday")
+    }
+
+    @Test fun multipleSeparatedHashtagBlocksAreRemovedInOriginalOrder() {
+        val text = "First paragraph.\n#one • #two\nSecond paragraph.\n#three · #four\nLast paragraph."
+        assertPresentation(
+            text,
+            "First paragraph.\nSecond paragraph.\nLast paragraph.",
+            "#one", "#two", "#three", "#four",
         )
     }
 
-    @Test fun trailingWhitespaceIsNotIncludedInVisibleText() {
+    @Test fun aDetachedBlockWithOrdinaryWordsIsPreserved() {
+        val text = "A sentence\n#one ✨ #two with words\nMore prose"
+        assertPresentation(text, text)
+    }
+
+    @Test fun proseFollowedByTagsOnTheSameLineUsesTerminalRule() {
+        assertPresentation("A post about the view #one #two", "A post about the view", "#one", "#two")
+    }
+
+    @Test fun inlineTagsInSentencesRemainVisibleWhenOtherBlocksAreRemoved() {
+        val text = "A #keep tag in a sentence.\n#remove ✨ #these\nAnother #visible tag."
+        assertPresentation(text, "A #keep tag in a sentence.\nAnother #visible tag.", "#remove", "#these")
+    }
+
+    @Test fun urlFragmentsEmailFragmentsAndCodeLikeTokensAreNotHashtags() {
+        val text = "URL https://site.example/#fragment email name#fragment@example.com code `#tag` [#other]"
+        assertPresentation(text, text)
+    }
+
+    @Test fun punctuationAttachedToTagsDisqualifiesTheTag() {
+        val text = "A sentence #photo! and #other, plus #third."
+        assertPresentation(text, text)
+    }
+
+    @Test fun unknownReplacementCharacterIsVisibleAndDisqualifiesBlock() {
+        val text = "#one ✨ #two �"
+        assertPresentation(text, text)
+    }
+
+    @Test fun nonBreakingSpacesSeparateAndTerminateTags() {
+        assertPresentation("A post\u00A0#one\u00A0#two\u00A0", "A post", "#one", "#two")
+    }
+
+    @Test fun filteredRangesCoverDetectedBlocksInSourceOrder() {
+        val text = "Intro\n#one ✨ #two\nOutro #three #four"
+        val presentation = parseHashtagBlocks(text)
+
+        assertEquals("Intro\nOutro", presentation.visibleText)
+        assertEquals(listOf("#one", "#two", "#three", "#four"), presentation.filteredHashtags)
         assertEquals(
-            PostTextPresentation("A post", listOf("#tag")),
-            splitTrailingHashtags("A post #tag  \n"),
+            listOf("#one ✨ #two\n", " #three #four"),
+            presentation.filteredRanges.map { text.substring(it) },
         )
     }
 
-    @Test fun unicodeNumbersAndUnderscoresAreValidIdentifiers() {
-        assertEquals(
-            PostTextPresentation("A post", listOf("#2026_release", "#日本語")),
-            splitTrailingHashtags("A post #2026_release #日本語"),
-        )
+    @Test fun blankLinesCreatedByRemovedBlocksCollapseWithoutChangingParagraphSpacing() {
+        val text = "Before\n\n#one ✨ #two\n\nAfter"
+        assertPresentation(text, "Before\n\nAfter", "#one", "#two")
     }
 
-    @Test fun malformedHashTokensRemainInText() {
-        val text = "A post # #tag!"
-        assertEquals(PostTextPresentation(text, emptyList()), splitTrailingHashtags(text))
-    }
-
-    @Test fun urlFragmentsAreNotHashtags() {
-        val text = "URL https://site.example/#fragment"
-        assertEquals(PostTextPresentation(text, emptyList()), splitTrailingHashtags(text))
-    }
-
-    @Test fun tagsWithTerminalPunctuationRemainInText() {
-        val text = "Nice picture #photo!"
-        assertEquals(PostTextPresentation(text, emptyList()), splitTrailingHashtags(text))
-    }
-
-    @Test fun sourceTextIsNotMutated() {
-        val text = "A post #one #two"
-        splitTrailingHashtags(text)
-        assertEquals("A post #one #two", text)
+    private fun assertPresentation(text: String, visibleText: String, vararg hashtags: String) {
+        val actual = parseHashtagBlocks(text)
+        assertEquals(visibleText, actual.visibleText)
+        assertEquals(hashtags.toList(), actual.filteredHashtags)
     }
 }

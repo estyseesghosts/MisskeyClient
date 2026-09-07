@@ -2,29 +2,317 @@ package me.foxtails.palustris.ui
 
 internal data class PostTextPresentation(
     val visibleText: String,
-    val trailingHashtags: List<String>,
+    val filteredHashtags: List<String>,
+    val filteredRanges: List<IntRange>,
 )
 
-private val hashtagToken = Regex("#[\\p{L}\\p{N}_]+")
+private data class HashtagToken(
+    val range: IntRange,
+    val value: String,
+)
 
-/** Splits only the contiguous, whitespace-separated hashtag run at the end of a post. */
-internal fun splitTrailingHashtags(text: String): PostTextPresentation {
-    var end = text.length
-    while (end > 0 && text[end - 1].isWhitespace()) end--
+private data class RemovalRange(
+    val start: Int,
+    val endExclusive: Int,
+    val detachedLine: Boolean,
+)
 
-    val hashtags = mutableListOf<String>()
-    var cursor = end
-    while (cursor > 0) {
-        var tokenStart = cursor
-        while (tokenStart > 0 && !text[tokenStart - 1].isWhitespace()) tokenStart--
-        val token = text.substring(tokenStart, cursor)
-        if (!hashtagToken.matches(token)) break
+private val hashtagToken = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
 
-        hashtags.add(0, token)
-        cursor = tokenStart
-        while (cursor > 0 && text[cursor - 1].isWhitespace()) cursor--
+/** Removes terminal hashtag lists and detached decorative hashtag blocks from post text. */
+internal fun parseHashtagBlocks(text: String): PostTextPresentation {
+    if (text.isEmpty()) return PostTextPresentation("", emptyList(), emptyList())
+
+    val tokens = findHashtagTokens(text)
+    if (tokens.isEmpty()) return PostTextPresentation(text, emptyList(), emptyList())
+
+    val removals = mutableListOf<RemovalRange>()
+    val semanticEnd = semanticEnd(text)
+    val terminalTokens = findTerminalHashtags(text, tokens, semanticEnd)
+    if (terminalTokens.isNotEmpty()) {
+        val firstStart = includeTerminalWhitespaceBefore(text, terminalTokens.first().range.first)
+        removals += RemovalRange(firstStart, text.length, detachedLine = false)
     }
 
-    if (hashtags.isEmpty()) return PostTextPresentation(text, emptyList())
-    return PostTextPresentation(text.substring(0, cursor).trimEnd(), hashtags)
+    findDetachedBlocks(text, tokens).forEach { block ->
+        removals += block
+    }
+
+    val mergedRemovals = mergeRemovals(removals)
+    if (mergedRemovals.isEmpty()) return PostTextPresentation(text, emptyList(), emptyList())
+
+    val filteredHashtags = tokens
+        .filter { token -> mergedRemovals.any { it.contains(token.range) } }
+        .map(HashtagToken::value)
+    val visibleText = removeRanges(text, mergedRemovals)
+    val filteredRanges = mergedRemovals.map { it.start until it.endExclusive }
+
+    return PostTextPresentation(visibleText, filteredHashtags, filteredRanges)
+}
+
+private fun findHashtagTokens(text: String): List<HashtagToken> {
+    val tokens = mutableListOf<HashtagToken>()
+    var searchStart = 0
+    while (searchStart < text.length) {
+        val hash = text.indexOf('#', searchStart)
+        if (hash < 0) break
+
+        val match = hashtagToken.matchAt(text, hash)
+        if (match != null) {
+            val range = match.range
+            if (hashtagBoundaryIsValid(text, range)) {
+                tokens += HashtagToken(range, match.value)
+            }
+            searchStart = range.last + 1
+        } else {
+            searchStart = hash + 1
+        }
+    }
+    return tokens
+}
+
+private fun hashtagBoundaryIsValid(text: String, range: IntRange): Boolean {
+    val before = codePointBefore(text, range.first)
+    val after = codePointAtOrNull(text, range.last + 1)
+    return (before == null || isHashtagBoundary(before)) &&
+        (after == null || isHashtagBoundary(after))
+}
+
+private fun isHashtagBoundary(codePoint: Int): Boolean =
+    isWhitespaceOrFormatting(codePoint) || isApprovedDecorativeSeparator(codePoint)
+
+private fun findTerminalHashtags(
+    text: String,
+    tokens: List<HashtagToken>,
+    semanticEnd: Int,
+): List<HashtagToken> {
+    val terminalCandidates = tokens.filter { it.range.last + 1 <= semanticEnd }
+    val last = terminalCandidates.lastOrNull() ?: return emptyList()
+    if (!onlyTerminalSeparators(text, last.range.last + 1, semanticEnd)) return emptyList()
+
+    val result = mutableListOf(last)
+    var index = terminalCandidates.lastIndex - 1
+    while (index >= 0) {
+        val previous = terminalCandidates[index]
+        val following = result.first()
+        if (!onlyTerminalSeparators(text, previous.range.last + 1, following.range.first)) break
+        result.add(0, previous)
+        index--
+    }
+    return result
+}
+
+private fun findDetachedBlocks(text: String, tokens: List<HashtagToken>): List<RemovalRange> {
+    val lines = linesOf(text)
+    val qualifyingLines = lines.map { line ->
+        val lineTokens = tokens.filter { token ->
+            token.range.first >= line.start && token.range.last < line.contentEndExclusive
+        }
+        line to lineTokens.takeIf { it.isNotEmpty() && lineContainsOnlySeparators(text, line, it) }
+    }
+
+    val blocks = mutableListOf<RemovalRange>()
+    var index = 0
+    while (index < qualifyingLines.size) {
+        val firstTokens = qualifyingLines[index].second
+        if (firstTokens == null) {
+            index++
+            continue
+        }
+
+        var lastIndex = index
+        var hashtagCount = firstTokens.size
+        while (lastIndex + 1 < qualifyingLines.size) {
+            val nextTokens = qualifyingLines[lastIndex + 1].second ?: break
+            lastIndex++
+            hashtagCount += nextTokens.size
+        }
+        if (hashtagCount >= 2) {
+            val firstLine = qualifyingLines[index].first
+            val lastLine = qualifyingLines[lastIndex].first
+            val blockAtEnd = lastLine.lineBreakEndExclusive == text.length
+            val start = if (blockAtEnd && firstLine.start > 0 && text[firstLine.start - 1] == '\n') {
+                if (firstLine.start > 1 && text[firstLine.start - 2] == '\r') firstLine.start - 2 else firstLine.start - 1
+            } else {
+                firstLine.start
+            }
+            blocks += RemovalRange(
+                start = start,
+                endExclusive = lastLine.lineBreakEndExclusive,
+                detachedLine = true,
+            )
+        }
+        index = lastIndex + 1
+    }
+    return blocks
+}
+
+private fun lineContainsOnlySeparators(
+    text: String,
+    line: TextLine,
+    tokens: List<HashtagToken>,
+): Boolean {
+    var cursor = line.start
+    tokens.forEach { token ->
+        if (!onlyBlockSeparators(text, cursor, token.range.first)) return false
+        cursor = token.range.last + 1
+    }
+    return onlyBlockSeparators(text, cursor, line.contentEndExclusive)
+}
+
+private fun mergeRemovals(removals: List<RemovalRange>): List<RemovalRange> {
+    if (removals.isEmpty()) return emptyList()
+    val sorted = removals.sortedWith(compareBy<RemovalRange> { it.start }.thenBy { it.endExclusive })
+    val merged = mutableListOf<RemovalRange>()
+    sorted.forEach { next ->
+        val previous = merged.lastOrNull()
+        if (previous == null || next.start > previous.endExclusive) {
+            merged += next
+        } else {
+            merged[merged.lastIndex] = RemovalRange(
+                start = previous.start,
+                endExclusive = maxOf(previous.endExclusive, next.endExclusive),
+                detachedLine = previous.detachedLine || next.detachedLine,
+            )
+        }
+    }
+    return merged
+}
+
+private fun RemovalRange.contains(range: IntRange): Boolean =
+    start <= range.first && range.last + 1 <= endExclusive
+
+private fun removeRanges(text: String, ranges: List<RemovalRange>): String {
+    val result = StringBuilder(text.length)
+    var cursor = 0
+    ranges.forEach { range ->
+        result.append(text, cursor, range.start)
+        if (range.detachedLine) {
+            trimExcessBlankLinesAtBoundary(result, text, range.endExclusive)
+        }
+        cursor = range.endExclusive
+    }
+    result.append(text, cursor, text.length)
+    return result.toString()
+}
+
+private fun trimExcessBlankLinesAtBoundary(result: StringBuilder, source: String, suffixStart: Int) {
+    var before = trailingLineBreakCount(result)
+    var after = suffixStart
+    while (after < source.length && source[after] == '\n') after++
+    val afterCount = after - suffixStart
+    if (afterCount == 0) return
+    var excess = before + afterCount - 2
+    if (excess <= 0) return
+
+    while (excess > 0 && before > 0) {
+        result.deleteCharAt(result.length - 1)
+        if (result.isNotEmpty() && result.last() == '\r') result.deleteCharAt(result.length - 1)
+        before--
+        excess--
+    }
+}
+
+private fun trailingLineBreakCount(text: StringBuilder): Int {
+    var count = 0
+    var index = text.length - 1
+    while (index >= 0 && text[index] == '\n') {
+        count++
+        index--
+    }
+    return count
+}
+
+private fun onlyTerminalSeparators(text: String, start: Int, endExclusive: Int): Boolean =
+    onlySeparators(text, start, endExclusive, ::isTerminalSeparator)
+
+private fun onlyBlockSeparators(text: String, start: Int, endExclusive: Int): Boolean =
+    onlySeparators(text, start, endExclusive, ::isBlockSeparator)
+
+private fun onlySeparators(
+    text: String,
+    start: Int,
+    endExclusive: Int,
+    predicate: (Int) -> Boolean,
+): Boolean {
+    var index = start
+    while (index < endExclusive) {
+        val codePoint = text.codePointAt(index)
+        if (!predicate(codePoint)) return false
+        index += Character.charCount(codePoint)
+    }
+    return true
+}
+
+private fun includeTerminalWhitespaceBefore(text: String, start: Int): Int {
+    var cursor = start
+    while (cursor > 0) {
+        val previous = codePointBefore(text, cursor) ?: break
+        if (!isTerminalSeparator(previous)) break
+        cursor -= Character.charCount(previous)
+    }
+    return cursor
+}
+
+private fun semanticEnd(text: String): Int {
+    var end = text.length
+    while (end > 0) {
+        val codePoint = codePointBefore(text, end) ?: break
+        if (!isWhitespaceOrFormatting(codePoint)) break
+        end -= Character.charCount(codePoint)
+    }
+    return end
+}
+
+private data class TextLine(
+    val start: Int,
+    val contentEndExclusive: Int,
+    val lineBreakEndExclusive: Int,
+)
+
+private fun linesOf(text: String): List<TextLine> {
+    val lines = mutableListOf<TextLine>()
+    var start = 0
+    while (start <= text.length) {
+        val newline = text.indexOf('\n', start)
+        if (newline < 0) {
+            lines += TextLine(start, text.length, text.length)
+            break
+        }
+        val contentEnd = if (newline > start && text[newline - 1] == '\r') newline - 1 else newline
+        lines += TextLine(start, contentEnd, newline + 1)
+        start = newline + 1
+    }
+    return lines
+}
+
+private fun codePointBefore(text: String, index: Int): Int? =
+    if (index <= 0) null else text.codePointBefore(index)
+
+private fun codePointAtOrNull(text: String, index: Int): Int? =
+    if (index >= text.length) null else text.codePointAt(index)
+
+private fun isTerminalSeparator(codePoint: Int): Boolean = isWhitespaceOrFormatting(codePoint)
+
+private fun isBlockSeparator(codePoint: Int): Boolean =
+    isWhitespaceOrFormatting(codePoint) || isApprovedDecorativeSeparator(codePoint)
+
+private fun isWhitespaceOrFormatting(codePoint: Int): Boolean =
+    Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint) ||
+        codePoint == 0xFFFC || codePoint == 0xFEFF || Character.getType(codePoint) == Character.FORMAT.toInt()
+
+private fun isApprovedDecorativeSeparator(codePoint: Int): Boolean {
+    if (codePoint == 0xFFFD) return false
+    if (codePoint in 0x1F000..0x1FAFF || codePoint in 0x2600..0x27BF) return true
+    return codePoint in setOf(
+        0x00B7, // middle dot
+        0x2022, // bullet
+        0x2023, // triangular bullet
+        0x2024, 0x2025, 0x2026, // dot and ellipsis separators
+        0x2043, 0x204E, 0x205D,
+        0x2219, 0x22C5,
+        0x25AA, 0x25AB, 0x25B8, 0x25B9, 0x25CB, 0x25CF, 0x25E6,
+        0x25C6, 0x25C7,
+        0x2013, 0x2014,
+    )
 }
