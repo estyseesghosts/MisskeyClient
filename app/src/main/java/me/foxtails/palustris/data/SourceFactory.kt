@@ -16,6 +16,7 @@ class SocialSourceFactory @Inject constructor(private val clientPool: HttpClient
             token = session.token,
             api = MisskeyApi(clientPool.clientFor(session.accountId.connection)),
             accountId = session.accountId,
+            initialCapabilities = session.capabilities,
         )
         Protocol.MASTODON -> throw SourceError.Unsupported("Mastodon source")
     }

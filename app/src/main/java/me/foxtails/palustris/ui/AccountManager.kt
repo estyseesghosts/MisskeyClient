@@ -134,7 +134,7 @@ class AccountManager @Inject constructor(
             try {
                 val result = auth.complete(request)
                 val account = result.account
-                val session = Session(account.id, result.token, ServerCapabilities())
+                val session = Session(account.id, result.token, ServerCapabilities(canPublish = result.canPublish))
                 withContext(ioDispatcher) {
                     store.write(account.id, session)
                     store.writeProfile(account.id, result.user)

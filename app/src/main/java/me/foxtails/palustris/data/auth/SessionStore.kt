@@ -18,6 +18,7 @@ class LoginSession(
     val token: String,
     val user: JSONObject,
     val protocol: Protocol = Protocol.MISSKEY,
+    val canPublish: Boolean = false,
 ) {
     val account: Account
         get() = when (protocol) {

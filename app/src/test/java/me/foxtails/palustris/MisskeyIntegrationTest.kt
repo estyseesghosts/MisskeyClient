@@ -62,15 +62,101 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
             val auth = MisskeyAuth(MisskeyApi())
             val pending = PendingLogin(server.url("/").toString().removeSuffix("/"), "test-session", System.currentTimeMillis())
             val url = okhttp3.HttpUrl.Companion.run { auth.browserUrl(pending).toHttpUrl() }
-            assertEquals("read:account", url.queryParameter("permission"))
+            assertEquals("read:account write:notes", url.queryParameter("permission"))
             assertEquals("palustris://auth/misskey", url.queryParameter("callback"))
             val result = auth.complete(pending)
             assertEquals("Alice", result.account.displayName)
             assertEquals("test-token", result.token)
+            assertTrue(result.canPublish)
             val request = server.takeRequest()
             assertEquals("/api/miauth/test-session/check", request.path)
             assertEquals("POST", request.method)
             assertEquals(1, server.requestCount)
+        }
+    }
+
+    @Test fun misskeyCreateMapsAudienceReplyQuoteWarningAndPoll() = runBlocking {
+        MockWebServer().use { server ->
+            val response = note("created")
+            server.enqueue(MockResponse().setBody(response))
+            val origin = server.url("/").toString().removeSuffix("/")
+            val source = MisskeySource(
+                origin = origin,
+                token = "test-token",
+                api = MisskeyApi(),
+                initialCapabilities = ServerCapabilities(canPublish = true),
+            )
+            val request = CreatePostRequest(
+                text = "A new note",
+                audience = Audience.Unlisted,
+                contentWarning = "Spoilers",
+                replyTo = EntityId(origin, "parent"),
+                poll = PollRequest(listOf("Yes", "No"), multiple = true, expiresAt = "2026-09-08T00:00:00Z"),
+                quoteOf = EntityId(origin, "quoted"),
+            )
+
+            assertEquals("created", source.create(request).id.value)
+            val body = JSONObject(server.takeRequest().body.readUtf8())
+            assertEquals("test-token", body.getString("i"))
+            assertEquals("A new note", body.getString("text"))
+            assertEquals("home", body.getString("visibility"))
+            assertEquals("Spoilers", body.getString("cw"))
+            assertEquals("parent", body.getString("replyId"))
+            assertEquals("quoted", body.getString("renoteId"))
+            assertEquals(listOf("Yes", "No"), body.getJSONObject("poll").getJSONArray("choices").let { choices ->
+                (0 until choices.length()).map(choices::getString)
+            })
+            assertTrue(body.getJSONObject("poll").getBoolean("multiple"))
+            assertEquals("2026-09-08T00:00:00Z", body.getJSONObject("poll").getString("expiresAt"))
+        }
+    }
+
+    @Test fun capabilityRefreshPreservesAccountPublishPermission() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"version":"2026.1.0"}"""))
+            server.enqueue(MockResponse().setBody("[]"))
+            val origin = server.url("/").toString().removeSuffix("/")
+            val source = MisskeySource(
+                origin = origin,
+                token = "test-token",
+                api = MisskeyApi(),
+                initialCapabilities = ServerCapabilities(canPublish = true),
+            )
+
+            source.timeline(Timeline.Home)
+
+            assertTrue(source.capabilities.canPublish)
+        }
+    }
+
+    @Test fun misskeyCreateMapsEveryAudienceVisibility() = runBlocking {
+        MockWebServer().use { server ->
+            repeat(4) { server.enqueue(MockResponse().setBody(note("created-$it"))) }
+            val origin = server.url("/").toString().removeSuffix("/")
+            val source = MisskeySource(origin, "test-token", MisskeyApi(), initialCapabilities = ServerCapabilities(canPublish = true))
+            listOf(
+                Audience.Public to "public",
+                Audience.Unlisted to "home",
+                Audience.Followers to "followers",
+                Audience.Direct to "specified",
+            ).forEach { (audience, visibility) ->
+                source.create(CreatePostRequest("text", audience = audience))
+                assertEquals(visibility, JSONObject(server.takeRequest().body.readUtf8()).getString("visibility"))
+            }
+        }
+    }
+
+    @Test fun misskeyDeleteUsesNotesDelete() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("{}"))
+            val origin = server.url("/").toString().removeSuffix("/")
+            MisskeySource(origin, "test-token", MisskeyApi()).delete(EntityId(origin, "note-to-delete"))
+
+            val request = server.takeRequest()
+            assertEquals("/api/notes/delete", request.path)
+            val body = JSONObject(request.body.readUtf8())
+            assertEquals("test-token", body.getString("i"))
+            assertEquals("note-to-delete", body.getString("noteId"))
         }
     }
 

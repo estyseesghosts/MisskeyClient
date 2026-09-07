@@ -58,6 +58,7 @@ fun ConnectedApp(
                 onRefresh = { timeline -> feedModel?.refresh(timeline) },
                 onLoadMore = { timeline -> feedModel?.loadMore(timeline) },
                 onSignOut = accountManager::signOut,
+                onPublish = { request -> feedModel?.create(request) },
                 ownedPosts = feed.ownedPosts,
             )
         }

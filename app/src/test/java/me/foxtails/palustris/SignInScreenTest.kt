@@ -52,6 +52,17 @@ class SignInScreenTest {
         compose.onNodeWithText("Hide content").performClick()
         compose.onNodeWithText(post.text).assertDoesNotExist()
     }
+
+    @Test fun publishingIsDisabledUntilCapabilityAllowsIt() {
+        val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(account = account, feedState = FeedState())
+        } }
+
+        compose.onNodeWithContentDescription("Compose post").performClick()
+        compose.onNodeWithText("Publishing is disabled for this account.").assertIsDisplayed()
+        compose.onNodeWithText("Publish").assertIsNotEnabled()
+    }
     @Test fun feedActionsPreserveTheAccountThatFetchedThePost() {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
         val post = Post(EntityId("https://example.org", "post"), account, "Post", System.currentTimeMillis(), Audience.Public)

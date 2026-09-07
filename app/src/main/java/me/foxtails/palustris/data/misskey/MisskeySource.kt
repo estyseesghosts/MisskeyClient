@@ -14,13 +14,14 @@ class MisskeySource(
     private val origin: String,
     private val token: String,
     private val api: MisskeyApi,
+    private val initialCapabilities: ServerCapabilities = ServerCapabilities(timelines = setOf(Timeline.Home)),
     private val accountId: AccountId? = null,
     private val capabilityProbe: CapabilityProbe = MisskeyCapabilityProbe(api),
     private val capabilityCache: CapabilityCache = CapabilityCache(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) : SocialSource {
     private val cacheKey = CapabilityCacheKey(origin, accountId ?: AccountId(Connection(origin, Protocol.MISSKEY), "anonymous"))
-    private val _capabilities = MutableStateFlow(ServerCapabilities(timelines = setOf(Timeline.Home)))
+    private val _capabilities = MutableStateFlow(initialCapabilities)
     val capabilitiesFlow: StateFlow<ServerCapabilities> = _capabilities
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
@@ -69,6 +70,28 @@ class MisskeySource(
         (ancestors + root + descendants).distinctBy { it.id }
     }
 
+    override suspend fun create(post: CreatePostRequest): Post = request {
+        val body = JSONObject()
+            .put("i", token)
+            .put("text", post.text)
+            .put("visibility", post.audience.toMisskeyVisibility())
+        post.contentWarning?.let { body.put("cw", it) }
+        post.replyTo?.let { body.put("replyId", it.value) }
+        post.quoteOf?.let { body.put("renoteId", it.value) }
+        post.poll?.let { poll ->
+            body.put("poll", JSONObject()
+                .put("choices", JSONArray(poll.choices))
+                .put("multiple", poll.multiple)
+                .apply { poll.expiresAt?.let { put("expiresAt", it) } })
+        }
+        MisskeyMapper.post(JSONObject(api.post(origin, "notes/create", body).body), origin)
+    }
+
+    override suspend fun delete(id: EntityId) = request {
+        api.post(origin, "notes/delete", JSONObject().put("i", token).put("noteId", id.value))
+        Unit
+    }
+
     private suspend fun <T> request(
         invalidateCapabilitiesOnNotFound: Boolean = false,
         block: suspend () -> T,
@@ -96,13 +119,14 @@ class MisskeySource(
         capabilityCache.get(cacheKey)?.takeIf {
             now - it.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS
         }?.let {
-            _capabilities.value = it
+            _capabilities.value = it.copy(canPublish = it.canPublish || capabilities.canPublish)
             return
         }
         try {
             capabilityProbe.probeCapabilities(Connection(origin, Protocol.MISSKEY)).also {
-                _capabilities.value = it
-                capabilityCache.put(cacheKey, it)
+                val updated = it.copy(canPublish = it.canPublish || capabilities.canPublish)
+                _capabilities.value = updated
+                capabilityCache.put(cacheKey, updated)
             }
         } catch (e: CancellationException) {
             throw e
@@ -116,6 +140,13 @@ class MisskeySource(
     private companion object {
         const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
     }
+}
+
+private fun Audience.toMisskeyVisibility(): String = when (this) {
+    Audience.Public -> "public"
+    Audience.Unlisted -> "home"
+    Audience.Followers -> "followers"
+    Audience.Direct -> "specified"
 }
 
 object MisskeyMapper {

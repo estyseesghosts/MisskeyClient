@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.OwnedPost
 
 private enum class Destination(val label: String, val icon: ImageVector) {
@@ -37,6 +38,7 @@ fun PalustrisApp(
     onRefresh: (Timeline) -> Unit = {},
     onLoadMore: (Timeline) -> Unit = {},
     onSignOut: () -> Unit = {},
+    onPublish: (CreatePostRequest) -> Unit = {},
     ownedPosts: List<OwnedPost>? = null,
     onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
@@ -145,7 +147,29 @@ fun PalustrisApp(
             ) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
                     when (page) {
-                        "Compose" -> ComposeScreen(draft, { draft = it }, warning, { warning = it }, warningEnabled, { warningEnabled = it }, account)
+                        "Compose" -> ComposeScreen(
+                            text = draft,
+                            onTextChange = { draft = it },
+                            warning = warning,
+                            onWarningChange = { warning = it },
+                            warningEnabled = warningEnabled,
+                            onWarningEnabled = { warningEnabled = it },
+                            account = account,
+                            canPublish = feedState?.canPublish == true,
+                            onPublish = {
+                                onPublish(CreatePostRequest(
+                                    text = draft,
+                                    contentWarning = warning.takeIf { warningEnabled },
+                                ))
+                                savedDraft = ""
+                                draft = ""
+                                savedWarning = ""
+                                warning = ""
+                                warningEnabled = false
+                                preferences.edit().clear().apply()
+                                page = null
+                            },
+                        )
                         "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")
                         "Drafts" -> DraftsScreen(savedDraft, {
                             draft = savedDraft; warning = savedWarning; warningEnabled = savedWarning.isNotEmpty(); page = "Compose"

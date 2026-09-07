@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
@@ -45,6 +46,7 @@ class FeedViewModel @AssistedInject constructor(
                     posts = posts,
                     ownedPosts = posts.map { OwnedPost(accountId, it) },
                     timelines = source.capabilities.timelines,
+                    canPublish = source.capabilities.canPublish,
                     nextCursor = page.nextCursor,
                 )
             } catch (e: Exception) {
@@ -68,6 +70,17 @@ class FeedViewModel @AssistedInject constructor(
                     loadingMore = false,
                     nextCursor = page.nextCursor?.takeUnless { it == cursor },
                 )
+            } catch (e: Exception) {
+                feedFailure(e)
+            }
+        }
+    }
+
+    fun create(request: CreatePostRequest) {
+        viewModelScope.launch {
+            try {
+                source.create(request)
+                refresh()
             } catch (e: Exception) {
                 feedFailure(e)
             }

@@ -8,6 +8,7 @@ data class FeedState(
     val posts: List<Post> = emptyList(),
     val ownedPosts: List<OwnedPost> = emptyList(),
     val timelines: Set<Timeline> = setOf(Timeline.Home),
+    val canPublish: Boolean = false,
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
     val nextCursor: String? = null,

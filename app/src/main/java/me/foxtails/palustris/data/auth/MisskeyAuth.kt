@@ -34,7 +34,7 @@ class MisskeyAuth(private val apiFor: (String) -> MisskeyApi) : AuthGateway {
         .addPathSegment("miauth").addPathSegment(pending.id)
         .addQueryParameter("name", "Palustris")
         .addQueryParameter("callback", "palustris://auth/misskey")
-        .addQueryParameter("permission", "read:account").build().toString()
+        .addQueryParameter("permission", "read:account write:notes").build().toString()
 
     override suspend fun complete(pending: PendingLogin): LoginSession = try {
         require(pending.isFresh(System.currentTimeMillis())) { "This sign-in has expired. Choose your instance again." }
@@ -46,7 +46,7 @@ class MisskeyAuth(private val apiFor: (String) -> MisskeyApi) : AuthGateway {
         // checks may be single-use, so a second network request could lose a valid token.
         val user = result.getJSONObject("user")
         MisskeyMapper.account(user, pending.origin)
-        LoginSession(pending.origin, token, user)
+        LoginSession(pending.origin, token, user, canPublish = true)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {

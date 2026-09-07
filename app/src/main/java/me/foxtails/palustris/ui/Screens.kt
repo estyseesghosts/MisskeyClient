@@ -116,6 +116,8 @@ fun ComposeScreen(
     warning: String, onWarningChange: (String) -> Unit,
     warningEnabled: Boolean, onWarningEnabled: (Boolean) -> Unit,
     account: Account? = null,
+    canPublish: Boolean = false,
+    onPublish: () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -142,10 +144,10 @@ fun ComposeScreen(
             FilterChip(selected = warningEnabled, onClick = { onWarningEnabled(!warningEnabled) }, label = { Text("Content warning") })
             Text("${text.length} characters", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text("Drafts stay on this device. Publishing and attachments will be available in a future update.",
+        Text(if (canPublish) "Posts will be published to your connected account." else "Publishing is disabled for this account.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(24.dp))
-        Button(onClick = {}, enabled = false, modifier = Modifier.align(Alignment.End)) { Text("Publish") }
+        Button(onClick = onPublish, enabled = canPublish && text.isNotBlank(), modifier = Modifier.align(Alignment.End)) { Text("Publish") }
         Spacer(Modifier.height(24.dp))
     }
 }
