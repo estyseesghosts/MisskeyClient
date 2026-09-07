@@ -159,4 +159,35 @@ class SessionViewModelTest {
             assertEquals(listOf(newLogin.account.id), store.writtenAccountIds)
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
+
+    @Test fun addingAccountKeepsActiveSessionUntilCanceled() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        try {
+            val existingSession = Session(login.account.id, login.token, ServerCapabilities())
+            val store = MemoryStore(existingSession, login.account)
+            val model = AccountManager(store, auth(login), StandardTestDispatcher(testScheduler))
+            owner.put("add", model)
+            advanceUntilIdle()
+
+            model.beginAddAccount()
+            assertTrue(model.session.value.addingAccount)
+            assertEquals(login.account.id, model.session.value.account?.id)
+            model.signIn("https://new.example")
+            advanceUntilIdle()
+
+            assertTrue(model.session.value.pending)
+            assertTrue(model.session.value.addingAccount)
+            assertEquals(existingSession, model.activeSession.value)
+            assertEquals(existingSession, store.sessions[existingSession.accountId])
+
+            model.cancelSignIn()
+            advanceUntilIdle()
+            assertFalse(model.session.value.addingAccount)
+            assertFalse(model.session.value.pending)
+            assertEquals(login.account.id, model.session.value.account?.id)
+            assertEquals(existingSession, model.activeSession.value)
+            assertNull(store.pending)
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
 }

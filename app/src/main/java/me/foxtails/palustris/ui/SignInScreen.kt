@@ -25,6 +25,7 @@ fun ConnectedApp(
     sourceFactory: SocialSourceFactory,
 ) {
     val state by accountManager.session.collectAsStateWithLifecycle()
+    val accountIndex by accountManager.accountIndex.collectAsStateWithLifecycle()
     val activeSession by accountManager.activeSession.collectAsStateWithLifecycle()
     val feedModel = activeSession?.let { session ->
         hiltViewModel<FeedViewModel, FeedViewModel.Factory>(
@@ -48,8 +49,10 @@ fun ConnectedApp(
         state.starting -> PalustrisTheme { Surface(Modifier.fillMaxSize()) {
             Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         } }
-        state.account == null -> PalustrisTheme {
-            SignInScreen(state, accountManager::signIn, accountManager::finishSignIn, accountManager::reopenBrowser, accountManager::signOut)
+        state.account == null || state.addingAccount -> PalustrisTheme {
+            key(state.addingAccount) {
+                SignInScreen(state, accountManager::signIn, accountManager::finishSignIn, accountManager::reopenBrowser, accountManager::cancelSignIn)
+            }
         }
         else -> key(state.account!!.id) {
             PalustrisApp(
@@ -58,6 +61,9 @@ fun ConnectedApp(
                 onRefresh = { timeline -> feedModel?.refresh(timeline) },
                 onLoadMore = { timeline -> feedModel?.loadMore(timeline) },
                 onSignOut = accountManager::signOut,
+                accounts = accountIndex.accounts,
+                onSwitchAccount = accountManager::switchAccount,
+                onAddAccount = accountManager::beginAddAccount,
                 onPublish = { request -> feedModel?.create(request) },
                 ownedPosts = feed.ownedPosts,
             )
@@ -103,10 +109,21 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
                     }
                 }
                 Spacer(Modifier.height(24.dp))
-                Text(if (state.pending) "One more step" else "Welcome!", style = MaterialTheme.typography.headlineLarge)
+                Text(
+                    when {
+                        state.pending -> "One more step"
+                        state.addingAccount -> "Add another account"
+                        else -> "Welcome!"
+                    },
+                    style = MaterialTheme.typography.headlineLarge,
+                )
                 Spacer(Modifier.height(16.dp))
-                Text(if (state.pending) "Approve Palustris in your browser on ${state.origin?.removePrefix("https://")}. Then return here to open your home feed."
-                    else "To get started, enter your home instance’s domain name below.", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    if (state.pending) "Approve Palustris in your browser on ${state.origin?.removePrefix("https://")}. Then return here to open your home feed."
+                    else if (state.addingAccount) "Sign in to another account. Your current account will stay connected."
+                    else "To get started, enter your home instance’s domain name below.",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
                 Spacer(Modifier.height(24.dp))
                 if (!state.pending) {
                     OutlinedTextField(value = domain, onValueChange = { domain = it }, enabled = !state.busy,
@@ -134,7 +151,9 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
                     }
                 } else {
                     OutlinedButton(onClick = onReopen, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Open browser again") }
-                    TextButton(onClick = onCancel, enabled = !state.busy) { Text("Use a different instance") }
+                    TextButton(onClick = onCancel, enabled = !state.busy) {
+                        Text(if (state.addingAccount) "Cancel" else "Use a different instance")
+                    }
                 }
                 state.error?.let {
                     Spacer(Modifier.height(16.dp))

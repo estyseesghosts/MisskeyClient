@@ -23,8 +23,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.data.auth.AccountRef
+import me.foxtails.palustris.data.auth.toAccount
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
@@ -38,6 +41,9 @@ fun PalustrisApp(
     onRefresh: (Timeline) -> Unit = {},
     onLoadMore: (Timeline) -> Unit = {},
     onSignOut: () -> Unit = {},
+    accounts: List<AccountRef> = emptyList(),
+    onSwitchAccount: (AccountId) -> Unit = {},
+    onAddAccount: () -> Unit = {},
     onPublish: (CreatePostRequest) -> Unit = {},
     ownedPosts: List<OwnedPost>? = null,
     onReact: (OwnedPost) -> Unit = {},
@@ -268,9 +274,30 @@ fun PalustrisApp(
             }
             Text(if (account != null) "Timelines are detected from this server" else "Timeline preview", Modifier.padding(24.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            ListItem(headlineContent = { Text(account?.displayName ?: "No accounts connected") },
+            accounts.forEach { accountRef ->
+                val listedAccount = accountRef.toAccount()
+                ListItem(
+                    modifier = Modifier.clickable {
+                        sheet = null
+                        if (accountRef.accountId != account?.id) onSwitchAccount(accountRef.accountId)
+                    },
+                    headlineContent = { Text(accountRef.displayName) },
+                    supportingContent = { Text(accountRef.handle) },
+                    leadingContent = { AccountAvatar(listedAccount, Modifier.size(48.dp)) },
+                    trailingContent = {
+                        if (accountRef.accountId == account?.id) Icon(AppIcons.Check, "Current account")
+                    },
+                )
+            }
+            if (accounts.isEmpty()) ListItem(
+                headlineContent = { Text(account?.displayName ?: "No accounts connected") },
                 supportingContent = { Text(account?.handle ?: "Account connections are not available in this preview.") },
-                leadingContent = { if (account != null) AccountAvatar(account, Modifier.size(48.dp)) else Avatar(Modifier.size(48.dp)) })
+                leadingContent = { if (account != null) AccountAvatar(account, Modifier.size(48.dp)) else Avatar(Modifier.size(48.dp)) },
+            )
+            if (account != null) TextButton(
+                onClick = { sheet = null; onAddAccount() },
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) { Text("Add account") }
             if (account != null) TextButton(onClick = { sheet = null; signOutDialog = true }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Sign out") }
             Spacer(Modifier.height(32.dp))
         }

@@ -27,6 +27,7 @@ data class SessionUi(
     val starting: Boolean = true,
     val busy: Boolean = false,
     val account: Account? = null,
+    val addingAccount: Boolean = false,
     val origin: String? = null,
     val pending: Boolean = false,
     val browserUrl: String? = null,
@@ -68,6 +69,14 @@ class AccountManager @Inject constructor(
                 if (restored != null) {
                     val (session, account) = restored
                     connect(session, account ?: fallbackAccount(session))
+                    if (pending != null) {
+                        _session.value = _session.value.copy(
+                            addingAccount = true,
+                            pending = true,
+                            origin = pending?.origin,
+                        )
+                    }
+                    deferredCallback?.let(::callback)
                 } else {
                     _session.value = SessionUi(starting = false, pending = pending != null, origin = pending?.origin)
                     deferredCallback?.let(::callback)
@@ -82,7 +91,7 @@ class AccountManager @Inject constructor(
     fun signIn(input: String) {
         if (_session.value.busy) return
         authJob = viewModelScope.launch {
-            _session.value = _session.value.copy(busy = true, error = null)
+            _session.value = _session.value.copy(busy = true, error = null, addingAccount = _activeSession.value != null)
             try {
                 val next = auth.prepare(input)
                 withContext(ioDispatcher) { store.writePending(next) }
@@ -90,6 +99,11 @@ class AccountManager @Inject constructor(
                 _session.value = SessionUi(
                     starting = false,
                     pending = true,
+                    account = _activeSession.value?.let { active ->
+                        _accountIndex.value.accounts.firstOrNull { it.accountId == active.accountId }?.toAccount()
+                            ?: fallbackAccount(active)
+                    },
+                    addingAccount = _activeSession.value != null,
                     origin = next.origin,
                     browserUrl = auth.browserUrl(next),
                 )
@@ -110,6 +124,31 @@ class AccountManager @Inject constructor(
 
     fun reopenBrowser() {
         pending?.let { _session.value = _session.value.copy(browserUrl = auth.browserUrl(it), error = null) }
+    }
+
+    fun beginAddAccount() {
+        if (_session.value.busy || _activeSession.value == null) return
+        _session.value = _session.value.copy(addingAccount = true, pending = false, error = null)
+    }
+
+    fun cancelSignIn() {
+        authJob?.cancel()
+        pending = null
+        deferredCallback = null
+        viewModelScope.launch {
+            withContext(ioDispatcher) { store.clearPending() }
+            val active = _activeSession.value
+            if (active == null) {
+                _session.value = SessionUi(starting = false)
+            } else {
+                _session.value = SessionUi(
+                    starting = false,
+                    account = _accountIndex.value.accounts.firstOrNull { it.accountId == active.accountId }?.toAccount()
+                        ?: fallbackAccount(active),
+                    origin = active.accountId.connection.origin,
+                )
+            }
+        }
     }
 
     fun callback(value: String) {

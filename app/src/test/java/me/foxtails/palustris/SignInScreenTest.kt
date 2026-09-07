@@ -7,6 +7,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.ui.*
 import me.foxtails.palustris.domain.*
+import me.foxtails.palustris.data.auth.AccountRef
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -78,5 +79,28 @@ class SignInScreenTest {
 
         compose.onNodeWithText("React").performClick()
         assertEquals(account.id, reactedPost?.fetchedBy)
+    }
+
+    @Test fun accountsSheetListsAccountsAndStartsAddAccountFlow() {
+        val current = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "current"), "Current", "@current@example.org")
+        val other = Account(AccountId(Connection("https://other.example", Protocol.MISSKEY), "other"), "Other", "@other@other.example")
+        var addRequested = false
+        var switchedTo: AccountId? = null
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(
+                account = current,
+                accounts = listOf(AccountRef(current.id, current.handle, null, current.displayName), AccountRef(other.id, other.handle, null, other.displayName)),
+                onAddAccount = { addRequested = true },
+                onSwitchAccount = { switchedTo = it },
+            )
+        } }
+
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription("Accounts").performClick()
+        compose.onNodeWithText("Other").performClick()
+        assertEquals(other.id, switchedTo)
+        compose.onNodeWithContentDescription("Accounts").performClick()
+        compose.onNodeWithText("Add account").performClick()
+        assertEquals(true, addRequested)
     }
 }
