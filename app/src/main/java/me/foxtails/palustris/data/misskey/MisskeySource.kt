@@ -89,6 +89,11 @@ class MisskeySource(
         MisskeyMapper.post(response.getJSONObject("createdNote"), origin)
     }
 
+    override suspend fun updateProfile(profile: UpdateProfileRequest) = request {
+        val body = JSONObject().put("i", token).put("name", profile.displayName).put("description", profile.biography)
+        MisskeyMapper.account(JSONObject(api.post(origin, "i/update", body).body), origin)
+    }
+
     override suspend fun delete(id: EntityId) = request {
         api.post(origin, "notes/delete", JSONObject().put("i", token).put("noteId", id.value))
         Unit

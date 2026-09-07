@@ -18,6 +18,7 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.UpdateProfileRequest
 
 @HiltViewModel(assistedFactory = FeedViewModel.Factory::class)
 class FeedViewModel @AssistedInject constructor(
@@ -110,6 +111,22 @@ class FeedViewModel @AssistedInject constructor(
                 _feed.value = _feed.value.copy(publishing = false, error = null)
                 onSuccess()
                 refresh()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _feed.value = _feed.value.copy(publishing = false)
+                feedFailure(e)
+            }
+        }
+    }
+
+    fun updateProfile(request: UpdateProfileRequest, onSuccess: (me.foxtails.palustris.domain.Account) -> Unit = {}) {
+        if (stopped || publishJob?.isActive == true) return
+        publishJob = viewModelScope.launch {
+            _feed.value = _feed.value.copy(publishing = true, error = null)
+            try {
+                val account = source.updateProfile(request)
+                _feed.value = _feed.value.copy(publishing = false, error = null)
+                onSuccess(account)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 _feed.value = _feed.value.copy(publishing = false)

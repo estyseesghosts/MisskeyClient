@@ -85,15 +85,14 @@ class NavigationTest {
         compose.onNodeWithText("No drafts yet").assertIsDisplayed()
     }
 
-    @Test fun closingComposerProtectsUnsavedText() {
+    @Test fun closingComposerAutosavesUnsavedText() {
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithContentDescription("Post text").performTextInput("Unsaved")
         compose.onNodeWithContentDescription("Close composer").performClick()
-        compose.onNodeWithText("Keep editing").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription("Drafts").performClick()
         compose.onNodeWithText("Unsaved").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Close composer").performClick()
-        compose.onNodeWithText("Discard", substring = false).performClick()
-        compose.onNodeWithText("Your timeline starts here").assertIsDisplayed()
     }
 
     @Test fun contextualActionsFollowSelectedDestination() {
@@ -101,20 +100,18 @@ class NavigationTest {
         compose.onNodeWithContentDescription("Edit profile").assertDoesNotExist()
 
         compose.onNodeWithContentDescription("Search").performClick()
-        compose.onNodeWithContentDescription("Search action unavailable").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Direct messages").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Alternate search").assertIsEnabled().performClick()
+        compose.onNodeWithText("Alternate search").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("Notifications").performClick()
         compose.onNodeWithContentDescription("Direct messages").assertIsEnabled().performClick()
         compose.onNodeWithText("Direct messages coming soon").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Back").performClick()
-        compose.onNodeWithContentDescription("Direct messages").assertIsDisplayed()
+        compose.onAllNodesWithContentDescription("Notifications").onLast().assertIsEnabled().performClick()
+        compose.onNodeWithText("All caught up").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("Profile").performClick()
         compose.onNodeWithContentDescription("Edit profile").assertIsEnabled().performClick()
-        compose.onNodeWithText("Edit profile coming soon").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Back").performClick()
-        compose.onNodeWithContentDescription("Edit profile").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Profile").assertIsSelected()
     }
 
     @Test fun profileAvatarLongPressOpensExistingAccountSwitcher() {

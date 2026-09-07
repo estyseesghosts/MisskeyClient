@@ -22,6 +22,7 @@ import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
+import org.json.JSONObject
 
 data class SessionUi(
     val starting: Boolean = true,
@@ -254,6 +255,23 @@ class AccountManager @Inject constructor(
         }
     }
 
+    fun updateAccount(account: Account) {
+        if (_activeSession.value?.accountId != account.id) return
+        viewModelScope.launch {
+            try {
+                withContext(ioDispatcher) {
+                    val index = store.readIndex()
+                    store.writeIndex(index.withAccount(account))
+                    store.writeProfile(account.id, account.toProfileJson())
+                    _accountIndex.value = index.withAccount(account)
+                }
+                _session.value = _session.value.copy(account = account)
+            } catch (e: Exception) {
+                failAuth(e)
+            }
+        }
+    }
+
     private fun connect(value: Session, account: Account) {
         sessionGeneration += 1L
         _activeSession.value = value
@@ -282,6 +300,17 @@ class AccountManager @Inject constructor(
 }
 
 private fun AccountIndex.withAccount(account: Account): AccountIndex {
-    val ref = AccountRef(account.id, account.handle, account.avatarUrl, account.displayName)
+    val ref = AccountRef(account.id, account.handle, account.avatarUrl, account.displayName, biography = account.biography)
     return copy(accounts = accounts.filterNot { it.accountId == account.id } + ref)
+}
+
+private fun Account.toProfileJson(): JSONObject = JSONObject().apply {
+    put("id", id.localId)
+    put("username", handle.removePrefix("@").substringBefore('@'))
+    put("host", handle.removePrefix("@").substringAfter('@', id.connection.origin.removePrefix("https://")))
+    put("name", displayName)
+    put("display_name", displayName)
+    put("description", biography)
+    put("note", biography)
+    avatarUrl?.let { put("avatarUrl", it); put("avatar", it) }
 }

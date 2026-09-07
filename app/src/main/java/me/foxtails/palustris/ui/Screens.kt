@@ -19,7 +19,11 @@ import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
 
 @Composable
-fun SearchScreen() {
+fun SearchScreen(mode: SearchPanel = SearchPanel.Search) {
+    if (mode == SearchPanel.Alternate) {
+        EmptyState(AppIcons.WaffleGrid, "Alternate search", "A second search surface will be available in a future update.")
+        return
+    }
     var query by rememberSaveable { mutableStateOf("") }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val sections = listOf("Posts", "Hashtags", "News", "For you")
@@ -76,8 +80,34 @@ fun MessagesScreen() {
 }
 
 @Composable
-fun EditProfileScreen() {
-    EmptyState(AppIcons.PersonEdit, "Edit profile coming soon", "Profile editing and saving will be available in a future update.")
+fun EditProfileScreen(
+    account: Account,
+    displayName: String,
+    biography: String,
+    saving: Boolean,
+    error: String?,
+    onDisplayNameChange: (String) -> Unit,
+    onBiographyChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Edit profile", style = MaterialTheme.typography.headlineSmall)
+            TextButton(onClick = onClose) { Text("Close") }
+        }
+        Text(account.handle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(16.dp))
+        OutlinedTextField(displayName, onDisplayNameChange, label = { Text("Display name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(account.handle, {}, label = { Text("Handle") }, modifier = Modifier.fillMaxWidth(), enabled = false, singleLine = true)
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(biography, onBiographyChange, label = { Text("Biography") }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), minLines = 4)
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp)) }
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = onSave, enabled = !saving && displayName.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text(if (saving) "Saving…" else "Save profile") }
+        Spacer(Modifier.height(24.dp))
+    }
 }
 
 @Composable
@@ -171,23 +201,26 @@ fun ComposeScreen(
 }
 
 @Composable
-fun DraftsScreen(draft: String, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun DraftsScreen(drafts: List<me.foxtails.palustris.domain.PostDraft>, onEdit: (me.foxtails.palustris.domain.PostDraft) -> Unit, onDelete: (me.foxtails.palustris.domain.PostDraft) -> Unit) {
     var confirmDelete by remember { mutableStateOf(false) }
-    if (draft.isBlank()) EmptyState(AppIcons.Folder, "No drafts yet", "Save a post while composing to finish it later.")
+    var pendingDelete by remember { mutableStateOf<me.foxtails.palustris.domain.PostDraft?>(null) }
+    if (drafts.isEmpty()) EmptyState(AppIcons.Folder, "No drafts yet", "Save a post while composing to finish it later.")
     else Column(Modifier.fillMaxSize().padding(16.dp)) {
-        ElevatedCard(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(20.dp)) {
-                Text("Local draft", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(12.dp))
-                Text(draft, maxLines = 5, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(12.dp))
-                Text("Tap to continue editing", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        drafts.forEach { draft ->
+            ElevatedCard(onClick = { onEdit(draft) }, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                Column(Modifier.padding(20.dp)) {
+                    Text("Draft", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(12.dp))
+                    Text(draft.text.ifBlank { draft.contentWarning.orEmpty() }, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(12.dp))
+                    Text("Tap to continue editing", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { pendingDelete = draft; confirmDelete = true }, modifier = Modifier.align(Alignment.End)) { Text("Delete draft") }
+                }
             }
         }
-        TextButton(onClick = { confirmDelete = true }, modifier = Modifier.align(Alignment.End)) { Text("Delete draft") }
     }
     if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false },
         title = { Text("Delete draft?") }, text = { Text("This draft will be removed from this device.") },
-        confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete") } },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; pendingDelete?.let(onDelete); pendingDelete = null }) { Text("Delete") } },
         dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } })
 }

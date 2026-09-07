@@ -13,6 +13,7 @@ data class AccountRef(
     val avatarUrl: String?,
     val displayName: String,
     val protocol: Protocol = accountId.connection.protocol,
+    val biography: String = "",
 )
 
 data class AccountIndex(
@@ -22,7 +23,7 @@ data class AccountIndex(
     val schemaVersion: Int = version,
 )
 
-fun AccountRef.toAccount(): Account = Account(accountId, displayName, handle, avatarUrl)
+fun AccountRef.toAccount(): Account = Account(accountId, displayName, handle, avatarUrl, biography)
 
 internal fun AccountId.toIndexJson(): JSONObject = JSONObject()
     .put("origin", connection.origin)

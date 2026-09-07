@@ -15,6 +15,8 @@ import me.foxtails.palustris.data.auth.AppRegistrationCache
 import me.foxtails.palustris.data.auth.AuthGateway
 import me.foxtails.palustris.data.auth.DetectingAuthGateway
 import me.foxtails.palustris.data.auth.EncryptedSessionStore
+import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.auth.EncryptedDraftStore
 import me.foxtails.palustris.data.auth.MastodonAuth
 import me.foxtails.palustris.data.auth.MisskeyAuth
 import me.foxtails.palustris.data.auth.SessionStore
@@ -67,6 +69,10 @@ object StorageModule {
     @Provides
     @Singleton
     fun provideSessionStore(@ApplicationContext context: Context): SessionStore = EncryptedSessionStore(context)
+
+    @Provides
+    @Singleton
+    fun provideDraftStore(@ApplicationContext context: Context): DraftStore = EncryptedDraftStore(context)
 }
 
 @Module

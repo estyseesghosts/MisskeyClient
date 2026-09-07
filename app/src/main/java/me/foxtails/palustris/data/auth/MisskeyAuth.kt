@@ -34,7 +34,7 @@ class MisskeyAuth(private val apiFor: (String) -> MisskeyApi) : AuthGateway {
         .addPathSegment("miauth").addPathSegment(pending.id)
         .addQueryParameter("name", "Palustris")
         .addQueryParameter("callback", "palustris://auth/misskey")
-        .addQueryParameter("permission", "read:account,write:notes").build().toString()
+        .addQueryParameter("permission", "read:account,write:account,write:notes").build().toString()
 
     override suspend fun complete(pending: PendingLogin): LoginSession = try {
         require(pending.isFresh(System.currentTimeMillis())) { "This sign-in has expired. Choose your instance again." }

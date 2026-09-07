@@ -1,0 +1,129 @@
+package me.foxtails.palustris.data.auth
+
+import android.content.Context
+import android.content.SharedPreferences
+import android.util.AtomicFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Attachment
+import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.PollRequest
+import me.foxtails.palustris.domain.PostDraft
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.util.Base64
+import javax.crypto.SecretKey
+
+interface DraftStore {
+    suspend fun list(accountId: AccountId?): List<PostDraft>
+    suspend fun save(draft: PostDraft)
+    suspend fun delete(accountId: AccountId?, draftId: String)
+    suspend fun deleteAll(accountId: AccountId?)
+    suspend fun migrateLegacy(accountId: AccountId?, preferences: SharedPreferences)
+}
+
+/** Draft payloads use the same encrypted account storage key and never enter the account index. */
+class EncryptedDraftStore private constructor(
+    context: Context,
+    private val accountFiles: AccountFileStore,
+) : DraftStore {
+    constructor(context: Context) : this(context, AccountFileStore(context))
+    internal constructor(context: Context, key: SecretKey) : this(context, AccountFileStore(context, key))
+
+    private val directory = File(context.noBackupFilesDir, "drafts")
+
+    override suspend fun list(accountId: AccountId?): List<PostDraft> = withContext(Dispatchers.IO) {
+        directory.listFiles().orEmpty().mapNotNull { file ->
+            runCatching { accountFiles.readJson(file).toDraft() }.getOrNull()
+                ?.takeIf { it.accountId == accountId }
+        }.sortedByDescending(PostDraft::updatedAt)
+    }
+
+    override suspend fun save(draft: PostDraft) = withContext(Dispatchers.IO) {
+        require(draft.accountId != null) { "A draft must belong to an account before it can be stored." }
+        accountFiles.writeJson(fileFor(draft.accountId, draft.id), draft.toJson())
+    }
+
+    override suspend fun delete(accountId: AccountId?, draftId: String) = withContext(Dispatchers.IO) {
+        AtomicFile(fileFor(accountId, draftId)).delete()
+    }
+
+    override suspend fun deleteAll(accountId: AccountId?) = withContext(Dispatchers.IO) {
+        directory.listFiles().orEmpty().forEach { file ->
+            runCatching { accountFiles.readJson(file).toDraft() }
+                .getOrNull()?.takeIf { it.accountId == accountId }?.let { AtomicFile(file).delete() }
+        }
+    }
+
+    override suspend fun migrateLegacy(accountId: AccountId?, preferences: SharedPreferences) {
+        if (accountId == null || preferences.getBoolean("migrated_v2", false)) return
+        val text = preferences.getString("text", "").orEmpty()
+        val warning = preferences.getString("warning", "").orEmpty()
+        if (text.isNotBlank() || warning.isNotBlank()) {
+            save(PostDraft(accountId = accountId, text = text, contentWarning = warning.takeIf { it.isNotBlank() }))
+        }
+        preferences.edit().putBoolean("migrated_v2", true).remove("text").remove("warning").apply()
+    }
+
+    private fun fileFor(accountId: AccountId?, id: String): File {
+        val value = "${accountId?.connection?.origin.orEmpty()}\u0000${accountId?.localId.orEmpty()}\u0000$id"
+        val name = Base64.getUrlEncoder().withoutPadding().encodeToString(value.toByteArray(Charsets.UTF_8))
+        return File(directory, "$name.enc")
+    }
+}
+
+/** Keeps compose-only previews and unit tests deterministic without touching Android Keystore. */
+class InMemoryDraftStore : DraftStore {
+    private val drafts = linkedMapOf<String, PostDraft>()
+    override suspend fun list(accountId: AccountId?): List<PostDraft> = drafts.values.filter { it.accountId == accountId }.sortedByDescending(PostDraft::updatedAt)
+    override suspend fun save(draft: PostDraft) { drafts[draft.id] = draft }
+    override suspend fun delete(accountId: AccountId?, draftId: String) { drafts.remove(draftId)?.takeIf { it.accountId == accountId } }
+    override suspend fun deleteAll(accountId: AccountId?) { drafts.entries.removeIf { it.value.accountId == accountId } }
+    override suspend fun migrateLegacy(accountId: AccountId?, preferences: SharedPreferences) {
+        if (accountId != null && !preferences.getBoolean("migrated_v2", false)) {
+            val text = preferences.getString("text", "").orEmpty()
+            val warning = preferences.getString("warning", "").orEmpty()
+            if (text.isNotBlank() || warning.isNotBlank()) save(PostDraft(accountId = accountId, text = text, contentWarning = warning.takeIf { it.isNotBlank() }))
+            preferences.edit().putBoolean("migrated_v2", true).remove("text").remove("warning").apply()
+        }
+    }
+}
+
+/** Used only when PalustrisApp is rendered directly by previews and UI tests. */
+class PreferencesDraftStore(private val preferences: SharedPreferences) : DraftStore {
+    private val legacyId = "legacy-local-draft"
+    override suspend fun list(accountId: AccountId?): List<PostDraft> {
+        val text = preferences.getString("text", "").orEmpty()
+        val warning = preferences.getString("warning", "").orEmpty()
+        return if (text.isBlank() && warning.isBlank()) emptyList()
+        else listOf(PostDraft(legacyId, accountId, text, contentWarning = warning.takeIf { it.isNotBlank() }))
+    }
+    override suspend fun save(draft: PostDraft) {
+        preferences.edit().putString("text", draft.text).putString("warning", draft.contentWarning.orEmpty()).apply()
+    }
+    override suspend fun delete(accountId: AccountId?, draftId: String) {
+        if (draftId == legacyId) preferences.edit().remove("text").remove("warning").apply()
+    }
+    override suspend fun deleteAll(accountId: AccountId?) = delete(accountId, legacyId)
+    override suspend fun migrateLegacy(accountId: AccountId?, preferences: SharedPreferences) = Unit
+}
+
+private fun PostDraft.toJson() = JSONObject()
+    .put("id", id).put("origin", accountId?.connection?.origin).put("localId", accountId?.localId)
+    .put("protocol", accountId?.connection?.protocol?.name).put("text", text).put("audience", audience.name)
+    .put("contentWarning", contentWarning).put("replyTo", replyTo?.value).put("quoteOf", quoteOf?.value)
+    .put("updatedAt", updatedAt)
+    .put("attachments", JSONArray(attachments.map { JSONObject().put("url", it.url).put("mimeType", it.mimeType).put("description", it.description).put("previewUrl", it.previewUrl).put("sensitive", it.sensitive) }))
+    .put("poll", poll?.let { JSONObject().put("choices", JSONArray(it.choices)).put("multiple", it.multiple).put("expiresAt", it.expiresAt?.toEpochMilli()) })
+
+private fun JSONObject.toDraft(): PostDraft {
+    val origin = optString("origin").takeIf { it.isNotBlank() }
+    val accountId = if (origin == null || isNull("localId") || isNull("protocol")) null else AccountId(me.foxtails.palustris.domain.Connection(origin, me.foxtails.palustris.domain.Protocol.valueOf(getString("protocol"))), getString("localId"))
+    val attachments = optJSONArray("attachments")?.let { array -> (0 until array.length()).map { index -> array.getJSONObject(index).let { Attachment(it.getString("url"), it.getString("mimeType"), it.optString("description").takeIf(String::isNotBlank), it.optString("previewUrl").takeIf(String::isNotBlank), it.optBoolean("sensitive")) } } }.orEmpty()
+    val pollJson = optJSONObject("poll")
+    val poll = pollJson?.let { PollRequest((0 until it.getJSONArray("choices").length()).map(it.getJSONArray("choices")::getString), it.optBoolean("multiple"), it.optLong("expiresAt").takeIf { value -> value > 0 }?.let(java.time.Instant::ofEpochMilli)) }
+    return PostDraft(getString("id"), accountId, optString("text"), Audience.valueOf(optString("audience", Audience.Public.name)), optString("contentWarning").takeIf(String::isNotBlank), optString("replyTo").takeIf(String::isNotBlank)?.let { EntityId(origin.orEmpty(), it) }, optString("quoteOf").takeIf(String::isNotBlank)?.let { EntityId(origin.orEmpty(), it) }, attachments, poll, optLong("updatedAt"))
+}

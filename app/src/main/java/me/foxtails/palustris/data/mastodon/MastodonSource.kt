@@ -23,6 +23,7 @@ import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.UpdateProfileRequest
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -75,6 +76,14 @@ class MastodonSource(
             post.replyTo?.let { add("in_reply_to_id" to it.value) }
         }
         MastodonMapper.post(api.postForm(origin, "api/v1/statuses", fields, token).body.toJson(), origin)
+    }
+
+    override suspend fun updateProfile(profile: UpdateProfileRequest) = request {
+        val response = api.patchForm(origin, "api/v1/accounts/update_credentials", listOf(
+            "display_name" to profile.displayName,
+            "note" to profile.biography,
+        ), token)
+        MastodonMapper.account(response.body.toJson(), origin)
     }
 
     override suspend fun favorite(id: EntityId) = request {

@@ -17,8 +17,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -31,17 +31,30 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import me.foxtails.palustris.domain.Timeline
+import kotlinx.coroutines.launch
+import me.foxtails.palustris.data.auth.AccountRef
+import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.auth.PreferencesDraftStore
+import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.OwnedPost
-import me.foxtails.palustris.data.auth.AccountRef
-import me.foxtails.palustris.data.auth.toAccount
+import me.foxtails.palustris.domain.PostDraft
+import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.UpdateProfileRequest
+import java.util.UUID
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
     Notifications("Notifications", AppIcons.Notifications), Profile("Profile", AppIcons.Person),
+}
+
+private enum class NotificationsPanel { Notifications, DirectMessages }
+enum class SearchPanel { Search, Alternate }
+private sealed interface Overlay {
+    data object Composer : Overlay
+    data object EditProfile : Overlay
 }
 
 private data class ContextualBottomAction(
@@ -53,13 +66,24 @@ private data class ContextualBottomAction(
 
 private fun contextualActionFor(
     destination: Destination,
+    searchPanel: SearchPanel,
+    notificationsPanel: NotificationsPanel,
     onCompose: () -> Unit,
-    onMessages: () -> Unit,
+    onSearchToggle: () -> Unit,
+    onNotificationsToggle: () -> Unit,
     onEditProfile: () -> Unit,
 ): ContextualBottomAction = when (destination) {
     Destination.Home -> ContextualBottomAction(AppIcons.Compose, "Compose post", true, onCompose)
-    Destination.Search -> ContextualBottomAction(AppIcons.Unavailable, "Search action unavailable", false, {})
-    Destination.Notifications -> ContextualBottomAction(AppIcons.Chat, "Direct messages", true, onMessages)
+    Destination.Search -> if (searchPanel == SearchPanel.Search) {
+        ContextualBottomAction(AppIcons.WaffleGrid, "Alternate search", true, onSearchToggle)
+    } else {
+        ContextualBottomAction(AppIcons.Search, "Search", true, onSearchToggle)
+    }
+    Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) {
+        ContextualBottomAction(AppIcons.Chat, "Direct messages", true, onNotificationsToggle)
+    } else {
+        ContextualBottomAction(AppIcons.Notifications, "Notifications", true, onNotificationsToggle)
+    }
     Destination.Profile -> ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", true, onEditProfile)
 }
 
@@ -71,82 +95,26 @@ private fun CompactContextualNavigationBar(
     onOpenAccounts: () -> Unit,
     onDestinationSelected: (Destination) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().height(60.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Surface(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
-            shadowElevation = 6.dp,
-        ) {
-            Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+    Row(Modifier.widthIn(max = 480.dp).fillMaxWidth().height(60.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(Modifier.weight(1f).fillMaxHeight(), CircleShape, MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f), shadowElevation = 6.dp) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 Destination.entries.forEach { item ->
                     val selected = destination == item
-                    Box(
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (selected) {
-                            Surface(
-                                modifier = Modifier.size(40.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                            ) {}
-                        }
+                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                        if (selected) Surface(Modifier.size(40.dp), CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {}
                         val itemModifier = if (item == Destination.Profile) {
-                            Modifier.size(48.dp).combinedClickable(
-                                onClick = { onDestinationSelected(item) },
-                                onLongClick = onOpenAccounts,
-                            )
-                        } else {
-                            Modifier.size(48.dp).clickable { onDestinationSelected(item) }
-                        }
-                        Box(
-                            modifier = itemModifier.semantics {
-                                contentDescription = item.label
-                                this.selected = selected
-                                role = Role.Tab
-                            },
-                            contentAlignment = Alignment.Center,
-                        ) {
+                            Modifier.size(48.dp).combinedClickable(onClick = { onDestinationSelected(item) }, onLongClick = onOpenAccounts)
+                        } else Modifier.size(48.dp).clickable { onDestinationSelected(item) }
+                        Box(itemModifier.semantics { contentDescription = item.label; this.selected = selected; role = Role.Tab }, contentAlignment = Alignment.Center) {
                             if (item == Destination.Profile) {
-                                if (account != null) AccountAvatar(account, Modifier.size(30.dp), exposeSemantics = false)
-                                else Avatar(Modifier.size(30.dp), description = null)
-                            } else {
-                                Icon(
-                                    item.icon,
-                                    contentDescription = null,
-                                    tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                                if (account != null) AccountAvatar(account, Modifier.size(30.dp), exposeSemantics = false) else Avatar(Modifier.size(30.dp), description = null)
+                            } else Icon(item.icon, null, tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
         }
-        FilledIconButton(
-            onClick = action.onClick,
-            enabled = action.enabled,
-            modifier = Modifier.size(52.dp).semantics {
-                contentDescription = action.contentDescription
-            },
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
-        ) {
-            Icon(action.icon, contentDescription = null)
-        }
+        FilledIconButton(onClick = action.onClick, enabled = action.enabled, modifier = Modifier.size(52.dp).semantics { contentDescription = action.contentDescription }, colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer, disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest, disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant)) { Icon(action.icon, null) }
     }
 }
 
@@ -161,6 +129,8 @@ fun PalustrisApp(
     onSwitchAccount: (AccountId) -> Unit = {},
     onAddAccount: () -> Unit = {},
     onPublish: (CreatePostRequest, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
+    onUpdateProfile: (UpdateProfileRequest, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
+    draftStore: DraftStore? = null,
     ownedPosts: List<OwnedPost>? = null,
     onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
@@ -169,277 +139,166 @@ fun PalustrisApp(
     onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
 ) = PalustrisTheme {
     val context = LocalContext.current
-    val preferences = remember { context.getSharedPreferences("local_draft", Context.MODE_PRIVATE) }
+    val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
+    val scope = rememberCoroutineScope()
     var destination by rememberSaveable { mutableStateOf(Destination.Home) }
     var timeline by rememberSaveable { mutableStateOf(Timeline.Home) }
     var page by rememberSaveable { mutableStateOf<String?>(null) }
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
+    var overlayKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var searchPanelName by rememberSaveable { mutableStateOf(SearchPanel.Search.name) }
+    var notificationsPanelName by rememberSaveable { mutableStateOf(NotificationsPanel.Notifications.name) }
+    val searchPanel = SearchPanel.valueOf(searchPanelName)
+    val notificationsPanel = NotificationsPanel.valueOf(notificationsPanelName)
     val screenStates = rememberSaveableStateHolder()
-    var savedDraft by rememberSaveable { mutableStateOf(preferences.getString("text", "").orEmpty()) }
-    var draft by rememberSaveable { mutableStateOf(savedDraft) }
-    var savedWarning by rememberSaveable { mutableStateOf(preferences.getString("warning", "").orEmpty()) }
-    var warning by rememberSaveable { mutableStateOf(savedWarning) }
-    var warningEnabled by rememberSaveable { mutableStateOf(savedWarning.isNotEmpty()) }
-    var discardDialog by rememberSaveable { mutableStateOf(false) }
+    var drafts by remember { mutableStateOf<List<PostDraft>>(emptyList()) }
+    var draftId by rememberSaveable { mutableStateOf<String?>(null) }
+    var draft by rememberSaveable { mutableStateOf("") }
+    var savedDraft by rememberSaveable { mutableStateOf("") }
+    var warning by rememberSaveable { mutableStateOf("") }
+    var savedWarning by rememberSaveable { mutableStateOf("") }
+    var warningEnabled by rememberSaveable { mutableStateOf(false) }
+    var draftError by rememberSaveable { mutableStateOf<String?>(null) }
+    var profileName by rememberSaveable { mutableStateOf("") }
+    var profileBiography by rememberSaveable { mutableStateOf("") }
+    var profileDialog by rememberSaveable { mutableStateOf(false) }
     var signOutDialog by remember { mutableStateOf(false) }
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
+    var closing by remember { mutableStateOf(false) }
+    val overlay = when (overlayKey) { "Composer" -> Overlay.Composer; "EditProfile" -> Overlay.EditProfile; else -> null }
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
-    val hasChanges = draft != savedDraft || (if (warningEnabled) warning else "") != savedWarning
-    val closeComposer = { if (feedState?.publishing == true) Unit else if (hasChanges) discardDialog = true else page = null }
+    val hasDraftChanges = draft != savedDraft || (if (warningEnabled) warning else "") != savedWarning
+    val profileDirty = account != null && (profileName != account.displayName || profileBiography != account.biography)
 
-    LaunchedEffect(destination, page) { navigationVisible = true }
-    LaunchedEffect(availableTimelines) {
-        if (timeline !in availableTimelines) {
-            timeline = Timeline.Home
-        }
-    }
-    LaunchedEffect(feedState?.timeline, account?.id) {
-        feedState?.timeline?.let { timeline = it }
+    suspend fun reloadDrafts() {
+        drafts = runCatching {
+            store.migrateLegacy(account?.id, context.getSharedPreferences("local_draft", Context.MODE_PRIVATE))
+            store.list(account?.id)
+        }.getOrElse { emptyList() }
     }
 
-    BackHandler(enabled = page != null || destination != Destination.Home) {
-        when {
-            page == "Compose" -> closeComposer()
-            page != null -> page = null
-            else -> destination = Destination.Home
+    LaunchedEffect(account?.id, store) { reloadDrafts() }
+    LaunchedEffect(overlayKey, account?.id) { if (overlay == Overlay.EditProfile && account != null) { profileName = account.displayName; profileBiography = account.biography } }
+    LaunchedEffect(availableTimelines) { if (timeline !in availableTimelines) timeline = Timeline.Home }
+    LaunchedEffect(feedState?.timeline, account?.id) { feedState?.timeline?.let { timeline = it } }
+    LaunchedEffect(destination, page, overlayKey) { navigationVisible = true }
+
+    fun loadDraft(item: PostDraft) {
+        draftId = item.id; draft = item.text; savedDraft = item.text; warning = item.contentWarning.orEmpty(); savedWarning = item.contentWarning.orEmpty(); warningEnabled = !item.contentWarning.isNullOrBlank(); draftError = null; overlayKey = Overlay.Composer::class.simpleName
+    }
+    fun openComposer() {
+        if (overlay == Overlay.Composer) return
+        val first = drafts.firstOrNull()
+        if (draft.isBlank() && savedDraft.isBlank() && first != null) loadDraft(first) else overlayKey = Overlay.Composer::class.simpleName
+    }
+    fun draftValue() = PostDraft(id = draftId ?: UUID.randomUUID().toString(), accountId = account?.id, text = draft, contentWarning = warning.takeIf { warningEnabled && it.isNotBlank() })
+    fun saveCurrentDraft(onSaved: () -> Unit = {}) {
+        if (draft.isBlank() && warning.isBlank()) { onSaved(); return }
+        scope.launch {
+            closing = true
+            runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }
+                .onSuccess { item -> draftId = item.id; savedDraft = item.text; savedWarning = item.contentWarning.orEmpty(); draftError = null; onSaved() }
+                .onFailure { draftError = "Draft could not be saved. Keep editing and try again." }
+            closing = false
         }
+    }
+    fun closeComposer() { if (feedState?.publishing == true || closing) return; if (hasDraftChanges) saveCurrentDraft { overlayKey = null } else overlayKey = null }
+    fun closeProfile() { if (feedState?.publishing == true) return; if (profileDirty) profileDialog = true else overlayKey = null }
+
+    BackHandler(enabled = overlay != null || page != null || destination != Destination.Home) {
+        when { overlay == Overlay.Composer -> closeComposer(); overlay == Overlay.EditProfile -> closeProfile(); page != null -> page = null; else -> destination = Destination.Home }
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 600.dp
         Row(Modifier.fillMaxSize()) {
-            if (wide && page != "Compose") {
-                NavigationRail(Modifier.fillMaxHeight(), header = {
-                    FloatingActionButton(onClick = { page = "Compose" }, modifier = Modifier.padding(vertical = 16.dp)) {
-                        Icon(AppIcons.Edit, "Compose post")
-                    }
-                }) {
-                    Destination.entries.forEach { item ->
-                        NavigationRailItem(selected = destination == item, onClick = { destination = item; page = null },
-                            icon = { Icon(item.icon, item.label) }, label = { Text(item.label) })
-                    }
-                }
+            if (wide) NavigationRail(Modifier.fillMaxHeight(), header = { FloatingActionButton(onClick = ::openComposer, modifier = Modifier.padding(vertical = 16.dp)) { Icon(AppIcons.Edit, "Compose post") } }) {
+                Destination.entries.forEach { item -> NavigationRailItem(selected = destination == item, onClick = { destination = item; page = null }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) }) }
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                topBar = {
+                Scaffold(modifier = Modifier.fillMaxSize(), topBar = {
                     when {
-                        page == "Compose" -> TopAppBar(
-                            title = { Text("New post") },
-                            navigationIcon = { ActionIcon(AppIcons.Close, "Close composer", closeComposer) },
-                            actions = {
-                                TextButton(enabled = draft.isNotBlank(), onClick = {
-                                    savedDraft = draft
-                                    savedWarning = if (warningEnabled) warning else ""
-                                    preferences.edit().putString("text", savedDraft).putString("warning", savedWarning).apply()
-                                    page = "Drafts"
-                                }) { Text("Save draft") }
-                            },
-                        )
-                        page != null -> TopAppBar(title = { Text(page!!) }, navigationIcon = {
-                            ActionIcon(AppIcons.Back, "Back", { page = null })
-                        })
-                        destination == Destination.Notifications -> TopAppBar(title = { Text("Notifications") })
-                        destination == Destination.Profile -> TopAppBar(
-                            title = { Column { Text(account?.displayName ?: "Your profile"); Text(account?.handle ?: "0 posts", style = MaterialTheme.typography.bodyMedium, maxLines = 1) } },
-                            actions = {
-                                ActionIcon(AppIcons.Bookmark, "Bookmarks", { page = "Bookmarks" })
-                                ActionIcon(AppIcons.Folder, "Drafts", { page = "Drafts" })
-                                ActionIcon(AppIcons.More, "Accounts", { sheet = "Accounts" })
-                            },
-                        )
+                        page != null -> TopAppBar(title = { Text(page!!) }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { page = null } })
+                        destination == Destination.Notifications -> TopAppBar(title = { Text(if (notificationsPanel == NotificationsPanel.Notifications) "Notifications" else "Direct messages") })
+                        destination == Destination.Profile -> TopAppBar(title = { Column { Text(account?.displayName ?: "Your profile"); Text(account?.handle ?: "0 posts", style = MaterialTheme.typography.bodyMedium, maxLines = 1) } }, actions = { ActionIcon(AppIcons.Bookmark, "Bookmarks") { page = "Bookmarks" }; ActionIcon(AppIcons.Folder, "Drafts") { page = "Drafts" }; ActionIcon(AppIcons.More, "Accounts") { sheet = "Accounts" } })
                     }
-                },
-            ) { padding ->
-                Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
-                    when (page) {
-                        "Compose" -> ComposeScreen(
-                            text = draft,
-                            onTextChange = { draft = it },
-                            warning = warning,
-                            onWarningChange = { warning = it },
-                            warningEnabled = warningEnabled,
-                            onWarningEnabled = { warningEnabled = it },
-                            account = account,
-                            canPublish = feedState?.canPublish == true,
-                            publishing = feedState?.publishing == true,
-                            error = feedState?.error,
-                            onPublish = {
-                                val submittedText = draft
-                                val submittedWarning = warning.takeIf { warningEnabled }.orEmpty()
-                                savedDraft = submittedText
-                                savedWarning = submittedWarning
-                                preferences.edit().putString("text", savedDraft).putString("warning", savedWarning).apply()
-                                onPublish(CreatePostRequest(
-                                    text = submittedText,
-                                    contentWarning = submittedWarning.takeIf { it.isNotEmpty() },
-                                )) {
-                                    savedDraft = ""
-                                    draft = ""
-                                    savedWarning = ""
-                                    warning = ""
-                                    warningEnabled = false
-                                    preferences.edit().clear().apply()
-                                    page = null
-                                }
-                            },
-                        )
-                        "Messages" -> MessagesScreen()
-                        "Edit profile" -> EditProfileScreen()
-                        "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")
-                        "Drafts" -> DraftsScreen(savedDraft, {
-                            draft = savedDraft; warning = savedWarning; warningEnabled = savedWarning.isNotEmpty(); page = "Compose"
-                        }, {
-                            savedDraft = ""; draft = ""; savedWarning = ""; warning = ""; warningEnabled = false
-                            preferences.edit().clear().apply()
-                        })
-                        "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
-                        else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                            Destination.Home -> if (feedState != null) HomeFeed(
-                                state = feedState,
-                                onRefresh = { onRefresh(timeline) },
-                                onLoadMore = { onLoadMore(timeline) },
-                                onSignIn = onSignOut,
-                                ownedPosts = ownedPosts ?: feedState.ownedPosts,
-                                onScrollDirectionChanged = { navigationVisible = it },
-                                onReact = onReact,
-                                onReply = onReply,
-                                onReshare = onReshare,
-                                onBookmark = onBookmark,
-                                onReaction = onReaction,
-                            )
-                                else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
-                            Destination.Search -> SearchScreen()
-                            Destination.Notifications -> NotificationsScreen(connected = account != null)
-                            Destination.Profile -> ProfileScreen(account = account) { sheet = "Accounts" }
-                        } }
-                    }
-                }
-            }
-                if (page == null && destination == Destination.Home) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = navigationVisible,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                        modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp)
-                            .width(168.dp).height(60.dp).zIndex(1f),
-                    ) {
-                        Surface(
-                            modifier = Modifier.fillMaxSize().clickable { sheet = "Timelines" }
-                                .semantics { contentDescription = "Choose timeline" },
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
-                            shadowElevation = 6.dp,
-                        ) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text(
-                                    timeline.name,
-                                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
+                }) { padding ->
+                    Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
+                        when (page) {
+                            "Drafts" -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
+                            "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")
+                            "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
+                            else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
+                                Destination.Home -> if (feedState != null) HomeFeed(state = feedState, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                Destination.Search -> SearchScreen(searchPanel)
+                                Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(connected = account != null) else MessagesScreen()
+                                Destination.Profile -> ProfileScreen(account) { sheet = "Accounts" }
+                            } }
                         }
                     }
                 }
-                if (!wide && page != "Compose") {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = navigationVisible,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                        modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).zIndex(1f),
-                    ) {
-                        Box(
-                            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CompactContextualNavigationBar(
-                                destination = destination,
-                                action = contextualActionFor(
-                                    destination = destination,
-                                    onCompose = { page = "Compose" },
-                                    onMessages = { page = "Messages" },
-                                    onEditProfile = { page = "Edit profile" },
-                                ),
-                                account = account,
-                                onOpenAccounts = { sheet = "Accounts" },
-                                onDestinationSelected = { selectedDestination ->
-                                    destination = selectedDestination
-                                    page = null
-                                },
-                            )
+                if (page == null && overlay == null && destination == Destination.Home) {
+                    androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp).width(168.dp).height(60.dp).zIndex(1f)) {
+                        Surface(Modifier.fillMaxSize().clickable { sheet = "Timelines" }.semantics { contentDescription = "Choose timeline" }, CircleShape, MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f), shadowElevation = 6.dp) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(timeline.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)) } }
+                    }
+                }
+                if (!wide && page == null && overlay == null) {
+                    androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).zIndex(1f)) {
+                        Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+                            CompactContextualNavigationBar(destination, contextualActionFor(destination, searchPanel, notificationsPanel, ::openComposer, { searchPanelName = if (searchPanel == SearchPanel.Search) SearchPanel.Alternate.name else SearchPanel.Search.name }, { notificationsPanelName = if (notificationsPanel == NotificationsPanel.Notifications) NotificationsPanel.DirectMessages.name else NotificationsPanel.Notifications.name }, { if (account != null) overlayKey = Overlay.EditProfile::class.simpleName }), account, { sheet = "Accounts" }) { destination = it; page = null }
                         }
                     }
                 }
             }
         }
     }
+
     if (sheet != null) ModalBottomSheet(onDismissRequest = { sheet = null }) {
         Text(sheet!!, Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.headlineSmall)
         if (sheet == "Timelines") {
             Timeline.entries.filter { it in availableTimelines }.forEach { item ->
-                ListItem(
-                    modifier = Modifier.clickable {
-                        val changed = item != timeline
-                        timeline = item
-                        sheet = null
-                        if (changed) onRefresh(item)
-                    },
-                    headlineContent = { Text(item.name) },
-                    supportingContent = { Text(when (item) {
-                        Timeline.Home -> "Posts from people you follow"
-                        Timeline.Local -> "Posts from your server"
-                        Timeline.Social -> "Posts from your server and people it follows"
-                        Timeline.Federated -> "Posts from across the fediverse"
-                    }) },
-                    leadingContent = { Icon(if (item == Timeline.Home) AppIcons.Home else AppIcons.Globe, null) },
-                    trailingContent = { if (timeline == item) Icon(AppIcons.Check, "Selected") },
-                )
+                ListItem(modifier = Modifier.clickable { val changed = item != timeline; timeline = item; sheet = null; if (changed) onRefresh(item) }, headlineContent = { Text(item.name) }, supportingContent = { Text(when (item) { Timeline.Home -> "Posts from people you follow"; Timeline.Local -> "Posts from your server"; Timeline.Social -> "Posts from your server and people it follows"; Timeline.Federated -> "Posts from across the fediverse" }) }, leadingContent = { Icon(if (item == Timeline.Home) AppIcons.Home else AppIcons.Globe, null) }, trailingContent = { if (timeline == item) Icon(AppIcons.Check, "Selected") })
             }
             Text(if (account != null) "Timelines are detected from this server" else "Timeline preview", Modifier.padding(24.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             accounts.forEach { accountRef ->
                 val listedAccount = accountRef.toAccount()
-                ListItem(
-                    modifier = Modifier.clickable {
-                        sheet = null
-                        if (accountRef.accountId != account?.id) onSwitchAccount(accountRef.accountId)
-                    },
-                    headlineContent = { Text(accountRef.displayName) },
-                    supportingContent = { Text(accountRef.handle) },
-                    leadingContent = { AccountAvatar(listedAccount, Modifier.size(48.dp)) },
-                    trailingContent = {
-                        if (accountRef.accountId == account?.id) Icon(AppIcons.Check, "Current account")
-                    },
-                )
+                ListItem(modifier = Modifier.clickable { sheet = null; if (accountRef.accountId != account?.id) onSwitchAccount(accountRef.accountId) }, headlineContent = { Text(accountRef.displayName) }, supportingContent = { Text(accountRef.handle) }, leadingContent = { AccountAvatar(listedAccount, Modifier.size(48.dp)) }, trailingContent = { if (accountRef.accountId == account?.id) Icon(AppIcons.Check, "Current account") })
             }
-            if (accounts.isEmpty()) ListItem(
-                headlineContent = { Text(account?.displayName ?: "No accounts connected") },
-                supportingContent = { Text(account?.handle ?: "Account connections are not available in this preview.") },
-                leadingContent = { if (account != null) AccountAvatar(account, Modifier.size(48.dp)) else Avatar(Modifier.size(48.dp)) },
-            )
-            if (account != null) TextButton(
-                onClick = { sheet = null; onAddAccount() },
-                modifier = Modifier.padding(horizontal = 16.dp),
-            ) { Text("Add account") }
+            if (accounts.isEmpty()) ListItem(headlineContent = { Text(account?.displayName ?: "No accounts connected") }, supportingContent = { Text(account?.handle ?: "Account connections are not available in this preview.") }, leadingContent = { if (account != null) AccountAvatar(account, Modifier.size(48.dp)) else Avatar(Modifier.size(48.dp)) })
+            if (account != null) TextButton(onClick = { sheet = null; onAddAccount() }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Add account") }
             if (account != null) TextButton(onClick = { sheet = null; signOutDialog = true }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Sign out") }
             Spacer(Modifier.height(32.dp))
         }
     }
-    if (signOutDialog) AlertDialog(onDismissRequest = { signOutDialog = false },
-        title = { Text("Sign out?") }, text = { Text("Your sign-in will be removed from this device. Local drafts will remain.") },
-        confirmButton = { TextButton(onClick = { signOutDialog = false; onSignOut() }) { Text("Sign out") } },
-        dismissButton = { TextButton(onClick = { signOutDialog = false }) { Text("Cancel") } })
-    if (discardDialog) AlertDialog(
-        onDismissRequest = { discardDialog = false },
-        title = { Text("Discard changes?") },
-        text = { Text("Your unsaved changes will be lost. Any previously saved draft will remain.") },
-        confirmButton = { TextButton(onClick = {
-            draft = savedDraft; warning = savedWarning; warningEnabled = savedWarning.isNotEmpty()
-            discardDialog = false; page = null
-        }) { Text("Discard") } },
-        dismissButton = { TextButton(onClick = { discardDialog = false }) { Text("Keep editing") } },
-    )
+
+    if (overlay == Overlay.Composer) ModalBottomSheet(onDismissRequest = ::closeComposer, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically) { ActionIcon(AppIcons.Close, "Close composer", ::closeComposer); Text("New post", style = MaterialTheme.typography.titleLarge) }
+                TextButton(enabled = draft.isNotBlank() && !closing, onClick = { saveCurrentDraft { overlayKey = null } }) { Text("Save draft") }
+            }
+            ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, onPublish = {
+                val submittedText = draft; val submittedWarning = warning.takeIf { warningEnabled && it.isNotBlank() }
+                scope.launch {
+                    runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }.onSuccess { saved ->
+                        draftId = saved.id; savedDraft = saved.text; savedWarning = saved.contentWarning.orEmpty()
+                        onPublish(CreatePostRequest(submittedText, contentWarning = submittedWarning)) {
+                            scope.launch { store.delete(account?.id, saved.id); reloadDrafts() }
+                            draft = ""; savedDraft = ""; warning = ""; savedWarning = ""; warningEnabled = false; draftId = null; overlayKey = null
+                        }
+                    }.onFailure { draftError = "Draft could not be saved. Keep the composer open and try again." }
+                }
+            })
+        }
+    }
+
+    if (overlay == Overlay.EditProfile && account != null) ModalBottomSheet(onDismissRequest = ::closeProfile, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        EditProfileScreen(account = account, displayName = profileName, biography = profileBiography, saving = feedState?.publishing == true, error = feedState?.error, onDisplayNameChange = { profileName = it }, onBiographyChange = { profileBiography = it }, onSave = { onUpdateProfile(UpdateProfileRequest(profileName.trim(), profileBiography)) { overlayKey = null } }, onClose = ::closeProfile)
+    }
+
+    if (profileDialog) AlertDialog(onDismissRequest = { profileDialog = false }, title = { Text("Discard profile changes?") }, text = { Text("Your changes have not been saved.") }, confirmButton = { TextButton(onClick = { profileDialog = false; overlayKey = null }) { Text("Discard") } }, dismissButton = { TextButton(onClick = { profileDialog = false }) { Text("Keep editing") } })
+    if (signOutDialog) AlertDialog(onDismissRequest = { signOutDialog = false }, title = { Text("Sign out?") }, text = { Text("Your sign-in will be removed from this device. Local drafts will remain.") }, confirmButton = { TextButton(onClick = { signOutDialog = false; onSignOut() }) { Text("Sign out") } }, dismissButton = { TextButton(onClick = { signOutDialog = false }) { Text("Cancel") } })
 }
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp,dpi=420")

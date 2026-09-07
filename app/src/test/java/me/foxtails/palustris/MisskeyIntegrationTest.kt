@@ -57,13 +57,13 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         assertFalse(AuthCallback.matches("palustris://auth/misskey?session=unique-session", pending, 1_000_000))
     }
 
-    @Test fun authChecksSessionAndUsesOnlyReadAccountPermission() = runBlocking {
+    @Test fun authRequestsProfileWritePermissionForProfileEditing() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("""{"ok":true,"token":"test-token","user":$user}"""))
             val auth = MisskeyAuth(MisskeyApi())
             val pending = PendingLogin(server.url("/").toString().removeSuffix("/"), "test-session", System.currentTimeMillis())
             val url = okhttp3.HttpUrl.Companion.run { auth.browserUrl(pending).toHttpUrl() }
-            assertEquals("read:account,write:notes", url.queryParameter("permission"))
+            assertEquals("read:account,write:account,write:notes", url.queryParameter("permission"))
             assertEquals("palustris://auth/misskey", url.queryParameter("callback"))
             val result = auth.complete(pending)
             assertEquals("Alice", result.account.displayName)
@@ -122,6 +122,21 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
                 runBlocking { source.create(CreatePostRequest("text", attachments = listOf(attachment))) }
             }
             assertEquals(0, server.requestCount)
+        }
+    }
+
+    @Test fun misskeyUpdateProfileUsesAccountEndpoint() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody(user))
+            val origin = server.url("/").toString().removeSuffix("/")
+            val account = MisskeySource(origin, "test-token", MisskeyApi()).updateProfile(UpdateProfileRequest("New name", "New bio"))
+            assertEquals("Alice", account.displayName)
+            val request = server.takeRequest()
+            assertEquals("/api/i/update", request.path)
+            val body = JSONObject(request.body.readUtf8())
+            assertEquals("test-token", body.getString("i"))
+            assertEquals("New name", body.getString("name"))
+            assertEquals("New bio", body.getString("description"))
         }
     }
 

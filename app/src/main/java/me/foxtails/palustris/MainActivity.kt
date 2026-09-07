@@ -9,6 +9,7 @@ import androidx.activity.viewModels
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import me.foxtails.palustris.data.SocialSourceFactory
+import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.ui.AccountManager
 import me.foxtails.palustris.ui.ConnectedApp
 
@@ -16,12 +17,13 @@ import me.foxtails.palustris.ui.ConnectedApp
 class MainActivity : ComponentActivity() {
     private val accountManager by viewModels<AccountManager>()
     @Inject lateinit var sourceFactory: SocialSourceFactory
+    @Inject lateinit var draftStore: DraftStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) intent.dataString?.let(accountManager::callback)
-        setContent { ConnectedApp(accountManager, sourceFactory) }
+        setContent { ConnectedApp(accountManager, sourceFactory, draftStore) }
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

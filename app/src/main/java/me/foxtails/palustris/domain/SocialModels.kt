@@ -11,6 +11,11 @@ data class Account(
     val biography: String = "",
 )
 
+data class UpdateProfileRequest(
+    val displayName: String,
+    val biography: String,
+)
+
 enum class Timeline { Home, Local, Social, Federated }
 enum class Audience { Public, Unlisted, Followers, Direct }
 enum class PostAction { Reply, Reshare, Favorite, React, Bookmark }
@@ -48,6 +53,7 @@ interface SocialSource {
     suspend fun post(id: EntityId): Post = unsupported("post")
     suspend fun thread(rootId: EntityId): List<Post> = unsupported("thread")
     suspend fun create(post: CreatePostRequest): Post = unsupported("create")
+    suspend fun updateProfile(request: UpdateProfileRequest): Account = unsupported("updateProfile")
     suspend fun delete(id: EntityId) = unsupported<Unit>("delete")
     suspend fun edit(id: EntityId, text: String): Post = unsupported("edit")
     suspend fun react(id: EntityId, emoji: String) = unsupported<Unit>("react")

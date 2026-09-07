@@ -10,6 +10,7 @@ import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.domain.UpdateProfileRequest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONArray
@@ -164,6 +165,20 @@ class MastodonIntegrationTest {
         assertEquals("Bearer token", uploadRequest.getHeader("Authorization"))
         assertTrue(uploadRequest.body.readUtf8().contains("bytes"))
         assertEquals("/api/v2/search?q=hello+world", server.takeRequest().path)
+    }
+
+    @Test
+    fun sourceUpdatesMastodonProfileWithPatch() = runBlocking {
+        server.enqueue(MockResponse().setBody(localAccount.toString()))
+        val account = source().updateProfile(UpdateProfileRequest("New name", "New bio"))
+        assertEquals("Alice", account.displayName)
+        val request = server.takeRequest()
+        assertEquals("PATCH", request.method)
+        assertEquals("/api/v1/accounts/update_credentials", request.path)
+        assertEquals("Bearer token", request.getHeader("Authorization"))
+        val body = request.body.readUtf8()
+        assertTrue(body.contains("display_name=New%20name"))
+        assertTrue(body.contains("note=New%20bio"))
     }
 
     @Test

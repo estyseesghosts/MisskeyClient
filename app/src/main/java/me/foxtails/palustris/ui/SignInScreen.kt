@@ -18,11 +18,13 @@ import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.foxtails.palustris.data.SocialSourceFactory
+import me.foxtails.palustris.data.auth.DraftStore
 
 @Composable
 fun ConnectedApp(
     accountManager: AccountManager,
     sourceFactory: SocialSourceFactory,
+    draftStore: DraftStore,
 ) {
     val state by accountManager.session.collectAsStateWithLifecycle()
     val accountIndex by accountManager.accountIndex.collectAsStateWithLifecycle()
@@ -68,6 +70,8 @@ fun ConnectedApp(
                 onSwitchAccount = accountManager::switchAccount,
                 onAddAccount = accountManager::beginAddAccount,
                 onPublish = { request, onSuccess -> feedModel?.create(request, onSuccess) },
+                onUpdateProfile = { request, onSuccess -> feedModel?.updateProfile(request) { updated -> accountManager.updateAccount(updated); onSuccess() } },
+                draftStore = draftStore,
                 ownedPosts = feed.ownedPosts,
                 onReact = { ownedPost -> feedModel?.favorite(ownedPost) },
                 onReshare = { ownedPost -> feedModel?.reshare(ownedPost) },

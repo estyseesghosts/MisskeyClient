@@ -13,6 +13,7 @@ object AppIcons {
         .addPath(addPathNodes(path), fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd).build()
     val Home = icon("Home", "M12,3 2,12h3v9h6v-6h2v6h6v-9h3z M12,5.7 17,10.2V19h-2v-6H9v6H7v-8.8z")
     val Search = icon("Search", "M9.5,3a6.5,6.5 0,1 0,4.03 11.6L20.4,21l1.4,-1.4 -6.87,-6.4A6.5,6.5 0,0 0,9.5 3z M9.5,5a4.5,4.5 0,1 1,0 9a4.5,4.5 0,0 1,0 -9")
+    val WaffleGrid = icon("WaffleGrid", "M4,4h4v4H4z M10,4h4v4h-4z M16,4h4v4h-4z M4,10h4v4H4z M10,10h4v4h-4z M16,10h4v4h-4z M4,16h4v4H4z M10,16h4v4h-4z M16,16h4v4h-4z")
     val Notifications = icon("Notifications", "M12,2a2,2 0,0 0,-2 2v.35A6,6 0,0 0,6 10v6l-2,2v1h16v-1l-2,-2v-6a6,6 0,0 0,-4 -5.65V4a2,2 0,0 0,-2 -2z M12,6a4,4 0,0 1,4 4v7H8v-7a4,4 0,0 1,4 -4z M10,20a2,2 0,0 0,4 0z")
     val Person = icon("Person", "M12,3a4,4 0,1 0,0 8a4,4 0,0 0,0 -8z M12,5a2,2 0,1 1,0 4a2,2 0,0 1,0 -4z M12,13c-4,0 -8,2 -8,5v3h16v-3c0,-3 -4,-5 -8,-5z M12,15c3,0 6,1.5 6,3v1H6v-1c0,-1.5 3,-3 6,-3z")
     val Edit = icon("Edit", "M3,17.25V21h3.75L17.81,9.94 14.06,6.19z M20.71,7.04a1,1 0,0 0,0 -1.42l-2.34,-2.34a1,1 0,0 0,-1.42 0l-1.83,1.83 3.75,3.75z")

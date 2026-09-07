@@ -161,7 +161,8 @@ class EncryptedSessionStore private constructor(
             (0 until entries.length()).map { index ->
                 entries.getJSONObject(index).let {
                     AccountRef(it.getJSONObject("accountId").toAccountId(), it.getString("handle"),
-                        it.nullableString("avatarUrl"), it.getString("displayName"), it.getString("protocol").let(Protocol::valueOf))
+                        it.nullableString("avatarUrl"), it.getString("displayName"), it.getString("protocol").let(Protocol::valueOf),
+                        it.nullableString("biography").orEmpty())
                 }
             }
         }.orEmpty()
@@ -182,6 +183,7 @@ class EncryptedSessionStore private constructor(
                     .put("avatarUrl", ref.avatarUrl)
                     .put("displayName", ref.displayName)
                     .put("protocol", ref.protocol.name)
+                    .put("biography", ref.biography)
             }))
             .put("activeAccountId", index.activeAccountId?.toIndexJson())
         val stream = indexFile.startWrite()
