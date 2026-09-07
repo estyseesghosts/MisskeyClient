@@ -22,6 +22,7 @@ class SocialSourceFactory @Inject constructor(private val clientPool: HttpClient
             origin = session.accountId.connection.origin,
             token = session.token,
             api = MisskeyApi(clientPool.clientFor(session.accountId.connection)),
+            accountId = session.accountId,
             initialCapabilities = session.capabilities,
         )
     }

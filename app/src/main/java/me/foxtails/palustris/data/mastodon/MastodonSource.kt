@@ -17,6 +17,10 @@ import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.NotificationCheckpoint
+import me.foxtails.palustris.domain.NotificationCursor
+import me.foxtails.palustris.domain.NotificationPage
+import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
@@ -33,6 +37,7 @@ class MastodonSource(
     private val origin: String,
     private val token: String,
     private val api: MisskeyApi,
+    private val accountId: AccountId,
     initialCapabilities: ServerCapabilities = DEFAULT_CAPABILITIES,
     private val capabilityProbe: CapabilityProbe? = null,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -104,14 +109,34 @@ class MastodonSource(
 
     override suspend fun quote(id: EntityId, text: String) = throw SourceError.Unsupported("quote")
 
-    override suspend fun notifications(cursor: String?): Page<me.foxtails.palustris.domain.Notification> = request {
-        val response = getPage("v1/notifications", cursor)
+    override suspend fun notifications(cursor: String?): Page<me.foxtails.palustris.domain.Notification> {
+        val page = notifications(NotificationQuery(), cursor?.let(::NotificationCursor))
+        return Page(page.items, page.olderCursor?.value)
+    }
+
+    override suspend fun notifications(query: NotificationQuery, cursor: NotificationCursor?): NotificationPage = request {
+        if (query.categories != setOf(me.foxtails.palustris.domain.NotificationCategory.All)) {
+            throw SourceError.Unsupported("notifications.filter")
+        }
+        val endpoint = if (query.limit == DEFAULT_NOTIFICATION_LIMIT) {
+            "v1/notifications"
+        } else {
+            "v1/notifications?limit=\${query.limit}"
+        }
+        val response = getPage(endpoint, cursor?.value)
         val notifications = JSONArray(response.body)
-        Page(
-            items = (0 until notifications.length()).map {
-                MastodonMapper.notification(notifications.getJSONObject(it), origin)
+        val olderCursor = response.linkHeaderCursor()?.let(::NotificationCursor)
+        NotificationPage(
+            items = (0 until notifications.length()).map { index ->
+                MastodonMapper.notification(notifications.getJSONObject(index), origin, accountId)
             },
-            nextCursor = response.linkHeaderCursor(),
+            olderCursor = olderCursor,
+            checkpoint = NotificationCheckpoint(
+                accountId = accountId,
+                query = query,
+                oldest = olderCursor,
+                capturedAtEpochMillis = clock(),
+            ),
         )
     }
 
@@ -198,6 +223,7 @@ class MastodonSource(
     }
 
     private companion object {
+        const val DEFAULT_NOTIFICATION_LIMIT = 30
         const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
         val DEFAULT_CAPABILITIES = ServerCapabilities(
             timelines = setOf(Timeline.Home, Timeline.Local, Timeline.Federated),

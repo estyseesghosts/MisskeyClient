@@ -232,4 +232,55 @@ object MisskeyMapper {
             } },
         )
     }
+
+    fun notification(json: JSONObject, origin: String, receivingAccountId: AccountId): Notification {
+        val rawType = json.optString("type").ifBlank { "unknown" }
+        val actor = runCatching { json.optJSONObject("user")?.let { account(it, origin) } }.getOrNull()
+        val mappedPost = runCatching { json.optJSONObject("note")?.let { post(it, origin) } }.getOrNull()
+        val target = when {
+            mappedPost != null -> NotificationTarget.Post(mappedPost.id)
+            actor != null && rawType in PROFILE_TARGET_TYPES -> NotificationTarget.Profile(actor.id)
+            else -> null
+        }
+        return Notification(
+            id = EntityId(origin, json.getString("id")),
+            accountId = receivingAccountId,
+            createdAtEpochMillis = runCatching {
+                Instant.parse(json.optString("createdAt")).toEpochMilli()
+            }.getOrDefault(0L),
+            activity = rawType.toNotificationActivity(json),
+            actors = listOfNotNull(actor),
+            target = target,
+            destination = target?.let(NotificationDestination::InApp),
+            post = mappedPost,
+            rawType = rawType,
+        )
+    }
+
+    private val PROFILE_TARGET_TYPES = setOf("follow", "receiveFollowRequest", "followRequest")
+}
+
+private fun String.toNotificationActivity(json: JSONObject): NotificationActivity = when (this) {
+    "mention" -> NotificationActivity.Mention
+    "reply" -> NotificationActivity.Reply
+    "renote" -> NotificationActivity.Reshare
+    "quote" -> NotificationActivity.Quote
+    "reaction" -> {
+        val identity = json.nullableString("reaction") ?: json.nullableString("emoji") ?: "reaction"
+        val imageUrl = json.optJSONObject("customEmoji")?.nullableString("url")
+            ?: json.optJSONObject("emoji")?.nullableString("url")
+        NotificationActivity.EmojiReaction(NotificationReaction(
+            identity = identity,
+            fallbackText = identity.trim(':').ifBlank { "Reaction" },
+            imageUrl = imageUrl,
+        ))
+    }
+    "follow" -> NotificationActivity.Follow
+    "receiveFollowRequest", "followRequest" -> NotificationActivity.FollowRequest
+    "followRequestAccepted" -> NotificationActivity.AcceptedRequest
+    "app" -> NotificationActivity.System.AppEvent("Application event")
+    "achievement", "role" -> NotificationActivity.System.RoleOrAchievement("Account achievement")
+    "moderation", "moderationWarning" -> NotificationActivity.System.Moderation("Moderation event")
+    "relationship" -> NotificationActivity.System.RelationshipChange("Relationship changed")
+    else -> NotificationActivity.Unknown("New activity")
 }

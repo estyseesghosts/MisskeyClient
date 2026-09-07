@@ -48,6 +48,64 @@ data class Post(
 /** Cursor semantics belong to the adapter: Mastodon and Misskey paginate differently. */
 data class Page<T>(val items: List<T>, val nextCursor: String? = null)
 
+/** Opaque to shared code; only the adapter that created it may interpret its value. */
+@JvmInline
+value class NotificationCursor(val value: String)
+
+data class NotificationQuery(
+    val categories: Set<NotificationCategory> = setOf(NotificationCategory.All),
+    val limit: Int = 30,
+) {
+    init { require(limit in 1..100) { "Notification page size must be between 1 and 100." } }
+}
+
+sealed interface NotificationUnreadState {
+    data class Exact(val count: Int) : NotificationUnreadState { init { require(count >= 0) } }
+    data class AtLeast(val count: Int) : NotificationUnreadState { init { require(count >= 0) } }
+    data object Present : NotificationUnreadState
+    data object None : NotificationUnreadState
+    data object Unknown : NotificationUnreadState
+}
+
+data class NotificationCheckpoint(
+    val accountId: AccountId,
+    val query: NotificationQuery,
+    val newest: NotificationCursor? = null,
+    val oldest: NotificationCursor? = null,
+    val capturedAtEpochMillis: Long = 0,
+)
+
+data class NotificationPage(
+    val items: List<Notification>,
+    val olderCursor: NotificationCursor? = null,
+    val newerCursor: NotificationCursor? = null,
+    val checkpoint: NotificationCheckpoint? = null,
+    val unreadState: NotificationUnreadState = NotificationUnreadState.Unknown,
+) {
+    val nextCursor: NotificationCursor? get() = olderCursor
+}
+
+data class NotificationAcknowledgement(
+    val accountId: AccountId,
+    val readState: NotificationUnreadState,
+    val acknowledgedAtEpochMillis: Long,
+)
+
+data class PushSubscriptionSpec(
+    val accountId: AccountId,
+    val endpoint: ValidatedUrl,
+    val publicKey: String,
+    val authSecret: String,
+    val standardWebPush: Boolean = true,
+    val alerts: Set<NotificationCategory> = setOf(NotificationCategory.All),
+)
+
+data class PushSubscription(
+    val accountId: AccountId,
+    val endpoint: ValidatedUrl,
+    val remoteId: String? = null,
+)
+
 /** Transport-independent boundary implemented by individual server adapters. */
 interface SocialSource {
     val capabilities: ServerCapabilities
@@ -69,7 +127,28 @@ interface SocialSource {
     suspend fun search(query: String): List<Post> = unsupported("search")
     suspend fun searchHashtag(tag: String, cursor: String? = null): Page<Post> = unsupported("hashtag search")
     suspend fun searchAccounts(query: String): List<Account> = unsupported("account search")
+    /** Legacy page shape retained while callers migrate to the typed contract. */
     suspend fun notifications(cursor: String? = null): Page<Notification> = unsupported("notifications")
+    suspend fun notifications(query: NotificationQuery, cursor: NotificationCursor? = null): NotificationPage =
+        unsupported("notifications")
+    suspend fun fetchNewerNotifications(
+        query: NotificationQuery,
+        checkpoint: NotificationCheckpoint,
+    ): NotificationPage = unsupported("notifications.newer")
+    suspend fun fetchOlderNotifications(
+        query: NotificationQuery,
+        checkpoint: NotificationCheckpoint,
+    ): NotificationPage = unsupported("notifications.older")
+    suspend fun notificationUnreadState(): NotificationUnreadState = unsupported("notifications.unread")
+    suspend fun acknowledgeNotifications(): NotificationAcknowledgement = unsupported("notifications.acknowledge")
+    suspend fun dismissNotification(id: EntityId) = unsupported<Unit>("notifications.dismiss")
+    suspend fun respondToFollowRequest(id: EntityId, accept: Boolean) =
+        unsupported<Unit>("notifications.followRequest")
+    suspend fun createPushSubscription(spec: PushSubscriptionSpec): PushSubscription =
+        unsupported("notifications.push.create")
+    suspend fun updatePushSubscription(spec: PushSubscriptionSpec): PushSubscription =
+        unsupported("notifications.push.update")
+    suspend fun removePushSubscription() = unsupported<Unit>("notifications.push.remove")
     suspend fun follow(id: EntityId) = unsupported<Unit>("follow")
     suspend fun mute(id: EntityId) = unsupported<Unit>("mute")
     suspend fun block(id: EntityId) = unsupported<Unit>("block")

@@ -5,4 +5,5 @@ data class Session(
     val accountId: AccountId,
     val token: String,
     val capabilities: ServerCapabilities,
+    val access: AccessGrant = AccessGrant(),
 )

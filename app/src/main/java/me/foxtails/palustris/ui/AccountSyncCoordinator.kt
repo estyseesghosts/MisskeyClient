@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 
@@ -55,7 +56,7 @@ class AccountSyncCoordinator @Inject constructor() : AutoCloseable {
                 try {
                     val page = source.notifications()
                     state.value = state.value.copy(
-                        unreadCount = page.items.count { !it.isRead },
+                        unreadCount = page.items.count { it.readState.status == NotificationReadStatus.Unread },
                         lastUpdated = System.currentTimeMillis(),
                     )
                 } catch (_: SourceError.Unsupported) {

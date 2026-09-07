@@ -8,7 +8,9 @@ import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
+import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.UpdateProfileRequest
@@ -175,7 +177,7 @@ class MastodonIntegrationTest {
         ))
         source.favorite(EntityId(origin, "favorite-1"))
         source.renote(EntityId(origin, "renote-1"))
-        val notifications = source.notifications()
+        val notifications = source.notifications(NotificationQuery())
         val attachment = source.uploadMedia(ByteArrayInputStream("bytes".toByteArray()), "image/jpeg")
         val search = source.search("hello world")
 
@@ -193,6 +195,7 @@ class MastodonIntegrationTest {
         assertEquals("/api/v1/statuses/renote-1/reblog", renoteRequest.path)
         assertEquals("Bearer token", renoteRequest.getHeader("Authorization"))
         assertEquals("notification-1", notifications.items.single().id.value)
+        assertEquals(AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user"), notifications.items.single().accountId)
         assertEquals("https://example.org/uploaded.jpg", attachment.url)
         assertEquals("found", search.single().id.value)
         assertEquals("/api/v1/notifications", server.takeRequest().path)
@@ -306,7 +309,12 @@ class MastodonIntegrationTest {
         }
     }
 
-    private fun source() = MastodonSource(origin, "token", MisskeyApi())
+    private fun source() = MastodonSource(
+        origin = origin,
+        token = "token",
+        api = MisskeyApi(),
+        accountId = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user"),
+    )
 
     private fun status(id: String) = JSONObject()
         .put("id", id)

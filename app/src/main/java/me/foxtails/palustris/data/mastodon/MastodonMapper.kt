@@ -7,6 +7,9 @@ import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
+import me.foxtails.palustris.domain.NotificationActivity
+import me.foxtails.palustris.domain.NotificationDestination
+import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
@@ -85,13 +88,27 @@ object MastodonMapper {
         )
     }
 
-    fun notification(json: JSONObject, origin: String): Notification = Notification(
-        id = EntityId(origin, json.getString("id")),
-        type = json.optString("type"),
-        account = account(json.getJSONObject("account"), origin),
-        post = json.optJSONObject("status")?.let { post(it, origin) },
-        createdAtEpochMillis = parseInstant(json.optString("created_at")),
-    )
+    fun notification(json: JSONObject, origin: String, receivingAccountId: AccountId): Notification {
+        val rawType = json.optString("type").ifBlank { "unknown" }
+        val actor = runCatching { json.optJSONObject("account")?.let { account(it, origin) } }.getOrNull()
+        val mappedPost = runCatching { json.optJSONObject("status")?.let { post(it, origin) } }.getOrNull()
+        val target = when {
+            mappedPost != null -> NotificationTarget.Post(mappedPost.id)
+            actor != null && rawType in PROFILE_TARGET_TYPES -> NotificationTarget.Profile(actor.id)
+            else -> null
+        }
+        return Notification(
+            id = EntityId(origin, json.getString("id")),
+            accountId = receivingAccountId,
+            createdAtEpochMillis = parseInstant(json.optString("created_at")),
+            activity = rawType.toNotificationActivity(),
+            actors = listOfNotNull(actor),
+            target = target,
+            destination = target?.let(NotificationDestination::InApp),
+            post = mappedPost,
+            rawType = rawType,
+        )
+    }
 
     fun attachment(json: JSONObject, statusSensitive: Boolean = false): Attachment = Attachment(
         url = json.optString("url").takeIf { it.isNotBlank() }
@@ -113,7 +130,24 @@ object MastodonMapper {
     private fun parseInstant(value: String): Long = runCatching { Instant.parse(value).toEpochMilli() }.getOrDefault(0)
 
     private const val MAX_NESTING_DEPTH = 3
+    private val PROFILE_TARGET_TYPES = setOf("follow", "follow_request")
     private val MASTODON_ACTIONS = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.Bookmark)
+}
+
+private fun String.toNotificationActivity(): NotificationActivity = when (this) {
+    "mention" -> NotificationActivity.Mention
+    "reply" -> NotificationActivity.Reply
+    "reblog" -> NotificationActivity.Reshare
+    "quote" -> NotificationActivity.Quote
+    "favourite" -> NotificationActivity.Favourite
+    "follow" -> NotificationActivity.Follow
+    "follow_request" -> NotificationActivity.FollowRequest
+    "status" -> NotificationActivity.SubscribedPost
+    "poll" -> NotificationActivity.PollResult()
+    "update", "quoted_update" -> NotificationActivity.PostUpdate
+    "admin.sign_up", "admin.report" -> NotificationActivity.System.Moderation("Account event")
+    "severed_relationships" -> NotificationActivity.System.RelationshipChange("Relationship changed")
+    else -> NotificationActivity.Unknown("New activity")
 }
 
 private fun String.toMastodonMimeType(): String = when (this) {
