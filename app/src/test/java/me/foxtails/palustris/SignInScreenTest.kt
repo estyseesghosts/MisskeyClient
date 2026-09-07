@@ -65,7 +65,29 @@ class SignInScreenTest {
             )
         } }
 
-        compose.onNodeWithText("React").performClick()
+        compose.onNodeWithContentDescription("Favorite").performClick()
         assertEquals(account.id, reactedPost?.fetchedBy)
+    }
+
+    @Test fun misskeyReactionRowAndLongPressPickerAreAvailableFromCapabilities() {
+        val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
+        val post = Post(
+            EntityId("https://example.org", "post"), account, "Post", System.currentTimeMillis(), Audience.Public,
+            reactions = listOf(Reaction("🎉", 3, false)),
+        )
+        var chosenReaction: String? = null
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(
+                account = account,
+                feedState = FeedState(posts = listOf(post), actions = setOf(PostAction.React)),
+                onReaction = { _, emoji -> chosenReaction = emoji },
+            )
+        } }
+
+        compose.onNodeWithText("🎉").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Favorite").performTouchInput { longClick() }
+        compose.onNodeWithText("Add reaction").assertIsDisplayed()
+        compose.onAllNodesWithText("🎉").onLast().performClick()
+        assertEquals("🎉", chosenReaction)
     }
 }

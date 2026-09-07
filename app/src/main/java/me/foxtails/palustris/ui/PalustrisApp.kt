@@ -44,6 +44,9 @@ fun PalustrisApp(
     ownedPosts: List<OwnedPost>? = null,
     onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
+    onReshare: (OwnedPost) -> Unit = {},
+    onBookmark: (OwnedPost) -> Unit = {},
+    onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
 ) = PalustrisTheme {
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("local_draft", Context.MODE_PRIVATE) }
@@ -147,6 +150,9 @@ fun PalustrisApp(
                                 onScrollDirectionChanged = { navigationVisible = it },
                                 onReact = onReact,
                                 onReply = onReply,
+                                onReshare = onReshare,
+                                onBookmark = onBookmark,
+                                onReaction = onReaction,
                             )
                                 else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                             Destination.Search -> SearchScreen()

@@ -45,6 +45,7 @@ class FeedViewModel @AssistedInject constructor(
                     posts = posts,
                     ownedPosts = posts.map { OwnedPost(accountId, it) },
                     timelines = source.capabilities.timelines,
+                    actions = source.capabilities.actions,
                     nextCursor = page.nextCursor,
                 )
             } catch (e: Exception) {
