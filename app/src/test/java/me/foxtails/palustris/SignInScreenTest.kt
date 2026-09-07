@@ -54,6 +54,46 @@ class SignInScreenTest {
         compose.onNodeWithText(post.text).assertDoesNotExist()
     }
 
+    @Test fun sensitiveMediaStartsConcealedUntilExplicitlyRevealed() {
+        val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
+        val post = Post(
+            EntityId("https://example.org", "sensitive"),
+            account,
+            "A post with sensitive media",
+            System.currentTimeMillis(),
+            Audience.Public,
+            attachments = listOf(Attachment("https://example.org/photo.jpg", "image/jpeg", "A photo", sensitive = true)),
+        )
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(account = account, feedState = FeedState(posts = listOf(post)))
+        } }
+
+        compose.onNodeWithText("Show sensitive media").assertIsDisplayed()
+        compose.onNodeWithText("Open image").assertDoesNotExist()
+        compose.onNodeWithText("Show sensitive media").performClick()
+        compose.onNodeWithText("Open image").assertIsDisplayed()
+    }
+
+    @Test fun publishingKeepsDraftUntilSuccessCallback() {
+        val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
+        var complete: (() -> Unit)? = null
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(
+                account = account,
+                feedState = FeedState(canPublish = true),
+                onPublish = { _, onSuccess -> complete = onSuccess },
+            )
+        } }
+
+        compose.onNodeWithContentDescription("Compose post").performClick()
+        compose.onNodeWithContentDescription("Post text").performTextInput("Keep this draft")
+        compose.onNodeWithText("Publish").performClick()
+        compose.onNodeWithContentDescription("Post text").assertTextContains("Keep this draft")
+
+        compose.runOnIdle { complete?.invoke() }
+        compose.onNodeWithContentDescription("Post text").assertDoesNotExist()
+    }
+
     @Test fun publishingIsDisabledUntilCapabilityAllowsIt() {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
         compose.activity.runOnUiThread { compose.activity.setContent {

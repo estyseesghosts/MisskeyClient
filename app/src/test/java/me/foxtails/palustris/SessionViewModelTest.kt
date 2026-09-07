@@ -169,6 +169,27 @@ class SessionViewModelTest {
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
 
+    @Test fun stoppingFeedUnregistersPollingImmediately() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        val coordinator = AccountSyncCoordinator()
+        try {
+            val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
+            val model = FeedViewModel(login.account.id, Source(), coordinator)
+            owner.put("feed", model)
+            advanceUntilIdle()
+            assertTrue(model.sync.value.isActive)
+
+            model.stop()
+
+            assertFalse(model.sync.value.isActive)
+        } finally {
+            owner.clear()
+            coordinator.close()
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test fun selectedTimelineOwnsPaginationAndPublishRefresh() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val owner = ViewModelStore()
@@ -222,6 +243,32 @@ class SessionViewModelTest {
             assertEquals(setOf(existingLogin.account.id, newLogin.account.id), store.index.accounts.map { it.accountId }.toSet())
             assertEquals(listOf(existingSession.accountId), store.readAccountIds)
             assertEquals(listOf(newLogin.account.id), store.writtenAccountIds)
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
+    @Test fun reauthenticationReplacesSameAccountTokenAndSessionGeneration() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        try {
+            val replacement = LoginSession(
+                "https://example.org",
+                "replacement-token",
+                JSONObject("""{"id":"a","username":"alice"}"""),
+            )
+            val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
+            val model = AccountManager(store, auth(replacement), StandardTestDispatcher(testScheduler))
+            owner.put("account", model)
+            advanceUntilIdle()
+            val initialGeneration = model.session.value.sessionGeneration
+
+            model.signIn("https://example.org")
+            advanceUntilIdle()
+            model.callback("palustris://auth/misskey?session=session-id")
+            advanceUntilIdle()
+
+            assertEquals("replacement-token", store.storedSession?.token)
+            assertEquals("replacement-token", model.activeSession.value?.token)
+            assertTrue(model.session.value.sessionGeneration > initialGeneration)
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
 
