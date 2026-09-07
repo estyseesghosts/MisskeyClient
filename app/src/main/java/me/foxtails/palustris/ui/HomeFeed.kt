@@ -59,6 +59,7 @@ private val PostInteractionIconSize = 24.dp
 @Composable
 fun HomeFeed(
     state: FeedState,
+    compactLayout: Boolean = true,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onSignIn: () -> Unit,
@@ -113,7 +114,10 @@ fun HomeFeed(
         LazyColumn(
             state = list,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 96.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(
+                top = 96.dp,
+                bottom = if (compactLayout) CompactOverlayFeedBottomClearance else LegacyFeedBottomClearance,
+            ),
         ) {
             if (state.error != null) item {
                 Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth().padding(16.dp), shape = MaterialTheme.shapes.large) {

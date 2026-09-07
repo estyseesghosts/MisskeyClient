@@ -58,6 +58,7 @@ class WideNavigationTest {
                 .use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
         compose.onAllNodesWithText("Home").onLast().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Choose timeline").assertIsDisplayed()
         compose.onNodeWithText("Search").assertIsDisplayed()
         compose.onNodeWithText("Notifications").assertIsDisplayed()
         compose.onNodeWithText("Profile").assertIsDisplayed()

@@ -21,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
@@ -69,7 +70,17 @@ private data class ContextualBottomAction(
     val onClick: () -> Unit,
 )
 
-private fun Modifier.roundPressLayer(pressed: Boolean, color: Color): Modifier = drawWithContent {
+internal val CompactNavigationHeight = 60.dp
+internal val CompactTimelineSelectorWidth = 168.dp
+internal val CompactTimelineSelectorHeight = 60.dp
+internal val CompactOverlayControlSpacing = 14.dp
+internal val CompactOverlayHorizontalPadding = 16.dp
+internal val CompactOverlayVerticalPadding = 12.dp
+internal val CompactOverlayFeedBottomClearance = CompactTimelineSelectorHeight +
+    CompactOverlayControlSpacing + CompactNavigationHeight + (CompactOverlayVerticalPadding * 2f)
+internal val LegacyFeedBottomClearance = 96.dp
+
+private fun Modifier.roundPressLayer(pressed: Boolean, color: Color): Modifier = clip(CircleShape).drawWithContent {
     drawContent()
     if (pressed) {
         drawRoundRect(
@@ -104,6 +115,33 @@ private fun contextualActionFor(
 }
 
 @Composable
+private fun TimelineSelector(
+    timeline: Timeline,
+    onClick: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    Surface(
+        modifier = Modifier
+            .size(CompactTimelineSelectorWidth, CompactTimelineSelectorHeight)
+            .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .semantics { contentDescription = "Choose timeline" },
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
+        shadowElevation = 6.dp,
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                timeline.name,
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
+            )
+        }
+    }
+}
+
+@Composable
 private fun CompactContextualNavigationBar(
     destination: Destination,
     action: ContextualBottomAction,
@@ -111,7 +149,7 @@ private fun CompactContextualNavigationBar(
     onOpenAccounts: () -> Unit,
     onDestinationSelected: (Destination) -> Unit,
 ) {
-    Row(Modifier.widthIn(max = 480.dp).fillMaxWidth().height(60.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().height(CompactNavigationHeight), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Surface(Modifier.weight(1f).fillMaxHeight(), CircleShape, MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f), shadowElevation = 6.dp) {
             Row(Modifier.fillMaxSize().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 Destination.entries.forEach { item ->
@@ -191,6 +229,7 @@ fun PalustrisApp(
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
     var closing by remember { mutableStateOf(false) }
     val overlay = when (overlayKey) { "Composer" -> Overlay.Composer; "EditProfile" -> Overlay.EditProfile; else -> null }
+    val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
     val currentProfile = profile ?: account
     val displayedProfile = viewedProfile ?: currentProfile
@@ -268,7 +307,7 @@ fun PalustrisApp(
                             "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")
                             "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                                Destination.Home -> if (feedState != null) HomeFeed(state = feedState, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenProfile = ::openProfile) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenProfile = ::openProfile) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                                 Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile)
                                 Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(connected = account != null) else MessagesScreen()
                                 Destination.Profile -> ProfileScreen(displayedProfile)
@@ -276,17 +315,24 @@ fun PalustrisApp(
                         }
                     }
                 }
-                if (page == null && overlay == null && destination == Destination.Home) {
-                    androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp).width(168.dp).height(60.dp).zIndex(1f)) {
-                        val interactionSource = remember { MutableInteractionSource() }
-                        val pressed by interactionSource.collectIsPressedAsState()
-                        Surface(Modifier.fillMaxSize().roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)).clickable(interactionSource = interactionSource, indication = null) { sheet = "Timelines" }.semantics { contentDescription = "Choose timeline" }, CircleShape, MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f), shadowElevation = 6.dp) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(timeline.name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)) } }
+                if (wide && page == null && !modalOverlayOpen && destination == Destination.Home) {
+                    androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp).zIndex(1f)) {
+                        TimelineSelector(timeline) { sheet = "Timelines" }
                     }
                 }
-                if (!wide && page == null && overlay == null) {
+                if (!wide && page == null && !modalOverlayOpen) {
                     androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).zIndex(1f)) {
-                        Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
-                            CompactContextualNavigationBar(destination, contextualActionFor(destination, searchPanel, notificationsPanel, account == null || displayedProfile?.id == account.id, ::openComposer, { searchPanelName = if (searchPanel == SearchPanel.Search) SearchPanel.Alternate.name else SearchPanel.Search.name }, { notificationsPanelName = if (notificationsPanel == NotificationsPanel.Notifications) NotificationsPanel.DirectMessages.name else NotificationsPanel.Notifications.name }, { if (account != null && displayedProfile?.id == account.id) overlayKey = Overlay.EditProfile::class.simpleName }), account, { sheet = "Accounts" }) { selectDestination(it) }
+                        Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = CompactOverlayHorizontalPadding, vertical = CompactOverlayVerticalPadding), contentAlignment = Alignment.Center) {
+                            Column(
+                                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
+                                horizontalAlignment = Alignment.End,
+                            ) {
+                                if (destination == Destination.Home) {
+                                    TimelineSelector(timeline) { sheet = "Timelines" }
+                                    Spacer(Modifier.height(CompactOverlayControlSpacing))
+                                }
+                                CompactContextualNavigationBar(destination, contextualActionFor(destination, searchPanel, notificationsPanel, account == null || displayedProfile?.id == account.id, ::openComposer, { searchPanelName = if (searchPanel == SearchPanel.Search) SearchPanel.Alternate.name else SearchPanel.Search.name }, { notificationsPanelName = if (notificationsPanel == NotificationsPanel.Notifications) NotificationsPanel.DirectMessages.name else NotificationsPanel.Notifications.name }, { if (account != null && displayedProfile?.id == account.id) overlayKey = Overlay.EditProfile::class.simpleName }), account, { sheet = "Accounts" }) { selectDestination(it) }
+                            }
                         }
                     }
                 }

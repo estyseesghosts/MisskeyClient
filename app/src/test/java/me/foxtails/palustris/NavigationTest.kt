@@ -9,11 +9,16 @@ import androidx.activity.compose.setContent
 import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.PalustrisApp
 import org.junit.After
 import org.junit.Rule
@@ -79,12 +84,15 @@ class NavigationTest {
         return bitmap.getPixel(x, y)
     }
 
+    private fun bounds(contentDescription: String) =
+        compose.onNodeWithContentDescription(contentDescription).fetchSemanticsNode().boundsInRoot
+
     private fun assertPressKeepsCornersUnchanged(contentDescription: String) {
         val before = screenBitmap()
         val beforeCorners = cornerPixels(contentDescription, before)
         compose.onNodeWithContentDescription(contentDescription).performTouchInput { down(center) }
         val pressed = screenBitmap()
-        compose.onNodeWithContentDescription(contentDescription).performTouchInput { up() }
+        compose.onNodeWithContentDescription(contentDescription).performTouchInput { cancel() }
         assertNotEquals("$contentDescription press did not render an indication", pressSample(contentDescription, before), pressSample(contentDescription, pressed))
         assertEquals("$contentDescription press changed a rounded corner", beforeCorners, cornerPixels(contentDescription, pressed))
     }
@@ -108,6 +116,69 @@ class NavigationTest {
         compose.onNodeWithContentDescription("Profile").performClick()
         compose.onNodeWithText("No account selected").assertIsDisplayed()
         screenshot("profile")
+    }
+
+    @Test fun compactHomeSelectorTrailsNavigationAndLeavesNoDestinationSlot() {
+        compose.waitForIdle()
+        val selector = bounds("Choose timeline")
+        val action = bounds("Compose post")
+        val homeDestinationBefore = bounds("Home")
+        val density = compose.activity.resources.displayMetrics.density
+
+        assertEquals(168f, selector.width / density, 1f)
+        assertEquals(60f, selector.height / density, 1f)
+        assertTrue("selector should be below the content top", selector.top > 96f * density)
+        assertTrue("selector should be above the navigation action", selector.bottom < action.top)
+        assertEquals("selector should trail the navigation assembly", action.right, selector.right, density)
+
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Choose timeline").assertDoesNotExist()
+        assertEquals(homeDestinationBefore.left, bounds("Home").left, density)
+        assertEquals(homeDestinationBefore.top, bounds("Home").top, density)
+        assertEquals(homeDestinationBefore.right, bounds("Home").right, density)
+        assertEquals(homeDestinationBefore.bottom, bounds("Home").bottom, density)
+    }
+
+    @Test fun scrollingHidesAndRestoresCompactControlsAndLeavesFinalPostReachable() {
+        val account = Account(
+            AccountId(Connection("https://example.org", Protocol.MASTODON), "scrolling"),
+            "Scrolling account",
+            "@scrolling@example.org",
+        )
+        val posts = (0..14).map { index ->
+            Post(
+                EntityId("https://example.org", "scroll-$index"),
+                account,
+                if (index == 14) "Final post" else "Post $index with enough content to make the feed scroll.",
+                0,
+                Audience.Public,
+            )
+        }
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(account = account, feedState = FeedState(posts = posts))
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Choose timeline").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Compose post").assertIsDisplayed()
+
+        compose.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Choose timeline").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Compose post").assertDoesNotExist()
+
+        compose.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Choose timeline").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Compose post").assertIsDisplayed()
+
+        repeat(12) {
+            compose.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("Final post").assertIsDisplayed()
     }
 
     @Test fun homeAndSelectedSearchIndicationsStayRounded() {
