@@ -257,7 +257,7 @@ fun PalustrisApp(
                 }
                 if (page == null && overlay == null && destination == Destination.Home) {
                     androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp).width(168.dp).height(60.dp).zIndex(1f)) {
-                        Surface(Modifier.fillMaxSize().clickable { sheet = "Timelines" }.semantics { contentDescription = "Choose timeline" }, CircleShape, MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f), shadowElevation = 6.dp) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(timeline.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)) } }
+                        Surface(Modifier.fillMaxSize().clickable { sheet = "Timelines" }.semantics { contentDescription = "Choose timeline" }, CircleShape, MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f), shadowElevation = 6.dp) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(timeline.name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)) } }
                     }
                 }
                 if (!wide && page == null && overlay == null) {
