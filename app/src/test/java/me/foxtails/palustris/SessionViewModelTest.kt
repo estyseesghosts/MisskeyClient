@@ -64,7 +64,9 @@ class SessionViewModelTest {
         override val capabilities = ServerCapabilities(timelines = setOf(Timeline.Home))
         var error: Exception? = null
         var createError: Exception? = null
+        val timelineCalls = mutableListOf<Pair<Timeline, String?>>()
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> {
+            timelineCalls += timeline to cursor
             error?.let { throw MisskeyErrorMapper.map(it) }
             val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "a"), "Alice", "@alice")
             fun post(id: String) = Post(EntityId("example", id), account, "Text", 0, Audience.Public)
@@ -164,6 +166,37 @@ class SessionViewModelTest {
             advanceUntilIdle()
             assertTrue(completed)
             assertFalse(model.feed.value.publishing)
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
+    @Test fun selectedTimelineOwnsPaginationAndPublishRefresh() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        try {
+            val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
+            val source = Source()
+            val model = FeedViewModel(login.account.id, source, AccountSyncCoordinator())
+            owner.put("feed", model)
+            advanceUntilIdle()
+            source.timelineCalls.clear()
+
+            model.refresh(Timeline.Local)
+            advanceUntilIdle()
+            assertEquals(Timeline.Local, model.feed.value.timeline)
+            assertEquals(listOf(Timeline.Local to null), source.timelineCalls)
+
+            model.loadMore(Timeline.Home)
+            advanceUntilIdle()
+            assertEquals(listOf(Timeline.Local to null), source.timelineCalls)
+
+            model.loadMore()
+            advanceUntilIdle()
+            assertEquals(listOf(Timeline.Local to null, Timeline.Local to "2"), source.timelineCalls)
+
+            model.create(CreatePostRequest("Local post"))
+            advanceUntilIdle()
+            assertEquals(Timeline.Local, source.timelineCalls.last().first)
+            assertEquals(Timeline.Local, model.feed.value.timeline)
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
 

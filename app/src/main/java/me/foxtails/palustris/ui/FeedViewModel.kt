@@ -38,36 +38,50 @@ class FeedViewModel @AssistedInject constructor(
         }
     }
 
-    fun refresh(timeline: Timeline = Timeline.Home) {
+    fun refresh(timeline: Timeline = _feed.value.timeline) {
         if (stopped) return
         feedJob?.cancel()
         feedJob = viewModelScope.launch {
-            _feed.value = _feed.value.copy(loading = true, loadingMore = false, error = null)
+            val previousState = _feed.value
+            _feed.value = _feed.value.copy(
+                posts = emptyList(),
+                ownedPosts = emptyList(),
+                timeline = timeline,
+                loading = true,
+                loadingMore = false,
+                nextCursor = null,
+                error = null,
+            )
             try {
                 val page = source.timeline(timeline)
                 val posts = page.items.distinctBy { it.id }
                 _feed.value = FeedState(
                     posts = posts,
                     ownedPosts = posts.map { OwnedPost(accountId, it) },
+                    timeline = timeline,
                     timelines = source.capabilities.timelines,
                     canPublish = source.capabilities.canPublish,
+                    publishing = _feed.value.publishing,
                     nextCursor = page.nextCursor,
                 )
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _feed.value = previousState.copy(publishing = _feed.value.publishing)
                 feedFailure(e)
             }
         }
     }
 
-    fun loadMore(timeline: Timeline = Timeline.Home) {
+    fun loadMore(timeline: Timeline = _feed.value.timeline) {
         if (stopped) return
         val state = _feed.value
+        if (timeline != state.timeline) return
         val cursor = state.nextCursor ?: return
         if (state.loading || state.loadingMore || state.needsSignIn) return
         feedJob = viewModelScope.launch {
             _feed.value = state.copy(loadingMore = true, error = null)
             try {
-                val page = source.timeline(timeline, cursor)
+                val page = source.timeline(state.timeline, cursor)
                 _feed.value = _feed.value.copy(
                     posts = (state.posts + page.items).distinctBy { it.id },
                     ownedPosts = (state.ownedPosts + page.items.map { OwnedPost(accountId, it) })

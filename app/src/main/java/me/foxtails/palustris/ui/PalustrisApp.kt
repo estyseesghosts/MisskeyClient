@@ -75,6 +75,9 @@ fun PalustrisApp(
             timeline = Timeline.Home
         }
     }
+    LaunchedEffect(feedState?.timeline, account?.id) {
+        feedState?.timeline?.let { timeline = it }
+    }
 
     BackHandler(enabled = page != null || destination != Destination.Home) {
         when {

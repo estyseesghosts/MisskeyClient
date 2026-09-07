@@ -7,6 +7,7 @@ import me.foxtails.palustris.domain.Timeline
 data class FeedState(
     val posts: List<Post> = emptyList(),
     val ownedPosts: List<OwnedPost> = emptyList(),
+    val timeline: Timeline = Timeline.Home,
     val timelines: Set<Timeline> = setOf(Timeline.Home),
     val canPublish: Boolean = false,
     val loading: Boolean = false,

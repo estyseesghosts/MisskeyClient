@@ -19,6 +19,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -163,6 +164,23 @@ class MastodonIntegrationTest {
         assertEquals("Bearer token", uploadRequest.getHeader("Authorization"))
         assertTrue(uploadRequest.body.readUtf8().contains("bytes"))
         assertEquals("/api/v2/search?q=hello+world", server.takeRequest().path)
+    }
+
+    @Test
+    fun sourceRejectsUnsupportedCreateFieldsBeforeNetworkRequests() = runBlocking {
+        val requestOrigin = server.url("/").toString().removeSuffix("/")
+        val unsupported = listOf(
+            CreatePostRequest("text", quoteOf = EntityId(requestOrigin, "quoted")),
+            CreatePostRequest("text", attachments = listOf(me.foxtails.palustris.domain.Attachment("https://example.org/photo.jpg", "image/jpeg", null))),
+            CreatePostRequest("text", poll = me.foxtails.palustris.domain.PollRequest(listOf("yes", "no"))),
+        )
+
+        unsupported.forEach { request ->
+            assertThrows(SourceError.Unsupported::class.java) {
+                runBlocking { source().create(request) }
+            }
+        }
+        assertEquals(0, server.requestCount)
     }
 
     @Test
