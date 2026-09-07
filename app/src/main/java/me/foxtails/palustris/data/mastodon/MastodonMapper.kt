@@ -56,7 +56,7 @@ object MastodonMapper {
         return Post(
             id = id,
             author = account(json.getJSONObject("account"), origin),
-            text = json.optString("content").htmlToText(),
+            text = json.optString("content").htmlToMarkdown(),
             publishedAtEpochMillis = parseInstant(json.optString("created_at")),
             audience = when (json.optString("visibility")) {
                 "unlisted" -> Audience.Unlisted
@@ -124,6 +124,17 @@ private fun String.toMastodonMimeType(): String = when (this) {
 }
 
 private fun String.stripHtml(): String = htmlToText()
+
+private val htmlAnchor = Regex("<a\\b[^>]*\\bhref\\s*=\\s*[\\\"']([^\\\"']+)[\\\"'][^>]*>(.*?)</a>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+
+private fun String.htmlToMarkdown(): String {
+    val linked = replace(htmlAnchor) { match ->
+        val label = match.groupValues[2].htmlToText()
+        if (label.trimStart().startsWith("@")) label
+        else "[${label}](${match.groupValues[1]})"
+    }
+    return linked.htmlToText()
+}
 
 private fun String.htmlToText(): String = replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
     .replace(Regex("</p\\s*>", RegexOption.IGNORE_CASE), "\n")

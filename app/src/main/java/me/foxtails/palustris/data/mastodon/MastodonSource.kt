@@ -126,6 +126,20 @@ class MastodonSource(
         (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) }
     }
 
+    override suspend fun searchHashtag(tag: String, cursor: String?): Page<Post> = request {
+        val normalized = tag.trim().removePrefix("#")
+        require(normalized.matches(Regex("[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*"))) {
+            "Enter one exact hashtag, such as #photography."
+        }
+        val encodedTag = URLEncoder.encode(normalized, Charsets.UTF_8.name())
+        val response = getPage("v1/timelines/tag/$encodedTag?limit=40", cursor)
+        val statuses = JSONArray(response.body)
+        Page(
+            items = (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) },
+            nextCursor = response.linkHeaderCursor(),
+        )
+    }
+
     override suspend fun searchAccounts(query: String): List<Account> = request {
         val handle = query.trim().removePrefix("@").takeIf { it.isNotBlank() }
             ?: throw SourceError.Unsupported("account search")

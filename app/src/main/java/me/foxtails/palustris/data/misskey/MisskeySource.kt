@@ -61,6 +61,20 @@ class MisskeySource(
         listOf(MisskeyMapper.account(JSONObject(api.post(origin, "users/show", body).body), origin))
     }
 
+    override suspend fun searchHashtag(tag: String, cursor: String?): Page<Post> = request {
+        val normalized = tag.trim().removePrefix("#")
+        require(normalized.matches(Regex("[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*"))) {
+            "Enter one exact hashtag, such as #photography."
+        }
+        val body = JSONObject().put("i", token).put("tag", normalized).put("limit", 30)
+        cursor?.let { body.put("untilId", it) }
+        val notes = JSONArray(api.post(origin, "notes/search-by-tag", body).body)
+        Page(
+            items = (0 until notes.length()).map { MisskeyMapper.post(notes.getJSONObject(it), origin) },
+            nextCursor = notes.optJSONObject(notes.length() - 1)?.optString("id")?.takeIf { it.isNotBlank() },
+        )
+    }
+
     override suspend fun thread(rootId: EntityId): List<Post> = request {
         val root = post(rootId)
         val ancestors = mutableListOf<Post>()

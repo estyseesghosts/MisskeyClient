@@ -173,6 +173,25 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         }
     }
 
+    @Test fun misskeySearchesHashtagWithOpaqueNoteCursor() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("[${note("tag-newest")}]") )
+            server.enqueue(MockResponse().setBody("[${note("tag-older")}]") )
+            val origin = server.url("/").toString().removeSuffix("/")
+            val source = MisskeySource(origin, "test-token", MisskeyApi())
+
+            val first = source.searchHashtag("#cats")
+            val second = source.searchHashtag("cats", first.nextCursor)
+
+            assertEquals("tag-newest", first.items.single().id.value)
+            assertEquals("tag-older", second.items.single().id.value)
+            val firstBody = JSONObject(server.takeRequest().body.readUtf8())
+            val secondBody = JSONObject(server.takeRequest().body.readUtf8())
+            assertEquals("cats", firstBody.getString("tag"))
+            assertEquals("tag-newest", secondBody.getString("untilId"))
+        }
+    }
+
     @Test fun capabilityRefreshPreservesAccountPublishPermission() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("""{"version":"2026.1.0"}"""))

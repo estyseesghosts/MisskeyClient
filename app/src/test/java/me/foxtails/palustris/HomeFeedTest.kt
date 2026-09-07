@@ -17,6 +17,7 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.SearchScreen
+import me.foxtails.palustris.ui.AccountSearchState
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -179,6 +180,61 @@ class HomeFeedTest {
         compose.onNode(hasSetTextAction()).performImeAction()
 
         assertTrue(submitted == "@alice@example.org")
+    }
+
+    @Test fun searchSubmitsExactHashtagAndDisplaysRecentPosts() {
+        var submitted = ""
+        val result = Post(postId("tag-result"), account, "A recent #cats post", 0, Audience.Public)
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SearchScreen(
+                    accountSearch = AccountSearchState(query = "#cats", tagQuery = "cats", posts = listOf(result)),
+                    onSearchAccounts = { submitted = it },
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNode(hasSetTextAction()).performTextInput("#cats")
+        compose.onNode(hasSetTextAction()).performImeAction()
+
+        assertTrue(submitted == "#cats")
+        compose.onNodeWithText("A recent #cats post").assertIsDisplayed()
+    }
+
+    @Test fun tappingOverflowHashtagInvokesSearchCallback() {
+        var searched = ""
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                me.foxtails.palustris.ui.HomeFeed(
+                    state = FeedState(posts = listOf(Post(postId("tap-tag"), account, "Body #one #two", 0, Audience.Public))),
+                    onRefresh = {}, onLoadMore = {}, onSignIn = {}, onSearchHashtag = { searched = it },
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("2 hashtags: #one and #two").performClick()
+        compose.onNodeWithContentDescription("Hashtag #two").performClick()
+
+        assertTrue(searched == "#two")
+    }
+
+    @Test fun clearingHashtagSearchRemovesPreviousResults() {
+        val result = Post(postId("clear-tag"), account, "A cached tag result", 0, Audience.Public)
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SearchScreen(
+                    accountSearch = AccountSearchState(query = "#cats", tagQuery = "cats", posts = listOf(result)),
+                    initialQuery = "#cats",
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("A cached tag result").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Clear search").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("A cached tag result").assertDoesNotExist()
+        compose.onNodeWithText("Find an account").assertIsDisplayed()
     }
 
     private fun postId(value: String) = EntityId("https://example.org", value)

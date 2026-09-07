@@ -71,6 +71,7 @@ fun HomeFeed(
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
     onOpenProfile: (Account) -> Unit = {},
+    onSearchHashtag: (String) -> Unit = {},
 ) {
     val list = rememberLazyListState()
     val pullToRefreshState = rememberPullToRefreshState()
@@ -136,7 +137,7 @@ fun HomeFeed(
             val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
             val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
             items(rows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
-                PostRow(ownedPost, enabledActions, onReact, onReply, onReshare, onBookmark, onReaction, onOpenProfile)
+                PostRow(ownedPost, enabledActions, onReact, onReply, onReshare, onBookmark, onReaction, onOpenProfile, onSearchHashtag)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
             }
             if (state.loadingMore) item {
@@ -168,7 +169,7 @@ fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemanti
 }
 
 @Composable
-private fun PostRow(
+internal fun PostRow(
     ownedPost: OwnedPost,
     availableActions: Set<PostAction>,
     onReact: (OwnedPost) -> Unit,
@@ -177,6 +178,7 @@ private fun PostRow(
     onBookmark: (OwnedPost) -> Unit,
     onReaction: (OwnedPost, String) -> Unit,
     onOpenProfile: (Account) -> Unit,
+    onSearchHashtag: (String) -> Unit,
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
@@ -192,6 +194,7 @@ private fun PostRow(
             post = post,
             filteredHashtags = presentation.filteredHashtags.takeIf { contentVisible }.orEmpty(),
             onOpenProfile = { onOpenProfile(post.author) },
+            onSearchHashtag = onSearchHashtag,
         )
         if (post.replyTo != null) Text("Reply", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         if (post.contentWarning != null) {
@@ -203,7 +206,7 @@ private fun PostRow(
             if (presentation.visibleText.isNotBlank() || timestamp != null) SelectionContainer {
                 Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
                     if (presentation.visibleText.isNotBlank()) {
-                        Text(presentation.visibleText, style = MaterialTheme.typography.bodyLarge)
+                        MarkdownPostText(presentation.visibleText, style = MaterialTheme.typography.bodyLarge)
                     }
                     timestamp?.let {
                         if (presentation.visibleText.isNotBlank()) Spacer(Modifier.height(2.dp))
@@ -250,7 +253,7 @@ private fun PostRow(
 }
 
 @Composable
-private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenProfile: () -> Unit) {
+private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenProfile: () -> Unit, onSearchHashtag: (String) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -274,7 +277,7 @@ private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenPr
         }
         if (filteredHashtags.isNotEmpty()) {
             Spacer(Modifier.width(4.dp))
-            FilteredHashtagSummary(filteredHashtags)
+            FilteredHashtagSummary(filteredHashtags, onSearchHashtag)
         }
     }
 }
@@ -291,7 +294,7 @@ private fun postTimestamp(post: Post): String? = if (post.publishedAtEpochMillis
 }
 
 @Composable
-private fun FilteredHashtagSummary(hashtags: List<String>) {
+private fun FilteredHashtagSummary(hashtags: List<String>, onSearchHashtag: (String) -> Unit) {
     var menuVisible by rememberSaveable(hashtags) { mutableStateOf(false) }
     val label = if (hashtags.size == 1) hashtags.first() else "${hashtags.first()} +${hashtags.size - 1}"
     Box {
@@ -321,7 +324,7 @@ private fun FilteredHashtagSummary(hashtags: List<String>) {
                 DropdownMenuItem(
                     modifier = Modifier.semantics { contentDescription = "Hashtag $hashtag" },
                     text = { Text(hashtag) },
-                    onClick = { menuVisible = false },
+                    onClick = { menuVisible = false; onSearchHashtag(hashtag) },
                 )
             }
         }

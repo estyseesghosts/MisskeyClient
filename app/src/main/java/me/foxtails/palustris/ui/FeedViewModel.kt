@@ -143,24 +143,81 @@ class FeedViewModel @AssistedInject constructor(
     }
 
     fun searchAccounts(query: String) {
+        search(query)
+    }
+
+    fun search(query: String) {
         if (stopped) return
         val normalized = query.trim()
         if (normalized.isBlank()) return
         searchJob?.cancel()
+        val isHashtag = normalized.matches(EXACT_HASHTAG)
+        _feed.value = _feed.value.copy(
+            accountSearch = AccountSearchState(
+                query = normalized,
+                tagQuery = normalized.removePrefix("#").takeIf { isHashtag },
+                loading = true,
+            ),
+        )
         searchJob = viewModelScope.launch {
+            if (isHashtag) searchHashtag(normalized)
+            else searchAccount(normalized)
+        }
+    }
+
+    private companion object {
+        val EXACT_HASHTAG = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
+    }
+
+    private suspend fun searchAccount(normalized: String) {
+        _feed.value = _feed.value.copy(accountSearch = AccountSearchState(query = normalized, loading = true))
+        try {
+            val accounts = source.searchAccounts(normalized).distinctBy { it.id }
+            _feed.value = _feed.value.copy(accountSearch = AccountSearchState(query = normalized, accounts = accounts))
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            _feed.value = _feed.value.copy(accountSearch = AccountSearchState(query = normalized, error = sourceErrorMessage(e)))
+        }
+    }
+
+    private suspend fun searchHashtag(normalized: String) {
+        _feed.value = _feed.value.copy(accountSearch = AccountSearchState(query = normalized, tagQuery = normalized.removePrefix("#"), loading = true))
+        try {
+            val page = source.searchHashtag(normalized)
             _feed.value = _feed.value.copy(
-                accountSearch = AccountSearchState(query = normalized, loading = true),
+                accountSearch = AccountSearchState(
+                    query = normalized,
+                    posts = page.items.distinctBy { it.id },
+                    tagQuery = normalized.removePrefix("#"),
+                    nextCursor = page.nextCursor,
+                ),
             )
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            _feed.value = _feed.value.copy(accountSearch = AccountSearchState(query = normalized, tagQuery = normalized.removePrefix("#"), error = sourceErrorMessage(e)))
+        }
+    }
+
+    fun loadMoreSearch() {
+        if (stopped) return
+        val state = _feed.value.accountSearch
+        val tag = state.tagQuery ?: return
+        val cursor = state.nextCursor ?: return
+        if (state.loading || state.loadingMore) return
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            _feed.value = _feed.value.copy(accountSearch = state.copy(loadingMore = true, error = null))
             try {
-                val accounts = source.searchAccounts(normalized).distinctBy { it.id }
-                _feed.value = _feed.value.copy(
-                    accountSearch = AccountSearchState(query = normalized, accounts = accounts),
-                )
+                val page = source.searchHashtag(tag, cursor)
+                val current = _feed.value.accountSearch
+                _feed.value = _feed.value.copy(accountSearch = current.copy(
+                    posts = (current.posts + page.items).distinctBy { it.id },
+                    loadingMore = false,
+                    nextCursor = page.nextCursor?.takeUnless { it == cursor },
+                ))
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _feed.value = _feed.value.copy(
-                    accountSearch = AccountSearchState(query = normalized, error = sourceErrorMessage(e)),
-                )
+                _feed.value = _feed.value.copy(accountSearch = _feed.value.accountSearch.copy(loadingMore = false, error = sourceErrorMessage(e)))
             }
         }
     }

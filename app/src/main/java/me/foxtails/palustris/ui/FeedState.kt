@@ -26,7 +26,11 @@ data class FeedState(
 data class AccountSearchState(
     val query: String = "",
     val accounts: List<Account> = emptyList(),
+    val posts: List<Post> = emptyList(),
+    val tagQuery: String? = null,
     val loading: Boolean = false,
+    val loadingMore: Boolean = false,
+    val nextCursor: String? = null,
     val error: String? = null,
 )
 

@@ -3,6 +3,8 @@ package me.foxtails.palustris.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
@@ -21,6 +23,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.OwnedPost
+
+private val exactHashtagQuery = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
 
 @Composable
 fun SearchScreen(
@@ -28,6 +33,8 @@ fun SearchScreen(
     accountSearch: AccountSearchState = AccountSearchState(),
     onSearchAccounts: (String) -> Unit = {},
     onAccountClick: (Account) -> Unit = {},
+    onLoadMoreSearch: () -> Unit = {},
+    initialQuery: String = "",
 ) {
     if (mode == SearchPanel.Alternate) {
         EmptyState(AppIcons.WaffleGrid, "Alternate search", "A second search surface will be available in a future update.")
@@ -35,6 +42,8 @@ fun SearchScreen(
     }
     var query by rememberSaveable { mutableStateOf("") }
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(initialQuery) { if (initialQuery.isNotBlank()) query = initialQuery }
+    val hashtagSearchRequested = query.trim().matches(exactHashtagQuery)
     val sections = listOf("Posts", "Hashtags", "News", "For you")
     fun submitSearch() {
         if (query.isNotBlank()) onSearchAccounts(query)
@@ -59,12 +68,9 @@ fun SearchScreen(
             ),
         )
         SectionTabs(sections, tab) { tab = it }
-        if (tab == 0) {
-            AccountSearchResults(
-                query = query,
-                state = accountSearch,
-                onAccountClick = onAccountClick,
-            )
+        if (tab == 0 || hashtagSearchRequested) {
+            if (hashtagSearchRequested) HashtagSearchResults(accountSearch, query, onLoadMoreSearch)
+            else AccountSearchResults(query, accountSearch, onAccountClick)
         } else {
             EmptyState(
                 AppIcons.Tag,
@@ -81,6 +87,38 @@ fun SearchScreen(
                 },
             )
         }
+    }
+}
+
+@Composable
+private fun HashtagSearchResults(state: AccountSearchState, query: String, onLoadMore: () -> Unit) {
+    when {
+        state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        state.error != null -> EmptyState(AppIcons.Search, "Hashtag search failed", state.error)
+        state.posts.isNotEmpty() && state.query == query.trim() -> LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 24.dp),
+        ) {
+            items(state.posts, key = { "${it.id.connection}/${it.id.value}" }) { post ->
+                PostRow(
+                    ownedPost = OwnedPost(post.author.id, post),
+                    availableActions = emptySet(),
+                    onReact = {}, onReply = {}, onReshare = {}, onBookmark = {}, onReaction = { _, _ -> }, onOpenProfile = {},
+                    onSearchHashtag = {},
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+            }
+            item {
+                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    if (state.loadingMore) CircularProgressIndicator(Modifier.size(24.dp))
+                    else if (state.nextCursor != null) TextButton(onClick = onLoadMore) { Text("Load older posts") }
+                    else Text("You're up to date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        query.isBlank() -> EmptyState(AppIcons.Tag, "Find a hashtag", "Enter an exact tag such as #photography and press enter.")
+        state.query == query.trim() -> EmptyState(AppIcons.Tag, "No posts found", "No recent posts use ${state.query}.")
+        else -> EmptyState(AppIcons.Tag, "Hashtag search is ready", "Press enter to find recent posts using this tag.")
     }
 }
 

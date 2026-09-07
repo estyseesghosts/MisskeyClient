@@ -108,6 +108,20 @@ class PostTextPresentationTest {
         )
     }
 
+    @Test fun commaSeparatedTerminalBlockIncludesLinkedHashtag() {
+        val text = "A photo.\n#analog, #film, [#minimal](https://pixel.example/tags/minimal)"
+        assertPresentation(text, "A photo.", "#analog", "#film", "#minimal")
+    }
+
+    @Test fun commaSeparatedTagsInsideProseRemainVisible() {
+        val text = "These are #one, #two, and #three in a sentence."
+        assertPresentation(text, text)
+    }
+
+    @Test fun ordinaryMarkdownLinkRemainsVisibleForClickableRendering() {
+        assertPresentation("Read [the full guide](https://example.org/guide) today.", "Read [the full guide](https://example.org/guide) today.")
+    }
+
     @Test fun blankLinesCreatedByRemovedBlocksCollapseWithoutChangingParagraphSpacing() {
         val text = "Before\n\n#one ✨ #two\n\nAfter"
         assertPresentation(text, "Before\n\nAfter", "#one", "#two")

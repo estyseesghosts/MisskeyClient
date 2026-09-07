@@ -192,6 +192,7 @@ fun PalustrisApp(
     onPublish: (CreatePostRequest, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
     onUpdateProfile: (UpdateProfileRequest, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
     onSearchAccounts: (String) -> Unit = {},
+    onLoadMoreSearch: () -> Unit = {},
     draftStore: DraftStore? = null,
     ownedPosts: List<OwnedPost>? = null,
     onReact: (OwnedPost) -> Unit = {},
@@ -209,6 +210,7 @@ fun PalustrisApp(
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
     var overlayKey by rememberSaveable { mutableStateOf<String?>(null) }
     var searchPanelName by rememberSaveable { mutableStateOf(SearchPanel.Search.name) }
+    var searchPrefill by rememberSaveable { mutableStateOf("") }
     var notificationsPanelName by rememberSaveable { mutableStateOf(NotificationsPanel.Notifications.name) }
     val searchPanel = SearchPanel.valueOf(searchPanelName)
     val notificationsPanel = NotificationsPanel.valueOf(notificationsPanelName)
@@ -283,6 +285,14 @@ fun PalustrisApp(
         sheet = null
     }
 
+    fun openHashtagSearch(hashtag: String) {
+        searchPrefill = hashtag
+        searchPanelName = SearchPanel.Search.name
+        destination = Destination.Search
+        page = null
+        onSearchAccounts(hashtag)
+    }
+
     BackHandler(enabled = overlay != null || page != null || destination != Destination.Home) {
         when { overlay == Overlay.Composer -> closeComposer(); overlay == Overlay.EditProfile -> closeProfile(); page != null -> page = null; else -> destination = Destination.Home }
     }
@@ -307,8 +317,8 @@ fun PalustrisApp(
                             "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")
                             "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                                Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenProfile = ::openProfile) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
-                                Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile)
+                                Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill)
                                 Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(connected = account != null) else MessagesScreen()
                                 Destination.Profile -> ProfileScreen(displayedProfile)
                             } }

@@ -59,7 +59,7 @@ private fun findHashtagTokens(text: String): List<HashtagToken> {
 
         val match = hashtagToken.matchAt(text, hash)
         if (match != null) {
-            val range = match.range
+            val range = markdownHashtagLinkRange(text, match.range) ?: match.range
             if (hashtagBoundaryIsValid(text, range)) {
                 tokens += HashtagToken(range, match.value)
             }
@@ -70,6 +70,17 @@ private fun findHashtagTokens(text: String): List<HashtagToken> {
     }
     return tokens
 }
+
+private val markdownLink = Regex("\\[([^]\\r\\n]*)\\]\\(https?://[^)\\s]+\\)")
+
+/** A linked hashtag is one token for block detection, while linked prose remains visible. */
+private fun markdownHashtagLinkRange(text: String, hashtagRange: IntRange): IntRange? =
+    markdownLink.findAll(text).firstOrNull { link ->
+        val labelStart = link.range.first + 1
+        val labelEndExclusive = labelStart + link.groupValues[1].length
+        hashtagRange.first >= labelStart && hashtagRange.last + 1 <= labelEndExclusive &&
+            text.substring(labelStart, labelEndExclusive).trim() == text.substring(hashtagRange)
+    }?.range
 
 private fun hashtagBoundaryIsValid(text: String, range: IntRange): Boolean {
     val before = codePointBefore(text, range.first)
@@ -305,6 +316,8 @@ private fun isApprovedDecorativeSeparator(codePoint: Int): Boolean {
     if (codePoint == 0xFFFD) return false
     if (codePoint in 0x1F000..0x1FAFF || codePoint in 0x2600..0x27BF) return true
     return codePoint in setOf(
+        0x002C, // comma
+        0x003B, // semicolon
         0x00B7, // middle dot
         0x2022, // bullet
         0x2023, // triangular bullet

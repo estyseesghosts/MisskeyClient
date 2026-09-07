@@ -89,6 +89,15 @@ class MastodonIntegrationTest {
     }
 
     @Test
+    fun mapperPreservesHashtagAndPhraseLinksAsMarkdown() {
+        val post = MastodonMapper.post(status("links").put(
+            "content", "<p>[#tag](https://example.org/tags/tag) and <a href=\"https://example.org/guide\">the guide</a></p>",
+        ), origin)
+
+        assertEquals("[#tag](https://example.org/tags/tag) and [the guide](https://example.org/guide)", post.text)
+    }
+
+    @Test
     fun mapperPreservesReblogAsResharedPost() {
         val resharedBy = JSONObject(localAccount.toString()).put("id", "resharer").put("username", "bob").put("acct", "bob")
             .put("display_name", "Bob")
@@ -119,6 +128,27 @@ class MastodonIntegrationTest {
         val secondRequest = server.takeRequest()
         assertEquals("/api/v1/timelines/home", firstRequest.path)
         assertEquals("/api/v1/timelines/home?max_id=newest", secondRequest.path)
+        assertEquals("Bearer token", secondRequest.getHeader("Authorization"))
+    }
+
+    @Test
+    fun sourceSearchesHashtagWithBearerAndLinkCursor() = runBlocking {
+        server.enqueue(MockResponse().setBody("[${status("tag-newest")}]").addHeader(
+            "Link", "<$origin/api/v1/timelines/tag/cats?limit=40&max_id=tag-newest>; rel=\"next\"",
+        ))
+        server.enqueue(MockResponse().setBody("[${status("tag-older")}]"))
+        val source = source()
+
+        val first = source.searchHashtag("#cats")
+        val second = source.searchHashtag("cats", first.nextCursor)
+
+        assertEquals("tag-newest", first.items.single().id.value)
+        assertEquals("tag-older", second.items.single().id.value)
+        val firstRequest = server.takeRequest()
+        val secondRequest = server.takeRequest()
+        assertEquals("/api/v1/timelines/tag/cats?limit=40", firstRequest.path)
+        assertEquals("/api/v1/timelines/tag/cats?limit=40&max_id=tag-newest", secondRequest.path)
+        assertEquals("Bearer token", firstRequest.getHeader("Authorization"))
         assertEquals("Bearer token", secondRequest.getHeader("Authorization"))
     }
 
