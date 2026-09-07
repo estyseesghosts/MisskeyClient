@@ -13,12 +13,17 @@ import kotlinx.coroutines.Dispatchers
 import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.AppRegistrationCache
 import me.foxtails.palustris.data.auth.AuthGateway
+import me.foxtails.palustris.data.auth.DetectingAuthGateway
 import me.foxtails.palustris.data.auth.EncryptedSessionStore
 import me.foxtails.palustris.data.auth.MastodonAuth
 import me.foxtails.palustris.data.auth.MisskeyAuth
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.misskey.HttpClientPool
+import me.foxtails.palustris.data.misskey.MisskeyApi
+import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.AccountSyncCoordinator
+import org.json.JSONObject
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -46,7 +51,14 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAuthGateway(auth: MisskeyAuth): AuthGateway = auth
+    fun provideAuthGateway(
+        misskey: MisskeyAuth,
+        mastodon: MastodonAuth,
+        clientPool: HttpClientPool,
+    ): AuthGateway = DetectingAuthGateway(misskey, mastodon) { origin ->
+        val probe = MisskeyApi(clientPool.clientFor(Connection(origin, Protocol.MISSKEY)))
+        JSONObject(probe.post(origin, "meta").body).optString("version").isNotBlank()
+    }
 }
 
 @Module
