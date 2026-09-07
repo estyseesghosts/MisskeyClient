@@ -225,6 +225,7 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
 
             assertEquals(setOf(Timeline.Home, Timeline.Local, Timeline.Social), capabilities.timelines)
             assertFalse(Timeline.Federated in capabilities.timelines)
+            assertEquals(setOf(PostAction.React), capabilities.actions)
         }
     }
 

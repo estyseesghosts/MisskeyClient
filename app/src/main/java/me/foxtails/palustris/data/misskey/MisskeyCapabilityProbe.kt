@@ -2,6 +2,7 @@ package me.foxtails.palustris.data.misskey
 
 import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Timeline
 import org.json.JSONObject
@@ -19,7 +20,11 @@ class MisskeyCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
             }
             if (!meta.optBoolean("disableGlobalTimeline")) add(Timeline.Federated)
         }
-        return ServerCapabilities(timelines = timelines, capabilitiesLastUpdated = System.currentTimeMillis())
+        return ServerCapabilities(
+            timelines = timelines,
+            actions = setOf(PostAction.React),
+            capabilitiesLastUpdated = System.currentTimeMillis(),
+        )
     }
 }
 

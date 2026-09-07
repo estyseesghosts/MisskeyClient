@@ -1,6 +1,7 @@
 package me.foxtails.palustris
 
 import androidx.lifecycle.ViewModelStore
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
@@ -60,13 +61,17 @@ class SessionViewModelTest {
         override fun clearPending() { pending = null }
         override fun clear() { sessions.clear(); pending = null; index = AccountIndex() }
     }
-    private class Source : SocialSource {
-        override val capabilities = ServerCapabilities(timelines = setOf(Timeline.Home))
+    private class Source(
+        override val capabilities: ServerCapabilities = ServerCapabilities(timelines = setOf(Timeline.Home)),
+    ) : SocialSource {
         var error: Exception? = null
         var createError: Exception? = null
+        var failingTimeline: Timeline? = null
+        var createGate: CompletableDeferred<Unit>? = null
         val timelineCalls = mutableListOf<Pair<Timeline, String?>>()
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> {
             timelineCalls += timeline to cursor
+            if (timeline == failingTimeline) throw IOException("timeline unavailable")
             error?.let { throw MisskeyErrorMapper.map(it) }
             val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "a"), "Alice", "@alice")
             fun post(id: String) = Post(EntityId("example", id), account, "Text", 0, Audience.Public)
@@ -74,8 +79,61 @@ class SessionViewModelTest {
         }
         override suspend fun create(post: CreatePostRequest): Post {
             createError?.let { throw MisskeyErrorMapper.map(it) }
+            createGate?.await()
             val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "a"), "Alice", "@alice")
             return Post(EntityId("example", "created"), account, post.text, 0, Audience.Public)
+        }
+    }
+
+    private class AccountFeedSource(
+        private val author: Account,
+        override val capabilities: ServerCapabilities,
+    ) : SocialSource {
+        override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(
+            listOf(
+                Post(
+                    EntityId(author.id.connection.origin, "post-${author.id.localId}"),
+                    author,
+                    "${author.displayName} post",
+                    0,
+                    Audience.Public,
+                ),
+            ),
+        )
+    }
+
+    private class ActionSource : SocialSource {
+        override val capabilities = ServerCapabilities(
+            timelines = setOf(Timeline.Home),
+            actions = setOf(PostAction.Favorite, PostAction.Reshare, PostAction.React),
+        )
+        val favoriteIds = mutableListOf<EntityId>()
+        val reshareIds = mutableListOf<EntityId>()
+        val reactionIds = mutableListOf<EntityId>()
+        var actionError: Exception? = null
+        private val author = Account(
+            AccountId(Connection("https://example.org", Protocol.MISSKEY), "author"),
+            "Author",
+            "@author@example.org",
+        )
+
+        override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(
+            listOf(Post(EntityId("https://example.org", "post"), author, "Post", 0, Audience.Public)),
+        )
+
+        override suspend fun favorite(id: EntityId) {
+            actionError?.let { throw it }
+            favoriteIds += id
+        }
+
+        override suspend fun renote(id: EntityId) {
+            actionError?.let { throw it }
+            reshareIds += id
+        }
+
+        override suspend fun react(id: EntityId, emoji: String) {
+            actionError?.let { throw it }
+            reactionIds += id
         }
     }
     private fun auth(result: LoginSession) = object : AuthGateway {
@@ -167,6 +225,181 @@ class SessionViewModelTest {
             assertTrue(completed)
             assertFalse(model.feed.value.publishing)
         } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
+    @Test fun refreshPreservesPublishingPermissionActionsAndInFlightPublishing() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        try {
+            val source = Source(
+                ServerCapabilities(
+                    timelines = setOf(Timeline.Home, Timeline.Local),
+                    actions = setOf(PostAction.Favorite, PostAction.Reply),
+                    canPublish = true,
+                ),
+            )
+            val model = FeedViewModel(login.account.id, source, AccountSyncCoordinator())
+            owner.put("feed", model)
+            advanceUntilIdle()
+
+            assertEquals(Timeline.Home, model.feed.value.timeline)
+            assertTrue(model.feed.value.canPublish)
+            assertEquals(setOf(PostAction.Favorite), model.feed.value.actions)
+
+            source.createGate = CompletableDeferred()
+            model.create(CreatePostRequest("In-flight draft"))
+            runCurrent()
+            assertTrue(model.feed.value.publishing)
+
+            model.refresh(Timeline.Local)
+            advanceUntilIdle()
+            assertEquals(Timeline.Local, model.feed.value.timeline)
+            assertTrue(model.feed.value.canPublish)
+            assertEquals(setOf(PostAction.Favorite), model.feed.value.actions)
+            assertTrue(model.feed.value.publishing)
+
+            source.createGate?.complete(Unit)
+            advanceUntilIdle()
+            assertFalse(model.feed.value.publishing)
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
+    @Test fun failedTimelineChangeRestoresPreviousFeedAndDisplayedTimeline() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        try {
+            val source = Source(
+                ServerCapabilities(
+                    timelines = setOf(Timeline.Home, Timeline.Local),
+                    actions = setOf(PostAction.Favorite),
+                    canPublish = true,
+                ),
+            )
+            val model = FeedViewModel(login.account.id, source, AccountSyncCoordinator())
+            owner.put("feed", model)
+            advanceUntilIdle()
+            val previous = model.feed.value
+
+            source.failingTimeline = Timeline.Local
+            model.refresh(Timeline.Local)
+            advanceUntilIdle()
+
+            assertEquals(previous.posts, model.feed.value.posts)
+            assertEquals(previous.ownedPosts, model.feed.value.ownedPosts)
+            assertEquals(Timeline.Home, model.feed.value.timeline)
+            assertEquals(previous.timelines, model.feed.value.timelines)
+            assertEquals(previous.actions, model.feed.value.actions)
+            assertTrue(model.feed.value.canPublish)
+            assertNotNull(model.feed.value.error)
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
+    @Test fun actionsUseFetchedAccountFilterClientReadinessAndRejectDuplicates() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        val coordinator = AccountSyncCoordinator()
+        try {
+            val source = ActionSource()
+            val model = FeedViewModel(login.account.id, source, coordinator)
+            owner.put("feed", model)
+            advanceUntilIdle()
+
+            assertEquals(setOf(PostAction.Favorite, PostAction.Reshare), model.feed.value.actions)
+            val ownedPost = model.feed.value.ownedPosts.single()
+            model.favorite(ownedPost)
+            model.favorite(ownedPost)
+            advanceUntilIdle()
+            assertEquals(listOf(ownedPost.post.id), source.favoriteIds)
+
+            model.react(ownedPost, "🎉")
+            advanceUntilIdle()
+            assertTrue(source.reactionIds.isEmpty())
+
+            val otherAccount = AccountId(Connection("https://example.org", Protocol.MISSKEY), "other")
+            model.reshare(OwnedPost(otherAccount, ownedPost.post))
+            advanceUntilIdle()
+            assertTrue(source.reshareIds.isEmpty())
+
+            source.actionError = IOException()
+            model.reshare(ownedPost)
+            advanceUntilIdle()
+            assertNotNull(model.feed.value.error)
+            source.actionError = null
+            model.reshare(ownedPost)
+            advanceUntilIdle()
+            assertEquals(listOf(ownedPost.post.id), source.reshareIds)
+        } finally {
+            owner.clear()
+            coordinator.close()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test fun switchingAccountsRebindsFeedTimelineActionsAndOwnership() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        val coordinator = AccountSyncCoordinator()
+        try {
+            val secondLogin = LoginSession(
+                "https://other.example",
+                "second-token",
+                JSONObject("""{"id":"b","username":"bob"}"""),
+            )
+            val secondSession = Session(secondLogin.account.id, secondLogin.token, ServerCapabilities())
+            val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
+            store.sessions[secondSession.accountId] = secondSession
+            store.index = AccountIndex(
+                accounts = listOf(
+                    AccountRef(login.account.id, login.account.handle, null, login.account.displayName),
+                    AccountRef(secondLogin.account.id, secondLogin.account.handle, null, secondLogin.account.displayName),
+                ),
+                activeAccountId = login.account.id,
+            )
+            val accountManager = AccountManager(store, auth(login), StandardTestDispatcher(testScheduler))
+            owner.put("accounts", accountManager)
+
+            val firstSource = AccountFeedSource(
+                login.account,
+                ServerCapabilities(
+                    timelines = setOf(Timeline.Home, Timeline.Local),
+                    actions = setOf(PostAction.Favorite),
+                    canPublish = true,
+                ),
+            )
+            val firstFeed = FeedViewModel(login.account.id, firstSource, coordinator)
+            owner.put("first-feed", firstFeed)
+            advanceUntilIdle()
+            assertEquals(login.account.id, firstFeed.feed.value.ownedPosts.single().fetchedBy)
+            assertEquals(setOf(Timeline.Home, Timeline.Local), firstFeed.feed.value.timelines)
+            assertEquals(setOf(PostAction.Favorite), firstFeed.feed.value.actions)
+            assertTrue(firstFeed.feed.value.canPublish)
+
+            accountManager.switchAccount(secondLogin.account.id)
+            advanceUntilIdle()
+            assertEquals(secondLogin.account.id, accountManager.session.value.account?.id)
+
+            firstFeed.stop()
+            val secondSource = AccountFeedSource(
+                secondLogin.account,
+                ServerCapabilities(
+                    timelines = setOf(Timeline.Home, Timeline.Federated),
+                    actions = setOf(PostAction.Reshare),
+                ),
+            )
+            val secondFeed = FeedViewModel(secondLogin.account.id, secondSource, coordinator)
+            owner.put("second-feed", secondFeed)
+            advanceUntilIdle()
+
+            assertEquals(secondLogin.account.id, secondFeed.feed.value.ownedPosts.single().fetchedBy)
+            assertEquals(secondLogin.account.id, secondFeed.feed.value.posts.single().author.id)
+            assertEquals(setOf(Timeline.Home, Timeline.Federated), secondFeed.feed.value.timelines)
+            assertEquals(setOf(PostAction.Reshare), secondFeed.feed.value.actions)
+            assertFalse(secondFeed.feed.value.canPublish)
+        } finally {
+            owner.clear()
+            coordinator.close()
+            Dispatchers.resetMain()
+        }
     }
 
     @Test fun stoppingFeedUnregistersPollingImmediately() = runTest {

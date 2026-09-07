@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
+import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 
@@ -29,6 +31,8 @@ class FeedViewModel @AssistedInject constructor(
     private var feedJob: Job? = null
     private var setupJob: Job? = null
     private var publishJob: Job? = null
+    private var actionJob: Job? = null
+    private val completedActions = mutableSetOf<ActionKey>()
     private var stopped = false
 
     init {
@@ -61,6 +65,7 @@ class FeedViewModel @AssistedInject constructor(
                     timeline = timeline,
                     timelines = source.capabilities.timelines,
                     canPublish = source.capabilities.canPublish,
+                    actions = source.capabilities.actions.intersect(ClientReadyPostActions),
                     publishing = _feed.value.publishing,
                     nextCursor = page.nextCursor,
                 )
@@ -113,13 +118,43 @@ class FeedViewModel @AssistedInject constructor(
         }
     }
 
+    fun favorite(ownedPost: OwnedPost) {
+        runAction(ownedPost, PostAction.Favorite) { source.favorite(ownedPost.post.id) }
+    }
+
+    fun reshare(ownedPost: OwnedPost) {
+        runAction(ownedPost, PostAction.Reshare) { source.renote(ownedPost.post.id) }
+    }
+
+    fun react(ownedPost: OwnedPost, emoji: String) {
+        runAction(ownedPost, PostAction.React) { source.react(ownedPost.post.id, emoji) }
+    }
+
     fun stop() {
         if (stopped) return
         stopped = true
         setupJob?.cancel()
         feedJob?.cancel()
         publishJob?.cancel()
+        actionJob?.cancel()
         syncCoordinator.unregister(accountId)
+    }
+
+    private fun runAction(ownedPost: OwnedPost, action: PostAction, operation: suspend () -> Unit) {
+        if (stopped || actionJob?.isActive == true || ownedPost.fetchedBy != accountId) return
+        if (action !in _feed.value.actions) return
+        val key = ActionKey(action, ownedPost.post.id)
+        if (!completedActions.add(key)) return
+        actionJob = viewModelScope.launch {
+            _feed.value = _feed.value.copy(error = null, needsSignIn = false)
+            try {
+                operation()
+            } catch (e: Exception) {
+                completedActions.remove(key)
+                if (e is CancellationException) throw e
+                feedFailure(e)
+            }
+        }
     }
 
     private fun feedFailure(e: Exception) {
@@ -136,6 +171,8 @@ class FeedViewModel @AssistedInject constructor(
         stop()
         super.onCleared()
     }
+
+    private data class ActionKey(val action: PostAction, val postId: EntityId)
 
     @AssistedFactory
     interface Factory {

@@ -3,6 +3,7 @@ package me.foxtails.palustris
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.ui.*
@@ -105,20 +106,107 @@ class SignInScreenTest {
         compose.onNodeWithText("Publish").assertIsNotEnabled()
     }
     @Test fun feedActionsPreserveTheAccountThatFetchedThePost() {
+        val fetchingAccount = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
+        val author = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "author"), "Author", "@author@example.org")
+        val post = Post(EntityId("https://example.org", "post"), author, "Post", System.currentTimeMillis(), Audience.Public)
+        val ownedPost = OwnedPost(fetchingAccount.id, post)
+        var favoritedPost: OwnedPost? = null
+        var resharedPost: OwnedPost? = null
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(
+                account = fetchingAccount,
+                feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.Favorite, PostAction.Reshare)),
+                onReact = { favoritedPost = it },
+                onReshare = { resharedPost = it },
+            )
+        } }
+
+        compose.onNodeWithContentDescription("Favorite").performClick()
+        compose.onNodeWithContentDescription("Repost").performClick()
+        assertEquals(fetchingAccount.id, favoritedPost?.fetchedBy)
+        assertEquals(fetchingAccount.id, resharedPost?.fetchedBy)
+    }
+
+    @Test fun unsupportedActionsAreDisabledAndCannotInvokeFallbackHandlers() {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
         val post = Post(EntityId("https://example.org", "post"), account, "Post", System.currentTimeMillis(), Audience.Public)
         val ownedPost = OwnedPost(account.id, post)
-        var reactedPost: OwnedPost? = null
+        var replied = false
+        var bookmarked = false
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = account,
                 feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost)),
-                onReact = { reactedPost = it },
+                onReply = { replied = true },
+                onBookmark = { bookmarked = true },
             )
         } }
 
-        compose.onNodeWithText("React").performClick()
-        assertEquals(account.id, reactedPost?.fetchedBy)
+        compose.onNodeWithContentDescription("Reply").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Repost").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Favorite").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Bookmark").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Share").assertIsEnabled()
+        assertEquals(false, replied)
+        assertEquals(false, bookmarked)
+    }
+
+    @Test fun switchingAccountsRebindsDisplayedFeedTimelineAndActionOwnership() {
+        val first = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "first"), "First", "@first@example.org")
+        val second = Account(AccountId(Connection("https://other.example", Protocol.MISSKEY), "second"), "Second", "@second@other.example")
+        val firstPost = Post(EntityId("https://example.org", "first-post"), first, "First post", 0, Audience.Public)
+        val secondPost = Post(EntityId("https://other.example", "second-post"), second, "Second post", 0, Audience.Public)
+        val firstOwnedPost = OwnedPost(first.id, firstPost)
+        val secondOwnedPost = OwnedPost(second.id, secondPost)
+        val firstFeed = FeedState(
+            posts = listOf(firstPost),
+            ownedPosts = listOf(firstOwnedPost),
+            timeline = Timeline.Home,
+            timelines = setOf(Timeline.Home, Timeline.Local),
+            canPublish = true,
+            actions = setOf(PostAction.Favorite),
+        )
+        val secondFeed = FeedState(
+            posts = listOf(secondPost),
+            ownedPosts = listOf(secondOwnedPost),
+            timeline = Timeline.Federated,
+            timelines = setOf(Timeline.Home, Timeline.Federated),
+            actions = setOf(PostAction.Reshare),
+        )
+        val currentAccount = mutableStateOf(first)
+        val currentFeed = mutableStateOf(firstFeed)
+        var actionPost: OwnedPost? = null
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(
+                account = currentAccount.value,
+                feedState = currentFeed.value,
+                accounts = listOf(
+                    AccountRef(first.id, first.handle, null, first.displayName),
+                    AccountRef(second.id, second.handle, null, second.displayName),
+                ),
+                ownedPosts = currentFeed.value.ownedPosts,
+                onSwitchAccount = {
+                    currentAccount.value = second
+                    currentFeed.value = secondFeed
+                },
+                onReshare = { actionPost = it },
+            )
+        } }
+
+        compose.onNodeWithText("First post").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription("Accounts").performClick()
+        compose.onNodeWithText("Second").performClick()
+        compose.onNodeWithContentDescription("Home").performClick()
+        compose.onNodeWithText("Second post").assertIsDisplayed()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Choose timeline").performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithText("Federated").onLast().assertIsDisplayed()
+        compose.onNodeWithText("Local").assertDoesNotExist()
+        compose.onAllNodesWithText("Federated").onLast().performClick()
+        compose.onNodeWithContentDescription("Repost").performClick()
+        assertEquals(second.id, actionPost?.fetchedBy)
     }
 
     @Test fun accountsSheetListsAccountsAndStartsAddAccountFlow() {
@@ -142,5 +230,28 @@ class SignInScreenTest {
         compose.onNodeWithContentDescription("Accounts").performClick()
         compose.onNodeWithText("Add account").performClick()
         assertEquals(true, addRequested)
+    }
+
+    @Test fun reactionCountsRemainVisibleWhenSubmissionIsUnavailable() {
+        val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
+        val post = Post(
+            EntityId("https://example.org", "post"), account, "Post", System.currentTimeMillis(), Audience.Public,
+            reactions = listOf(Reaction("🎉", 3, false)),
+        )
+        val ownedPost = OwnedPost(account.id, post)
+        var chosenReaction: String? = null
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(
+                account = account,
+                feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React)),
+                onReaction = { _, emoji -> chosenReaction = emoji },
+            )
+        } }
+
+        compose.onNodeWithText("🎉").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Favorite").performTouchInput { longClick() }
+        compose.onNodeWithText("Add reaction").assertDoesNotExist()
+        compose.onAllNodesWithText("🎉").onLast().performClick()
+        assertEquals(null, chosenReaction)
     }
 }

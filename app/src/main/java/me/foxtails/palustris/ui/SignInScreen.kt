@@ -69,6 +69,9 @@ fun ConnectedApp(
                 onAddAccount = accountManager::beginAddAccount,
                 onPublish = { request, onSuccess -> feedModel?.create(request, onSuccess) },
                 ownedPosts = feed.ownedPosts,
+                onReact = { ownedPost -> feedModel?.favorite(ownedPost) },
+                onReshare = { ownedPost -> feedModel?.reshare(ownedPost) },
+                onReaction = { ownedPost, emoji -> feedModel?.react(ownedPost, emoji) },
             )
         }
     }

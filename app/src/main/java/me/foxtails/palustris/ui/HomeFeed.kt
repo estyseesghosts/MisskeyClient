@@ -1,4 +1,8 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(
+    androidx.compose.foundation.ExperimentalFoundationApi::class,
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+)
 
 package me.foxtails.palustris.ui
 
@@ -6,6 +10,8 @@ import android.content.Context
 import android.content.Intent
 import android.text.format.DateUtils
 import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,16 +20,24 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -46,8 +60,12 @@ fun HomeFeed(
     onScrollDirectionChanged: (Boolean) -> Unit = {},
     onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
+    onReshare: (OwnedPost) -> Unit = {},
+    onBookmark: (OwnedPost) -> Unit = {},
+    onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
 ) {
     val list = rememberLazyListState()
+    val pullToRefreshState = rememberPullToRefreshState()
     val currentState by rememberUpdatedState(state)
     val loadMore by rememberUpdatedState(onLoadMore)
     val scrollDirectionChanged by rememberUpdatedState(onScrollDirectionChanged)
@@ -72,8 +90,24 @@ fun HomeFeed(
                 previousOffset = offset
             }
     }
-    PullToRefreshBox(isRefreshing = state.loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
-        LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
+    PullToRefreshBox(
+        isRefreshing = state.loading,
+        onRefresh = onRefresh,
+        state = pullToRefreshState,
+        modifier = Modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullToRefreshState,
+                isRefreshing = state.loading,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 96.dp),
+            )
+        },
+    ) {
+        LazyColumn(
+            state = list,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = 96.dp, bottom = 96.dp),
+        ) {
             if (state.error != null) item {
                 Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth().padding(16.dp), shape = MaterialTheme.shapes.large) {
                     Column(Modifier.padding(16.dp)) {
@@ -87,9 +121,11 @@ fun HomeFeed(
             if (state.posts.isEmpty() && !state.loading && state.error == null) item {
                 Box(Modifier.fillParentMaxSize()) { EmptyState(AppIcons.Home, "Your home feed is quiet", "Posts from accounts you follow will appear here. Pull down to refresh.") }
             }
-            val rows = ownedPosts.ifEmpty { state.posts.map { OwnedPost(it.author.id, it) } }
+            val hasOwnership = ownedPosts.isNotEmpty()
+            val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
+            val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
             items(rows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
-                PostRow(ownedPost, onReact, onReply)
+                PostRow(ownedPost, enabledActions, onReact, onReply, onReshare, onBookmark, onReaction)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
             }
             if (state.loadingMore) item {
@@ -115,7 +151,15 @@ fun AccountAvatar(account: Account, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PostRow(ownedPost: OwnedPost, onReact: (OwnedPost) -> Unit, onReply: (OwnedPost) -> Unit) {
+private fun PostRow(
+    ownedPost: OwnedPost,
+    availableActions: Set<PostAction>,
+    onReact: (OwnedPost) -> Unit,
+    onReply: (OwnedPost) -> Unit,
+    onReshare: (OwnedPost) -> Unit,
+    onBookmark: (OwnedPost) -> Unit,
+    onReaction: (OwnedPost, String) -> Unit,
+) {
     val post = ownedPost.post
     val context = LocalContext.current
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
@@ -163,29 +207,169 @@ private fun PostRow(ownedPost: OwnedPost, onReact: (OwnedPost) -> Unit, onReply:
                 }
             }
         }
-        if (post.reactions.isNotEmpty()) FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            post.reactions.forEach { reaction ->
-                Surface(shape = CircleShapeForReaction, color = if (reaction.selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer) {
-                    Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (reaction.imageUrl != null) AsyncImage(reaction.imageUrl, reaction.emoji, Modifier.size(20.dp))
-                        else Text(reaction.emoji, style = MaterialTheme.typography.labelMedium)
-                        Text(" ${reaction.count}", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
+        if (post.reactions.isNotEmpty()) {
+            ReactionRow(post.reactions, ownedPost, PostAction.React in availableActions, onReaction)
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(AppIcons.Chat, "Replies", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(" ${post.replyCount}   ·   ${post.reshareCount} reshares", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = { onReply(ownedPost) }) { Text("Reply") }
-            TextButton(onClick = { onReact(ownedPost) }) { Text("React") }
-            TextButton(onClick = { openExternal(context, post.url) }) { Text("Open post") }
-        }
+        InteractionRow(
+            ownedPost = ownedPost,
+            availableActions = availableActions,
+            onReply = onReply,
+            onReact = onReact,
+            onReshare = onReshare,
+            onBookmark = onBookmark,
+            onReaction = onReaction,
+            onShare = { sharePost(context, post) },
+        )
     }
 }
 
 private val CircleShapeForReaction = RoundedCornerShape(50)
+
+@Composable
+private fun ReactionRow(
+    reactions: List<Reaction>,
+    ownedPost: OwnedPost,
+    enabled: Boolean,
+    onReaction: (OwnedPost, String) -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        reactions.forEach { reaction ->
+            Surface(
+                modifier = Modifier.combinedClickable(enabled = enabled, onClick = { onReaction(ownedPost, reaction.emoji) }),
+                shape = CircleShapeForReaction,
+                color = if (reaction.selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+            ) {
+                Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (reaction.imageUrl != null) AsyncImage(reaction.imageUrl, reaction.emoji, Modifier.size(20.dp))
+                    else Text(reaction.emoji, style = MaterialTheme.typography.labelMedium)
+                    Text(" ${reaction.count}", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InteractionRow(
+    ownedPost: OwnedPost,
+    availableActions: Set<PostAction>,
+    onReply: (OwnedPost) -> Unit,
+    onReact: (OwnedPost) -> Unit,
+    onReshare: (OwnedPost) -> Unit,
+    onBookmark: (OwnedPost) -> Unit,
+    onReaction: (OwnedPost, String) -> Unit,
+    onShare: () -> Unit,
+) {
+    var reactionMenuVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
+    var customReactionDialogVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
+    var customReaction by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf("") }
+    val postReactions = ownedPost.post.reactions.map { it.emoji }
+    val reactionChoices = remember(postReactions) {
+        (postReactions + listOf("👍", "❤️", "😂", "🎉", "🤔")).distinct()
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        InteractionButton(Modifier.weight(1f), AppIcons.Reply, "Reply", enabled = PostAction.Reply in availableActions, onClick = { onReply(ownedPost) })
+        InteractionButton(Modifier.weight(1f), AppIcons.Repost, "Repost", enabled = PostAction.Reshare in availableActions, onClick = { onReshare(ownedPost) })
+        Box(Modifier.weight(1f)) {
+            InteractionButton(
+                modifier = Modifier.fillMaxWidth(),
+                icon = AppIcons.Heart,
+                label = "Favorite",
+                enabled = PostAction.Favorite in availableActions,
+                onClick = { onReact(ownedPost) },
+                onLongClick = if (PostAction.React in availableActions) ({ reactionMenuVisible = true }) else null,
+            )
+            DropdownMenu(expanded = reactionMenuVisible, onDismissRequest = { reactionMenuVisible = false }) {
+                Text("Add reaction", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
+                reactionChoices.forEach { emoji ->
+                    DropdownMenuItem(
+                        text = { Text(emoji, fontSize = 24.sp) },
+                        onClick = {
+                            reactionMenuVisible = false
+                            onReaction(ownedPost, emoji)
+                        },
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text("Add another reaction…") },
+                    onClick = {
+                        reactionMenuVisible = false
+                        customReactionDialogVisible = true
+                    },
+                )
+            }
+        }
+        InteractionButton(Modifier.weight(1f), AppIcons.Bookmark, "Bookmark", enabled = PostAction.Bookmark in availableActions, onClick = { onBookmark(ownedPost) })
+        InteractionButton(Modifier.weight(1f), AppIcons.Share, "Share", onClick = onShare)
+    }
+
+    if (customReactionDialogVisible) AlertDialog(
+        onDismissRequest = { customReactionDialogVisible = false },
+        title = { Text("Add reaction") },
+        text = {
+            OutlinedTextField(
+                value = customReaction,
+                onValueChange = { customReaction = it },
+                label = { Text("Emoji or custom reaction") },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = customReaction.trim().isNotEmpty(),
+                onClick = {
+                    customReactionDialogVisible = false
+                    onReaction(ownedPost, customReaction.trim())
+                    customReaction = ""
+                },
+            ) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = { customReactionDialogVisible = false }) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun InteractionButton(
+    modifier: Modifier,
+    icon: ImageVector,
+    label: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+) {
+    Box(
+        modifier = modifier.height(56.dp).combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
+            .semantics { contentDescription = label; role = Role.Button },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            label,
+            Modifier.size(28.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f),
+        )
+    }
+}
+
+private fun sharePost(context: Context, post: Post) {
+    val text = post.url ?: post.text
+    try {
+        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }, "Share post"))
+    } catch (_: android.content.ActivityNotFoundException) {
+        Toast.makeText(context, "No app can share this post.", Toast.LENGTH_SHORT).show()
+    }
+}
 
 @Composable
 private fun AttachmentView(attachment: Attachment) {

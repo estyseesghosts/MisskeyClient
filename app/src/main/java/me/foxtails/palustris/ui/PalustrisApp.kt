@@ -18,8 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.Account
@@ -48,6 +52,9 @@ fun PalustrisApp(
     ownedPosts: List<OwnedPost>? = null,
     onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
+    onReshare: (OwnedPost) -> Unit = {},
+    onBookmark: (OwnedPost) -> Unit = {},
+    onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
 ) = PalustrisTheme {
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("local_draft", Context.MODE_PRIVATE) }
@@ -55,7 +62,6 @@ fun PalustrisApp(
     var timeline by rememberSaveable { mutableStateOf(Timeline.Home) }
     var page by rememberSaveable { mutableStateOf<String?>(null) }
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
-    var overflow by remember { mutableStateOf(false) }
     val screenStates = rememberSaveableStateHolder()
     var savedDraft by rememberSaveable { mutableStateOf(preferences.getString("text", "").orEmpty()) }
     var draft by rememberSaveable { mutableStateOf(savedDraft) }
@@ -122,26 +128,6 @@ fun PalustrisApp(
                         page != null -> TopAppBar(title = { Text(page!!) }, navigationIcon = {
                             ActionIcon(AppIcons.Back, "Back", { page = null })
                         })
-                        destination == Destination.Home -> TopAppBar(
-                            title = {
-                                Row(Modifier.clickable { sheet = "Timelines" }.padding(vertical = 12.dp)) {
-                                    Text(timeline.name)
-                                    Spacer(Modifier.width(8.dp))
-                                    Icon(AppIcons.Expand, "Choose timeline")
-                                }
-                            },
-                            navigationIcon = { ActionIcon(AppIcons.Home, "Choose timeline", { sheet = "Timelines" }) },
-                            actions = {
-                                Box {
-                                    ActionIcon(AppIcons.More, "More options", { overflow = true })
-                                    DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
-                                        listOf("Bookmarks", "Drafts", "About").forEach { title ->
-                                            DropdownMenuItem(text = { Text(title) }, onClick = { overflow = false; page = title })
-                                        }
-                                    }
-                                }
-                            },
-                        )
                         destination == Destination.Notifications -> TopAppBar(title = { Text("Notifications") })
                         destination == Destination.Profile -> TopAppBar(
                             title = { Column { Text(account?.displayName ?: "Your profile"); Text(account?.handle ?: "0 posts", style = MaterialTheme.typography.bodyMedium, maxLines = 1) } },
@@ -205,6 +191,9 @@ fun PalustrisApp(
                                 onScrollDirectionChanged = { navigationVisible = it },
                                 onReact = onReact,
                                 onReply = onReply,
+                                onReshare = onReshare,
+                                onBookmark = onBookmark,
+                                onReaction = onReaction,
                             )
                                 else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                             Destination.Search -> SearchScreen()
@@ -214,6 +203,31 @@ fun PalustrisApp(
                     }
                 }
             }
+                if (page == null && destination == Destination.Home) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = navigationVisible,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp)
+                            .width(168.dp).height(60.dp).zIndex(1f),
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize().clickable { sheet = "Timelines" }
+                                .semantics { contentDescription = "Choose timeline" },
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
+                            shadowElevation = 6.dp,
+                        ) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text(
+                                    timeline.name,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                    }
+                }
                 if (!wide && page != "Compose") {
                     androidx.compose.animation.AnimatedVisibility(
                         visible = navigationVisible,

@@ -68,8 +68,8 @@ class NavigationTest {
         compose.onNodeWithText("Save draft").performClick()
         compose.activityRule.scenario.recreate()
         compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp() } }
-        compose.onNodeWithContentDescription("More options").performClick()
-        compose.onNodeWithText("Drafts").performClick()
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription("Drafts").performClick()
         compose.onNodeWithText("A draft stored only on this device.").assertIsDisplayed()
         compose.onNodeWithText("Delete draft").performClick()
         compose.onNodeWithText("Cancel").performClick()
