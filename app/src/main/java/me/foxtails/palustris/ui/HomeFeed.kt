@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
@@ -143,10 +144,16 @@ fun HomeFeed(
 
 @Composable
 fun AccountAvatar(account: Account, modifier: Modifier = Modifier) {
-    Box(modifier) {
+    Box(
+        modifier
+            .clip(CircleShape)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Profile picture of ${account.displayName}"
+            },
+    ) {
         Avatar(Modifier.fillMaxSize())
         AsyncImage(model = account.avatarUrl, contentDescription = null, contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(28)))
+            modifier = Modifier.fillMaxSize())
     }
 }
 
@@ -163,32 +170,25 @@ private fun PostRow(
     val post = ownedPost.post
     val context = LocalContext.current
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
+    val presentation = remember(post.text) { splitTrailingHashtags(post.text) }
+    val contentVisible = post.contentWarning == null || expanded
     Column(Modifier.fillMaxWidth()) {
         post.resharedBy?.let {
-            Text("${it.displayName} reshared", Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+            Text("${it.displayName} reshared", Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            AccountAvatar(post.author, Modifier.size(44.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(post.author.displayName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(post.author.handle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Spacer(Modifier.width(8.dp))
-            if (post.publishedAtEpochMillis > 0) Text(
-                DateUtils.getRelativeTimeSpanString(post.publishedAtEpochMillis, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE).toString(),
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        PostMetadataRow(
+            post = post,
+            trailingHashtags = presentation.trailingHashtags.takeIf { contentVisible }.orEmpty(),
+        )
         if (post.replyTo != null) Text("Reply", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         if (post.contentWarning != null) {
             Text(post.contentWarning.ifBlank { "Content warning" }, Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyLarge)
             TextButton(onClick = { expanded = !expanded }, modifier = Modifier.padding(horizontal = 4.dp)) { Text(if (expanded) "Hide content" else "Show content") }
         }
-        if (post.contentWarning == null || expanded) {
-            if (post.text.isNotBlank()) SelectionContainer {
-                Text(post.text, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), style = MaterialTheme.typography.bodyLarge)
+        if (contentVisible) {
+            if (presentation.visibleText.isNotBlank()) SelectionContainer {
+                Text(presentation.visibleText, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), style = MaterialTheme.typography.bodyLarge)
             }
             post.attachments.forEach { AttachmentView(it) }
             post.pollOptions.forEach { option ->
@@ -221,6 +221,90 @@ private fun PostRow(
             onShare = { sharePost(context, post) },
         )
     }
+}
+
+@Composable
+private fun PostMetadataRow(post: Post, trailingHashtags: List<String>) {
+    val timestamp = if (post.publishedAtEpochMillis > 0) {
+        DateUtils.getRelativeTimeSpanString(
+            post.publishedAtEpochMillis,
+            System.currentTimeMillis(),
+            DateUtils.MINUTE_IN_MILLIS,
+            DateUtils.FORMAT_ABBREV_RELATIVE,
+        ).toString()
+    } else {
+        null
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .padding(horizontal = 16.dp, vertical = 2.dp)
+            .semantics { contentDescription = "Post metadata" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AccountAvatar(post.author, Modifier.size(40.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            post.author.displayName,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (trailingHashtags.isNotEmpty()) {
+            Spacer(Modifier.width(4.dp))
+            TerminalHashtagSummary(trailingHashtags)
+        }
+        timestamp?.let {
+            Spacer(Modifier.width(6.dp))
+            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun TerminalHashtagSummary(hashtags: List<String>) {
+    var menuVisible by rememberSaveable(hashtags) { mutableStateOf(false) }
+    val label = if (hashtags.size == 1) hashtags.first() else "${hashtags.first()} +${hashtags.size - 1}"
+    Box {
+        Surface(
+            modifier = Modifier
+                .widthIn(max = 124.dp)
+                .height(32.dp)
+                .clickable { menuVisible = true }
+                .semantics {
+                    contentDescription = hashtagSummaryDescription(hashtags)
+                    role = Role.Button
+                },
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+        ) {
+            Text(
+                label,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        DropdownMenu(expanded = menuVisible, onDismissRequest = { menuVisible = false }) {
+            Text("Hashtags", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
+            hashtags.forEach { hashtag ->
+                DropdownMenuItem(
+                    modifier = Modifier.semantics { contentDescription = "Hashtag $hashtag" },
+                    text = { Text(hashtag) },
+                    onClick = { menuVisible = false },
+                )
+            }
+        }
+    }
+}
+
+private fun hashtagSummaryDescription(hashtags: List<String>): String {
+    if (hashtags.size == 1) return "1 hashtag: ${hashtags.first()}"
+    return "${hashtags.size} hashtags: " + hashtags.dropLast(1).joinToString(", ") + " and ${hashtags.last()}"
 }
 
 private val CircleShapeForReaction = RoundedCornerShape(50)

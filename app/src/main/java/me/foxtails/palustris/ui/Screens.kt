@@ -77,7 +77,7 @@ fun ProfileScreen(account: Account? = null, onAccounts: () -> Unit) {
         Box(Modifier.fillMaxWidth().height(220.dp)) {
             Box(Modifier.fillMaxWidth().height(144.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest))
             Surface(Modifier.padding(start = 16.dp).offset(y = 100.dp).size(112.dp),
-                shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surface) {
+                shape = CircleShape, color = MaterialTheme.colorScheme.surface) {
                 if (account != null) AccountAvatar(account, Modifier.padding(4.dp)) else Avatar(Modifier.padding(4.dp))
             }
             FilledTonalButton(onClick = onAccounts, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp)) {

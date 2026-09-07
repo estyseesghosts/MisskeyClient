@@ -1,12 +1,15 @@
 package me.foxtails.palustris.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,7 +36,11 @@ fun EmptyState(icon: ImageVector, title: String, subtitle: String, modifier: Mod
 
 @Composable
 fun Avatar(modifier: Modifier = Modifier) {
-    Surface(modifier, shape = RoundedCornerShape(28), color = MaterialTheme.colorScheme.secondaryContainer) {
+    Surface(
+        modifier.semantics { contentDescription = "Profile avatar" },
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(AppIcons.Person, null, Modifier.fillMaxSize(.55f), tint = MaterialTheme.colorScheme.onSecondaryContainer)
         }
