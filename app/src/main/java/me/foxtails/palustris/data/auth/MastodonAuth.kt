@@ -41,7 +41,7 @@ class MastodonAuth(
             clientSecret = registration.clientSecret,
             codeVerifier = verifier,
             codeChallenge = challenge,
-            scope = "read",
+            scope = "read write",
         )
     } catch (e: CancellationException) {
         throw e
@@ -87,7 +87,7 @@ class MastodonAuth(
         require(token.isNotBlank())
         val user = JSONObject(apiFor(pending.origin)
             .get(pending.origin, "v1/accounts/verify_credentials", token).body)
-        LoginSession(pending.origin, token, user, Protocol.MASTODON)
+        LoginSession(pending.origin, token, user, Protocol.MASTODON, canPublish = true)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -98,7 +98,7 @@ class MastodonAuth(
         val response = api.postForm(origin, "api/v1/apps", mapOf(
             "client_name" to "Palustris",
             "redirect_uris" to REDIRECT_URI,
-            "scopes" to "read",
+            "scopes" to "read write",
         ))
         val json = JSONObject(response.body)
         return AppRegistration(json.getString("client_id"), json.getString("client_secret"))

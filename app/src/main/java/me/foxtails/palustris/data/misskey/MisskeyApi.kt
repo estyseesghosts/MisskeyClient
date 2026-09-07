@@ -6,8 +6,10 @@ import kotlinx.coroutines.withContext
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.InputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -38,14 +40,51 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
             .header("User-Agent", "Palustris/0.1 (Android)")
             .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build())
 
-    suspend fun postForm(origin: String, endpoint: String, fields: Map<String, String>): HttpResponse =
+    suspend fun postForm(
+        origin: String,
+        endpoint: String,
+        fields: Map<String, String>,
+        bearerToken: String? = null,
+    ): HttpResponse = postForm(origin, endpoint, fields.entries.map { it.key to it.value }, bearerToken)
+
+    suspend fun postForm(
+        origin: String,
+        endpoint: String,
+        fields: List<Pair<String, String>>,
+        bearerToken: String? = null,
+    ): HttpResponse =
         execute(Request.Builder().url("$origin/$endpoint")
             .header("Accept", "application/json")
             .header("User-Agent", "Palustris/0.1 (Android)")
-            .post(FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build()).build())
+            .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
+            .post(FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build())
+            .build())
+
+    suspend fun postMultipart(
+        origin: String,
+        endpoint: String,
+        file: InputStream,
+        mimeType: String,
+        fileName: String = "upload",
+        bearerToken: String? = null,
+    ): HttpResponse = execute(Request.Builder().url("$origin/$endpoint")
+        .header("Accept", "application/json")
+        .header("User-Agent", "Palustris/0.1 (Android)")
+        .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
+        .post(MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("file", fileName, file.readBytes().toRequestBody(mimeType.toMediaType()))
+            .build())
+        .build())
 
     suspend fun get(origin: String, endpoint: String, bearerToken: String? = null): HttpResponse =
         execute(Request.Builder().url("$origin/api/$endpoint")
+            .header("Accept", "application/json")
+            .header("User-Agent", "Palustris/0.1 (Android)")
+            .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
+            .get().build())
+
+    suspend fun getUrl(url: String, bearerToken: String? = null): HttpResponse =
+        execute(Request.Builder().url(url)
             .header("Accept", "application/json")
             .header("User-Agent", "Palustris/0.1 (Android)")
             .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
