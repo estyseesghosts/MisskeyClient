@@ -7,6 +7,7 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.AccessGrant
 import me.foxtails.palustris.domain.AccessScope
+import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ServerCapabilities
@@ -156,6 +157,8 @@ class EncryptedSessionStore private constructor(
 
     override fun clear() {
         accountFiles.clear()
+        AtomicFile(pendingFile).delete()
+        indexFile.delete()
         legacyFile.delete()
         migrationComplete = true
     }
@@ -206,14 +209,18 @@ class EncryptedSessionStore private constructor(
     }
 
     private fun writePendingInternal(pending: PendingLogin) {
-        accountFiles.writeJson(pendingFile, JSONObject()
+        val json = JSONObject()
             .put("origin", pending.origin).put("id", pending.id).put("createdAt", pending.createdAt)
             .put("protocol", pending.protocol.name).put("clientId", pending.clientId)
             .put("clientSecret", pending.clientSecret).put("codeVerifier", pending.codeVerifier)
             .put("codeChallenge", pending.codeChallenge).put("scope", pending.scope)
             .put("authorizationCode", pending.authorizationCode)
             .put("requestedAccess", JSONArray(pending.requestedAccess.map { it.name }))
-            .put("replacingAccountId", pending.replacingAccountId?.toIndexJson()))
+            .put("replacingAccountId", pending.replacingAccountId?.toIndexJson())
+            .put("replacingAccountOrigin", pending.replacingAccountId?.connection?.origin)
+            .put("replacingAccountLocalId", pending.replacingAccountId?.localId)
+            .put("replacingAccountProtocol", pending.replacingAccountId?.connection?.protocol?.name)
+        accountFiles.writeJson(pendingFile, json)
     }
 }
 
@@ -245,7 +252,14 @@ private fun JSONObject.toPendingLogin(): PendingLogin = PendingLogin(
     scope = optString("scope", "read"),
     authorizationCode = nullableString("authorizationCode"),
     requestedAccess = enumSet("requestedAccess"),
-    replacingAccountId = optJSONObject("replacingAccountId")?.toAccountId(),
+    replacingAccountId = optJSONObject("replacingAccountId")?.toAccountId()
+        ?: runCatching {
+            val origin = nullableString("replacingAccountOrigin") ?: return@runCatching null
+            val localId = nullableString("replacingAccountLocalId") ?: return@runCatching null
+            val protocol = nullableString("replacingAccountProtocol")?.let(Protocol::valueOf)
+                ?: return@runCatching null
+            AccountId(Connection(origin, protocol), localId)
+        }.getOrNull(),
 )
 
 private inline fun <reified T : Enum<T>> JSONObject.enumSet(key: String): Set<T> {

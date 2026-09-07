@@ -22,6 +22,7 @@ import me.foxtails.palustris.domain.Timeline
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.security.KeyStore
 import java.util.Base64
 import javax.crypto.Cipher
@@ -91,15 +92,17 @@ class AccountFileStore internal constructor(
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val bytes = cipher.iv + cipher.doFinal(json.toString().toByteArray(Charsets.UTF_8))
-        val atomicFile = AtomicFile(file)
-        val stream = atomicFile.startWrite()
-        try {
+        val temporary = File(file.parentFile, "${file.name}.tmp")
+        FileOutputStream(temporary).use { stream ->
             stream.write(bytes)
-            atomicFile.finishWrite(stream)
-        } catch (e: Exception) {
-            atomicFile.failWrite(stream)
-            throw e
+            stream.fd.sync()
         }
+        java.nio.file.Files.move(
+            temporary.toPath(),
+            file.toPath(),
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+        )
+        File("${file.path}.bak").delete()
     }
 
     private fun fileFor(accountId: AccountId): File {
