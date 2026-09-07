@@ -26,6 +26,7 @@ class AccountSyncCoordinator @Inject constructor() : AutoCloseable {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val states = mutableMapOf<AccountId, MutableStateFlow<AccountSyncState>>()
     private val jobs = mutableMapOf<AccountId, Job>()
+    private val generations = mutableMapOf<AccountId, Long>()
 
     @Synchronized
     fun observeAccount(accountId: AccountId): StateFlow<AccountSyncState> = states.getOrPut(accountId) {
@@ -34,18 +35,23 @@ class AccountSyncCoordinator @Inject constructor() : AutoCloseable {
 
     @Synchronized
     fun unregister(accountId: AccountId) {
+        generations[accountId] = (generations[accountId] ?: 0L) + 1L
         jobs.remove(accountId)?.cancel()
-        states[accountId]?.value = states.getValue(accountId).value.copy(isActive = false)
+        states[accountId]?.value = states[accountId]?.value?.copy(isActive = false) ?: AccountSyncState()
     }
 
     suspend fun register(accountId: AccountId, source: SocialSource) {
-        unregister(accountId)
-        val state = synchronized(this) {
+        val generation = synchronized(this) {
+            jobs.remove(accountId)?.cancel()
+            val next = (generations[accountId] ?: 0L) + 1L
+            generations[accountId] = next
             states.getOrPut(accountId) { MutableStateFlow(AccountSyncState()) }
+                .also { it.value = it.value.copy(isActive = true) }
+            next
         }
-        state.value = state.value.copy(isActive = true)
+        val state = synchronized(this) { states.getValue(accountId) }
         val job = scope.launch {
-            while (isActive) {
+            while (isActive && isCurrent(accountId, generation)) {
                 try {
                     val page = source.notifications()
                     state.value = state.value.copy(
@@ -60,8 +66,13 @@ class AccountSyncCoordinator @Inject constructor() : AutoCloseable {
                 delay(POLL_INTERVAL_MILLIS)
             }
         }
-        synchronized(this) { jobs[accountId] = job }
+        synchronized(this) {
+            if (isCurrent(accountId, generation)) jobs[accountId] = job else job.cancel()
+        }
     }
+
+    @Synchronized
+    private fun isCurrent(accountId: AccountId, generation: Long): Boolean = generations[accountId] == generation
 
     override fun close() {
         scope.cancel()

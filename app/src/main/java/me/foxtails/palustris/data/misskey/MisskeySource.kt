@@ -71,6 +71,7 @@ class MisskeySource(
     }
 
     override suspend fun create(post: CreatePostRequest): Post = request {
+        if (post.attachments.isNotEmpty()) throw SourceError.Unsupported("create.attachments")
         val body = JSONObject()
             .put("i", token)
             .put("text", post.text)
@@ -82,9 +83,10 @@ class MisskeySource(
             body.put("poll", JSONObject()
                 .put("choices", JSONArray(poll.choices))
                 .put("multiple", poll.multiple)
-                .apply { poll.expiresAt?.let { put("expiresAt", it) } })
+                .apply { poll.expiresAt?.let { put("expiresAt", it.toEpochMilli()) } })
         }
-        MisskeyMapper.post(JSONObject(api.post(origin, "notes/create", body).body), origin)
+        val response = JSONObject(api.post(origin, "notes/create", body).body)
+        MisskeyMapper.post(response.getJSONObject("createdNote"), origin)
     }
 
     override suspend fun delete(id: EntityId) = request {

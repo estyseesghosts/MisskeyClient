@@ -18,6 +18,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -55,6 +56,7 @@ class MastodonIntegrationTest {
             put("content", "<p>Hello <span class=\"h-card\"><a href=\"https://example.org/@bob\">@bob</a></span><br>Tea &amp; cake</p>")
                 .put("visibility", "direct")
                 .put("spoiler_text", "Warning")
+                .put("sensitive", true)
                 .put("favourites_count", 4)
                 .put("favourited", true)
                 .put("media_attachments", JSONArray().put(JSONObject()
@@ -62,7 +64,7 @@ class MastodonIntegrationTest {
                 .put("url", "https://example.org/photo.jpg")
                 .put("preview_url", "https://example.org/photo-small.jpg")
                 .put("description", "A photo")
-                .put("sensitive", true)))
+                .put("sensitive", false)))
                 .put("poll", JSONObject().put("options", JSONArray().put(JSONObject().put("title", "Yes").put("votes_count", 3))))
         }, origin)
 
@@ -71,6 +73,7 @@ class MastodonIntegrationTest {
         assertEquals("Warning", post.contentWarning)
         assertEquals("A photo", post.attachments.single().description)
         assertTrue(post.attachments.single().sensitive)
+        assertEquals("image/*", post.attachments.single().mimeType)
         assertEquals("Yes", post.pollOptions.single().text)
         assertTrue(PostAction.Favorite in post.availableActions)
         assertFalse(PostAction.React in post.availableActions)
@@ -159,7 +162,48 @@ class MastodonIntegrationTest {
         assertEquals("/api/v1/media", uploadRequest.path)
         assertEquals("Bearer token", uploadRequest.getHeader("Authorization"))
         assertTrue(uploadRequest.body.readUtf8().contains("bytes"))
-        assertEquals("/api/v1/search?q=hello+world", server.takeRequest().path)
+        assertEquals("/api/v2/search?q=hello+world", server.takeRequest().path)
+    }
+
+    @Test
+    fun mapperHandlesMastodonQuoteEnvelopeStates() {
+        val quoted = status("quoted").put("content", "<p>Quoted</p>")
+        val accepted = status("accepted").put("quote", JSONObject()
+            .put("state", "accepted")
+            .put("quoted_status", quoted))
+        assertEquals("quoted", MastodonMapper.post(accepted, origin).quote?.id?.value)
+
+        listOf("pending", "rejected", "deleted", "blocked", "unknown").forEach { state ->
+            val unavailable = status("$state-quote").put("quote", JSONObject()
+                .put("state", state)
+                .put("quoted_status", quoted))
+            assertNull(MastodonMapper.post(unavailable, origin).quote)
+        }
+    }
+
+    @Test
+    fun paginationRejectsForeignHostsChangedPortsAndSchemeChangesBeforeSendingBearer() = runBlocking {
+        MockWebServer().use { other ->
+            server.enqueue(MockResponse().setBody("[${status("newest")}]"))
+            val source = source()
+            val first = source.timeline(me.foxtails.palustris.domain.Timeline.Home)
+            val invalidCursors = listOf(
+                other.url("/api/v1/timelines/home?max_id=1").toString(),
+                "${origin.replace(Regex(":\\d+$"), ":${other.port}")}/api/v1/timelines/home?max_id=1",
+                "https://${server.hostName}:${server.port}/api/v1/timelines/home?max_id=1",
+            )
+            invalidCursors.forEach { cursor ->
+                try {
+                    source.timeline(me.foxtails.palustris.domain.Timeline.Home, cursor)
+                    throw AssertionError("Invalid pagination URL should be rejected")
+                } catch (_: SourceError.Unsupported) {
+                    // Expected: bearer credentials must not be sent to this URL.
+                }
+            }
+            assertEquals("newest", first.items.single().id.value)
+            assertEquals(0, other.requestCount)
+            assertEquals(1, server.requestCount)
+        }
     }
 
     @Test

@@ -44,7 +44,7 @@ fun PalustrisApp(
     accounts: List<AccountRef> = emptyList(),
     onSwitchAccount: (AccountId) -> Unit = {},
     onAddAccount: () -> Unit = {},
-    onPublish: (CreatePostRequest) -> Unit = {},
+    onPublish: (CreatePostRequest, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
     ownedPosts: List<OwnedPost>? = null,
     onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
@@ -67,7 +67,7 @@ fun PalustrisApp(
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
     val hasChanges = draft != savedDraft || (if (warningEnabled) warning else "") != savedWarning
-    val closeComposer = { if (hasChanges) discardDialog = true else page = null }
+    val closeComposer = { if (feedState?.publishing == true) Unit else if (hasChanges) discardDialog = true else page = null }
 
     LaunchedEffect(destination, page) { navigationVisible = true }
     LaunchedEffect(availableTimelines) {
@@ -162,18 +162,26 @@ fun PalustrisApp(
                             onWarningEnabled = { warningEnabled = it },
                             account = account,
                             canPublish = feedState?.canPublish == true,
+                            publishing = feedState?.publishing == true,
+                            error = feedState?.error,
                             onPublish = {
+                                val submittedText = draft
+                                val submittedWarning = warning.takeIf { warningEnabled }.orEmpty()
+                                savedDraft = submittedText
+                                savedWarning = submittedWarning
+                                preferences.edit().putString("text", savedDraft).putString("warning", savedWarning).apply()
                                 onPublish(CreatePostRequest(
-                                    text = draft,
-                                    contentWarning = warning.takeIf { warningEnabled },
-                                ))
-                                savedDraft = ""
-                                draft = ""
-                                savedWarning = ""
-                                warning = ""
-                                warningEnabled = false
-                                preferences.edit().clear().apply()
-                                page = null
+                                    text = submittedText,
+                                    contentWarning = submittedWarning.takeIf { it.isNotEmpty() },
+                                )) {
+                                    savedDraft = ""
+                                    draft = ""
+                                    savedWarning = ""
+                                    warning = ""
+                                    warningEnabled = false
+                                    preferences.edit().clear().apply()
+                                    page = null
+                                }
                             },
                         )
                         "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")

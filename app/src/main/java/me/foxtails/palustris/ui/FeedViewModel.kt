@@ -27,15 +27,19 @@ class FeedViewModel @AssistedInject constructor(
     val feed = _feed.asStateFlow()
     val sync = syncCoordinator.observeAccount(accountId)
     private var feedJob: Job? = null
+    private var setupJob: Job? = null
+    private var publishJob: Job? = null
+    private var stopped = false
 
     init {
-        viewModelScope.launch {
+        setupJob = viewModelScope.launch {
             syncCoordinator.register(accountId, source)
-            refresh()
+            if (!stopped) refresh()
         }
     }
 
     fun refresh(timeline: Timeline = Timeline.Home) {
+        if (stopped) return
         feedJob?.cancel()
         feedJob = viewModelScope.launch {
             _feed.value = _feed.value.copy(loading = true, loadingMore = false, error = null)
@@ -56,6 +60,7 @@ class FeedViewModel @AssistedInject constructor(
     }
 
     fun loadMore(timeline: Timeline = Timeline.Home) {
+        if (stopped) return
         val state = _feed.value
         val cursor = state.nextCursor ?: return
         if (state.loading || state.loadingMore || state.needsSignIn) return
@@ -76,15 +81,31 @@ class FeedViewModel @AssistedInject constructor(
         }
     }
 
-    fun create(request: CreatePostRequest) {
-        viewModelScope.launch {
+    fun create(request: CreatePostRequest, onSuccess: () -> Unit = {}) {
+        if (stopped || _feed.value.publishing) return
+        publishJob?.cancel()
+        publishJob = viewModelScope.launch {
+            _feed.value = _feed.value.copy(publishing = true, error = null)
             try {
                 source.create(request)
+                _feed.value = _feed.value.copy(publishing = false, error = null)
+                onSuccess()
                 refresh()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _feed.value = _feed.value.copy(publishing = false)
                 feedFailure(e)
             }
         }
+    }
+
+    fun stop() {
+        if (stopped) return
+        stopped = true
+        setupJob?.cancel()
+        feedJob?.cancel()
+        publishJob?.cancel()
+        syncCoordinator.unregister(accountId)
     }
 
     private fun feedFailure(e: Exception) {
@@ -98,7 +119,7 @@ class FeedViewModel @AssistedInject constructor(
     }
 
     override fun onCleared() {
-        syncCoordinator.unregister(accountId)
+        stop()
         super.onCleared()
     }
 

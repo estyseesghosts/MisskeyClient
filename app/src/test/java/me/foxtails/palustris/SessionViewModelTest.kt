@@ -63,11 +63,17 @@ class SessionViewModelTest {
     private class Source : SocialSource {
         override val capabilities = ServerCapabilities(timelines = setOf(Timeline.Home))
         var error: Exception? = null
+        var createError: Exception? = null
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> {
             error?.let { throw MisskeyErrorMapper.map(it) }
             val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "a"), "Alice", "@alice")
             fun post(id: String) = Post(EntityId("example", id), account, "Text", 0, Audience.Public)
             return if (cursor == null) Page(listOf(post("2")), "2") else Page(listOf(post("2"), post("1")), null)
+        }
+        override suspend fun create(post: CreatePostRequest): Post {
+            createError?.let { throw MisskeyErrorMapper.map(it) }
+            val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "a"), "Alice", "@alice")
+            return Post(EntityId("example", "created"), account, post.text, 0, Audience.Public)
         }
     }
     private fun auth(result: LoginSession) = object : AuthGateway {
@@ -132,6 +138,32 @@ class SessionViewModelTest {
             assertNotNull(restored.session.value.account)
             assertNull(store.pending)
             assertNotNull(store.storedSession)
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
+    @Test fun failedPublishKeepsStateAndSuccessInvokesCompletion() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        try {
+            val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
+            val source = Source()
+            val model = FeedViewModel(login.account.id, source, AccountSyncCoordinator())
+            owner.put("feed", model)
+            advanceUntilIdle()
+
+            source.createError = IOException()
+            var completed = false
+            model.create(CreatePostRequest("Draft text")) { completed = true }
+            advanceUntilIdle()
+            assertFalse(completed)
+            assertFalse(model.feed.value.publishing)
+            assertNotNull(model.feed.value.error)
+
+            source.createError = null
+            model.create(CreatePostRequest("Draft text")) { completed = true }
+            advanceUntilIdle()
+            assertTrue(completed)
+            assertFalse(model.feed.value.publishing)
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
 

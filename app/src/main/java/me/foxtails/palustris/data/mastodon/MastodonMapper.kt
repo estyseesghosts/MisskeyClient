@@ -42,7 +42,8 @@ object MastodonMapper {
         }
 
         val poll = json.optJSONObject("poll")
-        val quotedStatus = json.optJSONObject("quote") ?: json.optJSONObject("quoted_status")
+        val quotedStatus = quotedStatus(json)
+        val statusSensitive = json.optBoolean("sensitive")
         return Post(
             id = id,
             author = account(json.getJSONObject("account"), origin),
@@ -55,7 +56,7 @@ object MastodonMapper {
                 else -> Audience.Public
             },
             attachments = json.optJSONArray("media_attachments")?.let { media ->
-                (0 until media.length()).map { attachment(media.getJSONObject(it)) }
+                (0 until media.length()).map { attachment(media.getJSONObject(it), statusSensitive) }
             }.orEmpty(),
             contentWarning = json.optString("spoiler_text").takeIf { it.isNotBlank() },
             replyTo = json.optString("in_reply_to_id").takeIf { it.isNotBlank() }?.let { EntityId(origin, it) },
@@ -64,7 +65,7 @@ object MastodonMapper {
                 ?: json.optString("uri").takeIf { it.isNotBlank() },
             replyCount = json.optInt("replies_count"),
             reshareCount = json.optInt("reblogs_count"),
-            quote = quotedStatus?.let { post(it, origin, depth + 1) },
+            quote = quotedStatus?.takeIf { depth < MAX_NESTING_DEPTH }?.let { post(it, origin, depth + 1) },
             pollOptions = poll?.optJSONArray("options")?.let { options ->
                 (0 until options.length()).map { option ->
                     options.getJSONObject(option).let {
@@ -83,19 +84,34 @@ object MastodonMapper {
         createdAtEpochMillis = parseInstant(json.optString("created_at")),
     )
 
-    fun attachment(json: JSONObject): Attachment = Attachment(
+    fun attachment(json: JSONObject, statusSensitive: Boolean = false): Attachment = Attachment(
         url = json.optString("url").takeIf { it.isNotBlank() }
             ?: json.optString("preview_url"),
-        mimeType = json.optString("type").takeIf { it.isNotBlank() } ?: "application/octet-stream",
+        mimeType = json.optJSONObject("meta")?.optJSONObject("original")?.optString("mime_type")
+            ?.takeIf { it.isNotBlank() } ?: json.optString("type").toMastodonMimeType(),
         description = json.optString("description").takeIf { it.isNotBlank() },
         previewUrl = json.optString("preview_url").takeIf { it.isNotBlank() },
-        sensitive = json.optBoolean("sensitive"),
+        sensitive = statusSensitive || json.optBoolean("sensitive"),
     )
+
+    private fun quotedStatus(json: JSONObject): JSONObject? {
+        json.optJSONObject("quote")?.let { quote ->
+            return if (quote.optString("state") == "accepted") quote.optJSONObject("quoted_status") else null
+        }
+        return json.optJSONObject("quoted_status")
+    }
 
     private fun parseInstant(value: String): Long = runCatching { Instant.parse(value).toEpochMilli() }.getOrDefault(0)
 
     private const val MAX_NESTING_DEPTH = 3
     private val MASTODON_ACTIONS = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.Bookmark)
+}
+
+private fun String.toMastodonMimeType(): String = when (this) {
+    "image" -> "image/*"
+    "video" -> "video/*"
+    "audio" -> "audio/*"
+    else -> if (isBlank()) "application/octet-stream" else this
 }
 
 private fun String.stripHtml(): String = htmlToText()

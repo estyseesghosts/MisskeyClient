@@ -32,6 +32,7 @@ data class SessionUi(
     val pending: Boolean = false,
     val browserUrl: String? = null,
     val error: String? = null,
+    val sessionGeneration: Long = 0,
 )
 
 @HiltViewModel
@@ -49,6 +50,7 @@ class AccountManager @Inject constructor(
     private var pending: PendingLogin? = null
     private var authJob: Job? = null
     private var deferredCallback: String? = null
+    private var sessionGeneration = 0L
 
     init {
         viewModelScope.launch {
@@ -253,8 +255,14 @@ class AccountManager @Inject constructor(
     }
 
     private fun connect(value: Session, account: Account) {
+        sessionGeneration += 1L
         _activeSession.value = value
-        _session.value = SessionUi(starting = false, account = account, origin = value.accountId.connection.origin)
+        _session.value = SessionUi(
+            starting = false,
+            account = account,
+            origin = value.accountId.connection.origin,
+            sessionGeneration = sessionGeneration,
+        )
     }
 
     private fun loginAccountId(): me.foxtails.palustris.domain.AccountId? = _activeSession.value?.accountId

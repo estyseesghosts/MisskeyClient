@@ -2,6 +2,9 @@ package me.foxtails.palustris.data.mastodon
 
 import java.io.InputStream
 import java.net.URLEncoder
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -103,7 +106,7 @@ class MastodonSource(
 
     override suspend fun search(query: String): List<Post> = request {
         val encodedQuery = URLEncoder.encode(query, Charsets.UTF_8.name())
-        val statuses = JSONObject(api.get(origin, "v1/search?q=$encodedQuery", token).body)
+        val statuses = JSONObject(api.get(origin, "v2/search?q=$encodedQuery", token).body)
             .optJSONArray("statuses") ?: JSONArray()
         (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) }
     }
@@ -111,9 +114,21 @@ class MastodonSource(
     private suspend fun getPage(endpoint: String, cursor: String?) = if (cursor == null) {
         api.get(origin, endpoint, token)
     } else if (cursor.startsWith("http://") || cursor.startsWith("https://")) {
-        api.getUrl(cursor, token)
+        api.getUrl(validatePaginationUrl(cursor).toString(), token)
     } else {
         api.get(origin, cursor.removePrefix("/api/"), token)
+    }
+
+    private fun validatePaginationUrl(cursor: String): HttpUrl {
+        val page = cursor.toHttpUrlOrNull() ?: throw SourceError.Unsupported("pagination")
+        val authenticatedOrigin = origin.toHttpUrl()
+        if (page.scheme != authenticatedOrigin.scheme || page.host != authenticatedOrigin.host ||
+            page.port != authenticatedOrigin.port || page.username.isNotEmpty() || page.password.isNotEmpty() ||
+            page.fragment != null
+        ) {
+            throw SourceError.Unsupported("pagination")
+        }
+        return page
     }
 
     private suspend fun refreshCapabilities() {

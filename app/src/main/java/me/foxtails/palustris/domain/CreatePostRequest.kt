@@ -1,9 +1,11 @@
 package me.foxtails.palustris.domain
 
+import java.time.Instant
+
 data class PollRequest(
     val choices: List<String>,
     val multiple: Boolean = false,
-    val expiresAt: String? = null,
+    val expiresAt: Instant? = null,
 )
 
 data class CreatePostRequest(

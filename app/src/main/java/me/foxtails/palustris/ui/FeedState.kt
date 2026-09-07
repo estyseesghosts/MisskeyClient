@@ -11,6 +11,7 @@ data class FeedState(
     val canPublish: Boolean = false,
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
+    val publishing: Boolean = false,
     val nextCursor: String? = null,
     val error: String? = null,
     val needsSignIn: Boolean = false,

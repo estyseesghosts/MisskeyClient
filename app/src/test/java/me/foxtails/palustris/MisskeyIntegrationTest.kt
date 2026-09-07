@@ -15,6 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.time.Instant
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -62,7 +63,7 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
             val auth = MisskeyAuth(MisskeyApi())
             val pending = PendingLogin(server.url("/").toString().removeSuffix("/"), "test-session", System.currentTimeMillis())
             val url = okhttp3.HttpUrl.Companion.run { auth.browserUrl(pending).toHttpUrl() }
-            assertEquals("read:account write:notes", url.queryParameter("permission"))
+            assertEquals("read:account,write:notes", url.queryParameter("permission"))
             assertEquals("palustris://auth/misskey", url.queryParameter("callback"))
             val result = auth.complete(pending)
             assertEquals("Alice", result.account.displayName)
@@ -77,8 +78,8 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
 
     @Test fun misskeyCreateMapsAudienceReplyQuoteWarningAndPoll() = runBlocking {
         MockWebServer().use { server ->
-            val response = note("created")
-            server.enqueue(MockResponse().setBody(response))
+            val response = JSONObject().put("createdNote", JSONObject(note("created")))
+            server.enqueue(MockResponse().setBody(response.toString()))
             val origin = server.url("/").toString().removeSuffix("/")
             val source = MisskeySource(
                 origin = origin,
@@ -91,7 +92,7 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
                 audience = Audience.Unlisted,
                 contentWarning = "Spoilers",
                 replyTo = EntityId(origin, "parent"),
-                poll = PollRequest(listOf("Yes", "No"), multiple = true, expiresAt = "2026-09-08T00:00:00Z"),
+                poll = PollRequest(listOf("Yes", "No"), multiple = true, expiresAt = Instant.parse("2026-09-08T00:00:00Z")),
                 quoteOf = EntityId(origin, "quoted"),
             )
 
@@ -107,7 +108,20 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
                 (0 until choices.length()).map(choices::getString)
             })
             assertTrue(body.getJSONObject("poll").getBoolean("multiple"))
-            assertEquals("2026-09-08T00:00:00Z", body.getJSONObject("poll").getString("expiresAt"))
+            assertEquals(Instant.parse("2026-09-08T00:00:00Z").toEpochMilli(), body.getJSONObject("poll").getLong("expiresAt"))
+        }
+    }
+
+    @Test fun misskeyCreateRejectsAttachmentsUntilMediaIdsAreSupported() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val attachment = Attachment("https://example.org/photo.jpg", "image/jpeg", null)
+            val source = MisskeySource(origin, "test-token", MisskeyApi())
+
+            assertThrows(SourceError.Unsupported::class.java) {
+                runBlocking { source.create(CreatePostRequest("text", attachments = listOf(attachment))) }
+            }
+            assertEquals(0, server.requestCount)
         }
     }
 
@@ -131,7 +145,10 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
 
     @Test fun misskeyCreateMapsEveryAudienceVisibility() = runBlocking {
         MockWebServer().use { server ->
-            repeat(4) { server.enqueue(MockResponse().setBody(note("created-$it"))) }
+            repeat(4) {
+                server.enqueue(MockResponse().setBody(JSONObject()
+                    .put("createdNote", JSONObject(note("created-$it"))).toString()))
+            }
             val origin = server.url("/").toString().removeSuffix("/")
             val source = MisskeySource(origin, "test-token", MisskeyApi(), initialCapabilities = ServerCapabilities(canPublish = true))
             listOf(

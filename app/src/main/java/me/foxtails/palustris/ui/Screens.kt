@@ -117,6 +117,8 @@ fun ComposeScreen(
     warningEnabled: Boolean, onWarningEnabled: (Boolean) -> Unit,
     account: Account? = null,
     canPublish: Boolean = false,
+    publishing: Boolean = false,
+    error: String? = null,
     onPublish: () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
@@ -146,8 +148,14 @@ fun ComposeScreen(
         }
         Text(if (canPublish) "Posts will be published to your connected account." else "Publishing is disabled for this account.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (error != null) {
+            Spacer(Modifier.height(12.dp))
+            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        }
         Spacer(Modifier.height(24.dp))
-        Button(onClick = onPublish, enabled = canPublish && text.isNotBlank(), modifier = Modifier.align(Alignment.End)) { Text("Publish") }
+        Button(onClick = onPublish, enabled = canPublish && !publishing && text.isNotBlank(), modifier = Modifier.align(Alignment.End)) {
+            Text(if (publishing) "Publishing…" else "Publish")
+        }
         Spacer(Modifier.height(24.dp))
     }
 }

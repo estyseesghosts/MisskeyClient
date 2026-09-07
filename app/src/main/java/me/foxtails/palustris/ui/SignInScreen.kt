@@ -29,11 +29,14 @@ fun ConnectedApp(
     val activeSession by accountManager.activeSession.collectAsStateWithLifecycle()
     val feedModel = activeSession?.let { session ->
         hiltViewModel<FeedViewModel, FeedViewModel.Factory>(
-            key = "feed-${session.accountId}",
+            key = "feed-${session.accountId}-${state.sessionGeneration}",
             creationCallback = { factory ->
                 factory.create(session.accountId, sourceFactory.create(session))
             },
         )
+    }
+    DisposableEffect(state.sessionGeneration, feedModel) {
+        onDispose { feedModel?.stop() }
     }
     val feed by if (feedModel != null) feedModel.feed.collectAsStateWithLifecycle()
     else remember { mutableStateOf(FeedState()) }
@@ -64,7 +67,7 @@ fun ConnectedApp(
                 accounts = accountIndex.accounts,
                 onSwitchAccount = accountManager::switchAccount,
                 onAddAccount = accountManager::beginAddAccount,
-                onPublish = { request -> feedModel?.create(request) },
+                onPublish = { request, onSuccess -> feedModel?.create(request, onSuccess) },
                 ownedPosts = feed.ownedPosts,
             )
         }
