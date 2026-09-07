@@ -1,10 +1,13 @@
 package me.foxtails.palustris.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -19,7 +23,12 @@ import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
 
 @Composable
-fun SearchScreen(mode: SearchPanel = SearchPanel.Search) {
+fun SearchScreen(
+    mode: SearchPanel = SearchPanel.Search,
+    accountSearch: AccountSearchState = AccountSearchState(),
+    onSearchAccounts: (String) -> Unit = {},
+    onAccountClick: (Account) -> Unit = {},
+) {
     if (mode == SearchPanel.Alternate) {
         EmptyState(AppIcons.WaffleGrid, "Alternate search", "A second search surface will be available in a future update.")
         return
@@ -27,15 +36,20 @@ fun SearchScreen(mode: SearchPanel = SearchPanel.Search) {
     var query by rememberSaveable { mutableStateOf("") }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val sections = listOf("Posts", "Hashtags", "News", "For you")
+    fun submitSearch() {
+        if (query.isNotBlank()) onSearchAccounts(query)
+    }
     Column(Modifier.fillMaxSize()) {
         TextField(
             value = query,
             onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth().padding(16.dp),
-            placeholder = { Text("Search the Fediverse") },
+            placeholder = { Text("Search by @handle@server") },
             leadingIcon = { Icon(AppIcons.Search, null) },
             trailingIcon = { if (query.isNotEmpty()) ActionIcon(AppIcons.Close, "Clear search", { query = "" }) },
             singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { submitSearch() }),
             shape = CircleShape,
             colors = TextFieldDefaults.colors(
                 focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -45,22 +59,53 @@ fun SearchScreen(mode: SearchPanel = SearchPanel.Search) {
             ),
         )
         SectionTabs(sections, tab) { tab = it }
-        EmptyState(
-            if (tab == 1) AppIcons.Tag else AppIcons.Search,
-            if (query.isNotBlank()) "Search is ready when you are" else when (tab) {
-                0 -> "Discover conversations"
-                1 -> "Explore hashtags"
-                2 -> "News from your network"
-                else -> "Find your people"
-            },
-            if (query.isNotBlank()) "Searching the fediverse will be available in a future update."
-            else when (tab) {
-                0 -> "Trending posts will appear here."
-                1 -> "Trending topics will appear here."
-                2 -> "Popular links will appear here."
-                else -> "Suggested accounts will appear here."
-            },
-        )
+        if (tab == 0) {
+            AccountSearchResults(
+                query = query,
+                state = accountSearch,
+                onAccountClick = onAccountClick,
+            )
+        } else {
+            EmptyState(
+                AppIcons.Tag,
+                if (query.isNotBlank()) "Search is ready when you are" else when (tab) {
+                    1 -> "Explore hashtags"
+                    2 -> "News from your network"
+                    else -> "Find your people"
+                },
+                if (query.isNotBlank()) "Account search is available from the Posts tab."
+                else when (tab) {
+                    1 -> "Trending topics will appear here."
+                    2 -> "Popular links will appear here."
+                    else -> "Suggested accounts will appear here."
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AccountSearchResults(
+    query: String,
+    state: AccountSearchState,
+    onAccountClick: (Account) -> Unit,
+) {
+    when {
+        state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        state.error != null -> EmptyState(AppIcons.Search, "Account search failed", state.error)
+        state.accounts.isNotEmpty() -> Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+            state.accounts.forEach { account ->
+                ListItem(
+                    modifier = Modifier.clickable { onAccountClick(account) },
+                    headlineContent = { Text(account.displayName) },
+                    supportingContent = { Text(account.handle) },
+                    leadingContent = { AccountAvatar(account, Modifier.size(48.dp)) },
+                )
+            }
+        }
+        query.isBlank() -> EmptyState(AppIcons.Search, "Find an account", "Enter a webfinger handle and press enter.")
+        state.query == query.trim() -> EmptyState(AppIcons.Search, "No account found", "Try a complete handle such as @user@example.org.")
+        else -> EmptyState(AppIcons.Search, "Search is ready", "Press enter to look up this account.")
     }
 }
 
@@ -111,8 +156,9 @@ fun EditProfileScreen(
 }
 
 @Composable
-fun ProfileScreen(account: Account? = null, onAccounts: () -> Unit) {
+fun ProfileScreen(account: Account? = null) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var extraFieldsVisible by rememberSaveable(account?.id?.connection, account?.id?.localId) { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Box(Modifier.fillMaxWidth().height(220.dp)) {
             Box(Modifier.fillMaxWidth().height(144.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest))
@@ -120,8 +166,8 @@ fun ProfileScreen(account: Account? = null, onAccounts: () -> Unit) {
                 shape = CircleShape, color = MaterialTheme.colorScheme.surface) {
                 if (account != null) AccountAvatar(account, Modifier.padding(4.dp)) else Avatar(Modifier.padding(4.dp))
             }
-            FilledTonalButton(onClick = onAccounts, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp)) {
-                Text("View accounts")
+            FilledTonalButton(onClick = { extraFieldsVisible = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp)) {
+                Text("Show more...")
             }
         }
         Column(Modifier.padding(horizontal = 16.dp)) {
@@ -147,6 +193,29 @@ fun ProfileScreen(account: Account? = null, onAccounts: () -> Unit) {
                 when (tab) { 0 -> "Your posts will appear here."; 1 -> "Your replies will appear here."; 2 -> "Photos and videos you share will appear here."; else -> "Profile information will appear here." })
         }
         Spacer(Modifier.height(80.dp))
+    }
+    if (extraFieldsVisible) {
+        AlertDialog(
+            onDismissRequest = { extraFieldsVisible = false },
+            title = { Text("Additional profile information") },
+            text = {
+                val fields = account?.profileFields.orEmpty().take(4)
+                if (fields.isEmpty()) {
+                    Text("No additional profile information.")
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        fields.forEach { field ->
+                            Column {
+                                Text(field.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.height(2.dp))
+                                Text(field.value, style = MaterialTheme.typography.bodyLarge)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { extraFieldsVisible = false }) { Text("Close") } },
+        )
     }
 }
 

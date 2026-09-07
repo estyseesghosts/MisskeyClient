@@ -6,6 +6,7 @@ import me.foxtails.palustris.data.mastodon.MastodonMapper
 import me.foxtails.palustris.data.mastodon.MastodonSource
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.PostAction
@@ -41,6 +42,9 @@ class MastodonIntegrationTest {
         .put("display_name", "Alice")
         .put("avatar", "https://example.org/avatar.png")
         .put("note", "<p>Bio &amp; details</p>")
+        .put("fields", JSONArray()
+            .put(JSONObject().put("name", "Website").put("value", "<a href=\"https://example.org\">example.org</a>"))
+            .put(JSONObject().put("name", "Matrix").put("value", "@alice:example.org")))
 
     @Before
     fun startServer() {
@@ -80,6 +84,8 @@ class MastodonIntegrationTest {
         assertTrue(PostAction.Favorite in post.availableActions)
         assertFalse(PostAction.React in post.availableActions)
         assertEquals("Bio & details", MastodonMapper.account(localAccount, origin).biography)
+        assertEquals(listOf("Website", "Matrix"), MastodonMapper.account(localAccount, origin).profileFields.map { it.name })
+        assertEquals("example.org", MastodonMapper.account(localAccount, origin).profileFields.first().value)
     }
 
     @Test
@@ -179,6 +185,25 @@ class MastodonIntegrationTest {
         val body = request.body.readUtf8()
         assertTrue(body.contains("display_name=New%20name"))
         assertTrue(body.contains("note=New%20bio"))
+    }
+
+    @Test
+    fun sourceLoadsMastodonProfileAndLooksUpExactHandle() = runBlocking {
+        server.enqueue(MockResponse().setBody(localAccount.toString()))
+        server.enqueue(MockResponse().setBody(localAccount.toString()))
+        val source = source()
+
+        val profile = source.profile(AccountId(me.foxtails.palustris.domain.Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user"))
+        val result = source.searchAccounts("@alice@example.org")
+
+        assertEquals("Bio & details", profile.biography)
+        assertEquals("Matrix", result.single().profileFields[1].name)
+        val profileRequest = server.takeRequest()
+        assertEquals("/api/v1/accounts/local-user", profileRequest.path)
+        assertEquals("Bearer token", profileRequest.getHeader("Authorization"))
+        val lookupRequest = server.takeRequest()
+        assertEquals("/api/v1/accounts/lookup?acct=alice%40example.org", lookupRequest.path)
+        assertEquals("Bearer token", lookupRequest.getHeader("Authorization"))
     }
 
     @Test

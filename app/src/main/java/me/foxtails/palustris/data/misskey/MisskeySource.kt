@@ -47,6 +47,20 @@ class MisskeySource(
         MisskeyMapper.post(JSONObject(response.body), origin)
     }
 
+    override suspend fun profile(id: AccountId): Account = request {
+        val response = api.post(origin, "users/show", JSONObject().put("i", token).put("userId", id.localId))
+        MisskeyMapper.account(JSONObject(response.body), origin)
+    }
+
+    override suspend fun searchAccounts(query: String): List<Account> = request {
+        val parts = query.trim().removePrefix("@").split('@')
+        require(parts.size in 1..2 && parts[0].isNotBlank()) { "Enter a webfinger handle, such as @user@example.org." }
+        val body = JSONObject().put("i", token).put("username", parts[0])
+        parts.getOrNull(1)?.takeIf { it.isNotBlank() && !it.equals(java.net.URI(origin).host, ignoreCase = true) }
+            ?.let { body.put("host", it) }
+        listOf(MisskeyMapper.account(JSONObject(api.post(origin, "users/show", body).body), origin))
+    }
+
     override suspend fun thread(rootId: EntityId): List<Post> = request {
         val root = post(rootId)
         val ancestors = mutableListOf<Post>()
@@ -160,8 +174,16 @@ object MisskeyMapper {
     fun account(json: JSONObject, origin: String): Account {
         val username = json.getString("username")
         val host = json.nullableString("host") ?: java.net.URI(origin).host
+        val fields = (json.optJSONArray("fields") ?: json.optJSONObject("profile")?.optJSONArray("fields"))
+            ?.let { values ->
+                (0 until values.length()).mapNotNull { index ->
+                    values.optJSONObject(index)?.let { field ->
+                        ProfileField(field.optString("name"), field.optString("value"))
+                    }?.takeIf { it.name.isNotBlank() || it.value.isNotBlank() }
+                }.take(4)
+            }.orEmpty()
         return Account(AccountId(Connection(origin, Protocol.MISSKEY), json.getString("id")), json.nullableString("name") ?: username,
-            "@$username@$host", json.nullableString("avatarUrl"), json.nullableString("description").orEmpty())
+            "@$username@$host", json.nullableString("avatarUrl"), json.nullableString("description").orEmpty(), fields)
     }
 
     fun post(json: JSONObject, origin: String, depth: Int = 0): Post {

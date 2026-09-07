@@ -11,6 +11,8 @@ import kotlinx.coroutines.withContext
 import me.foxtails.palustris.data.misskey.ApiFailure
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
@@ -63,6 +65,10 @@ class MastodonSource(
 
     override suspend fun post(id: EntityId): Post = request {
         MastodonMapper.post(api.get(origin, "v1/statuses/${id.value}", token).body.toJson(), origin)
+    }
+
+    override suspend fun profile(id: AccountId): Account = request {
+        MastodonMapper.account(api.get(origin, "v1/accounts/${id.localId}", token).body.toJson(), origin)
     }
 
     override suspend fun create(post: CreatePostRequest): Post = request {
@@ -118,6 +124,15 @@ class MastodonSource(
         val statuses = JSONObject(api.get(origin, "v2/search?q=$encodedQuery", token).body)
             .optJSONArray("statuses") ?: JSONArray()
         (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) }
+    }
+
+    override suspend fun searchAccounts(query: String): List<Account> = request {
+        val handle = query.trim().removePrefix("@").takeIf { it.isNotBlank() }
+            ?: throw SourceError.Unsupported("account search")
+        listOf(MastodonMapper.account(
+            api.get(origin, "v1/accounts/lookup?acct=${URLEncoder.encode(handle, Charsets.UTF_8.name())}", token)
+                .body.toJson(), origin,
+        ))
     }
 
     private suspend fun getPage(endpoint: String, cursor: String?) = if (cursor == null) {

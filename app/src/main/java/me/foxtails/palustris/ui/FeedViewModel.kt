@@ -31,6 +31,8 @@ class FeedViewModel @AssistedInject constructor(
     val sync = syncCoordinator.observeAccount(accountId)
     private var feedJob: Job? = null
     private var setupJob: Job? = null
+    private var profileJob: Job? = null
+    private var searchJob: Job? = null
     private var publishJob: Job? = null
     private var actionJob: Job? = null
     private val completedActions = mutableSetOf<ActionKey>()
@@ -39,7 +41,10 @@ class FeedViewModel @AssistedInject constructor(
     init {
         setupJob = viewModelScope.launch {
             syncCoordinator.register(accountId, source)
-            if (!stopped) refresh()
+            if (!stopped) {
+                loadProfile()
+                refresh()
+            }
         }
     }
 
@@ -63,6 +68,8 @@ class FeedViewModel @AssistedInject constructor(
                 _feed.value = FeedState(
                     posts = posts,
                     ownedPosts = posts.map { OwnedPost(accountId, it) },
+                    profile = _feed.value.profile,
+                    accountSearch = _feed.value.accountSearch,
                     timeline = timeline,
                     timelines = source.capabilities.timelines,
                     canPublish = source.capabilities.canPublish,
@@ -125,12 +132,35 @@ class FeedViewModel @AssistedInject constructor(
             _feed.value = _feed.value.copy(publishing = true, error = null)
             try {
                 val account = source.updateProfile(request)
-                _feed.value = _feed.value.copy(publishing = false, error = null)
+                _feed.value = _feed.value.copy(profile = account, publishing = false, error = null)
                 onSuccess(account)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 _feed.value = _feed.value.copy(publishing = false)
                 feedFailure(e)
+            }
+        }
+    }
+
+    fun searchAccounts(query: String) {
+        if (stopped) return
+        val normalized = query.trim()
+        if (normalized.isBlank()) return
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            _feed.value = _feed.value.copy(
+                accountSearch = AccountSearchState(query = normalized, loading = true),
+            )
+            try {
+                val accounts = source.searchAccounts(normalized).distinctBy { it.id }
+                _feed.value = _feed.value.copy(
+                    accountSearch = AccountSearchState(query = normalized, accounts = accounts),
+                )
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _feed.value = _feed.value.copy(
+                    accountSearch = AccountSearchState(query = normalized, error = sourceErrorMessage(e)),
+                )
             }
         }
     }
@@ -152,6 +182,8 @@ class FeedViewModel @AssistedInject constructor(
         stopped = true
         setupJob?.cancel()
         feedJob?.cancel()
+        profileJob?.cancel()
+        searchJob?.cancel()
         publishJob?.cancel()
         actionJob?.cancel()
         syncCoordinator.unregister(accountId)
@@ -182,6 +214,18 @@ class FeedViewModel @AssistedInject constructor(
             error = sourceErrorMessage(e),
             needsSignIn = requiresSignIn(e),
         )
+    }
+
+    private fun loadProfile() {
+        profileJob?.cancel()
+        profileJob = viewModelScope.launch {
+            try {
+                _feed.value = _feed.value.copy(profile = source.profile(accountId))
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                // The cached account remains usable when a profile refresh is unavailable.
+            }
+        }
     }
 
     override fun onCleared() {

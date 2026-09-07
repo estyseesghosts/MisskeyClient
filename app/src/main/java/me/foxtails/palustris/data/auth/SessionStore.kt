@@ -6,6 +6,7 @@ import me.foxtails.palustris.data.misskey.MisskeyMapper
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
 import org.json.JSONArray
@@ -162,7 +163,7 @@ class EncryptedSessionStore private constructor(
                 entries.getJSONObject(index).let {
                     AccountRef(it.getJSONObject("accountId").toAccountId(), it.getString("handle"),
                         it.nullableString("avatarUrl"), it.getString("displayName"), it.getString("protocol").let(Protocol::valueOf),
-                        it.nullableString("biography").orEmpty())
+                        it.nullableString("biography").orEmpty(), it.profileFields())
                 }
             }
         }.orEmpty()
@@ -184,6 +185,9 @@ class EncryptedSessionStore private constructor(
                     .put("displayName", ref.displayName)
                     .put("protocol", ref.protocol.name)
                     .put("biography", ref.biography)
+                    .put("profileFields", JSONArray(ref.profileFields.map { field ->
+                        JSONObject().put("name", field.name).put("value", field.value)
+                    }))
             }))
             .put("activeAccountId", index.activeAccountId?.toIndexJson())
         val stream = indexFile.startWrite()
@@ -207,11 +211,20 @@ class EncryptedSessionStore private constructor(
 }
 
 private fun AccountIndex.withAccount(account: Account): AccountIndex {
-    val ref = AccountRef(account.id, account.handle, account.avatarUrl, account.displayName)
+    val ref = AccountRef(account.id, account.handle, account.avatarUrl, account.displayName,
+        biography = account.biography, profileFields = account.profileFields)
     return copy(accounts = accounts.filterNot { it.accountId == account.id } + ref)
 }
 
 private fun JSONObject.nullableString(key: String): String? = if (isNull(key)) null else optString(key).takeIf { it.isNotEmpty() }
+
+private fun JSONObject.profileFields(): List<ProfileField> = optJSONArray("profileFields")?.let { fields ->
+    (0 until fields.length()).mapNotNull { index ->
+        fields.optJSONObject(index)?.let {
+            ProfileField(it.optString("name"), it.optString("value"))
+        }?.takeIf { it.name.isNotBlank() || it.value.isNotBlank() }
+    }.take(4)
+}.orEmpty()
 
 private fun JSONObject.toPendingLogin(): PendingLogin = PendingLogin(
     origin = getString("origin"),

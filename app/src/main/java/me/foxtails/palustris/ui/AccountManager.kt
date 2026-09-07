@@ -300,7 +300,8 @@ class AccountManager @Inject constructor(
 }
 
 private fun AccountIndex.withAccount(account: Account): AccountIndex {
-    val ref = AccountRef(account.id, account.handle, account.avatarUrl, account.displayName, biography = account.biography)
+    val ref = AccountRef(account.id, account.handle, account.avatarUrl, account.displayName,
+        biography = account.biography, profileFields = account.profileFields)
     return copy(accounts = accounts.filterNot { it.accountId == account.id } + ref)
 }
 
@@ -312,5 +313,8 @@ private fun Account.toProfileJson(): JSONObject = JSONObject().apply {
     put("display_name", displayName)
     put("description", biography)
     put("note", biography)
+    put("fields", org.json.JSONArray(profileFields.map { field ->
+        JSONObject().put("name", field.name).put("value", field.value)
+    }))
     avatarUrl?.let { put("avatarUrl", it); put("avatar", it) }
 }

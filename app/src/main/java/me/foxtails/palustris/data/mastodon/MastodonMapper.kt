@@ -10,6 +10,7 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.Protocol
 import org.json.JSONObject
 import java.time.Instant
@@ -20,12 +21,20 @@ object MastodonMapper {
         val host = json.optString("acct").substringAfter('@', "").ifBlank {
             java.net.URI(origin).host.orEmpty()
         }
+        val fields = json.optJSONArray("fields")?.let { values ->
+            (0 until values.length()).mapNotNull { index ->
+                values.optJSONObject(index)?.let { field ->
+                    ProfileField(field.optString("name"), field.optString("value").htmlToText())
+                }?.takeIf { it.name.isNotBlank() || it.value.isNotBlank() }
+            }.take(4)
+        }.orEmpty()
         return Account(
             id = AccountId(Connection(origin, Protocol.MASTODON), json.getString("id")),
             displayName = json.optString("display_name").ifBlank { username },
             handle = "@$username@$host",
             avatarUrl = json.optString("avatar").takeIf { it.isNotBlank() },
             biography = json.optString("note").stripHtml(),
+            profileFields = fields,
         )
     }
 

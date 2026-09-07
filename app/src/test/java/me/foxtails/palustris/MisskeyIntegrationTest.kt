@@ -20,7 +20,16 @@ import java.time.Instant
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class MisskeyIntegrationTest : MisskeySourceContractTest() {
-    private val user = """{"id":"user-a","username":"alice","name":"Alice","host":null}"""
+    private val user = JSONObject()
+        .put("id", "user-a")
+        .put("username", "alice")
+        .put("name", "Alice")
+        .put("host", JSONObject.NULL)
+        .put("description", "Misskey bio")
+        .put("fields", org.json.JSONArray()
+            .put(JSONObject().put("name", "Website").put("value", "https://example.org"))
+            .put(JSONObject().put("name", "Matrix").put("value", "@alice:example.org")))
+        .toString()
     private fun note(id: String) = """{"id":"$id","createdAt":"2026-09-06T10:00:00Z","user":$user,"text":"Hello","visibility":"home"}"""
 
     @Test fun domainValidationRejectsCredentialsAndNonHttpsUrls() {
@@ -137,6 +146,30 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
             assertEquals("test-token", body.getString("i"))
             assertEquals("New name", body.getString("name"))
             assertEquals("New bio", body.getString("description"))
+        }
+    }
+
+    @Test fun misskeyLoadsProfileAndLooksUpExactHandle() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody(user))
+            server.enqueue(MockResponse().setBody(user))
+            val origin = server.url("/").toString().removeSuffix("/")
+            val source = MisskeySource(origin, "test-token", MisskeyApi())
+            val accountId = AccountId(Connection(origin, Protocol.MISSKEY), "user-a")
+
+            val profile = source.profile(accountId)
+            val result = source.searchAccounts("@alice@example.org")
+
+            assertEquals("Misskey bio", profile.biography)
+            assertEquals(listOf("Website", "Matrix"), result.single().profileFields.map { it.name })
+            val profileRequest = server.takeRequest()
+            assertEquals("/api/users/show", profileRequest.path)
+            assertEquals("user-a", JSONObject(profileRequest.body.readUtf8()).getString("userId"))
+            val lookup = server.takeRequest()
+            assertEquals("/api/users/show", lookup.path)
+            val lookupBody = JSONObject(lookup.body.readUtf8())
+            assertEquals("alice", lookupBody.getString("username"))
+            assertEquals("example.org", lookupBody.getString("host"))
         }
     }
 

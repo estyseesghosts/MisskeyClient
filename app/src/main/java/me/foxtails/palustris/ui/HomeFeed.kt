@@ -69,6 +69,7 @@ fun HomeFeed(
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+    onOpenProfile: (Account) -> Unit = {},
 ) {
     val list = rememberLazyListState()
     val pullToRefreshState = rememberPullToRefreshState()
@@ -131,7 +132,7 @@ fun HomeFeed(
             val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
             val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
             items(rows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
-                PostRow(ownedPost, enabledActions, onReact, onReply, onReshare, onBookmark, onReaction)
+                PostRow(ownedPost, enabledActions, onReact, onReply, onReshare, onBookmark, onReaction, onOpenProfile)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
             }
             if (state.loadingMore) item {
@@ -171,6 +172,7 @@ private fun PostRow(
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
     onReaction: (OwnedPost, String) -> Unit,
+    onOpenProfile: (Account) -> Unit,
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
@@ -185,6 +187,7 @@ private fun PostRow(
         PostMetadataRow(
             post = post,
             trailingHashtags = presentation.trailingHashtags.takeIf { contentVisible }.orEmpty(),
+            onOpenProfile = { onOpenProfile(post.author) },
         )
         if (post.replyTo != null) Text("Reply", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         if (post.contentWarning != null) {
@@ -243,7 +246,7 @@ private fun PostRow(
 }
 
 @Composable
-private fun PostMetadataRow(post: Post, trailingHashtags: List<String>) {
+private fun PostMetadataRow(post: Post, trailingHashtags: List<String>, onOpenProfile: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -252,15 +255,19 @@ private fun PostMetadataRow(post: Post, trailingHashtags: List<String>) {
             .semantics { contentDescription = "Post metadata" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AccountAvatar(post.author, Modifier.size(40.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(
-            post.author.displayName,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            modifier = Modifier.weight(1f).clickable(onClick = onOpenProfile),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AccountAvatar(post.author, Modifier.size(40.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                post.author.displayName,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         if (trailingHashtags.isNotEmpty()) {
             Spacer(Modifier.width(4.dp))
             TerminalHashtagSummary(trailingHashtags)

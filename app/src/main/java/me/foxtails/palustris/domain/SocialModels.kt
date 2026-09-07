@@ -9,7 +9,10 @@ data class Account(
     val handle: String,
     val avatarUrl: String? = null,
     val biography: String = "",
+    val profileFields: List<ProfileField> = emptyList(),
 )
+
+data class ProfileField(val name: String, val value: String)
 
 data class UpdateProfileRequest(
     val displayName: String,
@@ -51,6 +54,7 @@ interface SocialSource {
     suspend fun timelines(): List<Timeline> = capabilities.timelines.toList()
     suspend fun timeline(timeline: Timeline, cursor: String? = null): Page<Post>
     suspend fun post(id: EntityId): Post = unsupported("post")
+    suspend fun profile(id: AccountId): Account = unsupported("profile")
     suspend fun thread(rootId: EntityId): List<Post> = unsupported("thread")
     suspend fun create(post: CreatePostRequest): Post = unsupported("create")
     suspend fun updateProfile(request: UpdateProfileRequest): Account = unsupported("updateProfile")
@@ -63,6 +67,7 @@ interface SocialSource {
     suspend fun votePoll(id: EntityId, optionIndex: Int) = unsupported<Unit>("votePoll")
     suspend fun uploadMedia(file: java.io.InputStream, mimeType: String): Attachment = unsupported("uploadMedia")
     suspend fun search(query: String): List<Post> = unsupported("search")
+    suspend fun searchAccounts(query: String): List<Account> = unsupported("account search")
     suspend fun notifications(cursor: String? = null): Page<Notification> = unsupported("notifications")
     suspend fun follow(id: EntityId) = unsupported<Unit>("follow")
     suspend fun mute(id: EntityId) = unsupported<Unit>("mute")

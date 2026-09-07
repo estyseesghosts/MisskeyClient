@@ -68,6 +68,7 @@ private fun contextualActionFor(
     destination: Destination,
     searchPanel: SearchPanel,
     notificationsPanel: NotificationsPanel,
+    editProfileEnabled: Boolean,
     onCompose: () -> Unit,
     onSearchToggle: () -> Unit,
     onNotificationsToggle: () -> Unit,
@@ -84,7 +85,7 @@ private fun contextualActionFor(
     } else {
         ContextualBottomAction(AppIcons.Notifications, "Notifications", true, onNotificationsToggle)
     }
-    Destination.Profile -> ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", true, onEditProfile)
+    Destination.Profile -> ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", editProfileEnabled, onEditProfile)
 }
 
 @Composable
@@ -122,6 +123,7 @@ private fun CompactContextualNavigationBar(
 fun PalustrisApp(
     account: Account? = null,
     feedState: FeedState? = null,
+    profile: Account? = null,
     onRefresh: (Timeline) -> Unit = {},
     onLoadMore: (Timeline) -> Unit = {},
     onSignOut: () -> Unit = {},
@@ -130,6 +132,7 @@ fun PalustrisApp(
     onAddAccount: () -> Unit = {},
     onPublish: (CreatePostRequest, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
     onUpdateProfile: (UpdateProfileRequest, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
+    onSearchAccounts: (String) -> Unit = {},
     draftStore: DraftStore? = null,
     ownedPosts: List<OwnedPost>? = null,
     onReact: (OwnedPost) -> Unit = {},
@@ -159,6 +162,7 @@ fun PalustrisApp(
     var savedWarning by rememberSaveable { mutableStateOf("") }
     var warningEnabled by rememberSaveable { mutableStateOf(false) }
     var draftError by rememberSaveable { mutableStateOf<String?>(null) }
+    var viewedProfile by remember { mutableStateOf<Account?>(null) }
     var profileName by rememberSaveable { mutableStateOf("") }
     var profileBiography by rememberSaveable { mutableStateOf("") }
     var profileDialog by rememberSaveable { mutableStateOf(false) }
@@ -167,6 +171,8 @@ fun PalustrisApp(
     var closing by remember { mutableStateOf(false) }
     val overlay = when (overlayKey) { "Composer" -> Overlay.Composer; "EditProfile" -> Overlay.EditProfile; else -> null }
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
+    val currentProfile = profile ?: account
+    val displayedProfile = viewedProfile ?: currentProfile
     val hasDraftChanges = draft != savedDraft || (if (warningEnabled) warning else "") != savedWarning
     val profileDirty = account != null && (profileName != account.displayName || profileBiography != account.biography)
 
@@ -182,6 +188,7 @@ fun PalustrisApp(
     LaunchedEffect(availableTimelines) { if (timeline !in availableTimelines) timeline = Timeline.Home }
     LaunchedEffect(feedState?.timeline, account?.id) { feedState?.timeline?.let { timeline = it } }
     LaunchedEffect(destination, page, overlayKey) { navigationVisible = true }
+    LaunchedEffect(account?.id) { viewedProfile = null }
 
     fun loadDraft(item: PostDraft) {
         draftId = item.id; draft = item.text; savedDraft = item.text; warning = item.contentWarning.orEmpty(); savedWarning = item.contentWarning.orEmpty(); warningEnabled = !item.contentWarning.isNullOrBlank(); draftError = null; overlayKey = Overlay.Composer::class.simpleName
@@ -204,6 +211,17 @@ fun PalustrisApp(
     }
     fun closeComposer() { if (feedState?.publishing == true || closing) return; if (hasDraftChanges) saveCurrentDraft { overlayKey = null } else overlayKey = null }
     fun closeProfile() { if (feedState?.publishing == true) return; if (profileDirty) profileDialog = true else overlayKey = null }
+    fun selectDestination(item: Destination) {
+        if (item == Destination.Profile) viewedProfile = null
+        destination = item
+        page = null
+    }
+    fun openProfile(profile: Account) {
+        viewedProfile = profile
+        destination = Destination.Profile
+        page = null
+        sheet = null
+    }
 
     BackHandler(enabled = overlay != null || page != null || destination != Destination.Home) {
         when { overlay == Overlay.Composer -> closeComposer(); overlay == Overlay.EditProfile -> closeProfile(); page != null -> page = null; else -> destination = Destination.Home }
@@ -213,14 +231,14 @@ fun PalustrisApp(
         val wide = maxWidth >= 600.dp
         Row(Modifier.fillMaxSize()) {
             if (wide) NavigationRail(Modifier.fillMaxHeight(), header = { FloatingActionButton(onClick = ::openComposer, modifier = Modifier.padding(vertical = 16.dp)) { Icon(AppIcons.Edit, "Compose post") } }) {
-                Destination.entries.forEach { item -> NavigationRailItem(selected = destination == item, onClick = { destination = item; page = null }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) }) }
+                Destination.entries.forEach { item -> NavigationRailItem(selected = destination == item, onClick = { selectDestination(item) }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) }) }
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 Scaffold(modifier = Modifier.fillMaxSize(), topBar = {
                     when {
                         page != null -> TopAppBar(title = { Text(page!!) }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { page = null } })
                         destination == Destination.Notifications -> TopAppBar(title = { Text(if (notificationsPanel == NotificationsPanel.Notifications) "Notifications" else "Direct messages") })
-                        destination == Destination.Profile -> TopAppBar(title = { Column { Text(account?.displayName ?: "Your profile"); Text(account?.handle ?: "0 posts", style = MaterialTheme.typography.bodyMedium, maxLines = 1) } }, actions = { ActionIcon(AppIcons.Bookmark, "Bookmarks") { page = "Bookmarks" }; ActionIcon(AppIcons.Folder, "Drafts") { page = "Drafts" }; ActionIcon(AppIcons.More, "Accounts") { sheet = "Accounts" } })
+                        destination == Destination.Profile -> TopAppBar(title = { Column { Text(displayedProfile?.displayName ?: "Your profile"); Text(displayedProfile?.handle ?: "0 posts", style = MaterialTheme.typography.bodyMedium, maxLines = 1) } }, actions = { if (displayedProfile?.id == account?.id) { ActionIcon(AppIcons.Bookmark, "Bookmarks") { page = "Bookmarks" }; ActionIcon(AppIcons.Folder, "Drafts") { page = "Drafts" }; ActionIcon(AppIcons.More, "Accounts") { sheet = "Accounts" } } })
                     }
                 }) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
@@ -229,10 +247,10 @@ fun PalustrisApp(
                             "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")
                             "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                                Destination.Home -> if (feedState != null) HomeFeed(state = feedState, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
-                                Destination.Search -> SearchScreen(searchPanel)
+                                Destination.Home -> if (feedState != null) HomeFeed(state = feedState, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenProfile = ::openProfile) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile)
                                 Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(connected = account != null) else MessagesScreen()
-                                Destination.Profile -> ProfileScreen(account) { sheet = "Accounts" }
+                                Destination.Profile -> ProfileScreen(displayedProfile)
                             } }
                         }
                     }
@@ -245,7 +263,7 @@ fun PalustrisApp(
                 if (!wide && page == null && overlay == null) {
                     androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).zIndex(1f)) {
                         Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
-                            CompactContextualNavigationBar(destination, contextualActionFor(destination, searchPanel, notificationsPanel, ::openComposer, { searchPanelName = if (searchPanel == SearchPanel.Search) SearchPanel.Alternate.name else SearchPanel.Search.name }, { notificationsPanelName = if (notificationsPanel == NotificationsPanel.Notifications) NotificationsPanel.DirectMessages.name else NotificationsPanel.Notifications.name }, { if (account != null) overlayKey = Overlay.EditProfile::class.simpleName }), account, { sheet = "Accounts" }) { destination = it; page = null }
+                            CompactContextualNavigationBar(destination, contextualActionFor(destination, searchPanel, notificationsPanel, account == null || displayedProfile?.id == account.id, ::openComposer, { searchPanelName = if (searchPanel == SearchPanel.Search) SearchPanel.Alternate.name else SearchPanel.Search.name }, { notificationsPanelName = if (notificationsPanel == NotificationsPanel.Notifications) NotificationsPanel.DirectMessages.name else NotificationsPanel.Notifications.name }, { if (account != null && displayedProfile?.id == account.id) overlayKey = Overlay.EditProfile::class.simpleName }), account, { sheet = "Accounts" }) { selectDestination(it) }
                         }
                     }
                 }

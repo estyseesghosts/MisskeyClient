@@ -42,6 +42,9 @@ fun ConnectedApp(
     }
     val feed by if (feedModel != null) feedModel.feed.collectAsStateWithLifecycle()
     else remember { mutableStateOf(FeedState()) }
+    LaunchedEffect(feed.profile, state.account) {
+        feed.profile?.takeIf { it != state.account }?.let(accountManager::updateAccount)
+    }
     val context = LocalContext.current
     LaunchedEffect(state.browserUrl) {
         state.browserUrl?.let { url ->
@@ -63,6 +66,7 @@ fun ConnectedApp(
             PalustrisApp(
                 account = state.account,
                 feedState = feed,
+                profile = feed.profile ?: state.account,
                 onRefresh = { timeline -> feedModel?.refresh(timeline) },
                 onLoadMore = { timeline -> feedModel?.loadMore(timeline) },
                 onSignOut = accountManager::signOut,
@@ -71,6 +75,7 @@ fun ConnectedApp(
                 onAddAccount = accountManager::beginAddAccount,
                 onPublish = { request, onSuccess -> feedModel?.create(request, onSuccess) },
                 onUpdateProfile = { request, onSuccess -> feedModel?.updateProfile(request) { updated -> accountManager.updateAccount(updated); onSuccess() } },
+                onSearchAccounts = feedModel?.let { model -> { query -> model.searchAccounts(query) } } ?: {},
                 draftStore = draftStore,
                 ownedPosts = feed.ownedPosts,
                 onReact = { ownedPost -> feedModel?.favorite(ownedPost) },

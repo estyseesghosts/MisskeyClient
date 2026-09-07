@@ -12,9 +12,11 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.PalustrisApp
+import me.foxtails.palustris.ui.SearchScreen
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -128,6 +130,35 @@ class HomeFeedTest {
 
         compose.onNodeWithContentDescription("Post time").assertIsDisplayed()
         compose.onNodeWithText("Open image").assertDoesNotExist()
+    }
+
+    @Test fun tappingPostAuthorOpensProfileAndShowsBiographyFieldsCard() {
+        val author = account.copy(
+            displayName = "Author Profile",
+            biography = "A profile biography",
+            profileFields = listOf(ProfileField("Website", "https://example.org"), ProfileField("Matrix", "@author:example.org")),
+        )
+        show(Post(postId("profile"), author, "A visible post", 0, Audience.Public))
+
+        compose.onNodeWithText("Author Profile").performClick()
+        compose.onNodeWithText("A profile biography").assertIsDisplayed()
+        compose.onNodeWithText("Show more...").performClick()
+        compose.onNodeWithText("Additional profile information").assertIsDisplayed()
+        compose.onNodeWithText("https://example.org").assertIsDisplayed()
+        compose.onNodeWithText("@author:example.org").assertIsDisplayed()
+    }
+
+    @Test fun searchSubmitsWebfingerHandleWithKeyboardSearch() {
+        var submitted = ""
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SearchScreen(onSearchAccounts = { submitted = it })
+            }
+        }
+        compose.onNode(hasSetTextAction()).performTextInput("@alice@example.org")
+        compose.onNode(hasSetTextAction()).performImeAction()
+
+        assertTrue(submitted == "@alice@example.org")
     }
 
     private fun postId(value: String) = EntityId("https://example.org", value)

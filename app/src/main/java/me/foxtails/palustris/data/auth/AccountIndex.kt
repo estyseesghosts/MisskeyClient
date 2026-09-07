@@ -3,6 +3,7 @@ package me.foxtails.palustris.data.auth
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.Protocol
 import org.json.JSONObject
 
@@ -14,6 +15,7 @@ data class AccountRef(
     val displayName: String,
     val protocol: Protocol = accountId.connection.protocol,
     val biography: String = "",
+    val profileFields: List<ProfileField> = emptyList(),
 )
 
 data class AccountIndex(
@@ -23,7 +25,7 @@ data class AccountIndex(
     val schemaVersion: Int = version,
 )
 
-fun AccountRef.toAccount(): Account = Account(accountId, displayName, handle, avatarUrl, biography)
+fun AccountRef.toAccount(): Account = Account(accountId, displayName, handle, avatarUrl, biography, profileFields)
 
 internal fun AccountId.toIndexJson(): JSONObject = JSONObject()
     .put("origin", connection.origin)
