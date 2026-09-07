@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.activity.compose.setContent
 import org.junit.Before
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -46,6 +47,48 @@ class NavigationTest {
         }
     }
 
+    private fun screenBitmap(): Bitmap {
+        lateinit var bitmap: Bitmap
+        compose.runOnIdle {
+            val view = compose.activity.window.decorView
+            bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+            view.draw(Canvas(bitmap))
+        }
+        return bitmap
+    }
+
+    private fun cornerPixels(contentDescription: String, bitmap: Bitmap): List<Int> {
+        val bounds = compose.onNodeWithContentDescription(contentDescription).fetchSemanticsNode().boundsInRoot
+        val left = bounds.left.toInt()
+        val top = bounds.top.toInt()
+        val right = bounds.right.toInt() - 1
+        val bottom = bounds.bottom.toInt() - 1
+        val inset = 4
+        return listOf(
+            bitmap.getPixel(left + inset, top + inset),
+            bitmap.getPixel(right - inset, top + inset),
+            bitmap.getPixel(left + inset, bottom - inset),
+            bitmap.getPixel(right - inset, bottom - inset),
+        )
+    }
+
+    private fun pressSample(contentDescription: String, bitmap: Bitmap): Int {
+        val bounds = compose.onNodeWithContentDescription(contentDescription).fetchSemanticsNode().boundsInRoot
+        val x = bounds.center.x.toInt()
+        val y = bounds.top.toInt() + 8
+        return bitmap.getPixel(x, y)
+    }
+
+    private fun assertPressKeepsCornersUnchanged(contentDescription: String) {
+        val before = screenBitmap()
+        val beforeCorners = cornerPixels(contentDescription, before)
+        compose.onNodeWithContentDescription(contentDescription).performTouchInput { down(center) }
+        val pressed = screenBitmap()
+        compose.onNodeWithContentDescription(contentDescription).performTouchInput { up() }
+        assertNotEquals("$contentDescription press did not render an indication", pressSample(contentDescription, before), pressSample(contentDescription, pressed))
+        assertEquals("$contentDescription press changed a rounded corner", beforeCorners, cornerPixels(contentDescription, pressed))
+    }
+
     @Test fun navigationRetainsSearchAndSelectedTimeline() {
         screenshot("home")
         compose.onAllNodesWithContentDescription("Choose timeline").onFirst().performClick()
@@ -65,6 +108,14 @@ class NavigationTest {
         compose.onNodeWithContentDescription("Profile").performClick()
         compose.onNodeWithText("No account selected").assertIsDisplayed()
         screenshot("profile")
+    }
+
+    @Test fun homeAndSelectedSearchIndicationsStayRounded() {
+        assertPressKeepsCornersUnchanged("Choose timeline")
+
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.onNodeWithContentDescription("Search").assertIsSelected()
+        assertPressKeepsCornersUnchanged("Search")
     }
 
     @Test fun draftsSurviveActivityRecreationAndCanBeDeleted() {

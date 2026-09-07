@@ -12,6 +12,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +21,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -64,6 +69,16 @@ private data class ContextualBottomAction(
     val onClick: () -> Unit,
 )
 
+private fun Modifier.roundPressLayer(pressed: Boolean, color: Color): Modifier = drawWithContent {
+    drawContent()
+    if (pressed) {
+        drawRoundRect(
+            color = color,
+            cornerRadius = CornerRadius(minOf(size.width, size.height) / 2f),
+        )
+    }
+}
+
 private fun contextualActionFor(
     destination: Destination,
     searchPanel: SearchPanel,
@@ -103,9 +118,15 @@ private fun CompactContextualNavigationBar(
                     val selected = destination == item
                     Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                         if (selected) Surface(Modifier.size(40.dp), CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {}
+                        val interactionSource = remember(item) { MutableInteractionSource() }
+                        val pressed by interactionSource.collectIsPressedAsState()
                         val itemModifier = if (item == Destination.Profile) {
-                            Modifier.size(48.dp).combinedClickable(onClick = { onDestinationSelected(item) }, onLongClick = onOpenAccounts)
-                        } else Modifier.size(48.dp).clickable { onDestinationSelected(item) }
+                            Modifier.size(48.dp)
+                                .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                                .combinedClickable(interactionSource = interactionSource, indication = null, onClick = { onDestinationSelected(item) }, onLongClick = onOpenAccounts)
+                        } else Modifier.size(48.dp)
+                            .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                            .clickable(interactionSource = interactionSource, indication = null) { onDestinationSelected(item) }
                         Box(itemModifier.semantics { contentDescription = item.label; this.selected = selected; role = Role.Tab }, contentAlignment = Alignment.Center) {
                             if (item == Destination.Profile) {
                                 if (account != null) AccountAvatar(account, Modifier.size(30.dp), exposeSemantics = false) else Avatar(Modifier.size(30.dp), description = null)
@@ -257,7 +278,9 @@ fun PalustrisApp(
                 }
                 if (page == null && overlay == null && destination == Destination.Home) {
                     androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp).width(168.dp).height(60.dp).zIndex(1f)) {
-                        Surface(Modifier.fillMaxSize().clickable { sheet = "Timelines" }.semantics { contentDescription = "Choose timeline" }, CircleShape, MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f), shadowElevation = 6.dp) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(timeline.name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)) } }
+                        val interactionSource = remember { MutableInteractionSource() }
+                        val pressed by interactionSource.collectIsPressedAsState()
+                        Surface(Modifier.fillMaxSize().roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)).clickable(interactionSource = interactionSource, indication = null) { sheet = "Timelines" }.semantics { contentDescription = "Choose timeline" }, CircleShape, MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f), shadowElevation = 6.dp) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(timeline.name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)) } }
                     }
                 }
                 if (!wide && page == null && overlay == null) {
