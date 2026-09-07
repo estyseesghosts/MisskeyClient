@@ -72,7 +72,8 @@ class SignInScreenTest {
         compose.onNodeWithText("Show sensitive media").assertIsDisplayed()
         compose.onNodeWithText("Open image").assertDoesNotExist()
         compose.onNodeWithText("Show sensitive media").performClick()
-        compose.onNodeWithText("Open image").assertIsDisplayed()
+        compose.onNodeWithText("Open image").assertDoesNotExist()
+        compose.onNodeWithContentDescription("A photo").assertExists()
     }
 
     @Test fun publishingKeepsDraftUntilSuccessCallback() {

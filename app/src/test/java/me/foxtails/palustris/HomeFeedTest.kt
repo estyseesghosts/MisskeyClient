@@ -5,6 +5,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
@@ -55,6 +56,8 @@ class HomeFeedTest {
         val height = compose.onNodeWithContentDescription("Post metadata").fetchSemanticsNode().boundsInRoot.height
         val heightDp = height / compose.activity.resources.displayMetrics.density
         assertTrue("metadata row should remain compact, was $heightDp dp", heightDp <= 52f)
+        val actionHeight = compose.onNodeWithContentDescription("Post actions").fetchSemanticsNode().boundsInRoot.height
+        assertTrue("metadata and action rows should match", kotlin.math.abs(height - actionHeight) <= 1f)
     }
 
     @Test fun terminalTagsMoveToSummaryAndPopupWhileInlineTagsStayInBody() {
@@ -105,6 +108,21 @@ class HomeFeedTest {
         compose.onNodeWithContentDescription("Favorite").assertIsDisplayed()
         compose.onNodeWithContentDescription("Bookmark").assertIsDisplayed()
         compose.onNodeWithContentDescription("Share").assertIsDisplayed()
+    }
+
+    @Test fun postTimeMovesBelowBodyAndImagesHaveNoOpenImageButton() {
+        val post = Post(
+            postId("timestamp"),
+            account,
+            "A post with an image",
+            System.currentTimeMillis(),
+            Audience.Public,
+            attachments = listOf(Attachment("https://example.org/photo.jpg", "image/jpeg", "A photo")),
+        )
+        show(post)
+
+        compose.onNodeWithContentDescription("Post time").assertIsDisplayed()
+        compose.onNodeWithText("Open image").assertDoesNotExist()
     }
 
     private fun postId(value: String) = EntityId("https://example.org", value)

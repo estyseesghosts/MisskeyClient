@@ -51,6 +51,9 @@ internal fun openExternal(context: Context, url: String?) {
     catch (_: android.content.ActivityNotFoundException) { Toast.makeText(context, "No app can open this link.", Toast.LENGTH_SHORT).show() }
 }
 
+private val PostMetadataVerticalPadding = 2.dp * 1.06f
+private val PostChromeHeight = 44.dp + (PostMetadataVerticalPadding * 2f)
+
 @Composable
 fun HomeFeed(
     state: FeedState,
@@ -187,8 +190,22 @@ private fun PostRow(
             TextButton(onClick = { expanded = !expanded }, modifier = Modifier.padding(horizontal = 4.dp)) { Text(if (expanded) "Hide content" else "Show content") }
         }
         if (contentVisible) {
-            if (presentation.visibleText.isNotBlank()) SelectionContainer {
-                Text(presentation.visibleText, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), style = MaterialTheme.typography.bodyLarge)
+            val timestamp = postTimestamp(post)
+            if (presentation.visibleText.isNotBlank() || timestamp != null) SelectionContainer {
+                Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+                    if (presentation.visibleText.isNotBlank()) {
+                        Text(presentation.visibleText, style = MaterialTheme.typography.bodyLarge)
+                    }
+                    timestamp?.let {
+                        if (presentation.visibleText.isNotBlank()) Spacer(Modifier.height(2.dp))
+                        Text(
+                            it,
+                            modifier = Modifier.semantics { contentDescription = "Post time" },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
             post.attachments.forEach { AttachmentView(it) }
             post.pollOptions.forEach { option ->
@@ -225,22 +242,11 @@ private fun PostRow(
 
 @Composable
 private fun PostMetadataRow(post: Post, trailingHashtags: List<String>) {
-    val timestamp = if (post.publishedAtEpochMillis > 0) {
-        DateUtils.getRelativeTimeSpanString(
-            post.publishedAtEpochMillis,
-            System.currentTimeMillis(),
-            DateUtils.MINUTE_IN_MILLIS,
-            DateUtils.FORMAT_ABBREV_RELATIVE,
-        ).toString()
-    } else {
-        null
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 44.dp)
-            .padding(horizontal = 16.dp, vertical = 2.dp)
+            .padding(horizontal = 16.dp, vertical = PostMetadataVerticalPadding)
+            .height(PostChromeHeight)
             .semantics { contentDescription = "Post metadata" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -257,11 +263,18 @@ private fun PostMetadataRow(post: Post, trailingHashtags: List<String>) {
             Spacer(Modifier.width(4.dp))
             TerminalHashtagSummary(trailingHashtags)
         }
-        timestamp?.let {
-            Spacer(Modifier.width(6.dp))
-            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-        }
     }
+}
+
+private fun postTimestamp(post: Post): String? = if (post.publishedAtEpochMillis > 0) {
+    DateUtils.getRelativeTimeSpanString(
+        post.publishedAtEpochMillis,
+        System.currentTimeMillis(),
+        DateUtils.MINUTE_IN_MILLIS,
+        DateUtils.FORMAT_ABBREV_RELATIVE,
+    ).toString()
+} else {
+    null
 }
 
 @Composable
@@ -357,7 +370,11 @@ private fun InteractionRow(
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(PostChromeHeight)
+            .padding(horizontal = 8.dp)
+            .semantics { contentDescription = "Post actions" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         InteractionButton(Modifier.weight(1f), AppIcons.Reply, "Reply", enabled = PostAction.Reply in availableActions, onClick = { onReply(ownedPost) })
@@ -430,7 +447,7 @@ private fun InteractionButton(
     onLongClick: (() -> Unit)? = null,
 ) {
     Box(
-        modifier = modifier.height(56.dp).combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
+        modifier = modifier.height(PostChromeHeight).combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
             .semantics { contentDescription = label; role = Role.Button },
         contentAlignment = Alignment.Center,
     ) {
@@ -472,9 +489,10 @@ private fun AttachmentView(attachment: Attachment) {
             modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 360.dp).padding(vertical = 4.dp).clickable { openExternal(context, attachment.url) },
             contentScale = ContentScale.Fit,
         )
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-            TextButton(onClick = { openExternal(context, attachment.url) }) { Text(if (attachment.mimeType.startsWith("image/")) "Open image" else "Open attachment") }
-            if (attachment.sensitive) TextButton(onClick = { revealed = false }) { Text("Hide media") }
+        if (attachment.sensitive) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                TextButton(onClick = { revealed = false }) { Text("Hide media") }
+            }
         }
     }
 }
