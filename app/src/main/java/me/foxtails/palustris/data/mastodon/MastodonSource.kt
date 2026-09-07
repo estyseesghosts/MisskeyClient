@@ -18,6 +18,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.NotificationCheckpoint
+import me.foxtails.palustris.domain.NotificationCapabilities
 import me.foxtails.palustris.domain.NotificationCursor
 import me.foxtails.palustris.domain.NotificationPage
 import me.foxtails.palustris.domain.NotificationQuery
@@ -43,7 +44,9 @@ class MastodonSource(
     private val clock: () -> Long = System::currentTimeMillis,
 ) : SocialSource {
     private val _capabilities = kotlinx.coroutines.flow.MutableStateFlow(
-        if (initialCapabilities.timelines.isEmpty() && initialCapabilities.actions.isEmpty() && initialCapabilities.audiences.isEmpty()) {
+        if (initialCapabilities.timelines.isEmpty() && initialCapabilities.actions.isEmpty() &&
+            initialCapabilities.audiences.isEmpty() && initialCapabilities.notifications == NotificationCapabilities()
+        ) {
             DEFAULT_CAPABILITIES.copy(canPublish = initialCapabilities.canPublish)
         } else {
             initialCapabilities
@@ -200,7 +203,10 @@ class MastodonSource(
         if (now - capabilities.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS) return
         try {
             val probed = probe.probeCapabilities(Connection(origin, Protocol.MASTODON))
-            _capabilities.value = probed.copy(canPublish = probed.canPublish || capabilities.canPublish)
+            _capabilities.value = probed.copy(
+                canPublish = probed.canPublish || capabilities.canPublish,
+                notifications = probed.notifications.takeVerifiedOr(capabilities.notifications),
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -232,6 +238,9 @@ class MastodonSource(
         )
     }
 }
+
+private fun NotificationCapabilities.takeVerifiedOr(previous: NotificationCapabilities): NotificationCapabilities =
+    if (this == NotificationCapabilities()) previous else this
 
 private fun String.toJson(): JSONObject = JSONObject(this)
 

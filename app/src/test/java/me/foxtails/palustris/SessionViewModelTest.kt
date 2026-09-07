@@ -505,6 +505,32 @@ class SessionViewModelTest {
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
 
+    @Test fun permissionUpgradeDoesNotReplaceAccountWhenReturnedIdentityDiffers() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        try {
+            val existingSession = Session(login.account.id, login.token, ServerCapabilities())
+            val mismatched = LoginSession(
+                "https://example.org",
+                "wrong-account-token",
+                JSONObject("""{"id":"other","username":"other"}"""),
+            )
+            val store = MemoryStore(existingSession, login.account)
+            val model = AccountManager(store, auth(mismatched), StandardTestDispatcher(testScheduler))
+            owner.put("upgrade", model)
+            advanceUntilIdle()
+
+            model.upgradePermissions(login.account.id)
+            advanceUntilIdle()
+            model.callback("palustris://auth/misskey?session=session-id")
+            advanceUntilIdle()
+
+            assertEquals(existingSession, store.storedSession)
+            assertEquals(existingSession, model.activeSession.value)
+            assertTrue(model.session.value.error.orEmpty().contains("match"))
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
     @Test fun addingAccountKeepsActiveSessionUntilCanceled() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val owner = ViewModelStore()

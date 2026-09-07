@@ -20,8 +20,10 @@ import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
+import me.foxtails.palustris.domain.SourceError
 import org.json.JSONObject
 
 data class SessionUi(
@@ -91,12 +93,12 @@ class AccountManager @Inject constructor(
         }
     }
 
-    fun signIn(input: String) {
+    fun signIn(input: String, replacingAccountId: AccountId? = null) {
         if (_session.value.busy) return
         authJob = viewModelScope.launch {
             _session.value = _session.value.copy(busy = true, error = null, addingAccount = _activeSession.value != null)
             try {
-                val next = auth.prepare(input)
+                val next = auth.prepare(input).copy(replacingAccountId = replacingAccountId)
                 withContext(ioDispatcher) { store.writePending(next) }
                 pending = next
                 _session.value = SessionUi(
@@ -114,6 +116,15 @@ class AccountManager @Inject constructor(
                 failAuth(e)
             }
         }
+    }
+
+    /** Starts a permission upgrade without allowing a different account to replace the target. */
+    fun upgradePermissions(accountId: AccountId) {
+        if (_accountIndex.value.accounts.none { it.accountId == accountId }) {
+            _session.value = _session.value.copy(error = "That account is no longer available on this device.")
+            return
+        }
+        signIn(accountId.connection.origin, replacingAccountId = accountId)
     }
 
     fun browserOpened() { _session.value = _session.value.copy(browserUrl = null) }
@@ -176,7 +187,15 @@ class AccountManager @Inject constructor(
             try {
                 val result = auth.complete(request)
                 val account = result.account
-                val session = Session(account.id, result.token, ServerCapabilities(canPublish = result.canPublish))
+                request.replacingAccountId?.let { expected ->
+                    if (account.id != expected) throw SourceError.AccountMismatch
+                }
+                val session = Session(
+                    accountId = account.id,
+                    token = result.token,
+                    capabilities = ServerCapabilities(canPublish = result.canPublish),
+                    access = result.access,
+                )
                 withContext(ioDispatcher) {
                     store.write(account.id, session)
                     store.writeProfile(account.id, result.user)

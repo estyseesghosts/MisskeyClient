@@ -66,18 +66,26 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         assertFalse(AuthCallback.matches("palustris://auth/misskey?session=unique-session", pending, 1_000_000))
     }
 
-    @Test fun authRequestsProfileWritePermissionForProfileEditing() = runBlocking {
+    @Test fun authRequestsNotificationAndRelationshipPermissions() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("""{"ok":true,"token":"test-token","user":$user}"""))
             val auth = MisskeyAuth(MisskeyApi())
-            val pending = PendingLogin(server.url("/").toString().removeSuffix("/"), "test-session", System.currentTimeMillis())
+            val pending = PendingLogin(
+                origin = server.url("/").toString().removeSuffix("/"),
+                id = "test-session",
+                createdAt = System.currentTimeMillis(),
+                requestedAccess = setOf(AccessScope.NotificationsRead, AccessScope.NotificationsWrite, AccessScope.FollowRequests),
+            )
             val url = okhttp3.HttpUrl.Companion.run { auth.browserUrl(pending).toHttpUrl() }
-            assertEquals("read:account,write:account,write:notes", url.queryParameter("permission"))
+            assertEquals("read:account,write:account,write:notes,read:notifications,write:notifications,write:following", url.queryParameter("permission"))
             assertEquals("palustris://auth/misskey", url.queryParameter("callback"))
             val result = auth.complete(pending)
             assertEquals("Alice", result.account.displayName)
             assertEquals("test-token", result.token)
             assertTrue(result.canPublish)
+            assertEquals(AccessStatus.Granted, result.access.status(AccessScope.NotificationsRead))
+            assertEquals(AccessStatus.Granted, result.access.status(AccessScope.NotificationsWrite))
+            assertEquals(AccessStatus.Granted, result.access.status(AccessScope.FollowRequests))
             val request = server.takeRequest()
             assertEquals("/api/miauth/test-session/check", request.path)
             assertEquals("POST", request.method)
@@ -358,7 +366,7 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
 
     @Test fun mastodonCallbackAndTokenExchangeUseOpaqueStateAndCode() = runBlocking {
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setBody("""{"access_token":"mastodon-token"}"""))
+            server.enqueue(MockResponse().setBody("""{"access_token":"mastodon-token","scope":"read write push"}"""))
             server.enqueue(MockResponse().setBody("""{"id":"mastodon-user","username":"alice","acct":"alice","display_name":"Alice","avatar":"https://example.org/avatar.png","note":"<p>Hello</p>"}"""))
             val origin = server.url("/").toString().removeSuffix("/")
             val pending = PendingLogin(origin, "oauth-state", System.currentTimeMillis(), Protocol.MASTODON,
@@ -369,6 +377,7 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
             val result = auth.complete(pending)
             assertEquals("mastodon-token", result.token)
             assertEquals(Protocol.MASTODON, result.protocol)
+            assertEquals(AccessStatus.Granted, result.access.status(AccessScope.Push))
             assertEquals(AccountId(Connection(origin, Protocol.MASTODON), "mastodon-user"), result.account.id)
             assertEquals("@alice@${server.hostName}", result.account.handle)
             val tokenRequest = server.takeRequest()

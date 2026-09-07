@@ -2,6 +2,9 @@ package me.foxtails.palustris.data.auth
 
 import me.foxtails.palustris.data.misskey.*
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.AccessGrant
+import me.foxtails.palustris.domain.AccessScope
+import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.Protocol
 import kotlinx.coroutines.CancellationException
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -24,7 +27,12 @@ class MisskeyAuth(private val apiFor: (String) -> MisskeyApi) : AuthGateway {
         val origin = ServerAddress.normalize(input)
         val meta = JSONObject(apiFor(origin).post(origin, "meta", JSONObject().put("detail", false)).body)
         require(!meta.nullableString("version").isNullOrBlank()) { "This server did not return Misskey-compatible information." }
-        PendingLogin(origin, UUID.randomUUID().toString(), System.currentTimeMillis())
+        PendingLogin(
+            origin = origin,
+            id = UUID.randomUUID().toString(),
+            createdAt = System.currentTimeMillis(),
+            requestedAccess = REQUESTED_ACCESS,
+        )
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -34,7 +42,7 @@ class MisskeyAuth(private val apiFor: (String) -> MisskeyApi) : AuthGateway {
         .addPathSegment("miauth").addPathSegment(pending.id)
         .addQueryParameter("name", "Palustris")
         .addQueryParameter("callback", "palustris://auth/misskey")
-        .addQueryParameter("permission", "read:account,write:account,write:notes").build().toString()
+        .addQueryParameter("permission", MISSKEY_PERMISSIONS).build().toString()
 
     override suspend fun complete(pending: PendingLogin): LoginSession = try {
         require(pending.isFresh(System.currentTimeMillis())) { "This sign-in has expired. Choose your instance again." }
@@ -46,10 +54,28 @@ class MisskeyAuth(private val apiFor: (String) -> MisskeyApi) : AuthGateway {
         // checks may be single-use, so a second network request could lose a valid token.
         val user = result.getJSONObject("user")
         MisskeyMapper.account(user, pending.origin)
-        LoginSession(pending.origin, token, user, canPublish = true)
+        LoginSession(
+            origin = pending.origin,
+            token = token,
+            user = user,
+            canPublish = true,
+            access = AccessGrant(
+                requested = pending.requestedAccess,
+                known = pending.requestedAccess.associateWith { AccessStatus.Granted },
+            ),
+        )
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
         throw MisskeyErrorMapper.map(e)
+    }
+
+    private companion object {
+        const val MISSKEY_PERMISSIONS = "read:account,write:account,write:notes,read:notifications,write:notifications,write:following"
+        val REQUESTED_ACCESS = setOf(
+            AccessScope.NotificationsRead,
+            AccessScope.NotificationsWrite,
+            AccessScope.FollowRequests,
+        )
     }
 }

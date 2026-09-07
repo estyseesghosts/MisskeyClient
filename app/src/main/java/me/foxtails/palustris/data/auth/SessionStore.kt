@@ -5,6 +5,8 @@ import android.util.AtomicFile
 import me.foxtails.palustris.data.misskey.MisskeyMapper
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.AccessGrant
+import me.foxtails.palustris.domain.AccessScope
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ServerCapabilities
@@ -20,6 +22,7 @@ class LoginSession(
     val user: JSONObject,
     val protocol: Protocol = Protocol.MISSKEY,
     val canPublish: Boolean = false,
+    val access: AccessGrant = AccessGrant(),
 ) {
     val account: Account
         get() = when (protocol) {
@@ -39,6 +42,8 @@ data class PendingLogin(
     val codeChallenge: String? = null,
     val scope: String = "read",
     val authorizationCode: String? = null,
+    val requestedAccess: Set<AccessScope> = emptySet(),
+    val replacingAccountId: AccountId? = null,
 ) {
     fun isFresh(now: Long) = now - createdAt in 0..(15 * 60 * 1000L)
 }
@@ -86,7 +91,7 @@ class EncryptedSessionStore private constructor(
             var index = readIndexInternal()
             legacy.optJSONObject("session")?.let { stored ->
                 val login = LoginSession(stored.getString("origin"), stored.getString("token"), stored.getJSONObject("user"))
-                val session = Session(login.account.id, login.token, ServerCapabilities())
+                val session = Session(login.account.id, login.token, ServerCapabilities(), login.access)
                 accountFiles.write(login.account.id, session, login.user)
                 index = index.withAccount(login.account).copy(activeAccountId = login.account.id)
             }
@@ -206,7 +211,9 @@ class EncryptedSessionStore private constructor(
             .put("protocol", pending.protocol.name).put("clientId", pending.clientId)
             .put("clientSecret", pending.clientSecret).put("codeVerifier", pending.codeVerifier)
             .put("codeChallenge", pending.codeChallenge).put("scope", pending.scope)
-            .put("authorizationCode", pending.authorizationCode))
+            .put("authorizationCode", pending.authorizationCode)
+            .put("requestedAccess", JSONArray(pending.requestedAccess.map { it.name }))
+            .put("replacingAccountId", pending.replacingAccountId?.toIndexJson()))
     }
 }
 
@@ -237,4 +244,15 @@ private fun JSONObject.toPendingLogin(): PendingLogin = PendingLogin(
     codeChallenge = nullableString("codeChallenge"),
     scope = optString("scope", "read"),
     authorizationCode = nullableString("authorizationCode"),
+    requestedAccess = enumSet("requestedAccess"),
+    replacingAccountId = optJSONObject("replacingAccountId")?.toAccountId(),
 )
+
+private inline fun <reified T : Enum<T>> JSONObject.enumSet(key: String): Set<T> {
+    val values = mutableSetOf<T>()
+    val names = optJSONArray(key) ?: return values
+    for (index in 0 until names.length()) {
+        runCatching { values += enumValueOf<T>(names.getString(index)) }
+    }
+    return values
+}

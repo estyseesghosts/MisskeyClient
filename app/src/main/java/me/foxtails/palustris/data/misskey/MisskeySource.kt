@@ -154,12 +154,18 @@ class MisskeySource(
         capabilityCache.get(cacheKey)?.takeIf {
             now - it.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS
         }?.let {
-            _capabilities.value = it.copy(canPublish = it.canPublish || capabilities.canPublish)
+            _capabilities.value = it.copy(
+                canPublish = it.canPublish || capabilities.canPublish,
+                notifications = it.notifications.takeVerifiedOr(capabilities.notifications),
+            )
             return
         }
         try {
             capabilityProbe.probeCapabilities(Connection(origin, Protocol.MISSKEY)).also {
-                val updated = it.copy(canPublish = it.canPublish || capabilities.canPublish)
+                val updated = it.copy(
+                    canPublish = it.canPublish || capabilities.canPublish,
+                    notifications = it.notifications.takeVerifiedOr(capabilities.notifications),
+                )
                 _capabilities.value = updated
                 capabilityCache.put(cacheKey, updated)
             }
@@ -176,6 +182,9 @@ class MisskeySource(
         const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
     }
 }
+
+private fun NotificationCapabilities.takeVerifiedOr(previous: NotificationCapabilities): NotificationCapabilities =
+    if (this == NotificationCapabilities()) previous else this
 
 private fun Audience.toMisskeyVisibility(): String = when (this) {
     Audience.Public -> "public"

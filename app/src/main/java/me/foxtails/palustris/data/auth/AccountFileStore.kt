@@ -5,8 +5,15 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.AtomicFile
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.AccessGrant
+import me.foxtails.palustris.domain.AccessScope
+import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.NotificationCapabilities
+import me.foxtails.palustris.domain.NotificationReadSemantics
+import me.foxtails.palustris.domain.NotificationUnreadPrecision
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
@@ -40,6 +47,7 @@ class AccountFileStore internal constructor(
             AccountId(storedConnection, json.getString("localId")),
             json.getString("token"),
             json.optJSONObject("capabilities")?.toCapabilities() ?: ServerCapabilities(),
+            json.optJSONObject("access")?.toAccessGrant() ?: AccessGrant(),
         )
     }
 
@@ -51,6 +59,7 @@ class AccountFileStore internal constructor(
             .put("localId", accountId.localId)
             .put("token", session.token)
             .put("capabilities", session.capabilities.toJson())
+            .put("access", session.access.toJson())
             .put("profile", JSONObject(profile.toString())))
     }
 
@@ -119,6 +128,7 @@ private fun ServerCapabilities.toJson(): JSONObject = JSONObject()
     .put("actions", JSONArray(actions.map { it.name }))
     .put("maxPostLength", maxPostLength)
     .put("canPublish", canPublish)
+    .put("notifications", notifications.toJson())
     .put("capabilitiesLastUpdated", capabilitiesLastUpdated)
 
 private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities(
@@ -127,8 +137,59 @@ private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities
     actions = enumSet<PostAction>("actions"),
     maxPostLength = if (isNull("maxPostLength")) null else optInt("maxPostLength"),
     canPublish = optBoolean("canPublish"),
+    notifications = optJSONObject("notifications")?.toNotificationCapabilities() ?: NotificationCapabilities(),
     capabilitiesLastUpdated = optLong("capabilitiesLastUpdated"),
 )
+
+private fun NotificationCapabilities.toJson(): JSONObject = JSONObject()
+    .put("listing", listing.name)
+    .put("supportedCategories", JSONArray(supportedCategories.map { it.name }))
+    .put("readSemantics", readSemantics.name)
+    .put("unreadCountPrecision", unreadCountPrecision.name)
+    .put("grouping", grouping.name)
+    .put("dismissal", dismissal.name)
+    .put("policyManagement", policyManagement.name)
+    .put("followRequestActions", followRequestActions.name)
+    .put("streaming", streaming.name)
+    .put("webPush", webPush.name)
+
+private fun JSONObject.toNotificationCapabilities(): NotificationCapabilities = NotificationCapabilities(
+    listing = enumOrDefault("listing", CapabilityStatus.Unknown),
+    supportedCategories = enumSet("supportedCategories"),
+    readSemantics = enumOrDefault("readSemantics", NotificationReadSemantics.Unknown),
+    unreadCountPrecision = enumOrDefault("unreadCountPrecision", NotificationUnreadPrecision.Unknown),
+    grouping = enumOrDefault("grouping", CapabilityStatus.Unknown),
+    dismissal = enumOrDefault("dismissal", CapabilityStatus.Unknown),
+    policyManagement = enumOrDefault("policyManagement", CapabilityStatus.Unknown),
+    followRequestActions = enumOrDefault("followRequestActions", CapabilityStatus.Unknown),
+    streaming = enumOrDefault("streaming", CapabilityStatus.Unknown),
+    webPush = enumOrDefault("webPush", CapabilityStatus.Unknown),
+)
+
+private fun AccessGrant.toJson(): JSONObject = JSONObject()
+    .put("requested", JSONArray(requested.map { it.name }))
+    .put("known", JSONArray(known.map { (scope, status) ->
+        JSONObject().put("scope", scope.name).put("status", status.name)
+    }))
+
+private fun JSONObject.toAccessGrant(): AccessGrant {
+    val known = mutableMapOf<AccessScope, AccessStatus>()
+    optJSONArray("known")?.let { entries ->
+        for (index in 0 until entries.length()) {
+            entries.optJSONObject(index)?.let { entry ->
+                runCatching {
+                    known[AccessScope.valueOf(entry.getString("scope"))] = AccessStatus.valueOf(entry.getString("status"))
+                }
+            }
+        }
+    } ?: optJSONObject("known")?.keys()?.let { keys ->
+        while (keys.hasNext()) {
+            val key = keys.next()
+            runCatching { known[AccessScope.valueOf(key)] = AccessStatus.valueOf(getString(key)) }
+        }
+    }
+    return AccessGrant(requested = enumSet("requested"), known = known)
+}
 
 private inline fun <reified T : Enum<T>> JSONObject.enumSet(key: String): Set<T> {
     val values = mutableSetOf<T>()
@@ -138,3 +199,6 @@ private inline fun <reified T : Enum<T>> JSONObject.enumSet(key: String): Set<T>
     }
     return values
 }
+
+private inline fun <reified T : Enum<T>> JSONObject.enumOrDefault(key: String, default: T): T =
+    runCatching { enumValueOf<T>(optString(key)) }.getOrDefault(default)

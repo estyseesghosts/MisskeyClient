@@ -5,6 +5,9 @@ import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.misskey.ServerAddress
 import me.foxtails.palustris.data.mastodon.MastodonErrorMapper
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.AccessGrant
+import me.foxtails.palustris.domain.AccessScope
+import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.Protocol
 import kotlinx.coroutines.CancellationException
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -28,7 +31,9 @@ class MastodonAuth(
     override suspend fun prepare(input: String): PendingLogin = try {
         val origin = ServerAddress.normalize(input)
         val api = apiFor(origin)
-        val registration = appRegistrationCache.getOrPut(origin) { registerApp(origin, api) }
+        val registration = appRegistrationCache.getOrPut(origin, REQUIRED_APP_SCOPES) {
+            registerApp(origin, api, REQUIRED_APP_SCOPES)
+        }
         val supportsPkce = detectPkceSupport(origin, api)
         val verifier = if (supportsPkce) generateCodeVerifier() else null
         val challenge = verifier?.let(::codeChallenge)
@@ -41,7 +46,8 @@ class MastodonAuth(
             clientSecret = registration.clientSecret,
             codeVerifier = verifier,
             codeChallenge = challenge,
-            scope = "read write",
+            scope = MASTODON_SCOPE,
+            requestedAccess = REQUESTED_ACCESS,
         )
     } catch (e: CancellationException) {
         throw e
@@ -83,25 +89,55 @@ class MastodonAuth(
             "redirect_uri" to REDIRECT_URI,
             "code" to code,
         ) + (pending.codeVerifier?.let { mapOf("code_verifier" to it) } ?: emptyMap()))
-        val token = JSONObject(tokenResponse.body).getString("access_token")
+        val tokenJson = JSONObject(tokenResponse.body)
+        val token = tokenJson.getString("access_token")
         require(token.isNotBlank())
         val user = JSONObject(apiFor(pending.origin)
             .get(pending.origin, "v1/accounts/verify_credentials", token).body)
-        LoginSession(pending.origin, token, user, Protocol.MASTODON, canPublish = true)
+        LoginSession(
+            origin = pending.origin,
+            token = token,
+            user = user,
+            protocol = Protocol.MASTODON,
+            canPublish = true,
+            access = AccessGrant(
+                requested = pending.requestedAccess,
+                known = tokenJson.optString("scope").takeIf { it.isNotBlank() }
+                    ?.let(::accessFromScope).orEmpty(),
+            ),
+        )
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
         throw MastodonErrorMapper.map(e)
     }
 
-    private suspend fun registerApp(origin: String, api: MisskeyApi): AppRegistration {
+    private suspend fun registerApp(origin: String, api: MisskeyApi, scopes: Set<String>): AppRegistration {
         val response = api.postForm(origin, "api/v1/apps", mapOf(
             "client_name" to "Palustris",
             "redirect_uris" to REDIRECT_URI,
-            "scopes" to "read write",
+            "scopes" to scopes.joinToString(" "),
         ))
         val json = JSONObject(response.body)
-        return AppRegistration(json.getString("client_id"), json.getString("client_secret"))
+        val scopeValues = json.optJSONArray("scopes")?.let { values ->
+            (0 until values.length()).mapNotNull { values.optString(it).takeIf(String::isNotBlank) }.toSet()
+        }.orEmpty()
+        return AppRegistration(
+            clientId = json.getString("client_id"),
+            clientSecret = json.getString("client_secret"),
+            scopes = scopeValues,
+            scopesKnown = json.has("scopes"),
+        )
+    }
+
+    private fun accessFromScope(scope: String): Map<AccessScope, AccessStatus> {
+        val scopes = scope.split(Regex("\\s+")).filter(String::isNotBlank).toSet()
+        return mapOf(
+            AccessScope.NotificationsRead to if ("read" in scopes) AccessStatus.Granted else AccessStatus.Denied,
+            AccessScope.NotificationsWrite to if ("write" in scopes) AccessStatus.Granted else AccessStatus.Denied,
+            AccessScope.FollowRequests to if ("read" in scopes && "write" in scopes) AccessStatus.Granted else AccessStatus.Denied,
+            AccessScope.Push to if ("push" in scopes) AccessStatus.Granted else AccessStatus.Denied,
+        )
     }
 
     private suspend fun detectPkceSupport(origin: String, api: MisskeyApi): Boolean {
@@ -129,6 +165,14 @@ class MastodonAuth(
         .encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)))
 
     private companion object {
+        const val MASTODON_SCOPE = "read write push"
+        val REQUIRED_APP_SCOPES = setOf("read", "write", "push")
+        val REQUESTED_ACCESS = setOf(
+            AccessScope.NotificationsRead,
+            AccessScope.NotificationsWrite,
+            AccessScope.FollowRequests,
+            AccessScope.Push,
+        )
         const val REDIRECT_URI = "palustris://auth/mastodon"
     }
 }

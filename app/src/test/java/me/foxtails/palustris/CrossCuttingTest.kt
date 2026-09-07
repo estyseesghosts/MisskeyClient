@@ -10,11 +10,15 @@ import me.foxtails.palustris.data.auth.AccountFileStore
 import me.foxtails.palustris.data.auth.AppRegistration
 import me.foxtails.palustris.data.auth.AppRegistrationCache
 import me.foxtails.palustris.data.auth.EncryptedSessionStore
+import me.foxtails.palustris.data.auth.PendingLogin
 import me.foxtails.palustris.data.misskey.CapabilityCache
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.misskey.MisskeySource
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.AccessGrant
+import me.foxtails.palustris.domain.AccessScope
+import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
@@ -82,9 +86,60 @@ class CrossCuttingTest {
         assertEquals("legacy-token", migrated.read(accountId)?.token)
         assertEquals(accountId, migrated.readIndex().activeAccountId)
         assertEquals("legacy-pending", migrated.readPending()?.id)
+        assertEquals(AccessStatus.Unknown, migrated.read(accountId)?.access?.status(AccessScope.Push))
+        val upgrade = PendingLogin(
+            origin = origin,
+            id = "upgrade-pending",
+            createdAt = System.currentTimeMillis(),
+            requestedAccess = setOf(AccessScope.NotificationsRead, AccessScope.Push),
+            replacingAccountId = accountId,
+        )
+        migrated.writePending(upgrade)
+        assertEquals(accountId, migrated.readPending()?.replacingAccountId)
+        assertEquals(upgrade.requestedAccess, migrated.readPending()?.requestedAccess)
         assertFalse(File(context.noBackupFilesDir, "session.enc").exists())
     }
 
+    @Test
+    fun notificationCapabilitiesAndAccessSurviveEncryptedSessionRoundTrip() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val key = SecretKeySpec(ByteArray(16) { 8 }, "AES")
+        val store = AccountFileStore(context, key)
+        store.clear()
+        val accountId = AccountId(Connection("https://capabilities.example", Protocol.MASTODON), "account")
+        val access = AccessGrant(
+            requested = setOf(AccessScope.NotificationsRead, AccessScope.Push),
+            known = mapOf(
+                AccessScope.NotificationsRead to AccessStatus.Granted,
+                AccessScope.Push to AccessStatus.Unknown,
+            ),
+        )
+        val capabilities = ServerCapabilities(
+            notifications = me.foxtails.palustris.domain.NotificationCapabilities(
+                listing = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                supportedCategories = setOf(me.foxtails.palustris.domain.NotificationCategory.Mentions),
+                readSemantics = me.foxtails.palustris.domain.NotificationReadSemantics.TimelineMarker,
+                unreadCountPrecision = me.foxtails.palustris.domain.NotificationUnreadPrecision.Exact,
+            ),
+        )
+        val session = Session(accountId, "session-token", capabilities, access)
+
+        store.write(accountId, session)
+        val restored = store.read(accountId) ?: error("Session was not restored")
+
+        assertEquals(session.capabilities, restored.capabilities)
+        assertEquals(session.access, restored.access)
+    }
+
+    @Test
+    fun appRegistrationCacheRejectsRegistrationMissingRequiredPushScope() = runBlocking {
+        val cache = AppRegistrationCache()
+        val origin = "https://mastodon.example"
+        cache.put(origin, AppRegistration("client", "secret", setOf("read", "write"), scopesKnown = true))
+
+        assertEquals(null, cache.get(origin, setOf("read", "write", "push")))
+        assertEquals("client", cache.get(origin, setOf("read", "write"))?.clientId)
+    }
     @Test
     fun sameOriginAccountsReceiveIndependentCapabilities() = runBlocking {
         MockWebServer().use { server ->
