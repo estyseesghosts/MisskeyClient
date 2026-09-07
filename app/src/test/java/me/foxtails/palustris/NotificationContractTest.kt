@@ -3,12 +3,15 @@ package me.foxtails.palustris
 import me.foxtails.palustris.data.mastodon.MastodonMapper
 import me.foxtails.palustris.data.misskey.MisskeyMapper
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ValidatedUrl
+import me.foxtails.palustris.domain.effectiveCapabilityStatus
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -111,5 +114,33 @@ class NotificationContractTest {
         assertNull(ValidatedUrl.https("http://example.org/path"))
         assertNull(ValidatedUrl.https("https://user:pass@example.org/path"))
         assertNull(ValidatedUrl.https("https://example.org/path#fragment"))
+    }
+
+    @Test
+    fun effectiveCapabilityPreservesServerAccessAndImplementationBoundaries() {
+        assertEquals(
+            CapabilityStatus.Supported,
+            effectiveCapabilityStatus(CapabilityStatus.Supported, AccessStatus.Granted, implemented = true),
+        )
+        assertEquals(
+            CapabilityStatus.Denied,
+            effectiveCapabilityStatus(CapabilityStatus.Supported, AccessStatus.Denied, implemented = true),
+        )
+        assertEquals(
+            CapabilityStatus.Unsupported,
+            effectiveCapabilityStatus(CapabilityStatus.Unsupported, AccessStatus.Granted, implemented = true),
+        )
+        assertEquals(
+            CapabilityStatus.Unsupported,
+            effectiveCapabilityStatus(CapabilityStatus.Supported, AccessStatus.Granted, implemented = false),
+        )
+        assertEquals(
+            CapabilityStatus.TemporarilyUnavailable,
+            effectiveCapabilityStatus(CapabilityStatus.TemporarilyUnavailable, AccessStatus.Granted, implemented = true),
+        )
+        assertEquals(
+            CapabilityStatus.Unknown,
+            effectiveCapabilityStatus(CapabilityStatus.Supported, AccessStatus.Unknown, implemented = true),
+        )
     }
 }

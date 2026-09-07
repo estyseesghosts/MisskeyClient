@@ -31,3 +31,19 @@ data class NotificationCapabilities(
     val streaming: CapabilityStatus = CapabilityStatus.Unknown,
     val webPush: CapabilityStatus = CapabilityStatus.Unknown,
 )
+
+/**
+ * Resolves a feature's usable state without treating a failed request as proof of server absence.
+ */
+fun effectiveCapabilityStatus(
+    server: CapabilityStatus,
+    access: AccessStatus,
+    implemented: Boolean,
+): CapabilityStatus = when {
+    server == CapabilityStatus.Unsupported -> CapabilityStatus.Unsupported
+    access == AccessStatus.Denied || server == CapabilityStatus.Denied -> CapabilityStatus.Denied
+    server == CapabilityStatus.TemporarilyUnavailable -> CapabilityStatus.TemporarilyUnavailable
+    !implemented -> CapabilityStatus.Unsupported
+    server == CapabilityStatus.Unknown || access == AccessStatus.Unknown -> CapabilityStatus.Unknown
+    else -> CapabilityStatus.Supported
+}

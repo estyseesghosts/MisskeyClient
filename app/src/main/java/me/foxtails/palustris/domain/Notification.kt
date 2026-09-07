@@ -74,6 +74,7 @@ sealed interface NotificationDestination {
 }
 
 /** An external destination accepted for navigation after scheme/authority validation. */
+@ConsistentCopyVisibility
 data class ValidatedUrl private constructor(val value: String) {
     companion object {
         fun https(value: String): ValidatedUrl? = runCatching {
