@@ -71,6 +71,16 @@ fun NotificationsScreen(connected: Boolean = false) {
 }
 
 @Composable
+fun MessagesScreen() {
+    EmptyState(AppIcons.Chat, "Direct messages coming soon", "Private conversations will be available in a future update.")
+}
+
+@Composable
+fun EditProfileScreen() {
+    EmptyState(AppIcons.PersonEdit, "Edit profile coming soon", "Profile editing and saving will be available in a future update.")
+}
+
+@Composable
 fun ProfileScreen(account: Account? = null, onAccounts: () -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {

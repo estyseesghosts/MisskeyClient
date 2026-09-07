@@ -15,10 +15,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,6 +38,97 @@ import me.foxtails.palustris.data.auth.toAccount
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
     Notifications("Notifications", AppIcons.Notifications), Profile("Profile", AppIcons.Person),
+}
+
+private data class ContextualBottomAction(
+    val icon: ImageVector,
+    val contentDescription: String,
+    val enabled: Boolean,
+    val onClick: () -> Unit,
+)
+
+private fun contextualActionFor(
+    destination: Destination,
+    onCompose: () -> Unit,
+    onMessages: () -> Unit,
+    onEditProfile: () -> Unit,
+): ContextualBottomAction = when (destination) {
+    Destination.Home -> ContextualBottomAction(AppIcons.Compose, "Compose post", true, onCompose)
+    Destination.Search -> ContextualBottomAction(AppIcons.Unavailable, "Search action unavailable", false, {})
+    Destination.Notifications -> ContextualBottomAction(AppIcons.Chat, "Direct messages", true, onMessages)
+    Destination.Profile -> ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", true, onEditProfile)
+}
+
+@Composable
+private fun CompactContextualNavigationBar(
+    destination: Destination,
+    action: ContextualBottomAction,
+    onDestinationSelected: (Destination) -> Unit,
+) {
+    Row(
+        modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().height(60.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
+            shadowElevation = 6.dp,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Destination.entries.forEach { item ->
+                    val selected = destination == item
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (selected) {
+                            Surface(
+                                modifier = Modifier.size(40.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                            ) {}
+                        }
+                        IconButton(
+                            onClick = { onDestinationSelected(item) },
+                            modifier = Modifier.size(48.dp).semantics {
+                                contentDescription = item.label
+                                this.selected = selected
+                                role = Role.Tab
+                            },
+                        ) {
+                            Icon(
+                                item.icon,
+                                contentDescription = null,
+                                tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        FilledIconButton(
+            onClick = action.onClick,
+            enabled = action.enabled,
+            modifier = Modifier.size(52.dp).semantics {
+                contentDescription = action.contentDescription
+            },
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+        ) {
+            Icon(action.icon, contentDescription = null)
+        }
+    }
 }
 
 @Composable
@@ -173,6 +266,8 @@ fun PalustrisApp(
                                 }
                             },
                         )
+                        "Messages" -> MessagesScreen()
+                        "Edit profile" -> EditProfileScreen()
                         "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")
                         "Drafts" -> DraftsScreen(savedDraft, {
                             draft = savedDraft; warning = savedWarning; warningEnabled = savedWarning.isNotEmpty(); page = "Compose"
@@ -239,36 +334,19 @@ fun PalustrisApp(
                             Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Surface(
-                                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
-                                shadowElevation = 6.dp,
-                            ) {
-                                NavigationBar(
-                                    modifier = Modifier.height(60.dp),
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
-                                    windowInsets = WindowInsets(0, 0, 0, 0),
-                                ) {
-                                    Destination.entries.forEachIndexed { index, item ->
-                                        if (index == 2) Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                                            FilledIconButton(onClick = { page = "Compose" }, modifier = Modifier.size(48.dp)) {
-                                                Icon(AppIcons.Edit, "Compose post")
-                                            }
-                                        }
-                                        NavigationBarItem(
-                                            selected = destination == item,
-                                            onClick = { destination = item; page = null },
-                                            icon = { Icon(item.icon, contentDescription = item.label) },
-                                            colors = NavigationBarItemDefaults.colors(
-                                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                indicatorColor = Color.Transparent,
-                                            ),
-                                        )
-                                    }
-                                }
-                            }
+                            CompactContextualNavigationBar(
+                                destination = destination,
+                                action = contextualActionFor(
+                                    destination = destination,
+                                    onCompose = { page = "Compose" },
+                                    onMessages = { page = "Messages" },
+                                    onEditProfile = { page = "Edit profile" },
+                                ),
+                                onDestinationSelected = { selectedDestination ->
+                                    destination = selectedDestination
+                                    page = null
+                                },
+                            )
                         }
                     }
                 }

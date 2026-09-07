@@ -89,4 +89,25 @@ class NavigationTest {
         compose.onNodeWithText("Discard", substring = false).performClick()
         compose.onNodeWithText("Your timeline starts here").assertIsDisplayed()
     }
+
+    @Test fun contextualActionsFollowSelectedDestination() {
+        compose.onNodeWithContentDescription("Compose post").assertIsEnabled()
+        compose.onNodeWithContentDescription("Edit profile").assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.onNodeWithContentDescription("Search action unavailable").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Direct messages").assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("Notifications").performClick()
+        compose.onNodeWithContentDescription("Direct messages").assertIsEnabled().performClick()
+        compose.onNodeWithText("Direct messages coming soon").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription("Direct messages").assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription("Edit profile").assertIsEnabled().performClick()
+        compose.onNodeWithText("Edit profile coming soon").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription("Edit profile").assertIsDisplayed()
+    }
 }
