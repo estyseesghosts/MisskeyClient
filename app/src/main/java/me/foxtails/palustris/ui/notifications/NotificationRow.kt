@@ -19,6 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -55,6 +56,7 @@ fun NotificationRow(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("notification_row_${notification.id.value}")
             .clickable(onClick = onOpen)
             .semantics {
                 contentDescription = "$activityLabel, $summary"

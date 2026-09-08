@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -103,7 +104,7 @@ fun HomeFeed(
         isRefreshing = state.loading,
         onRefresh = onRefresh,
         state = pullToRefreshState,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().testTag("home_feed_content"),
         indicator = {
             PullToRefreshDefaults.Indicator(
                 state = pullToRefreshState,
@@ -117,7 +118,9 @@ fun HomeFeed(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 top = 96.dp,
-                bottom = if (compactLayout) CompactOverlayFeedBottomClearance else LegacyFeedBottomClearance,
+                // Home is the compact overlay reference: the list stays full-size and
+                // only its scroll range receives clearance for the floating assembly.
+                bottom = if (compactLayout) compactHomeScrollEndClearance() else LegacyFeedBottomClearance,
             ),
         ) {
             if (state.error != null) item {
@@ -185,7 +188,7 @@ internal fun PostRow(
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
     val presentation = remember(post.text) { parseHashtagBlocks(post.text) }
     val contentVisible = post.contentWarning == null || expanded
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth().testTag("post_row_${post.id.value}")) {
         post.resharedBy?.let {
             Text("${it.displayName} reshared", Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

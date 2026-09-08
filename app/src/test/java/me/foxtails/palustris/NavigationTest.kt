@@ -3,6 +3,7 @@ package me.foxtails.palustris
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.view.ViewGroup
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
@@ -20,9 +21,14 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.Notification
+import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.ui.FeedState
+import me.foxtails.palustris.ui.AccountSearchState
+import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.PalustrisApp
 import org.junit.After
 import org.junit.Rule
@@ -32,6 +38,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w411dp-h891dp-420dpi")
@@ -101,24 +110,132 @@ class NavigationTest {
         assertEquals("$contentDescription press changed a rounded corner", beforeCorners, cornerPixels(contentDescription, pressed))
     }
 
+    private val fixtureConnection = Connection("https://fixture.example", Protocol.MASTODON)
+
+    private fun fixtureAccount(
+        localId: String = "fixture",
+        biography: String = "Fixture biography",
+    ) = Account(
+        id = AccountId(fixtureConnection, localId),
+        displayName = "Fixture $localId",
+        handle = "@$localId@fixture.example",
+        biography = biography,
+    )
+
+    private fun fixturePost(id: String, author: Account, text: String) = Post(
+        id = EntityId(fixtureConnection.origin, id),
+        author = author,
+        text = text,
+        publishedAtEpochMillis = 0,
+        audience = Audience.Public,
+        pollOptions = listOf(PollOption("Known fixture stripe", 1)),
+    )
+
+    private fun fixtureNotification(id: String, account: Account, actor: Account, text: String) = Notification(
+        id = EntityId(fixtureConnection.origin, id),
+        accountId = account.id,
+        createdAtEpochMillis = 0,
+        activity = NotificationActivity.Favourite,
+        actors = listOf(actor),
+        post = fixturePost("post-$id", actor, text),
+        rawType = "favourite",
+    )
+
+    private fun longFixtureText(label: String, lines: Int = 20) = (1..lines).joinToString("\n") { "$label fixture line $it" }
+
+    private fun assertUnderlaps(contentTag: String, controlDescription: String) {
+        val content = compose.onNodeWithTag(contentTag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val control = bounds(controlDescription)
+        assertTrue(
+            "$contentTag should continue through $controlDescription: content=$content control=$control",
+            content.top < control.bottom && content.bottom > control.top,
+        )
+    }
+
+    private fun assertFixtureVisibleThroughGap(
+        contentTag: String,
+        leftControlDescription: String,
+        rightControlDescription: String,
+    ) {
+        val content = compose.onNodeWithTag(contentTag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val leftControl = bounds(leftControlDescription)
+        val rightControl = bounds(rightControlDescription)
+        val gapLeft = ceil(leftControl.right).toInt() + 4
+        val gapRight = floor(rightControl.left).toInt() - 4
+        val overlapTop = maxOf(content.top, leftControl.top, rightControl.top).toInt() + 4
+        val overlapBottom = minOf(content.bottom, leftControl.bottom, rightControl.bottom).toInt() - 4
+        assertTrue(
+            "${contentTag} should overlap the transparent gap between $leftControlDescription and $rightControlDescription",
+            gapLeft < gapRight && overlapTop < overlapBottom,
+        )
+
+        val bitmap = screenBitmap()
+        var contrastingPixels = 0
+        for (y in overlapTop until overlapBottom step 3) {
+            val pageBackground = bitmap.getPixel(0, y)
+            for (x in gapLeft until gapRight step 3) {
+                if (pixelDistance(bitmap.getPixel(x, y), pageBackground) >= 18) contrastingPixels++
+            }
+        }
+        assertTrue(
+            "${contentTag} should paint fixture content through the transparent control gap, but found $contrastingPixels contrasting pixels",
+            contrastingPixels >= 4,
+        )
+    }
+
+    private fun assertFixtureVisibleBesideAction(contentTag: String, actionDescription: String) {
+        val content = compose.onNodeWithTag(contentTag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val action = bounds(actionDescription)
+        val spacing = 8f * compose.activity.resources.displayMetrics.density
+        val gapLeft = floor(action.left - spacing).toInt() + 4
+        val gapRight = ceil(action.left).toInt() - 4
+        val overlapTop = maxOf(content.top, action.top).toInt() + 4
+        val overlapBottom = minOf(content.bottom, action.bottom).toInt() - 4
+        assertTrue(
+            "${contentTag} should overlap the transparent gap beside $actionDescription",
+            gapLeft < gapRight && overlapTop < overlapBottom,
+        )
+
+        val bitmap = screenBitmap()
+        var contrastingPixels = 0
+        for (y in overlapTop until overlapBottom step 3) {
+            val pageBackground = bitmap.getPixel(0, y)
+            for (x in gapLeft until gapRight step 3) {
+                if (pixelDistance(bitmap.getPixel(x, y), pageBackground) >= 18) contrastingPixels++
+            }
+        }
+        assertTrue(
+            "${contentTag} should paint fixture content beside $actionDescription, but found $contrastingPixels contrasting pixels",
+            contrastingPixels >= 4,
+        )
+    }
+
+    private fun pixelDistance(first: Int, second: Int): Int =
+        abs(Color.red(first) - Color.red(second)) +
+            abs(Color.green(first) - Color.green(second)) +
+            abs(Color.blue(first) - Color.blue(second))
+
+    private fun scrollToEnd(tag: String, swipes: Int = 12) {
+        repeat(swipes) {
+            compose.onNodeWithTag(tag, useUnmergedTree = true).performTouchInput { swipeUp() }
+        }
+        compose.waitForIdle()
+    }
+
     @Test fun navigationRetainsSearchAndSelectedTimeline() {
-        screenshot("home")
         compose.onAllNodesWithContentDescription("Choose timeline").onFirst().performClick()
         compose.onNodeWithText("Local").performClick()
         compose.onNodeWithText("Local posts will appear here when an account is connected.").assertIsDisplayed()
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onNodeWithText("Hashtags").performClick()
-        screenshot("search")
         compose.onNode(hasSetTextAction()).performTextInput("photography")
         compose.onNodeWithContentDescription("Notifications").performClick()
         compose.onNodeWithText("All caught up").assertIsDisplayed()
-        screenshot("notifications")
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onNodeWithText("photography").assertIsDisplayed()
         compose.onNodeWithText("Hashtags").assertIsSelected()
         compose.onNodeWithContentDescription("Profile").performClick()
         compose.onNodeWithText("No account selected").assertIsDisplayed()
-        screenshot("profile")
     }
 
     @Test fun compactNotificationsDockSitsAboveNavigation() {
@@ -128,14 +245,12 @@ class NavigationTest {
         val chips = bounds("Notification filters; swipe horizontally for more")
         val action = bounds("Direct messages")
         val navigation = bounds("Home")
-        val content = compose.onNodeWithText("All caught up").fetchSemanticsNode().boundsInRoot
         val density = compose.activity.resources.displayMetrics.density
 
         assertTrue("notification chips should be above the contextual action", chips.bottom < action.top)
         assertTrue("notification chips should be above the navigation pill", chips.bottom < navigation.top)
         assertTrue("notification chips should keep compact side margins", chips.left / density >= 16f)
         assertTrue("notification chips should keep compact side margins", chips.right / density <= 411f - 16f)
-        assertTrue("notification placeholder should remain above the dock", content.bottom <= chips.top)
         compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more").assert(hasScrollAction())
     }
 
@@ -173,6 +288,116 @@ class NavigationTest {
         val density = compose.activity.resources.displayMetrics.density
         assertTrue("search field should keep the compact navigation side margins", field.left / density >= 16f)
         assertTrue("search field should keep the compact navigation side margins", field.right / density <= 411f - 16f)
+    }
+
+    @Test fun compactHomeFeedUnderlapsTimelineAndFinalPostCanScrollClear() {
+        val account = fixtureAccount()
+        val final = fixturePost("home-final", account, "Home final fixture")
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(
+                        posts = listOf(
+                            fixturePost("home-underlap", account, longFixtureText("Home", lines = 26)),
+                            final,
+                        ),
+                    ),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        screenshot("home")
+        assertUnderlaps("post_row_home-underlap", "Choose timeline")
+        assertFixtureVisibleBesideAction("post_row_home-underlap", "Compose post")
+        scrollToEnd("home_feed_content")
+        compose.onNodeWithText("Home final fixture").assertIsDisplayed()
+    }
+
+    @Test fun compactSearchResultsUnderlapDockAndFinalPostCanScrollClear() {
+        val account = fixtureAccount()
+        val final = fixturePost("search-final", account, "Search final fixture")
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(
+                        accountSearch = AccountSearchState(
+                            query = "#fixture",
+                            tagQuery = "fixture",
+                            posts = listOf(
+                                fixturePost("search-underlap", account, longFixtureText("Search", lines = 28)),
+                                final,
+                            ),
+                        ),
+                    ),
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("#fixture")
+        compose.waitForIdle()
+
+        screenshot("search")
+        assertUnderlaps("post_row_search-underlap", "Search categories; swipe horizontally for more")
+        assertFixtureVisibleThroughGap("post_row_search-underlap", "Profiles", "Hashtags")
+        scrollToEnd("search_content")
+        val finalBounds = compose.onNodeWithTag("post_row_search-final").fetchSemanticsNode().boundsInRoot
+        val chips = bounds("Search categories; swipe horizontally for more")
+        assertTrue("final Search result should clear the floating controls", finalBounds.bottom <= chips.top)
+    }
+
+    @Test fun compactNotificationsUnderlapFiltersAndFinalNotificationCanScrollClear() {
+        val account = fixtureAccount("receiver")
+        val actor = fixtureAccount("actor")
+        val notifications = (0..8).map { index ->
+            fixtureNotification(
+                id = "notification-$index",
+                account = account,
+                actor = actor.copy(displayName = "Actor $index"),
+                text = if (index == 0) longFixtureText("Notification") else "Notification $index",
+            )
+        }
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    notificationState = NotificationsUiState(items = notifications),
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Notifications").performClick()
+        compose.waitForIdle()
+
+        screenshot("notifications")
+        assertUnderlaps("notification_row_notification-5", "Notification filters; swipe horizontally for more")
+        assertFixtureVisibleThroughGap("notification_row_notification-5", "Replies", "Reposts")
+        scrollToEnd("notifications_content")
+        val finalBounds = compose.onNodeWithTag("notification_row_notification-8").fetchSemanticsNode().boundsInRoot
+        val filters = bounds("Notification filters; swipe horizontally for more")
+        assertTrue("final notification should clear the floating filters", finalBounds.bottom <= filters.top)
+    }
+
+    @Test fun compactProfileUnderlapsCategoriesAndFinalSectionCanScrollClear() {
+        val biography = longFixtureText("Profile")
+        val account = fixtureAccount("profile", biography)
+        compose.activity.runOnUiThread {
+            compose.activity.setContent { PalustrisApp(account = account) }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.waitForIdle()
+
+        screenshot("profile")
+        assertUnderlaps("profile_biography", "Profile categories; swipe horizontally for more")
+        assertFixtureVisibleThroughGap("profile_biography", "Posts", "Media")
+        scrollToEnd("profile_content")
+        val finalBounds = compose.onNodeWithText("Posts coming soon").fetchSemanticsNode().boundsInRoot
+        val categories = bounds("Profile categories; swipe horizontally for more")
+        assertTrue("final Profile section should clear the floating categories", finalBounds.bottom <= categories.top)
     }
 
     @Test fun compactProfileDockSitsAboveNavigationAndResetsForAnotherProfile() {
@@ -217,6 +442,9 @@ class NavigationTest {
         val density = compose.activity.resources.displayMetrics.density
         val systemBottom = (24 * density).toInt()
         var previousBottom = 0f
+        var firstImeFieldBottom = Float.NaN
+        var initialViewportTop = Float.NaN
+        var initialViewportBottom = Float.NaN
         for (keyboardDp in listOf(360, 300, 200, 120, 100, 80, 40, 0)) {
             compose.runOnIdle {
                 val content = compose.activity.findViewById<ViewGroup>(android.R.id.content)
@@ -230,11 +458,23 @@ class NavigationTest {
             }
             compose.waitForIdle()
             val field = bounds("Search field")
+            val viewport = compose.onNodeWithTag("search_content", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            if (initialViewportTop.isNaN()) {
+                initialViewportTop = viewport.top
+                initialViewportBottom = viewport.bottom
+            } else {
+                assertEquals("IME motion must not resize the Search content viewport", initialViewportTop, viewport.top, 0.5f)
+                assertEquals("IME motion must not resize the Search content viewport", initialViewportBottom, viewport.bottom, 0.5f)
+            }
             val navigation = bounds("Alternate search")
             assertTrue("field crossed navigation at IME height $keyboardDp", field.bottom < navigation.top)
             assertTrue("field bounced upward at IME height $keyboardDp", field.bottom >= previousBottom)
             if (keyboardDp == 360) {
+                firstImeFieldBottom = field.bottom
                 assertTrue("test must actually move the field above the keyboard", navigation.top - field.bottom > 150 * density)
+            }
+            if (keyboardDp == 0) {
+                assertTrue("IME dismissal should move the floating Search controls", field.bottom > firstImeFieldBottom)
             }
             previousBottom = field.bottom
         }

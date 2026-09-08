@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.navigationBarsIgnoringVisibility
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import me.foxtails.palustris.R
@@ -48,9 +48,10 @@ import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.CategoryChips
 import me.foxtails.palustris.ui.CompactOverlayHorizontalPadding
-import me.foxtails.palustris.ui.CompactSearchChipRowHeight
+import me.foxtails.palustris.ui.CompactFilterDockHeight
 import me.foxtails.palustris.ui.EmptyState
-import me.foxtails.palustris.ui.compactDockInsets
+import me.foxtails.palustris.ui.compactContextualControlsPositioningInsets
+import me.foxtails.palustris.ui.compactScrollEndClearance
 
 private enum class NotificationFilter(val labelRes: Int, val query: NotificationQuery) {
     Replies(R.string.notification_filter_replies, NotificationQuery(setOf(NotificationCategory.Replies))),
@@ -86,11 +87,15 @@ fun NotificationsScreen(
     }
 
     val visibleItems = notificationState.items.filter { selectedFilter?.matches(it) ?: true }
-    val dockInsets = compactDockInsets(
-        WindowInsets.navigationBarsIgnoringVisibility,
-        WindowInsets(bottom = 0.dp),
-        navigationVisible = compactLayout,
-    )
+    val controlsPositioningInsets = compactContextualControlsPositioningInsets(navigationVisible = compactLayout)
+    val notificationEndClearance = if (compactLayout) {
+        compactScrollEndClearance(
+            controlStackHeight = CompactFilterDockHeight,
+            navigationVisible = true,
+        )
+    } else {
+        0.dp
+    }
     val title = selectedFilter?.let { stringResource(it.labelRes) }
         ?: stringResource(if (connected) R.string.notifications_title else R.string.notifications_empty_title)
     val subtitle = if (selectedFilter == null) {
@@ -112,12 +117,13 @@ fun NotificationsScreen(
                 onDismiss = onDismissNotification,
                 onFollowRequest = onFollowRequest,
                 onOpen = onOpenNotification,
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(dockInsets).padding(bottom = CompactSearchChipRowHeight + 8.dp),
+                modifier = Modifier.fillMaxSize(),
+                endClearance = notificationEndClearance,
             )
             Box(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                     .padding(horizontal = CompactOverlayHorizontalPadding)
-                    .windowInsetsPadding(dockInsets),
+                    .windowInsetsPadding(controlsPositioningInsets),
             ) {
                 CategoryChips(
                     filters.map { stringResource(it.labelRes) },
@@ -147,6 +153,7 @@ fun NotificationsScreen(
                 onFollowRequest = onFollowRequest,
                 onOpen = onOpenNotification,
                 modifier = Modifier.weight(1f),
+                endClearance = 0.dp,
             )
         }
     }
@@ -165,6 +172,7 @@ private fun NotificationContent(
     onFollowRequest: (Notification, Boolean) -> Unit,
     onOpen: (Notification) -> Unit,
     modifier: Modifier,
+    endClearance: Dp,
 ) {
     val list = rememberLazyListState()
     val pullState = rememberPullToRefreshState()
@@ -178,7 +186,7 @@ private fun NotificationContent(
         isRefreshing = state.refreshing,
         onRefresh = onRefresh,
         state = pullState,
-        modifier = modifier,
+        modifier = modifier.testTag("notification_refresh_surface"),
         indicator = {
             PullToRefreshDefaults.Indicator(
                 state = pullState,
@@ -190,7 +198,7 @@ private fun NotificationContent(
         LazyColumn(
             state = list,
             modifier = Modifier.fillMaxSize().testTag("notifications_content"),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp + endClearance),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (items.isEmpty()) {

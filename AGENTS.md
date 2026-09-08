@@ -7,6 +7,7 @@
 - The package `me.foxtails.palustris` and existing legacy identifiers are internal leftovers; do not rename them casually or add that name to new user-facing strings.
 - Do not add XML layouts, AppCompat, or Material 2 themes.
 - Design guideline — floating surfaces: never place a full-width or row-sized solid/translucent background behind a group of floating controls. The compact navigation pill itself is the one shared group surface and must appear consistently on Home, Search (including placeholder Search), Notifications, and Profile. Other floating controls—the notification/profile chips, search field, and timeline/feed switcher—must each render their own background surface; the row/container behind them must remain transparent. Selected and pressed states may add their own filled affordance.
+- A transparent overlay container is not sufficient if the page viewport is padded or inset to stop above it. Compact page viewports must extend behind floating controls. Put obstruction clearance inside scroll content (`LazyColumn.contentPadding` or an in-scroll trailing spacer), never on the full-screen content modifier. Tests must prove both visible underlap and final-item reachability.
 
 ## Account and protocol invariants
 

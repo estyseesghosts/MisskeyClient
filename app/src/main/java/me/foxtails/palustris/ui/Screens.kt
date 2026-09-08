@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.contentDescription
@@ -27,6 +28,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.OwnedPost
@@ -57,14 +59,21 @@ fun SearchScreen(
     fun submitSearch() {
         if (query.isNotBlank()) onSearchAccounts(query)
     }
-    // Keep these as live insets: windowInsetsPadding reads them during layout,
-    // on the same frame as the IME animation. The navigation clearance is a
-    // floor throughout dismissal, not a replacement applied after it finishes.
-    val dockInsets = compactDockInsets(
-        WindowInsets.navigationBarsIgnoringVisibility,
-        WindowInsets.ime,
-        compactNavigationVisible,
+    // Keep these as live insets: the floating controls move during IME animation,
+    // while the result viewport remains full-size and receives only scroll clearance.
+    val controlsPositioningInsets = compactContextualControlsPositioningInsets(
+        navigationVisible = compactNavigationVisible,
+        ime = WindowInsets.ime,
     )
+    val searchEndClearance = if (compactLayout) {
+        compactScrollEndClearance(
+            controlStackHeight = CompactSearchDockHeight,
+            navigationVisible = compactNavigationVisible,
+            ime = WindowInsets.ime,
+        )
+    } else {
+        0.dp
+    }
 
     if (!compactLayout) {
         Column(Modifier.fillMaxSize()) {
@@ -78,21 +87,21 @@ fun SearchScreen(
                 accountSearch = accountSearch,
                 onAccountClick = onAccountClick,
                 onLoadMoreSearch = onLoadMoreSearch,
+                endClearance = 0.dp,
             )
         }
     } else {
         Box(Modifier.fillMaxSize()) {
             SearchContent(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(dockInsets)
-                    .padding(bottom = CompactSearchDockHeight),
+                    .fillMaxSize(),
                 query = query,
                 tab = tab,
                 hashtagSearchRequested = hashtagSearchRequested,
                 accountSearch = accountSearch,
                 onAccountClick = onAccountClick,
                 onLoadMoreSearch = onLoadMoreSearch,
+                endClearance = searchEndClearance,
             )
             Box(
                 Modifier
@@ -104,8 +113,8 @@ fun SearchScreen(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .padding(horizontal = CompactOverlayHorizontalPadding)
-                        .windowInsetsPadding(dockInsets),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .windowInsetsPadding(controlsPositioningInsets),
+                    verticalArrangement = Arrangement.spacedBy(CompactSearchControlsSpacing),
                 ) {
                     CategoryChips(sections, tab, "Search categories; swipe horizontally for more") { tab = it }
                     SearchField(query, ::submitSearch) { query = it }
@@ -114,15 +123,6 @@ fun SearchScreen(
         }
     }
 }
-
-internal fun compactDockInsets(
-    navigationBars: WindowInsets,
-    ime: WindowInsets,
-    navigationVisible: Boolean,
-): WindowInsets = navigationBars
-    .add(WindowInsets(bottom = if (navigationVisible) CompactSearchNavigationClearance else 0.dp))
-    .union(ime)
-    .only(WindowInsetsSides.Bottom)
 
 @Composable
 private fun SearchContent(
@@ -133,11 +133,12 @@ private fun SearchContent(
     accountSearch: AccountSearchState,
     onAccountClick: (Account) -> Unit,
     onLoadMoreSearch: () -> Unit,
+    endClearance: Dp,
 ) {
-    Box(modifier) {
+    Box(modifier.testTag("search_content")) {
         if (tab == 0 || hashtagSearchRequested) {
-            if (hashtagSearchRequested) HashtagSearchResults(accountSearch, query, onLoadMoreSearch)
-            else AccountSearchResults(query, accountSearch, onAccountClick)
+            if (hashtagSearchRequested) HashtagSearchResults(accountSearch, query, onLoadMoreSearch, endClearance)
+            else AccountSearchResults(query, accountSearch, onAccountClick, endClearance)
         } else {
             EmptyState(
                 AppIcons.Tag,
@@ -220,13 +221,18 @@ internal fun CategoryChips(
 }
 
 @Composable
-private fun HashtagSearchResults(state: AccountSearchState, query: String, onLoadMore: () -> Unit) {
+private fun HashtagSearchResults(
+    state: AccountSearchState,
+    query: String,
+    onLoadMore: () -> Unit,
+    endClearance: Dp,
+) {
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         state.error != null -> EmptyState(AppIcons.Search, "Hashtag search failed", state.error)
         state.posts.isNotEmpty() && state.query == query.trim() -> LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp),
+            contentPadding = PaddingValues(bottom = 24.dp + endClearance),
         ) {
             items(state.posts, key = { "${it.id.connection}/${it.id.value}" }) { post ->
                 PostRow(
@@ -256,12 +262,16 @@ private fun AccountSearchResults(
     query: String,
     state: AccountSearchState,
     onAccountClick: (Account) -> Unit,
+    endClearance: Dp,
 ) {
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         state.error != null -> EmptyState(AppIcons.Search, "Account search failed", state.error)
-        state.accounts.isNotEmpty() -> Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-            state.accounts.forEach { account ->
+        state.accounts.isNotEmpty() -> LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = endClearance),
+        ) {
+            items(state.accounts, key = { "${it.id.connection.origin}/${it.id.localId}" }) { account ->
                 ListItem(
                     modifier = Modifier.clickable { onAccountClick(account) },
                     headlineContent = { Text(account.displayName) },
@@ -323,7 +333,6 @@ private val profilePlaceholderCopy = listOf(
 )
 
 private const val ProfileCategoryDescription = "Profile categories; swipe horizontally for more"
-private val profileDockHeight = CompactSearchChipRowHeight + 8.dp
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
@@ -331,46 +340,47 @@ fun ProfileScreen(account: Account? = null, compactLayout: Boolean = true) {
     val profileIdentity = account?.id?.let { "${it.connection.origin}\u0000${it.localId}" } ?: "preview"
     key(profileIdentity) {
         var selectedCategory by rememberSaveable(profileIdentity) { mutableIntStateOf(0) }
-    val dockInsets = compactDockInsets(
-        WindowInsets.navigationBarsIgnoringVisibility,
-        WindowInsets(bottom = 0.dp),
-        navigationVisible = compactLayout,
-    )
+        val controlsPositioningInsets = compactContextualControlsPositioningInsets(navigationVisible = compactLayout)
+        val profileEndClearance = if (compactLayout) {
+            compactScrollEndClearance(
+                controlStackHeight = CompactFilterDockHeight,
+                navigationVisible = true,
+            )
+        } else {
+            0.dp
+        }
 
-    if (compactLayout) {
-        Box(Modifier.fillMaxSize()) {
+        if (compactLayout) {
+            Box(Modifier.fillMaxSize()) {
+                ProfileContent(
+                    account = account,
+                    selectedCategory = selectedCategory,
+                    showCategoryChips = false,
+                    onCategorySelected = { selectedCategory = it },
+                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    endContentClearance = profileEndClearance,
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = CompactOverlayHorizontalPadding)
+                        .windowInsetsPadding(controlsPositioningInsets),
+                ) {
+                    CategoryChips(profileCategories, selectedCategory, ProfileCategoryDescription) { selectedCategory = it }
+                }
+            }
+        } else {
             ProfileContent(
                 account = account,
                 selectedCategory = selectedCategory,
-                showCategoryChips = false,
+                showCategoryChips = true,
                 onCategorySelected = { selectedCategory = it },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(dockInsets)
-                    .padding(bottom = profileDockHeight)
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                endContentClearance = 0.dp,
             )
-            Box(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = CompactOverlayHorizontalPadding)
-                    .windowInsetsPadding(dockInsets),
-            ) {
-                CategoryChips(profileCategories, selectedCategory, ProfileCategoryDescription) { selectedCategory = it }
-            }
         }
-    } else {
-        ProfileContent(
-            account = account,
-            selectedCategory = selectedCategory,
-            showCategoryChips = true,
-            onCategorySelected = { selectedCategory = it },
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        )
     }
-}
-
 }
 
 @Composable
@@ -380,8 +390,9 @@ private fun ProfileContent(
     showCategoryChips: Boolean,
     onCategorySelected: (Int) -> Unit,
     modifier: Modifier,
+    endContentClearance: Dp,
 ) {
-    Column(modifier) {
+    Column(modifier.testTag("profile_content")) {
         Box(Modifier.fillMaxWidth().height(220.dp)) {
             Box(Modifier.fillMaxWidth().height(144.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest))
             Surface(Modifier.padding(start = 16.dp).offset(y = 100.dp).size(112.dp),
@@ -394,7 +405,11 @@ private fun ProfileContent(
             Spacer(Modifier.height(4.dp))
             Text(account?.handle ?: "No account selected", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(24.dp))
-            Text(account?.biography?.ifBlank { "No bio" } ?: "Your bio, links, and profile details will appear here.", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                account?.biography?.ifBlank { "No bio" } ?: "Your bio, links, and profile details will appear here.",
+                modifier = Modifier.testTag("profile_biography"),
+                style = MaterialTheme.typography.bodyLarge,
+            )
             Spacer(Modifier.height(24.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 if (account == null) {
@@ -415,7 +430,9 @@ private fun ProfileContent(
                 copy.second,
             )
         }
-        Spacer(Modifier.height(80.dp))
+        // This spacer is inside verticalScroll, so the viewport still extends
+        // behind the compact category/navigation overlay at rest.
+        Spacer(Modifier.height(endContentClearance))
     }
 }
 

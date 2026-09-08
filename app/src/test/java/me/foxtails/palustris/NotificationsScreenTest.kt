@@ -8,11 +8,14 @@ import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
+import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -68,6 +71,52 @@ class NotificationsScreenTest {
         compose.onNodeWithText("All caught up").assertIsDisplayed()
         compose.onNodeWithText("Activity from people you follow will appear here.").assertIsDisplayed()
         compose.onNodeWithText("All", substring = false).assertDoesNotExist()
+    }
+
+    @Test fun compactNotificationRowsKeepFullRefreshViewportAndFinalRowCanScrollClear() {
+        val connection = Connection("https://example.org", Protocol.MASTODON)
+        val receiver = Account(AccountId(connection, "receiver"), "Receiver", "@receiver@example.org")
+        val notifications = (0..8).map { index ->
+            val actor = Account(AccountId(connection, "actor-$index"), "Actor $index", "@actor$index@example.org")
+            Notification(
+                id = EntityId(connection.origin, "compact-$index"),
+                accountId = receiver.id,
+                createdAtEpochMillis = 0,
+                activity = NotificationActivity.Favourite,
+                actors = listOf(actor),
+                post = Post(
+                    EntityId(connection.origin, "compact-post-$index"),
+                    actor,
+                    "Notification $index\nA second fixture line\nA third fixture line",
+                    0,
+                    Audience.Public,
+                ),
+                rawType = "favourite",
+            )
+        }
+        showNotifications(connected = true, notificationState = NotificationsUiState(items = notifications))
+
+        val refresh = compose.onNodeWithTag("notification_refresh_surface", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val content = compose.onNodeWithTag("notifications_content", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals("Pull-to-refresh should own the complete compact viewport", refresh.top, content.top, 0.5f)
+        assertEquals("Pull-to-refresh should own the complete compact viewport", refresh.bottom, content.bottom, 0.5f)
+
+        val filters = compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more")
+            .fetchSemanticsNode().boundsInRoot
+        val underlappingRow = compose.onNodeWithTag("notification_row_compact-5", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("a notification row should continue behind the floating filters", underlappingRow.bottom > filters.top)
+
+        repeat(14) {
+            compose.onNodeWithTag("notifications_content", useUnmergedTree = true).performTouchInput { swipeUp() }
+        }
+        compose.waitForIdle()
+        val finalRow = compose.onNodeWithTag("notification_row_compact-8", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("the final notification should clear the floating filters", finalRow.bottom <= filters.top)
+        compose.onNodeWithTag("notification_row_compact-8", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun selectingEachFilterShowsItsPlaceholderAndSecondTapRestoresAll() {

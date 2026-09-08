@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,13 +86,62 @@ internal val CompactTimelineSelectorHeight = 60.dp
 internal val CompactOverlayControlSpacing = 14.dp
 internal val CompactOverlayHorizontalPadding = 16.dp
 internal val CompactOverlayVerticalPadding = 12.dp
-internal val CompactOverlayFeedBottomClearance = CompactTimelineSelectorHeight +
-    CompactOverlayControlSpacing + CompactNavigationHeight + (CompactOverlayVerticalPadding * 2f)
 internal val CompactSearchChipRowHeight = 48.dp
-internal val CompactSearchDockHeight = CompactSearchChipRowHeight + 8.dp + 56.dp
-internal val CompactSearchNavigationClearance = CompactNavigationHeight +
+internal val CompactSearchControlsSpacing = 8.dp
+internal val CompactSearchFieldHeight = 56.dp
+internal val CompactFilterDockHeight = CompactSearchChipRowHeight + CompactSearchControlsSpacing
+internal val CompactSearchDockHeight = CompactFilterDockHeight + CompactSearchFieldHeight
+internal val CompactContextualControlsPositioningClearance = CompactNavigationHeight +
     CompactOverlayControlSpacing + CompactOverlayVerticalPadding
 internal val LegacyFeedBottomClearance = 96.dp
+
+/** Positions the shared navigation pill above the system navigation bar. */
+@Composable
+internal fun compactGlobalNavigationPositioningInsets(): WindowInsets =
+    WindowInsets.navigationBarsIgnoringVisibility.only(WindowInsetsSides.Bottom)
+
+/** Positions a Search/Profile/Notifications control stack above the shared navigation pill. */
+@Composable
+internal fun compactContextualControlsPositioningInsets(
+    navigationVisible: Boolean,
+    ime: WindowInsets = WindowInsets(bottom = 0.dp),
+): WindowInsets = compactGlobalNavigationPositioningInsets()
+    .add(
+        WindowInsets(
+            bottom = if (navigationVisible) CompactContextualControlsPositioningClearance else 0.dp,
+        ),
+    )
+    .union(ime)
+    .only(WindowInsetsSides.Bottom)
+
+/**
+ * Adds obstruction clearance to a scroll range without changing the page viewport.
+ * The IME can replace the navigation assembly's positioning inset while it is taller.
+ */
+@Composable
+internal fun compactScrollEndClearance(
+    controlStackHeight: Dp,
+    navigationVisible: Boolean,
+    ime: WindowInsets = WindowInsets(bottom = 0.dp),
+): Dp {
+    val systemNavigationBottom = WindowInsets.navigationBarsIgnoringVisibility
+        .asPaddingValues()
+        .calculateBottomPadding()
+    val imeBottom = ime.asPaddingValues().calculateBottomPadding()
+    val contextualPositioning = if (navigationVisible) CompactContextualControlsPositioningClearance else 0.dp
+    return maxOf(systemNavigationBottom + contextualPositioning, imeBottom) + controlStackHeight
+}
+
+/** Home has one additional timeline surface above the shared navigation pill. */
+@Composable
+internal fun compactHomeScrollEndClearance(): Dp {
+    val systemNavigationBottom = WindowInsets.navigationBarsIgnoringVisibility
+        .asPaddingValues()
+        .calculateBottomPadding()
+    return systemNavigationBottom + CompactNavigationHeight +
+        CompactOverlayControlSpacing + CompactTimelineSelectorHeight +
+        (CompactOverlayVerticalPadding * 2f)
+}
 
 private fun Modifier.roundPressLayer(pressed: Boolean, color: Color): Modifier = clip(CircleShape).drawWithContent {
     drawContent()
@@ -355,10 +405,10 @@ fun PalustrisApp(
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    // Compact Search owns the bottom inset together with its
-                    // dock. Both it and the navigation overlay use window-bottom
-                    // coordinates, including while system bars animate.
-                    contentWindowInsets = if (!wide && destination == Destination.Search && page == null) {
+                    // Compact page bodies receive top/horizontal system insets only.
+                    // Content must measure through the floating assembly; scrollables
+                    // add end clearance inside their scroll range instead.
+                    contentWindowInsets = if (!wide && page == null && notificationRoute == null) {
                         WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
                     } else {
                         ScaffoldDefaults.contentWindowInsets
@@ -438,7 +488,9 @@ fun PalustrisApp(
                             .align(Alignment.BottomCenter)
                             .zIndex(1f),
                     ) {
-                        Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility.only(WindowInsetsSides.Bottom)).padding(horizontal = CompactOverlayHorizontalPadding, vertical = CompactOverlayVerticalPadding), contentAlignment = Alignment.Center) {
+                        // This branch only positions the overlay. Page content remains
+                        // full-size behind it; only scroll content owns end clearance.
+                        Box(Modifier.fillMaxWidth().windowInsetsPadding(compactGlobalNavigationPositioningInsets()).padding(horizontal = CompactOverlayHorizontalPadding, vertical = CompactOverlayVerticalPadding), contentAlignment = Alignment.Center) {
                             Column(
                                 modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
                                 horizontalAlignment = Alignment.End,

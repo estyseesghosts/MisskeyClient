@@ -68,6 +68,71 @@ class HomeFeedTest {
         assertTrue("action button should retain a comfortable touch target", replyHeightDp >= 47f)
     }
 
+    @Test fun compactHomeFinalPostCanScrollAboveFloatingAssembly() {
+        val first = Post(
+            postId("compact-first"),
+            account,
+            (1..18).joinToString("\n") { "First fixture line $it" },
+            0,
+            Audience.Public,
+        )
+        val final = Post(postId("compact-final"), account, "Compact final home post", 0, Audience.Public)
+        show(first, FeedState(posts = listOf(first, final)))
+
+        val timeline = compose.onNodeWithContentDescription("Choose timeline").fetchSemanticsNode().boundsInRoot
+        repeat(14) {
+            compose.onNodeWithTag("home_feed_content", useUnmergedTree = true).performTouchInput { swipeUp() }
+        }
+        compose.waitForIdle()
+
+        val finalBounds = compose.onNodeWithTag("post_row_compact-final", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("the final Home post should clear the timeline selector", finalBounds.bottom <= timeline.top)
+        compose.onNodeWithText("Compact final home post").assertIsDisplayed()
+    }
+
+    @Test fun compactSearchResultsScrollFinalPostAboveFloatingControls() {
+        val results = (0..6).map { index ->
+            Post(
+                postId("search-$index"),
+                account,
+                "Search result $index",
+                0,
+                Audience.Public,
+            )
+        }
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(
+                        accountSearch = AccountSearchState(
+                            query = "#cats",
+                            tagQuery = "cats",
+                            posts = results,
+                        ),
+                    ),
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("#cats")
+        compose.waitForIdle()
+
+        repeat(14) {
+            compose.onNodeWithTag("search_content", useUnmergedTree = true).performTouchInput { swipeUp() }
+        }
+        compose.waitForIdle()
+
+        val finalBounds = compose.onNodeWithTag("post_row_search-6", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val chips = compose.onNodeWithContentDescription("Search categories; swipe horizontally for more")
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("the final Search result should clear the floating controls", finalBounds.bottom <= chips.top)
+        compose.onNodeWithText("Search result 6").assertIsDisplayed()
+    }
+
     @Test fun terminalTagsMoveToSummaryAndPopupWhileInlineTagsStayInBody() {
         show(Post(postId("tags"), account, "A post #inline stays #photo #sunset", 0, Audience.Public))
 
