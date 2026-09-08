@@ -185,6 +185,42 @@ class NotificationRepositoryTest {
     }
 
     @Test
+    fun olderHistoryAndOverlappingPagesDoNotCreateAudibleDeliveries() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val query = NotificationQuery()
+        val baseline = notification("baseline", NotificationActivity.Mention)
+        repository.activate(token)
+        repository.establishBaseline(token, NotificationPage(
+            items = listOf(baseline),
+            checkpoint = NotificationCheckpoint(account, query),
+        ))
+
+        repository.ingestOlderPage(token, NotificationPage(
+            items = listOf(notification("older", NotificationActivity.Follow)),
+            olderCursor = me.foxtails.palustris.domain.NotificationCursor("older-next"),
+            checkpoint = NotificationCheckpoint(
+                account,
+                query,
+                oldest = me.foxtails.palustris.domain.NotificationCursor("older-next"),
+            ),
+            direction = NotificationPageDirection.Older,
+        ))
+        repository.ingestNewerPage(token, NotificationPage(
+            items = listOf(baseline, notification("newer", NotificationActivity.Reply)),
+            newerCursor = me.foxtails.palustris.domain.NotificationCursor("newer-next"),
+            checkpoint = NotificationCheckpoint(
+                account,
+                query,
+                newest = me.foxtails.palustris.domain.NotificationCursor("newer-next"),
+            ),
+            direction = NotificationPageDirection.Newer,
+        ))
+
+        assertEquals(listOf("newer"), repository.pendingDeliveries(account).map { it.notificationId.value })
+    }
+
+    @Test
     fun notificationRepositoryIsApplicationSingleton() {
         assertNotNull(NotificationRepository::class.java.getAnnotation(javax.inject.Singleton::class.java))
     }

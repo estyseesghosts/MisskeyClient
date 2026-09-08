@@ -290,7 +290,13 @@ class NotificationRepository @Inject constructor(
                 checkpoints = checkpoints,
                 lastSyncedAtEpochMillis = nextCheckpoint.capturedAtEpochMillis.takeIf { it > 0 }
                     ?: state.lastSyncedAtEpochMillis,
-                deliveries = updateDeliveryOutbox(state, incoming, previousCheckpoint, baselineEstablished),
+                deliveries = updateDeliveryOutbox(
+                    state,
+                    incoming,
+                    previousCheckpoint,
+                    baselineEstablished,
+                    direction,
+                ),
             ).also { stateForLocked(token.accountId).value = it }
             }
         }
@@ -317,7 +323,13 @@ class NotificationRepository @Inject constructor(
             unreadState = page.unreadState.takeIf { it !is NotificationUnreadState.Unknown } ?: state.unreadState,
             checkpoint = page.checkpoint ?: state.checkpoint,
             lastSyncedAtEpochMillis = page.checkpoint?.capturedAtEpochMillis ?: state.lastSyncedAtEpochMillis,
-            deliveries = updateDeliveryOutbox(state, incoming, state.checkpoint, baselineEstablished),
+            deliveries = updateDeliveryOutbox(
+                state,
+                incoming,
+                state.checkpoint,
+                baselineEstablished,
+                direction,
+            ),
         ).also { stateForLocked(token.accountId).value = it }
     }
 
@@ -383,10 +395,14 @@ class NotificationRepository @Inject constructor(
         incoming: List<Notification>,
         previousCheckpoint: NotificationCheckpoint?,
         baselineEstablished: Boolean,
+        direction: NotificationPageDirection,
     ): Map<EntityId, NotificationDeliveryRecord> {
-        if (baselineEstablished || previousCheckpoint?.baselineEstablished != true) return state.deliveries
+        if (baselineEstablished || direction != NotificationPageDirection.Newer ||
+            previousCheckpoint?.baselineEstablished != true
+        ) return state.deliveries
+        val knownIds = state.items.asSequence().map(Notification::id).toSet()
         return incoming.fold(state.deliveries) { deliveries, notification ->
-            if (notification.id in deliveries || notification.id in state.dismissedIds) deliveries
+            if (notification.id in deliveries || notification.id in state.dismissedIds || notification.id in knownIds) deliveries
             else deliveries + (notification.id to NotificationDeliveryRecord(
                 accountId = notification.accountId,
                 notificationId = notification.id,
