@@ -77,6 +77,8 @@ class WideNavigationTest {
             compose.onNodeWithText(label).assertIsDisplayed().assertIsNotSelected()
         }
         compose.onNodeWithText("All caught up").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Mark all notifications read").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Notification settings").assertDoesNotExist()
     }
 
     @Test fun wideProfileUsesNormalChipFlowAndKeepsSelfActionReachable() {
@@ -121,6 +123,9 @@ class WideNavigationTest {
         assertTrue("wide profile categories should precede the timeline in page flow", categoryBounds.bottom < postBounds.top)
         compose.onAllNodesWithText("Profile Name").onLast().assertIsDisplayed()
         compose.onNodeWithText("Edit profile").assertIsDisplayed()
+        listOf("Posts", "Media", "Reposts", "Replies", "Drafts", "Bookmarks", "Show more...").forEach { label ->
+            compose.onNodeWithText(label).assertIsDisplayed()
+        }
     }
 
     private fun assertRailAndComposer() {

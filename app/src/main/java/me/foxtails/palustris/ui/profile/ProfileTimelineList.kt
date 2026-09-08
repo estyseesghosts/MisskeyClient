@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -43,6 +44,8 @@ import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.ClientReadyPostActions
 import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.PostRow
+import me.foxtails.palustris.ui.components.FilterChipEntry
+import me.foxtails.palustris.ui.components.FilterChipRow
 
 @Composable
 internal fun ProfileTimelineList(
@@ -161,26 +164,26 @@ private fun ProfileCategoryChips(
     onOpenDrafts: () -> Unit,
     onOpenBookmarks: () -> Unit,
 ) {
-    me.foxtails.palustris.ui.components.FilterChipRow(
+    FilterChipRow(
         entries = profileChipEntries(isSelf).map { entry ->
             when (entry) {
-                is ProfileChipEntry.Timeline -> me.foxtails.palustris.ui.components.FilterChipEntry(
+                is ProfileChipEntry.Timeline -> FilterChipEntry(
                     label = entry.category.label,
                     selected = entry.category == selected,
                     onClick = { onCategorySelected(entry.category) },
                 )
-                ProfileChipEntry.Drafts -> me.foxtails.palustris.ui.components.FilterChipEntry(
+                ProfileChipEntry.Drafts -> FilterChipEntry(
                     label = stringResource(R.string.profile_action_drafts),
                     onClick = onOpenDrafts,
                     contentDescription = stringResource(R.string.profile_action_drafts_description),
-                    role = androidx.compose.ui.semantics.Role.Button,
+                    role = Role.Button,
                     testTag = "profile_drafts_chip",
                 )
-                ProfileChipEntry.Bookmarks -> me.foxtails.palustris.ui.components.FilterChipEntry(
+                ProfileChipEntry.Bookmarks -> FilterChipEntry(
                     label = stringResource(R.string.profile_action_bookmarks),
                     onClick = onOpenBookmarks,
                     contentDescription = stringResource(R.string.profile_action_bookmarks_description),
-                    role = androidx.compose.ui.semantics.Role.Button,
+                    role = Role.Button,
                     testTag = "profile_bookmarks_chip",
                 )
             }

@@ -206,7 +206,7 @@ private fun ProfileHeader(
 ) {
     val statusBarHeight = with(LocalDensity.current) {
         WindowInsets.statusBars.getTop(this).toDp()
-    }
+    }.coerceAtLeast(1.dp)
     Column(Modifier.fillMaxWidth().testTag("profile_header")) {
         Box(
             modifier = Modifier

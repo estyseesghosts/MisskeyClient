@@ -80,6 +80,9 @@ class ProfileScreenTest {
         }
 
         compose.onNodeWithTag("profile_banner").assertIsDisplayed()
+        val blurBounds = compose.onNodeWithTag("profile_banner_status_bar_blur").fetchSemanticsNode().boundsInRoot
+        assertEquals(0f, blurBounds.top, 0.5f)
+        assertTrue("profile status-bar banner region should have height", blurBounds.height > 0f)
         compose.onAllNodesWithText("Profile Name", substring = false).get(0).assertIsDisplayed()
         compose.onNodeWithText("@profile@example.org").assertIsDisplayed()
         compose.onNodeWithText("A rich profile biography").assertIsDisplayed()

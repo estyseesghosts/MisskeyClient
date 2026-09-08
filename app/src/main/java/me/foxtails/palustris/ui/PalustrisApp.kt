@@ -583,12 +583,12 @@ fun PalustrisApp(
                     // Compact page bodies receive top/horizontal system insets only.
                     // Content must measure through the floating assembly; scrollables
                     // add end clearance inside their scroll range instead.
-                    contentWindowInsets = if (!wide && page == null && notificationRoute == null && destination != Destination.Profile) {
-                        WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-                    } else if (!wide && page == null && notificationRoute == null && destination == Destination.Profile) {
-                        WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
-                    } else {
-                        ScaffoldDefaults.contentWindowInsets
+                    contentWindowInsets = when {
+                        page == null && notificationRoute == null && destination == Destination.Profile ->
+                            WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
+                        !wide && page == null && notificationRoute == null ->
+                            WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                        else -> ScaffoldDefaults.contentWindowInsets
                     },
                     topBar = {
                     when {
@@ -856,6 +856,10 @@ fun PalustrisApp(
                 )
             }
         }
+    }
+
+    BackHandler(enabled = overlay == Overlay.NotificationSettings) {
+        closeNotificationSettings()
     }
 
     if (profileDialog) AlertDialog(onDismissRequest = { profileDialog = false }, title = { Text("Discard profile changes?") }, text = { Text("Your changes have not been saved.") }, confirmButton = { TextButton(onClick = { profileDialog = false; overlayKey = null }) { Text("Discard") } }, dismissButton = { TextButton(onClick = { profileDialog = false }) { Text("Keep editing") } })

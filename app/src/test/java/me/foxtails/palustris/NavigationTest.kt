@@ -503,6 +503,59 @@ class NavigationTest {
         compose.onNodeWithText("Media").assertIsNotSelected()
     }
 
+    @Test fun selfProfileActionsOpenExistingLocalPagesWithoutProfileTopBarActions() {
+        val account = fixtureAccount("profile-actions")
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    profileState = ProfileUiState(
+                        targetId = account.id,
+                        seedAccount = account,
+                        account = account,
+                    ),
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Profile").performClick()
+        val categories = compose.onNodeWithContentDescription("Profile categories; swipe horizontally for more")
+        categories.performScrollToNode(hasText("Drafts"))
+        compose.onNodeWithTag("profile_drafts_chip").performClick()
+        compose.onNodeWithText("Drafts").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Accounts").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Back").performClick()
+        categories.performScrollToNode(hasText("Bookmarks"))
+        compose.onNodeWithTag("profile_bookmarks_chip").performClick()
+        compose.onNodeWithText("Bookmarks").assertIsDisplayed()
+    }
+
+    @Test fun notificationSettingsUsesPullUpSheetAndBackClosesIt() {
+        val account = fixtureAccount("notification-settings")
+        compose.activity.runOnUiThread {
+            compose.activity.setContent { PalustrisApp(account = account) }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Notifications").performClick()
+        val row = compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more")
+        row.performScrollToNode(hasText("Notification settings"))
+        compose.onNodeWithTag("notification_settings").performClick()
+        compose.onNodeWithTag("notification_settings_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("notification_settings_form").assertIsDisplayed()
+        compose.onAllNodesWithText("Notification settings").onLast().assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("Close notification settings").performClick()
+        compose.onNodeWithTag("notification_settings_sheet").assertDoesNotExist()
+        row.performScrollToNode(hasText("Notification settings"))
+        compose.onNodeWithTag("notification_settings").performClick()
+        // ModalBottomSheet owns the native dialog back callback; Robolectric's
+        // activity dispatcher cannot target that dialog window directly.
+        compose.onNodeWithContentDescription("Close notification settings").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("notification_settings_sheet").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more").assertIsDisplayed()
+    }
+
     @Test fun searchDockNeverCrossesNavigationDuringKeyboardDismissal() {
         compose.onNodeWithContentDescription("Search").performClick()
         val density = compose.activity.resources.displayMetrics.density
