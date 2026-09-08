@@ -3,6 +3,7 @@ package me.foxtails.palustris
 import me.foxtails.palustris.data.misskey.MisskeyMapper
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -11,6 +12,25 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class MisskeyMapperTest {
+    @Test
+    fun accountAcceptsOnlyAlreadyResolvedShallowDestination() {
+        val origin = "https://example.org"
+        val old = JSONObject()
+            .put("id", "old-id")
+            .put("username", "old")
+            .put("name", "Old")
+            .put("movedTo", "destination-id")
+        val destination = MisskeyMapper.account(JSONObject()
+            .put("id", "destination-id")
+            .put("username", "new")
+            .put("name", "New")
+            .put("movedTo", "third-id"), origin)
+
+        assertNull(MisskeyMapper.account(old, origin).movedTo)
+        assertEquals(destination, MisskeyMapper.account(old, origin, movedTo = destination).movedTo)
+        assertNull(destination.movedTo)
+    }
+
     @Test
     fun pureRenoteKeepsOuterRowIdButUsesDisplayedNoteForActions() {
         val user = JSONObject()

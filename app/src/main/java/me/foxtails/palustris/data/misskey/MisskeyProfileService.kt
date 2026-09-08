@@ -1,5 +1,6 @@
 package me.foxtails.palustris.data.misskey
 
+import kotlinx.coroutines.CancellationException
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Page
@@ -9,6 +10,7 @@ import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.ProfileTimelineTab
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.matchesProfileTimeline
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -101,10 +103,46 @@ class MisskeyProfileService(
         }.filter { it.author.id == id }
     }
 
-    private suspend fun showProfile(id: AccountId): Account = MisskeyMapper.account(
-        JSONObject(api.post(origin, "users/show", JSONObject().put("i", token).put("userId", id.localId)).body),
-        origin,
-    )
+    private suspend fun showProfile(id: AccountId): Account {
+        val profile = JSONObject(api.post(
+            origin,
+            "users/show",
+            JSONObject().put("i", token).put("userId", id.localId),
+        ).body)
+        val account = MisskeyMapper.account(profile, origin)
+        val movedTo = profile.nullableString("movedTo")?.let { resolveMovedTo(it) }
+        return account.copy(movedTo = movedTo)
+    }
+
+    private suspend fun resolveMovedTo(value: String): Account? {
+        return try {
+            val destination = if (value.toHttpUrlOrNull() != null) {
+                val response = api.post(
+                    origin,
+                    "ap/show",
+                    JSONObject().put("i", token).put("uri", value),
+                )
+                val envelope = JSONObject(response.body)
+                if (envelope.optString("type") != "User") return null
+                envelope.optJSONObject("object")?.let { MisskeyMapper.account(it, origin, movedTo = null) }
+            } else {
+                val response = api.post(
+                    origin,
+                    "users/show",
+                    JSONObject().put("i", token).put("userId", value),
+                )
+                MisskeyMapper.account(JSONObject(response.body), origin, movedTo = null)
+            }
+            destination?.takeIf {
+                it.id.localId.isNotBlank() &&
+                    (it.displayName.isNotBlank() || it.handle.trim('@').isNotBlank() || it.avatarUrl != null)
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     private fun validateTarget(id: AccountId, feature: String) {
         if (id.connection.origin != origin || id.localId.isBlank() ||

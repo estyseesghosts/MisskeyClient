@@ -20,7 +20,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object MisskeyMapper {
-    fun account(json: JSONObject, origin: String): Account {
+    fun account(json: JSONObject, origin: String, movedTo: Account? = null): Account {
         val username = json.getString("username")
         val host = json.nullableString("host") ?: java.net.URI(origin).host
         val fields = (json.optJSONArray("fields") ?: json.optJSONObject("profile")?.optJSONArray("fields"))
@@ -44,6 +44,7 @@ object MisskeyMapper {
             postsCount = json.optionalNonNegativeLong("notesCount"),
             locked = json.optBoolean("isLocked"),
             bot = json.optBoolean("isBot"),
+            movedTo = movedTo,
         )
     }
 

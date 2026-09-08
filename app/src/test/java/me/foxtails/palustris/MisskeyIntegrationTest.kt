@@ -222,6 +222,90 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         }
     }
 
+    @Test fun misskeyProfileResolvesOneHopMovedDestinationWithAuthenticatedUsersShow() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val old = JSONObject(user).put("movedTo", "destination-id")
+            val destination = JSONObject(user).put("id", "destination-id").put("username", "newalice").put("name", "New Alice")
+            server.enqueue(MockResponse().setBody(old.toString()))
+            server.enqueue(MockResponse().setBody(destination.toString()))
+
+            val profile = MisskeySource(origin, "test-token", MisskeyApi()).profile(
+                AccountId(Connection(origin, Protocol.MISSKEY), "user-a"),
+            )
+
+            assertEquals("destination-id", profile.movedTo?.id?.localId)
+            assertEquals("New Alice", profile.movedTo?.displayName)
+            assertEquals("@newalice@${server.hostName}", profile.movedTo?.handle)
+            assertNull(profile.movedTo?.movedTo)
+            val oldRequest = server.takeRequest()
+            val oldBody = JSONObject(oldRequest.body.readUtf8())
+            assertEquals("/api/users/show", oldRequest.path)
+            assertEquals("test-token", oldBody.getString("i"))
+            assertEquals("user-a", oldBody.getString("userId"))
+            val destinationRequest = server.takeRequest()
+            val destinationBody = JSONObject(destinationRequest.body.readUtf8())
+            assertEquals("/api/users/show", destinationRequest.path)
+            assertEquals("test-token", destinationBody.getString("i"))
+            assertEquals("destination-id", destinationBody.getString("userId"))
+        }
+    }
+
+    @Test fun misskeyProfileKeepsOldAccountWhenMovedDestinationCannotBeResolved() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            server.enqueue(MockResponse().setBody(JSONObject(user).put("movedTo", "missing-id").toString()))
+            server.enqueue(MockResponse().setResponseCode(404).setBody("{\"error\":\"missing\"}"))
+
+            val profile = MisskeySource(origin, "test-token", MisskeyApi()).profile(
+                AccountId(Connection(origin, Protocol.MISSKEY), "user-a"),
+            )
+
+            assertEquals("user-a", profile.id.localId)
+            assertNull(profile.movedTo)
+            assertEquals(2, server.requestCount)
+        }
+    }
+
+    @Test fun misskeyProfileUsesApShowForUriMovedDestinationOnlyForUserObjects() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val destinationUri = "https://remote.example/users/newalice"
+            server.enqueue(MockResponse().setBody(JSONObject(user).put("movedTo", destinationUri).toString()))
+            server.enqueue(MockResponse().setBody(JSONObject()
+                .put("type", "User")
+                .put("object", JSONObject(user).put("id", "remote-id").put("username", "newalice").put("name", "New Alice"))
+                .toString()))
+
+            val profile = MisskeySource(origin, "test-token", MisskeyApi()).profile(
+                AccountId(Connection(origin, Protocol.MISSKEY), "user-a"),
+            )
+
+            assertEquals("remote-id", profile.movedTo?.id?.localId)
+            val request = server.takeRequest()
+            assertEquals("/api/users/show", request.path)
+            val apRequest = server.takeRequest()
+            assertEquals("/api/ap/show", apRequest.path)
+            val apBody = JSONObject(apRequest.body.readUtf8())
+            assertEquals(destinationUri, apBody.getString("uri"))
+            assertEquals("test-token", apBody.getString("i"))
+        }
+    }
+
+    @Test fun misskeyProfileWithoutMovedDestinationDoesNotLookItUp() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            server.enqueue(MockResponse().setBody(user))
+
+            val profile = MisskeySource(origin, "test-token", MisskeyApi()).profile(
+                AccountId(Connection(origin, Protocol.MISSKEY), "user-a"),
+            )
+
+            assertNull(profile.movedTo)
+            assertEquals(1, server.requestCount)
+        }
+    }
+
     @Test fun misskeyProfileTimelineUsesFlagsOuterCursorAndSharedClassification() = runBlocking {
         MockWebServer().use { server ->
             val origin = server.url("/").toString().removeSuffix("/")
