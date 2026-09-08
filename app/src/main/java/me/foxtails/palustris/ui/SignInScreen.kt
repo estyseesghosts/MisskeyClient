@@ -148,7 +148,6 @@ fun ConnectedApp(
             PalustrisApp(
                 account = state.account,
                 feedState = feed,
-                profile = feed.profile ?: state.account,
                 onRefresh = { timeline -> feedModel?.refresh(timeline) },
                 onLoadMore = { timeline -> feedModel?.loadMore(timeline) },
                 onSignOut = accountManager::signOut,
@@ -156,7 +155,6 @@ fun ConnectedApp(
                 onSwitchAccount = accountManager::switchAccount,
                 onAddAccount = accountManager::beginAddAccount,
                 onPublish = { request, onSuccess -> feedModel?.create(request, onSuccess) },
-                onUpdateProfile = { request, onSuccess -> feedModel?.updateProfile(request) { updated -> accountManager.updateAccount(updated); onSuccess() } },
                 onSearchAccounts = feedModel?.let { model -> { query -> model.search(query) } } ?: {},
                 onLoadMoreSearch = feedModel?.let { model -> { model.loadMoreSearch() } } ?: {},
                 draftStore = draftStore,

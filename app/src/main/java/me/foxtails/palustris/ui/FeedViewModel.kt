@@ -26,7 +26,6 @@ import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.domain.UpdateProfileRequest
 
 @HiltViewModel(assistedFactory = FeedViewModel.Factory::class)
 class FeedViewModel @AssistedInject constructor(
@@ -46,7 +45,6 @@ class FeedViewModel @AssistedInject constructor(
     val sync = syncCoordinator.observeAccount(accountId)
     private var feedJob: Job? = null
     private var setupJob: Job? = null
-    private var profileJob: Job? = null
     private var searchJob: Job? = null
     private var publishJob: Job? = null
     private var preferencesJob: Job? = null
@@ -57,7 +55,6 @@ class FeedViewModel @AssistedInject constructor(
     init {
         setupJob = viewModelScope.launch {
             if (!stopped) {
-                loadProfile()
                 refresh()
             }
         }
@@ -96,7 +93,6 @@ class FeedViewModel @AssistedInject constructor(
                 _feed.value = FeedState(
                     posts = posts,
                     ownedPosts = posts.map { OwnedPost(accountId, it) },
-                    profile = _feed.value.profile,
                     accountSearch = _feed.value.accountSearch,
                     timeline = timeline,
                     timelines = source.capabilities.timelines,
@@ -150,22 +146,6 @@ class FeedViewModel @AssistedInject constructor(
                 _feed.value = _feed.value.copy(publishing = false, error = null)
                 onSuccess()
                 refresh()
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                _feed.value = _feed.value.copy(publishing = false)
-                feedFailure(e)
-            }
-        }
-    }
-
-    fun updateProfile(request: UpdateProfileRequest, onSuccess: (me.foxtails.palustris.domain.Account) -> Unit = {}) {
-        if (stopped || publishJob?.isActive == true) return
-        publishJob = viewModelScope.launch {
-            _feed.value = _feed.value.copy(publishing = true, error = null)
-            try {
-                val account = source.updateProfile(request)
-                _feed.value = _feed.value.copy(profile = account, publishing = false, error = null)
-                onSuccess(account)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 _feed.value = _feed.value.copy(publishing = false)
@@ -325,7 +305,6 @@ class FeedViewModel @AssistedInject constructor(
         stopped = true
         setupJob?.cancel()
         feedJob?.cancel()
-        profileJob?.cancel()
         searchJob?.cancel()
         publishJob?.cancel()
         preferencesJob?.cancel()
@@ -473,18 +452,6 @@ class FeedViewModel @AssistedInject constructor(
             error = sourceErrorMessage(e),
             needsSignIn = requiresSignIn(e),
         )
-    }
-
-    private fun loadProfile() {
-        profileJob?.cancel()
-        profileJob = viewModelScope.launch {
-            try {
-                _feed.value = _feed.value.copy(profile = source.profile(accountId))
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                // The cached account remains usable when a profile refresh is unavailable.
-            }
-        }
     }
 
     override fun onCleared() {
