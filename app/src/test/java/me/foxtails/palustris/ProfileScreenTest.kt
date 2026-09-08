@@ -27,6 +27,7 @@ import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.ProfileTimelineTab
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.PalustrisTheme
+import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfilePageState
 import me.foxtails.palustris.ui.profile.ProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
@@ -104,6 +105,66 @@ class ProfileScreenTest {
         compose.onNodeWithText("https://example.org").assertIsDisplayed()
         compose.onNodeWithText("they/them").assertIsDisplayed()
         compose.onNodeWithText("More profile views coming soon").assertDoesNotExist()
+    }
+
+    @Test
+    fun selfProfileAddsDraftsAndBookmarksBeforeShowMoreWithoutChangingCategory() {
+        var selected = ProfileCategory.Posts
+        var drafts = 0
+        var bookmarks = 0
+
+        show {
+            ProfileScreen(
+                account = self,
+                profileState = profileState(self, emptyList()),
+                compactLayout = true,
+                authenticatedAccountId = self.id,
+                onCategorySelected = { selected = it },
+                onOpenDrafts = { drafts++ },
+                onOpenBookmarks = { bookmarks++ },
+            )
+        }
+
+        val categories = compose.onNodeWithContentDescription("Profile categories; swipe horizontally for more")
+        listOf("Posts", "Media", "Reposts", "Replies", "Drafts", "Bookmarks", "Show more...").forEach { label ->
+            categories.performScrollToNode(hasText(label))
+            compose.onNodeWithText(label).assertExists()
+        }
+        categories.performScrollToNode(hasText("Replies"))
+        val repliesRight = compose.onNodeWithText("Replies").fetchSemanticsNode().boundsInRoot.right
+        categories.performScrollToNode(hasText("Drafts"))
+        val draftsLeft = compose.onNodeWithText("Drafts").fetchSemanticsNode().boundsInRoot.left
+        categories.performScrollToNode(hasText("Bookmarks"))
+        val bookmarksLeft = compose.onNodeWithText("Bookmarks").fetchSemanticsNode().boundsInRoot.left
+        categories.performScrollToNode(hasText("Show more..."))
+        val showMoreLeft = compose.onNodeWithText("Show more...").fetchSemanticsNode().boundsInRoot.left
+        assertTrue(repliesRight <= draftsLeft)
+        assertTrue(draftsLeft <= bookmarksLeft)
+        assertTrue(bookmarksLeft <= showMoreLeft)
+
+        categories.performScrollToNode(hasText("Drafts"))
+        compose.onNodeWithTag("profile_drafts_chip").performClick()
+        categories.performScrollToNode(hasText("Bookmarks"))
+        compose.onNodeWithTag("profile_bookmarks_chip").performClick()
+        assertEquals(1, drafts)
+        assertEquals(1, bookmarks)
+        assertEquals(ProfileCategory.Posts, selected)
+    }
+
+    @Test
+    fun remoteProfileOmitsDraftsAndBookmarks() {
+        show {
+            ProfileScreen(
+                account = account("remote-actions", "Remote"),
+                profileState = profileState(account("remote-actions", "Remote"), emptyList()),
+                compactLayout = false,
+                authenticatedAccountId = self.id,
+            )
+        }
+
+        compose.onNodeWithText("Drafts").assertDoesNotExist()
+        compose.onNodeWithText("Bookmarks").assertDoesNotExist()
+        compose.onNodeWithText("Show more...").assertIsDisplayed()
     }
 
     @Test

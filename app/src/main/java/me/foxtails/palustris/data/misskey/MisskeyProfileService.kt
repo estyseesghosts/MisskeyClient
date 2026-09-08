@@ -115,12 +115,17 @@ class MisskeyProfileService(
     }
 
     private fun parseRelationship(body: String, profileId: AccountId): ProfileRelationship {
-        val json = JSONObject(body).let {
+        val root = body.trimStart()
+        val json = if (root.startsWith("[")) {
+            JSONArray(body).optJSONObject(0)
+        } else {
+            JSONObject(body)
+        }?.let {
             it.optJSONObject("relation") ?: it.optJSONObject("relationship") ?: it
         }
-        if (!json.has("isFollowing") && !json.has("following") &&
+        if (json == null || (!json.has("isFollowing") && !json.has("following") &&
             !json.has("isFollowed") && !json.has("followedBy") &&
-            !json.has("hasPendingRequestFromYou") && !json.has("requested")
+            !json.has("hasPendingRequestFromYou") && !json.has("requested"))
         ) {
             throw SourceError.Unsupported("profile.relationship")
         }

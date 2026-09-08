@@ -299,6 +299,20 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         }
     }
 
+    @Test fun misskeyProfileRelationshipAcceptsArrayForRemoteMastodonAccount() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val target = AccountId(Connection(origin, Protocol.MISSKEY), "remote-mastodon-user")
+            server.enqueue(MockResponse().setBody("[{\"id\":\"remote-mastodon-user\",\"following\":true,\"followedBy\":true,\"hasPendingRequestFromYou\":false}]"))
+
+            val relationship = MisskeySource(origin, "test-token", MisskeyApi()).profileRelationship(target)
+
+            assertTrue(relationship.following)
+            assertTrue(relationship.followedBy)
+            assertEquals("/api/users/relation", server.takeRequest().path)
+        }
+    }
+
     @Test fun misskeyPinnedPostsSupportInlineNotesAndBoundedIdFanout() = runBlocking {
         MockWebServer().use { server ->
             val origin = server.url("/").toString().removeSuffix("/")

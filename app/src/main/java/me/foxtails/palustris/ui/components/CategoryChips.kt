@@ -18,15 +18,24 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.ui.CompactSearchChipRowHeight
 
+internal data class FilterChipEntry(
+    val label: String,
+    val selected: Boolean = false,
+    val onClick: () -> Unit,
+    val enabled: Boolean = true,
+    val contentDescription: String = label,
+    val role: Role = Role.Tab,
+    val testTag: String? = null,
+)
+
 @Composable
-internal fun CategoryChips(
-    titles: List<String>,
-    selected: Int?,
+internal fun FilterChipRow(
+    entries: List<FilterChipEntry>,
     rowContentDescription: String,
-    onSelect: (Int) -> Unit,
 ) {
     LazyRow(
         modifier = Modifier
@@ -36,11 +45,12 @@ internal fun CategoryChips(
         contentPadding = PaddingValues(horizontal = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(titles.size) { index ->
+        items(entries) { entry ->
             FilterChip(
-                selected = selected == index,
-                onClick = { onSelect(index) },
-                label = { Text(titles[index]) },
+                selected = entry.selected,
+                onClick = entry.onClick,
+                enabled = entry.enabled,
+                label = { Text(entry.label) },
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -48,13 +58,33 @@ internal fun CategoryChips(
                 ),
                 modifier = Modifier
                     .height(CompactSearchChipRowHeight)
+                    .then(entry.testTag?.let { Modifier.testTag(it) } ?: Modifier)
                     .semantics {
-                        contentDescription = titles[index]
-                        role = Role.Tab
-                        this.selected = selected == index
+                        contentDescription = entry.contentDescription
+                        role = entry.role
+                        this.selected = entry.selected
                     },
                 shape = RoundedCornerShape(50),
             )
         }
     }
+}
+
+@Composable
+internal fun CategoryChips(
+    titles: List<String>,
+    selected: Int?,
+    rowContentDescription: String,
+    onSelect: (Int) -> Unit,
+) {
+    FilterChipRow(
+        entries = titles.mapIndexed { index, title ->
+            FilterChipEntry(
+                label = title,
+                selected = selected == index,
+                onClick = { onSelect(index) },
+            )
+        },
+        rowContentDescription = rowContentDescription,
+    )
 }

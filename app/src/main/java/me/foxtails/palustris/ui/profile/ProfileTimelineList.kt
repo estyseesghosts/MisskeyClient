@@ -30,6 +30,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -37,6 +38,7 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileTimelineTab
+import me.foxtails.palustris.R
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.ClientReadyPostActions
 import me.foxtails.palustris.ui.EmptyState
@@ -48,7 +50,10 @@ internal fun ProfileTimelineList(
     state: ProfileUiState,
     compactLayout: Boolean,
     endContentClearance: Dp,
+    isSelf: Boolean,
     onCategorySelected: (ProfileCategory) -> Unit,
+    onOpenDrafts: () -> Unit,
+    onOpenBookmarks: () -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onOpenProfile: (Account) -> Unit,
@@ -106,7 +111,13 @@ internal fun ProfileTimelineList(
             item(key = "profile-header") { header() }
             if (!compactLayout) {
                 item(key = "profile-categories") {
-                    ProfileCategoryChips(state.selectedTab, onCategorySelected)
+                    ProfileCategoryChips(
+                        selected = state.selectedTab,
+                        isSelf = isSelf,
+                        onCategorySelected = onCategorySelected,
+                        onOpenDrafts = onOpenDrafts,
+                        onOpenBookmarks = onOpenBookmarks,
+                    )
                 }
             }
             profilePinnedItems(
@@ -145,13 +156,36 @@ internal fun ProfileTimelineList(
 @Composable
 private fun ProfileCategoryChips(
     selected: ProfileCategory,
+    isSelf: Boolean,
     onCategorySelected: (ProfileCategory) -> Unit,
+    onOpenDrafts: () -> Unit,
+    onOpenBookmarks: () -> Unit,
 ) {
-    me.foxtails.palustris.ui.components.CategoryChips(
-        titles = ProfileCategory.entries.map(ProfileCategory::label),
-        selected = ProfileCategory.entries.indexOf(selected),
+    me.foxtails.palustris.ui.components.FilterChipRow(
+        entries = profileChipEntries(isSelf).map { entry ->
+            when (entry) {
+                is ProfileChipEntry.Timeline -> me.foxtails.palustris.ui.components.FilterChipEntry(
+                    label = entry.category.label,
+                    selected = entry.category == selected,
+                    onClick = { onCategorySelected(entry.category) },
+                )
+                ProfileChipEntry.Drafts -> me.foxtails.palustris.ui.components.FilterChipEntry(
+                    label = stringResource(R.string.profile_action_drafts),
+                    onClick = onOpenDrafts,
+                    contentDescription = stringResource(R.string.profile_action_drafts_description),
+                    role = androidx.compose.ui.semantics.Role.Button,
+                    testTag = "profile_drafts_chip",
+                )
+                ProfileChipEntry.Bookmarks -> me.foxtails.palustris.ui.components.FilterChipEntry(
+                    label = stringResource(R.string.profile_action_bookmarks),
+                    onClick = onOpenBookmarks,
+                    contentDescription = stringResource(R.string.profile_action_bookmarks_description),
+                    role = androidx.compose.ui.semantics.Role.Button,
+                    testTag = "profile_bookmarks_chip",
+                )
+            }
+        },
         rowContentDescription = PROFILE_CATEGORY_DESCRIPTION,
-        onSelect = { index -> onCategorySelected(ProfileCategory.entries[index]) },
     )
 }
 

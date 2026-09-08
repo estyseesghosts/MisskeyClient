@@ -28,6 +28,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -83,6 +84,7 @@ enum class SearchPanel { Search, Alternate }
 private sealed interface Overlay {
     data object Composer : Overlay
     data object EditProfile : Overlay
+    data object NotificationSettings : Overlay
 }
 
 private data class ContextualBottomAction(
@@ -381,7 +383,12 @@ fun PalustrisApp(
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
     var notificationRoute by remember { mutableStateOf<AppRoute?>(initialNotificationRoute) }
     var closing by remember { mutableStateOf(false) }
-    val overlay = when (overlayKey) { "Composer" -> Overlay.Composer; "EditProfile" -> Overlay.EditProfile; else -> null }
+    val overlay = when (overlayKey) {
+        "Composer" -> Overlay.Composer
+        "EditProfile" -> Overlay.EditProfile
+        "NotificationSettings" -> Overlay.NotificationSettings
+        else -> null
+    }
     val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
     val profileTargetId = viewedProfile?.id ?: account?.id
@@ -389,8 +396,6 @@ fun PalustrisApp(
     val displayedProfile = refreshedProfile ?: viewedProfile ?: account
     val savedKind = savedPostsState?.kind ?: feedState?.savedPosts?.kind
     val savedTitle = savedCollectionTitle(savedKind)
-    val savedShortcutAvailable = displayedProfile?.id == account?.id &&
-        feedState?.savedPosts?.status != CapabilityStatus.Unsupported
     val notificationAccountIdentity = account?.id?.let { "${it.connection.origin}\u0000${it.localId}" } ?: "preview"
     val hasDraftChanges = draft != savedDraft ||
         (if (warningEnabled) warning else "") != savedWarning ||
@@ -425,7 +430,13 @@ fun PalustrisApp(
     }
     LaunchedEffect(initialNotificationRoute) {
         notificationRoute = initialNotificationRoute
-        if (initialNotificationRoute != null) destination = Destination.Notifications
+        if (initialNotificationRoute != null) {
+            destination = Destination.Notifications
+            if (initialNotificationRoute is AppRoute.NotificationSettings) {
+                notificationRoute = null
+                overlayKey = Overlay.NotificationSettings::class.simpleName
+            }
+        }
     }
 
     fun draftTarget(item: PostDraft): OwnedPost? {
@@ -526,6 +537,7 @@ fun PalustrisApp(
         if (profileState.savingProfile) return
         if (profileDirty) profileDialog = true else overlayKey = null
     }
+    fun closeNotificationSettings() { overlayKey = null }
     fun selectDestination(item: Destination) {
         if (item == Destination.Profile) viewedProfile = null
         destination = item
@@ -550,9 +562,10 @@ fun PalustrisApp(
 
     BackHandler(enabled = notificationRoute != null || overlay != null || page != null || destination != Destination.Home) {
         when {
-            notificationRoute != null -> notificationRoute = null
+            overlay == Overlay.NotificationSettings -> closeNotificationSettings()
             overlay == Overlay.Composer -> closeComposer()
             overlay == Overlay.EditProfile -> closeProfile()
+            notificationRoute != null -> notificationRoute = null
             page != null -> page = null
             else -> destination = Destination.Home
         }
@@ -570,8 +583,10 @@ fun PalustrisApp(
                     // Compact page bodies receive top/horizontal system insets only.
                     // Content must measure through the floating assembly; scrollables
                     // add end clearance inside their scroll range instead.
-                    contentWindowInsets = if (!wide && page == null && notificationRoute == null) {
+                    contentWindowInsets = if (!wide && page == null && notificationRoute == null && destination != Destination.Profile) {
                         WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                    } else if (!wide && page == null && notificationRoute == null && destination == Destination.Profile) {
+                        WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
                     } else {
                         ScaffoldDefaults.contentWindowInsets
                     },
@@ -582,50 +597,10 @@ fun PalustrisApp(
                             navigationIcon = { ActionIcon(AppIcons.Back, "Back") { page = null } },
                         )
                         notificationRoute != null -> TopAppBar(title = { Text("Notification") }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { notificationRoute = null } })
-                        destination == Destination.Notifications -> TopAppBar(
-                            title = { Text(if (notificationsPanel == NotificationsPanel.Notifications) "Notifications" else "Direct messages") },
-                            actions = {
-                                if (notificationsPanel == NotificationsPanel.Notifications && account != null) {
-                                    ActionIcon(AppIcons.Check, "Mark all notifications read", onMarkAllNotificationsRead)
-                                    ActionIcon(AppIcons.More, "Notification settings") {
-                                        notificationRoute = AppRoute.NotificationSettings(account.id)
-                                    }
-                                }
-                            },
-                        )
-                        destination == Destination.Profile -> TopAppBar(
-                            title = {
-                                Column {
-                                    Text(displayedProfile?.displayName ?: "Your profile")
-                                    Text(displayedProfile?.handle ?: "0 posts", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                                }
-                            },
-                            actions = {
-                                if (displayedProfile?.id == account?.id) {
-                                    if (savedShortcutAvailable) {
-                                        ActionIcon(AppIcons.Bookmark, savedTitle) { page = LocalPage.SavedPosts }
-                                    }
-                                    ActionIcon(AppIcons.Folder, "Drafts") { page = LocalPage.Drafts }
-                                    ActionIcon(AppIcons.More, "Accounts") { sheet = "Accounts" }
-                                }
-                            },
-                        )
                     }
                 }) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
-                        if (notificationRoute is AppRoute.NotificationSettings) {
-                            NotificationSettingsScreen(
-                                state = notificationSettingsState,
-                                onAlertsEnabled = onNotificationAlertsEnabled,
-                                onShowPreviews = onNotificationShowPreviews,
-                                onPeriodicFallback = onNotificationPeriodicFallback,
-                                onQuietHours = onNotificationQuietHours,
-                                onCategoryChanged = onNotificationCategoryChanged,
-                                onRunLocalTest = onNotificationLocalTest,
-                                onPermissionChanged = onNotificationPermissionChanged,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        } else if (notificationRoute != null) {
+                        if (notificationRoute != null) {
                             NotificationDetailScreen(notificationRoute!!, notificationState.items, Modifier.fillMaxSize())
                         } else when (page) {
                             LocalPage.SavedPosts -> savedPostsState?.let { savedState ->
@@ -664,6 +639,10 @@ fun PalustrisApp(
                                         notificationRoute = NotificationRouteResolver.resolve(notification)
                                     },
                                     onSelectQuery = onSelectNotificationQuery,
+                                    onMarkAllRead = onMarkAllNotificationsRead,
+                                    onOpenSettings = {
+                                        if (account != null) overlayKey = Overlay.NotificationSettings::class.simpleName
+                                    },
                                 ) else MessagesScreen()
                                 Destination.Profile -> RichProfileScreen(
                                     account = displayedProfile,
@@ -681,6 +660,12 @@ fun PalustrisApp(
                                         if (account != null && displayedProfile?.id == account.id) {
                                             overlayKey = Overlay.EditProfile::class.simpleName
                                         }
+                                    },
+                                    onOpenDrafts = {
+                                        if (account != null && displayedProfile?.id == account.id) page = LocalPage.Drafts
+                                    },
+                                    onOpenBookmarks = {
+                                        if (account != null && displayedProfile?.id == account.id) page = LocalPage.SavedPosts
                                     },
                                     onOpenProfile = ::openProfile,
                                     onSearchHashtag = ::openHashtagSearch,
@@ -831,6 +816,46 @@ fun PalustrisApp(
             },
             onClose = ::closeProfile,
         )
+    }
+
+    if (overlay == Overlay.NotificationSettings && account != null) {
+        ModalBottomSheet(
+            onDismissRequest = ::closeNotificationSettings,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .testTag("notification_settings_sheet"),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ActionIcon(
+                        AppIcons.Close,
+                        context.getString(me.foxtails.palustris.R.string.notification_settings_sheet_close),
+                        ::closeNotificationSettings,
+                    )
+                    Text(
+                        context.getString(me.foxtails.palustris.R.string.notification_settings_sheet_title),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                }
+                NotificationSettingsScreen(
+                    state = notificationSettingsState,
+                    onAlertsEnabled = onNotificationAlertsEnabled,
+                    onShowPreviews = onNotificationShowPreviews,
+                    onPeriodicFallback = onNotificationPeriodicFallback,
+                    onQuietHours = onNotificationQuietHours,
+                    onCategoryChanged = onNotificationCategoryChanged,
+                    onRunLocalTest = onNotificationLocalTest,
+                    onPermissionChanged = onNotificationPermissionChanged,
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                )
+            }
+        }
     }
 
     if (profileDialog) AlertDialog(onDismissRequest = { profileDialog = false }, title = { Text("Discard profile changes?") }, text = { Text("Your changes have not been saved.") }, confirmButton = { TextButton(onClick = { profileDialog = false; overlayKey = null }) { Text("Discard") } }, dismissButton = { TextButton(onClick = { profileDialog = false }) { Text("Keep editing") } })

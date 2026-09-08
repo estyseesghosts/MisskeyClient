@@ -36,6 +36,8 @@ class NotificationsScreenTest {
         compactLayout: Boolean = true,
         notificationState: NotificationsUiState = NotificationsUiState(),
         onRefresh: () -> Unit = {},
+        onMarkAllRead: () -> Unit = {},
+        onOpenSettings: () -> Unit = {},
     ) {
         compose.activity.runOnUiThread {
             compose.activity.setContent {
@@ -45,6 +47,8 @@ class NotificationsScreenTest {
                     accountIdentity = accountIdentity,
                     notificationState = notificationState,
                     onRefreshNotifications = onRefresh,
+                    onMarkAllRead = onMarkAllRead,
+                    onOpenSettings = onOpenSettings,
                 )
             }
         }
@@ -71,6 +75,40 @@ class NotificationsScreenTest {
         compose.onNodeWithText("All caught up").assertIsDisplayed()
         compose.onNodeWithText("Activity from people you follow will appear here.").assertIsDisplayed()
         compose.onNodeWithText("All", substring = false).assertDoesNotExist()
+    }
+
+    @Test fun connectedNotificationActionsHaveRequiredOrderAndMarkReadConfirmation() {
+        var markAllReads = 0
+        var settings = 0
+        showNotifications(
+            connected = true,
+            onMarkAllRead = { markAllReads++ },
+            onOpenSettings = { settings++ },
+        )
+
+        val labels = listOf("Mark all as read", "Replies", "Reposts", "Followers", "Likes", "Notification settings")
+        val row = compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more")
+        labels.forEach { label -> row.performScrollToNode(hasText(label)) }
+        row.performScrollToNode(hasText("Mark all as read"))
+        compose.onNodeWithTag("notification_mark_all_read").assertExists().performClick()
+        assertEquals(0, markAllReads)
+        compose.onNodeWithText("Mark all as read?").assertIsDisplayed()
+        compose.onNodeWithTag("notification_mark_all_read").performClick()
+        assertEquals(1, markAllReads)
+        compose.onNodeWithText("Mark all as read").assertIsDisplayed()
+
+        row.performScrollToNode(hasText("Notification settings"))
+        compose.onNodeWithTag("notification_settings").performClick()
+        assertEquals(1, settings)
+        row.performScrollToNode(hasText("Replies"))
+        compose.onNodeWithText("Replies").assertIsNotSelected()
+    }
+
+    @Test fun disconnectedNotificationPreviewOmitsAccountActions() {
+        showNotifications()
+
+        compose.onNodeWithText("Mark all as read").assertDoesNotExist()
+        compose.onNodeWithText("Notification settings").assertDoesNotExist()
     }
 
     @Test fun compactNotificationRowsKeepFullRefreshViewportAndFinalRowCanScrollClear() {

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -32,10 +33,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -44,6 +50,7 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.R
 import me.foxtails.palustris.ui.AccountAvatar
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.EmptyState
@@ -52,7 +59,8 @@ import me.foxtails.palustris.ui.compactScrollEndClearance
 import me.foxtails.palustris.ui.openExternal
 import me.foxtails.palustris.ui.CompactFilterDockHeight
 import me.foxtails.palustris.ui.CompactOverlayHorizontalPadding
-import me.foxtails.palustris.ui.components.CategoryChips
+import me.foxtails.palustris.ui.components.FilterChipEntry
+import me.foxtails.palustris.ui.components.FilterChipRow
 
 @Composable
 fun ProfileScreen(
@@ -68,6 +76,8 @@ fun ProfileScreen(
     onFollow: () -> Unit = {},
     onUnfollow: () -> Unit = {},
     onEditProfile: () -> Unit = {},
+    onOpenDrafts: () -> Unit = {},
+    onOpenBookmarks: () -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
     availableActions: Set<PostAction> = emptySet(),
@@ -112,7 +122,10 @@ fun ProfileScreen(
             state = profileState,
             compactLayout = compactLayout,
             endContentClearance = endContentClearance,
+            isSelf = isSelf,
             onCategorySelected = onCategorySelected,
+            onOpenDrafts = onOpenDrafts,
+            onOpenBookmarks = onOpenBookmarks,
             onRefresh = onRefresh,
             onLoadMore = onLoadMore,
             onOpenProfile = onOpenProfile,
@@ -150,11 +163,31 @@ fun ProfileScreen(
                         ),
                     ),
             ) {
-                CategoryChips(
-                    titles = ProfileCategory.entries.map(ProfileCategory::label),
-                    selected = ProfileCategory.entries.indexOf(profileState.selectedTab),
+                FilterChipRow(
+                    entries = profileChipEntries(isSelf).map { entry ->
+                        when (entry) {
+                            is ProfileChipEntry.Timeline -> FilterChipEntry(
+                                label = entry.category.label,
+                                selected = entry.category == profileState.selectedTab,
+                                onClick = { onCategorySelected(entry.category) },
+                            )
+                            ProfileChipEntry.Drafts -> FilterChipEntry(
+                                label = stringResource(R.string.profile_action_drafts),
+                                onClick = onOpenDrafts,
+                                contentDescription = stringResource(R.string.profile_action_drafts_description),
+                                role = Role.Button,
+                                testTag = "profile_drafts_chip",
+                            )
+                            ProfileChipEntry.Bookmarks -> FilterChipEntry(
+                                label = stringResource(R.string.profile_action_bookmarks),
+                                onClick = onOpenBookmarks,
+                                contentDescription = stringResource(R.string.profile_action_bookmarks_description),
+                                role = Role.Button,
+                                testTag = "profile_bookmarks_chip",
+                            )
+                        }
+                    },
                     rowContentDescription = "Profile categories; swipe horizontally for more",
-                    onSelect = { index -> onCategorySelected(ProfileCategory.entries[index]) },
                 )
             }
         }
@@ -171,6 +204,9 @@ private fun ProfileHeader(
     onUnfollow: () -> Unit,
     onEditProfile: () -> Unit,
 ) {
+    val statusBarHeight = with(LocalDensity.current) {
+        WindowInsets.statusBars.getTop(this).toDp()
+    }
     Column(Modifier.fillMaxWidth().testTag("profile_header")) {
         Box(
             modifier = Modifier
@@ -188,6 +224,22 @@ private fun ProfileHeader(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
+            }
+            if (statusBarHeight > 0.dp) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(statusBarHeight)
+                        .clip(RectangleShape)
+                        .testTag("profile_banner_status_bar_blur"),
+                ) {
+                    AsyncImage(
+                        model = account.bannerUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().blur(24.dp),
+                    )
+                }
             }
             Surface(
                 modifier = Modifier

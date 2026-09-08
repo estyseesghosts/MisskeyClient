@@ -596,14 +596,17 @@ class NavigationTest {
     }
 
     @Test fun draftsSurviveActivityRecreationAndCanBeDeleted() {
+        val account = fixtureAccount("draft-owner")
+        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account) } }
+        compose.waitForIdle()
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithContentDescription("Post text").performTextInput("A draft stored only on this device.")
         screenshot("compose")
         compose.onNodeWithText("Save draft").performClick()
         compose.activityRule.scenario.recreate()
-        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp() } }
+        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account) } }
         compose.onNodeWithContentDescription("Profile").performClick()
-        compose.onNodeWithContentDescription("Drafts").performClick()
+        compose.onNodeWithTag("profile_drafts_chip").performClick()
         compose.onNodeWithText("A draft stored only on this device.").assertIsDisplayed()
         compose.onNodeWithText("Delete draft").performClick()
         compose.onNodeWithText("Cancel").performClick()
@@ -614,12 +617,15 @@ class NavigationTest {
     }
 
     @Test fun closingComposerAutosavesUnsavedText() {
+        val account = fixtureAccount("autosave-owner")
+        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account) } }
+        compose.waitForIdle()
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithContentDescription("Post text").performTextInput("Unsaved")
         compose.onNodeWithContentDescription("Close composer").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Profile").performClick()
-        compose.onNodeWithContentDescription("Drafts").performClick()
+        compose.onNodeWithTag("profile_drafts_chip").performClick()
         compose.onNodeWithText("Unsaved").assertIsDisplayed()
     }
 

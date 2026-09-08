@@ -34,6 +34,17 @@
     <string name="notification_filter_followers">Followers</string>
     <string name="notification_filter_likes">Likes</string>
     <string name="notification_filter_description">Notification filters; swipe horizontally for more</string>
+    <string name="profile_action_drafts">Drafts</string>
+    <string name="profile_action_drafts_description">Open drafts</string>
+    <string name="profile_action_bookmarks">Bookmarks</string>
+    <string name="profile_action_bookmarks_description">Open bookmarks</string>
+    <string name="notification_action_mark_all_read">Mark all as read</string>
+    <string name="notification_action_mark_all_read_confirmation">Mark all as read?</string>
+    <string name="notification_action_mark_all_read_description">Mark all notifications as read</string>
+    <string name="notification_action_settings">Notification settings</string>
+    <string name="notification_action_settings_description">Open notification settings</string>
+    <string name="notification_settings_sheet_title">Notification settings</string>
+    <string name="notification_settings_sheet_close">Close notification settings</string>
     <string name="notification_activity_mention">Mentioned you</string>
     <string name="notification_activity_reply">Replied to you</string>
     <string name="notification_activity_reshare">Reposted your post</string>

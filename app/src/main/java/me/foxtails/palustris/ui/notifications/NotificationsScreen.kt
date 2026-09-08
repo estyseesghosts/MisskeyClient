@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -46,7 +47,8 @@ import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.ui.AppIcons
-import me.foxtails.palustris.ui.components.CategoryChips
+import me.foxtails.palustris.ui.components.FilterChipEntry
+import me.foxtails.palustris.ui.components.FilterChipRow
 import me.foxtails.palustris.ui.CompactOverlayHorizontalPadding
 import me.foxtails.palustris.ui.CompactFilterDockHeight
 import me.foxtails.palustris.ui.EmptyState
@@ -73,17 +75,65 @@ fun NotificationsScreen(
     onFollowRequest: (Notification, Boolean) -> Unit = { _, _ -> },
     onOpenNotification: (Notification) -> Unit = {},
     onSelectQuery: (NotificationQuery) -> Unit = {},
+    onMarkAllRead: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     var selectedFilterName by rememberSaveable(accountIdentity) { mutableStateOf<String?>(null) }
+    var markAllReadConfirmationPending by rememberSaveable(accountIdentity) { mutableStateOf(false) }
     val selectedFilter = selectedFilterName?.let { name -> NotificationFilter.entries.firstOrNull { it.name == name } }
-    val selectedIndex = selectedFilter?.ordinal
     val filters = remember { NotificationFilter.entries.toList() }
 
-    fun toggleFilter(index: Int) {
-        val filter = filters[index]
+    fun toggleFilter(filter: NotificationFilter) {
         val nextFilterName = if (selectedFilterName == filter.name) null else filter.name
         selectedFilterName = nextFilterName
         onSelectQuery(if (nextFilterName == null) NotificationQuery() else filter.query)
+    }
+
+    val chipEntries = buildList {
+        if (connected) {
+            add(
+                FilterChipEntry(
+                    label = stringResource(
+                        if (markAllReadConfirmationPending) {
+                            R.string.notification_action_mark_all_read_confirmation
+                        } else {
+                            R.string.notification_action_mark_all_read
+                        },
+                    ),
+                    onClick = {
+                        if (markAllReadConfirmationPending) {
+                            markAllReadConfirmationPending = false
+                            onMarkAllRead()
+                        } else {
+                            markAllReadConfirmationPending = true
+                        }
+                    },
+                    contentDescription = stringResource(R.string.notification_action_mark_all_read_description),
+                    role = Role.Button,
+                    testTag = "notification_mark_all_read",
+                ),
+            )
+        }
+        filters.forEach { filter ->
+            add(
+                FilterChipEntry(
+                    label = stringResource(filter.labelRes),
+                    selected = selectedFilterName == filter.name,
+                    onClick = { toggleFilter(filter) },
+                ),
+            )
+        }
+        if (connected) {
+            add(
+                FilterChipEntry(
+                    label = stringResource(R.string.notification_action_settings),
+                    onClick = onOpenSettings,
+                    contentDescription = stringResource(R.string.notification_action_settings_description),
+                    role = Role.Button,
+                    testTag = "notification_settings",
+                ),
+            )
+        }
     }
 
     val visibleItems = notificationState.items.filter { selectedFilter?.matches(it) ?: true }
@@ -125,22 +175,12 @@ fun NotificationsScreen(
                     .padding(horizontal = CompactOverlayHorizontalPadding)
                     .windowInsetsPadding(controlsPositioningInsets),
             ) {
-                CategoryChips(
-                    filters.map { stringResource(it.labelRes) },
-                    selectedIndex,
-                    stringResource(R.string.notification_filter_description),
-                    onSelect = ::toggleFilter,
-                )
+                FilterChipRow(chipEntries, stringResource(R.string.notification_filter_description))
             }
         }
     } else {
         Column(Modifier.fillMaxSize()) {
-            CategoryChips(
-                filters.map { stringResource(it.labelRes) },
-                selectedIndex,
-                stringResource(R.string.notification_filter_description),
-                onSelect = ::toggleFilter,
-            )
+            FilterChipRow(chipEntries, stringResource(R.string.notification_filter_description))
             NotificationContent(
                 title = title,
                 subtitle = subtitle,
