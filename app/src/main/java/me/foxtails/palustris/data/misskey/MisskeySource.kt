@@ -175,7 +175,11 @@ class MisskeySource(
 
     override fun streamEvents(): Flow<Event> = callbackFlow {
         val account = requireAccountId()
-        val socket = api.webSocket(origin, "/streaming", listener = object : okhttp3.WebSocketListener() {
+        val socket = api.webSocket(
+            origin,
+            "/streaming",
+            headers = mapOf("Authorization" to "Bearer $token"),
+            listener = object : okhttp3.WebSocketListener() {
             override fun onOpen(webSocket: okhttp3.WebSocket, response: okhttp3.Response) {
                 webSocket.send(JSONObject()
                     .put("type", "connect")
@@ -214,7 +218,8 @@ class MisskeySource(
             override fun onClosed(webSocket: okhttp3.WebSocket, code: Int, reason: String) {
                 close()
             }
-        })
+            },
+        )
         awaitClose { socket.cancel() }
     }
 

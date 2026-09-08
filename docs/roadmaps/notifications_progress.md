@@ -4,7 +4,7 @@ Updated 2026-09-08 while implementing the plan in `docs/roadmaps/notifications.m
 
 ## Current conclusion
 
-The notification foundation and an account-scoped inbox are implemented without changing the recent Replies/Reposts/Likes chip or compact navigation-dock behavior. The app can retrieve, persist, merge, filter, page, locally mark, explicitly acknowledge, and dismiss notifications for the active account. Mastodon multi-page newer and older traversal now follows the server's moving continuations and records terminal history. Older-history and overlapping retained rows are excluded from new audible delivery eligibility. Misskey WebSocket request construction now preserves HTTPS for OkHttp's upgrade path. Stored accounts are supervised independently of `FeedViewModel`.
+The notification foundation and an account-scoped inbox are implemented without changing the recent Replies/Reposts/Likes chip or compact navigation-dock behavior. The app can retrieve, persist, merge, filter, page, locally mark, explicitly acknowledge, and dismiss notifications for the active account. Mastodon multi-page newer and older traversal now follows the server's moving continuations and records terminal history. Older-history and overlapping retained rows are excluded from new audible delivery eligibility. Misskey notification streams now send the account bearer token during the WebSocket upgrade, while readiness and reconnect recovery remain open. Stored accounts are supervised independently of `FeedViewModel`.
 
 The implementation is ready for the user-provided live Samsung/Sunup verification. This is not a claim that the live round trip has already succeeded: distributor callbacks, authenticated server registration, background delivery, process death, and device presentation still require that test.
 
@@ -61,6 +61,11 @@ The implementation is ready for the user-provided live Samsung/Sunup verificatio
 - Older-page ingestion no longer creates pending Android deliveries after an account baseline has been established.
 - Incoming IDs already retained in the inbox are treated as overlap, so a repeated REST page cannot re-alert a cached event.
 - `NotificationRepositoryTest` covers baseline, older history, and overlapping newer rows.
+
+### 2026-09-08 — Misskey stream authentication
+
+- Misskey's notification stream now passes the account bearer token to the shared validated WebSocket transport during connection setup.
+- Adapter-level coverage verifies the authorization header reaches the request; live server authentication and readiness remain unverified.
 
 ## Implemented changes
 

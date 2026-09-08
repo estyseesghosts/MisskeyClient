@@ -1,5 +1,15 @@
 package me.foxtails.palustris
 
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
+import me.foxtails.palustris.data.misskey.MisskeySource
+import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -21,15 +31,35 @@ class WebSocketTransportTest {
                 listener = object : WebSocketListener() {},
         )
 
-        val request = client.request
+        val request = client.request ?: error("WebSocket request was not captured")
         assertNotNull(request)
         assertEquals("https", request.url.scheme)
         assertEquals("/streaming", request.url.encodedPath)
         assertEquals("Bearer test-token", request.header("Authorization"))
     }
 
+    @Test
+    fun misskeyStreamAuthenticatesDuringWebSocketUpgrade() = runBlocking {
+        val client = CapturingWebSocketClient()
+        val origin = "https://example.org"
+        val account = AccountId(Connection(origin, Protocol.MISSKEY), "receiver")
+        val source = MisskeySource(
+            origin = origin,
+            token = "test-token",
+            api = MisskeyApi(client),
+            accountId = account,
+        )
+        val collector = launch { source.streamEvents().collect() }
+        withTimeout(1_000) {
+            while (client.request == null) yield()
+        }
+        collector.cancelAndJoin()
+
+        assertEquals("Bearer test-token", client.request?.header("Authorization"))
+    }
+
     private class CapturingWebSocketClient : OkHttpClient() {
-        lateinit var request: Request
+        var request: Request? = null
 
         override fun newWebSocket(request: Request, listener: WebSocketListener): WebSocket {
             this.request = request
