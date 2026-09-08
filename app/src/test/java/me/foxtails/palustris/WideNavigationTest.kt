@@ -14,7 +14,21 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.ProfileTimelineTab
+import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.PalustrisApp
+import me.foxtails.palustris.ui.PalustrisTheme
+import me.foxtails.palustris.ui.profile.ProfileCategory
+import me.foxtails.palustris.ui.profile.ProfilePageState
+import me.foxtails.palustris.ui.profile.ProfileScreen
+import me.foxtails.palustris.ui.profile.ProfileUiState
 import org.junit.Assert.assertTrue
 import org.junit.After
 import org.junit.Before
@@ -65,6 +79,50 @@ class WideNavigationTest {
         compose.onNodeWithText("All caught up").assertIsDisplayed()
     }
 
+    @Test fun wideProfileUsesNormalChipFlowAndKeepsSelfActionReachable() {
+        val profile = wideProfile()
+        val post = Post(
+            id = EntityId(profile.id.connection.origin, "wide-profile-post"),
+            author = profile,
+            text = "Wide profile post",
+            publishedAtEpochMillis = 0,
+            audience = Audience.Public,
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisTheme {
+                    ProfileScreen(
+                        account = profile,
+                        profileState = ProfileUiState(
+                            targetId = profile.id,
+                            account = profile,
+                            selectedTab = ProfileCategory.Posts,
+                            pages = mapOf(
+                                ProfileTimelineTab.Posts to ProfilePageState(
+                                    posts = listOf(OwnedPost(profile.id, post)),
+                                    terminal = true,
+                                ),
+                            ),
+                        ),
+                        compactLayout = false,
+                        authenticatedAccountId = profile.id,
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        val categories = compose.onNodeWithContentDescription(
+            "Profile categories; swipe horizontally for more",
+        )
+        categories.assert(hasScrollAction())
+        val categoryBounds = categories.fetchSemanticsNode().boundsInRoot
+        val postBounds = compose.onNodeWithText("Wide profile post").fetchSemanticsNode().boundsInRoot
+        assertTrue("wide profile categories should precede the timeline in page flow", categoryBounds.bottom < postBounds.top)
+        compose.onAllNodesWithText("Profile Name").onLast().assertIsDisplayed()
+        compose.onNodeWithText("Edit profile").assertIsDisplayed()
+    }
+
     private fun assertRailAndComposer() {
         compose.waitForIdle()
         compose.runOnIdle {
@@ -84,4 +142,11 @@ class WideNavigationTest {
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithText("New post").assertIsDisplayed()
     }
+
+    private fun wideProfile() = Account(
+        id = AccountId(Connection("https://example.org", Protocol.MASTODON), "wide-profile"),
+        displayName = "Profile Name",
+        handle = "@profile@example.org",
+        biography = "A wide profile biography",
+    )
 }
