@@ -2,11 +2,14 @@ package me.foxtails.palustris.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -17,8 +20,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -28,6 +34,7 @@ import me.foxtails.palustris.domain.OwnedPost
 private val exactHashtagQuery = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun SearchScreen(
     mode: SearchPanel = SearchPanel.Search,
     accountSearch: AccountSearchState = AccountSearchState(),
@@ -35,6 +42,8 @@ fun SearchScreen(
     onAccountClick: (Account) -> Unit = {},
     onLoadMoreSearch: () -> Unit = {},
     initialQuery: String = "",
+    compactLayout: Boolean = true,
+    compactNavigationVisible: Boolean = false,
 ) {
     if (mode == SearchPanel.Alternate) {
         EmptyState(AppIcons.WaffleGrid, "Alternate search", "A second search surface will be available in a future update.")
@@ -44,30 +53,88 @@ fun SearchScreen(
     var tab by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(initialQuery) { if (initialQuery.isNotBlank()) query = initialQuery }
     val hashtagSearchRequested = query.trim().matches(exactHashtagQuery)
-    val sections = listOf("Posts", "Hashtags", "News", "For you")
+    val sections = listOf("Profiles", "Hashtags", "News", "For you")
     fun submitSearch() {
         if (query.isNotBlank()) onSearchAccounts(query)
     }
-    Column(Modifier.fillMaxSize()) {
-        TextField(
-            value = query,
-            onValueChange = { query = it },
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            placeholder = { Text("Search by @handle@server") },
-            leadingIcon = { Icon(AppIcons.Search, null) },
-            trailingIcon = { if (query.isNotEmpty()) ActionIcon(AppIcons.Close, "Clear search", { query = "" }) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { submitSearch() }),
-            shape = CircleShape,
-            colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-        )
-        SectionTabs(sections, tab) { tab = it }
+    // Keep these as live insets: windowInsetsPadding reads them during layout,
+    // on the same frame as the IME animation. The navigation clearance is a
+    // floor throughout dismissal, not a replacement applied after it finishes.
+    val dockInsets = searchDockInsets(
+        WindowInsets.navigationBarsIgnoringVisibility,
+        WindowInsets.ime,
+        compactNavigationVisible,
+    )
+
+    if (!compactLayout) {
+        Column(Modifier.fillMaxSize()) {
+            SearchField(query, ::submitSearch) { query = it }
+            SearchCategoryChips(sections, tab) { tab = it }
+            SearchContent(
+                modifier = Modifier.weight(1f),
+                query = query,
+                tab = tab,
+                hashtagSearchRequested = hashtagSearchRequested,
+                accountSearch = accountSearch,
+                onAccountClick = onAccountClick,
+                onLoadMoreSearch = onLoadMoreSearch,
+            )
+        }
+    } else {
+        Box(Modifier.fillMaxSize()) {
+            SearchContent(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(dockInsets)
+                    .padding(bottom = CompactSearchDockHeight),
+                query = query,
+                tab = tab,
+                hashtagSearchRequested = hashtagSearchRequested,
+                accountSearch = accountSearch,
+                onAccountClick = onAccountClick,
+                onLoadMoreSearch = onLoadMoreSearch,
+            )
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+            ) {
+                Column(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = CompactOverlayHorizontalPadding)
+                        .windowInsetsPadding(dockInsets),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SearchCategoryChips(sections, tab) { tab = it }
+                    SearchField(query, ::submitSearch) { query = it }
+                }
+            }
+        }
+    }
+}
+
+internal fun searchDockInsets(
+    navigationBars: WindowInsets,
+    ime: WindowInsets,
+    navigationVisible: Boolean,
+): WindowInsets = navigationBars
+    .add(WindowInsets(bottom = if (navigationVisible) CompactSearchNavigationClearance else 0.dp))
+    .union(ime)
+    .only(WindowInsetsSides.Bottom)
+
+@Composable
+private fun SearchContent(
+    modifier: Modifier,
+    query: String,
+    tab: Int,
+    hashtagSearchRequested: Boolean,
+    accountSearch: AccountSearchState,
+    onAccountClick: (Account) -> Unit,
+    onLoadMoreSearch: () -> Unit,
+) {
+    Box(modifier) {
         if (tab == 0 || hashtagSearchRequested) {
             if (hashtagSearchRequested) HashtagSearchResults(accountSearch, query, onLoadMoreSearch)
             else AccountSearchResults(query, accountSearch, onAccountClick)
@@ -79,12 +146,64 @@ fun SearchScreen(
                     2 -> "News from your network"
                     else -> "Find your people"
                 },
-                if (query.isNotBlank()) "Account search is available from the Posts tab."
+                if (query.isNotBlank()) "Account search is available from the Profiles tab."
                 else when (tab) {
                     1 -> "Trending topics will appear here."
                     2 -> "Popular links will appear here."
                     else -> "Suggested accounts will appear here."
                 },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchField(query: String, onSubmit: () -> Unit, onQueryChange: (String) -> Unit) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "Search field" },
+        placeholder = { Text("Search by @handle@server") },
+        leadingIcon = { Icon(AppIcons.Search, null) },
+        trailingIcon = { if (query.isNotEmpty()) ActionIcon(AppIcons.Close, "Clear search", { onQueryChange("") }) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
+        shape = CircleShape,
+        colors = TextFieldDefaults.colors(
+            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+    )
+}
+
+@Composable
+private fun SearchCategoryChips(titles: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(CompactSearchChipRowHeight)
+            .semantics { contentDescription = "Search categories; swipe horizontally for more" },
+        contentPadding = PaddingValues(horizontal = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(titles.size) { index ->
+            FilterChip(
+                selected = selected == index,
+                onClick = { onSelect(index) },
+                label = { Text(titles[index]) },
+                modifier = Modifier
+                    .height(CompactSearchChipRowHeight)
+                    .semantics {
+                        contentDescription = titles[index]
+                        role = Role.Tab
+                        this.selected = selected == index
+                    },
+                shape = RoundedCornerShape(50),
             )
         }
     }

@@ -3,6 +3,10 @@ package me.foxtails.palustris
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.view.ViewGroup
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.activity.compose.setContent
@@ -138,6 +142,48 @@ class NavigationTest {
         assertEquals(homeDestinationBefore.top, bounds("Home").top, density)
         assertEquals(homeDestinationBefore.right, bounds("Home").right, density)
         assertEquals(homeDestinationBefore.bottom, bounds("Home").bottom, density)
+    }
+
+    @Test fun compactSearchDockSitsAboveNavigation() {
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.waitForIdle()
+
+        val field = bounds("Search field")
+        val chips = bounds("Search categories; swipe horizontally for more")
+        val action = bounds("Alternate search")
+        assertTrue("search field should be above navigation", field.bottom < action.top)
+        assertTrue("search chips should be above the search field", chips.bottom <= field.top)
+        val density = compose.activity.resources.displayMetrics.density
+        assertTrue("search field should keep the compact navigation side margins", field.left / density >= 16f)
+        assertTrue("search field should keep the compact navigation side margins", field.right / density <= 411f - 16f)
+    }
+
+    @Test fun searchDockNeverCrossesNavigationDuringKeyboardDismissal() {
+        compose.onNodeWithContentDescription("Search").performClick()
+        val density = compose.activity.resources.displayMetrics.density
+        val systemBottom = (24 * density).toInt()
+        var previousBottom = 0f
+        for (keyboardDp in listOf(360, 300, 200, 120, 100, 80, 40, 0)) {
+            compose.runOnIdle {
+                val content = compose.activity.findViewById<ViewGroup>(android.R.id.content)
+                val insets = WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, systemBottom))
+                    .setInsetsIgnoringVisibility(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, systemBottom))
+                    .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, (keyboardDp * density).toInt()))
+                    .setVisible(WindowInsetsCompat.Type.ime(), keyboardDp > 0)
+                    .build()
+                ViewCompat.dispatchApplyWindowInsets(content.getChildAt(0), insets)
+            }
+            compose.waitForIdle()
+            val field = bounds("Search field")
+            val navigation = bounds("Alternate search")
+            assertTrue("field crossed navigation at IME height $keyboardDp", field.bottom < navigation.top)
+            assertTrue("field bounced upward at IME height $keyboardDp", field.bottom >= previousBottom)
+            if (keyboardDp == 360) {
+                assertTrue("test must actually move the field above the keyboard", navigation.top - field.bottom > 150 * density)
+            }
+            previousBottom = field.bottom
+        }
     }
 
     @Test fun scrollingHidesAndRestoresCompactControlsAndLeavesFinalPostReachable() {

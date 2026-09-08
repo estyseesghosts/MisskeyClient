@@ -1,5 +1,6 @@
 @file:OptIn(
     androidx.compose.foundation.ExperimentalFoundationApi::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
     androidx.compose.material3.ExperimentalMaterial3Api::class,
 )
 
@@ -78,6 +79,10 @@ internal val CompactOverlayHorizontalPadding = 16.dp
 internal val CompactOverlayVerticalPadding = 12.dp
 internal val CompactOverlayFeedBottomClearance = CompactTimelineSelectorHeight +
     CompactOverlayControlSpacing + CompactNavigationHeight + (CompactOverlayVerticalPadding * 2f)
+internal val CompactSearchChipRowHeight = 48.dp
+internal val CompactSearchDockHeight = CompactSearchChipRowHeight + 8.dp + 56.dp
+internal val CompactSearchNavigationClearance = CompactNavigationHeight +
+    CompactOverlayControlSpacing + CompactOverlayVerticalPadding
 internal val LegacyFeedBottomClearance = 96.dp
 
 private fun Modifier.roundPressLayer(pressed: Boolean, color: Color): Modifier = clip(CircleShape).drawWithContent {
@@ -304,7 +309,17 @@ fun PalustrisApp(
                 Destination.entries.forEach { item -> NavigationRailItem(selected = destination == item, onClick = { selectDestination(item) }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) }) }
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                Scaffold(modifier = Modifier.fillMaxSize(), topBar = {
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    // Compact Search owns the bottom inset together with its
+                    // dock. Both it and the navigation overlay use window-bottom
+                    // coordinates, including while system bars animate.
+                    contentWindowInsets = if (!wide && destination == Destination.Search && page == null) {
+                        WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                    } else {
+                        ScaffoldDefaults.contentWindowInsets
+                    },
+                    topBar = {
                     when {
                         page != null -> TopAppBar(title = { Text(page!!) }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { page = null } })
                         destination == Destination.Notifications -> TopAppBar(title = { Text(if (notificationsPanel == NotificationsPanel.Notifications) "Notifications" else "Direct messages") })
@@ -318,7 +333,7 @@ fun PalustrisApp(
                             "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
                                 Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
-                                Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill)
+                                Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill, compactLayout = !wide, compactNavigationVisible = !wide)
                                 Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(connected = account != null) else MessagesScreen()
                                 Destination.Profile -> ProfileScreen(displayedProfile)
                             } }
@@ -331,8 +346,16 @@ fun PalustrisApp(
                     }
                 }
                 if (!wide && page == null && !modalOverlayOpen) {
-                    androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).zIndex(1f)) {
-                        Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = CompactOverlayHorizontalPadding, vertical = CompactOverlayVerticalPadding), contentAlignment = Alignment.Center) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = navigationVisible,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
+                            .zIndex(1f),
+                    ) {
+                        Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility.only(WindowInsetsSides.Bottom)).padding(horizontal = CompactOverlayHorizontalPadding, vertical = CompactOverlayVerticalPadding), contentAlignment = Alignment.Center) {
                             Column(
                                 modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
                                 horizontalAlignment = Alignment.End,

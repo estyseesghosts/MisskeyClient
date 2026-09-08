@@ -182,6 +182,19 @@ class HomeFeedTest {
         assertTrue(submitted == "@alice@example.org")
     }
 
+    @Test fun searchChipsUseCompactSelectionSemanticsAndHorizontalScrolling() {
+        compose.activity.runOnUiThread {
+            compose.activity.setContent { SearchScreen() }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Profiles").assertIsSelected()
+        compose.onNodeWithText("Hashtags").performClick()
+        compose.onNodeWithText("Hashtags").assertIsSelected()
+        compose.onNodeWithText("Explore hashtags").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Search categories; swipe horizontally for more").assert(hasScrollAction())
+    }
+
     @Test fun searchSubmitsExactHashtagAndDisplaysRecentPosts() {
         var submitted = ""
         val result = Post(postId("tag-result"), account, "A recent #cats post", 0, Audience.Public)
