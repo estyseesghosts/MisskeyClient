@@ -20,6 +20,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.ui.navigation.AppRoute
+import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
+import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
 
 @Composable
 fun ConnectedApp(
@@ -27,10 +30,13 @@ fun ConnectedApp(
     sourceFactory: SocialSourceFactory,
     sourceRegistry: AccountSourceRegistry,
     draftStore: DraftStore,
+    notificationLaunchRouter: NotificationLaunchRouter,
 ) {
     val state by accountManager.session.collectAsStateWithLifecycle()
     val accountIndex by accountManager.accountIndex.collectAsStateWithLifecycle()
     val activeSession by accountManager.activeSession.collectAsStateWithLifecycle()
+    val pendingNotificationLaunch by notificationLaunchRouter.pending.collectAsStateWithLifecycle()
+    var initialNotificationRoute by remember { mutableStateOf<AppRoute?>(null) }
     val sharedSource = activeSession?.let { session ->
         sourceRegistry.sourceFor(session.accountId) ?: sourceFactory.create(session)
     }
@@ -68,6 +74,16 @@ fun ConnectedApp(
             catch (_: android.content.ActivityNotFoundException) { accountManager.browserFailed() }
         }
     }
+    LaunchedEffect(pendingNotificationLaunch, state.starting, accountIndex) {
+        val launch = pendingNotificationLaunch ?: return@LaunchedEffect
+        if (state.starting) return@LaunchedEffect
+        initialNotificationRoute = if (accountIndex.accounts.any { it.accountId == launch.accountId }) {
+            NotificationRouteResolver.detail(launch.accountId, launch.notificationId)
+        } else {
+            AppRoute.AccountUnavailable(launch.accountId, launch.notificationId)
+        }
+        notificationLaunchRouter.clear()
+    }
     when {
         state.starting -> PalustrisTheme { Surface(Modifier.fillMaxSize()) {
             Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -103,6 +119,9 @@ fun ConnectedApp(
                 onMarkAllNotificationsRead = { notificationsModel?.markAllRead() },
                 onMarkNotificationSeen = { notification -> notificationsModel?.markSeen(notification?.id) },
                 onDismissNotification = { notification -> notificationsModel?.dismiss(notification) },
+                onFollowRequest = { notification, accept -> notificationsModel?.respondToFollowRequest(notification, accept) },
+                onSelectNotificationQuery = { query -> notificationsModel?.selectQuery(query) },
+                initialNotificationRoute = initialNotificationRoute,
             )
         }
     }

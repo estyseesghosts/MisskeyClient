@@ -4,8 +4,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.ui.MessagesScreen
-import me.foxtails.palustris.ui.NotificationsScreen
 import me.foxtails.palustris.ui.NotificationsUiState
+import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
@@ -70,19 +70,18 @@ class NotificationsScreenTest {
 
     @Test fun selectingEachFilterShowsItsPlaceholderAndSecondTapRestoresAll() {
         val cases = listOf(
-            "Replies" to ("Replies coming soon" to "Replies to you will appear here."),
-            "Reposts" to ("Reposts coming soon" to "Reposts of your posts will appear here."),
-            "Followers" to ("Followers coming soon" to "New followers will appear here."),
-            "Likes" to ("Likes coming soon" to "Likes on your posts will appear here."),
+            "Replies" to "Replies",
+            "Reposts" to "Reposts",
+            "Followers" to "Followers",
+            "Likes" to "Likes",
         )
 
-        cases.forEach { (label, copy) ->
+        cases.forEach { (label, _) ->
             showNotifications()
-            compose.onNodeWithText(label).performClick().assertIsSelected()
-            compose.onNodeWithText(copy.first).assertIsDisplayed()
-            compose.onNodeWithText(copy.second).assertIsDisplayed()
+            compose.onNodeWithContentDescription(label).performClick().assertIsSelected()
+            compose.onNodeWithText("Try another filter or pull down to refresh.").assertIsDisplayed()
             compose.onNodeWithText("All caught up").assertDoesNotExist()
-            compose.onNodeWithText(label).performClick().assertIsNotSelected()
+            compose.onNodeWithContentDescription(label).performClick().assertIsNotSelected()
             compose.onNodeWithText("All caught up").assertIsDisplayed()
             listOf("Replies", "Reposts", "Followers", "Likes").forEach { filter ->
                 compose.onNodeWithText(filter).assertIsNotSelected()
@@ -93,18 +92,17 @@ class NotificationsScreenTest {
     @Test fun selectingAnotherFilterSwitchesDirectly() {
         showNotifications()
 
-        compose.onNodeWithText("Replies").performClick()
-        compose.onNodeWithText("Reposts").performClick().assertIsSelected()
-        compose.onNodeWithText("Replies").assertIsNotSelected()
-        compose.onNodeWithText("Replies coming soon").assertDoesNotExist()
-        compose.onNodeWithText("Reposts coming soon").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Replies").performClick()
+        compose.onNodeWithContentDescription("Reposts").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("Replies").assertIsNotSelected()
+        compose.onNodeWithText("Try another filter or pull down to refresh.").assertIsDisplayed()
     }
 
     @Test fun tappingTheSelectedFilterClearsBackToAllNotifications() {
         showNotifications()
 
-        compose.onNodeWithText("Replies").performClick().assertIsSelected()
-        compose.onNodeWithText("Replies").performClick().assertIsNotSelected()
+        compose.onNodeWithContentDescription("Replies").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("Replies").performClick().assertIsNotSelected()
         listOf("Replies", "Reposts", "Followers", "Likes").forEach { label ->
             compose.onNodeWithText(label).assertIsNotSelected()
         }
@@ -144,10 +142,10 @@ class NotificationsScreenTest {
 
     @Test fun changingAccountIdentityResetsTransientFilter() {
         showNotifications(accountIdentity = "https://example.org\u0000alice")
-        compose.onNodeWithText("Likes").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("Likes").performClick().assertIsSelected()
 
         showNotifications(accountIdentity = "https://example.org\u0000bob")
-        compose.onNodeWithText("Likes").assertIsNotSelected()
+        compose.onNodeWithContentDescription("Likes").assertIsNotSelected()
         compose.onNodeWithText("All caught up").assertIsDisplayed()
     }
 
@@ -158,7 +156,7 @@ class NotificationsScreenTest {
             .assert(hasScrollAction())
         compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more")
             .assertIsDisplayed()
-        compose.onNodeWithText("Notifications coming soon").assertIsDisplayed()
+        compose.onNodeWithText("Notifications").assertIsDisplayed()
     }
 
     @Test fun directMessagesDoesNotRenderNotificationFilters() {

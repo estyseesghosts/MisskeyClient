@@ -47,11 +47,16 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.Notification
+import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.UpdateProfileRequest
 import java.util.UUID
+import me.foxtails.palustris.ui.navigation.AppRoute
+import me.foxtails.palustris.ui.notifications.NotificationDetailScreen
+import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
+import me.foxtails.palustris.ui.notifications.NotificationsScreen
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
@@ -217,6 +222,9 @@ fun PalustrisApp(
     onMarkAllNotificationsRead: () -> Unit = {},
     onMarkNotificationSeen: (Notification?) -> Unit = {},
     onDismissNotification: (Notification) -> Unit = {},
+    onFollowRequest: (Notification, Boolean) -> Unit = { _, _ -> },
+    onSelectNotificationQuery: (NotificationQuery) -> Unit = {},
+    initialNotificationRoute: AppRoute? = null,
 ) = PalustrisTheme {
     val context = LocalContext.current
     val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
@@ -246,6 +254,7 @@ fun PalustrisApp(
     var profileDialog by rememberSaveable { mutableStateOf(false) }
     var signOutDialog by remember { mutableStateOf(false) }
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
+    var notificationRoute by remember { mutableStateOf<AppRoute?>(initialNotificationRoute) }
     var closing by remember { mutableStateOf(false) }
     val overlay = when (overlayKey) { "Composer" -> Overlay.Composer; "EditProfile" -> Overlay.EditProfile; else -> null }
     val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog
@@ -269,6 +278,10 @@ fun PalustrisApp(
     LaunchedEffect(feedState?.timeline, account?.id) { feedState?.timeline?.let { timeline = it } }
     LaunchedEffect(destination, page, overlayKey) { navigationVisible = true }
     LaunchedEffect(account?.id) { viewedProfile = null }
+    LaunchedEffect(initialNotificationRoute) {
+        notificationRoute = initialNotificationRoute
+        if (initialNotificationRoute != null) destination = Destination.Notifications
+    }
 
     fun loadDraft(item: PostDraft) {
         draftId = item.id; draft = item.text; savedDraft = item.text; warning = item.contentWarning.orEmpty(); savedWarning = item.contentWarning.orEmpty(); warningEnabled = !item.contentWarning.isNullOrBlank(); draftError = null; overlayKey = Overlay.Composer::class.simpleName
@@ -295,12 +308,14 @@ fun PalustrisApp(
         if (item == Destination.Profile) viewedProfile = null
         destination = item
         page = null
+        notificationRoute = null
     }
     fun openProfile(profile: Account) {
         viewedProfile = profile
         destination = Destination.Profile
         page = null
         sheet = null
+        notificationRoute = null
     }
 
     fun openHashtagSearch(hashtag: String) {
@@ -311,8 +326,14 @@ fun PalustrisApp(
         onSearchAccounts(hashtag)
     }
 
-    BackHandler(enabled = overlay != null || page != null || destination != Destination.Home) {
-        when { overlay == Overlay.Composer -> closeComposer(); overlay == Overlay.EditProfile -> closeProfile(); page != null -> page = null; else -> destination = Destination.Home }
+    BackHandler(enabled = notificationRoute != null || overlay != null || page != null || destination != Destination.Home) {
+        when {
+            notificationRoute != null -> notificationRoute = null
+            overlay == Overlay.Composer -> closeComposer()
+            overlay == Overlay.EditProfile -> closeProfile()
+            page != null -> page = null
+            else -> destination = Destination.Home
+        }
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -340,7 +361,9 @@ fun PalustrisApp(
                     }
                 }) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
-                        when (page) {
+                        if (notificationRoute != null) {
+                            NotificationDetailScreen(notificationRoute!!, notificationState.items, Modifier.fillMaxSize())
+                        } else when (page) {
                             "Drafts" -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                             "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")
                             "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
@@ -357,6 +380,11 @@ fun PalustrisApp(
                                     onMarkAllNotificationsRead = onMarkAllNotificationsRead,
                                     onMarkNotificationSeen = onMarkNotificationSeen,
                                     onDismissNotification = onDismissNotification,
+                                    onFollowRequest = onFollowRequest,
+                                    onOpenNotification = { notification ->
+                                        notificationRoute = NotificationRouteResolver.resolve(notification)
+                                    },
+                                    onSelectQuery = onSelectNotificationQuery,
                                 ) else MessagesScreen()
                                 Destination.Profile -> ProfileScreen(displayedProfile, compactLayout = !wide)
                             } }

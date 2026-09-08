@@ -28,6 +28,7 @@ import me.foxtails.palustris.domain.SocialSource
 
 data class NotificationsUiState(
     val items: List<Notification> = emptyList(),
+    val query: NotificationQuery = NotificationQuery(),
     val unreadState: NotificationUnreadState = NotificationUnreadState.Unknown,
     val checkpoint: NotificationCheckpoint? = null,
     val loading: Boolean = false,
@@ -59,18 +60,29 @@ class NotificationsViewModel @AssistedInject constructor(
     private var refreshJob: Job? = null
     private var olderJob: Job? = null
     private var acknowledgementJob: Job? = null
+    private val query = MutableStateFlow(NotificationQuery())
 
     init {
         viewModelScope.launch {
-            repository.observeInbox(accountId, NotificationQuery()).collectLatest { snapshot ->
-                _state.value = _state.value.copy(
-                    items = snapshot.items,
-                    unreadState = snapshot.unreadState,
-                    checkpoint = snapshot.checkpoint,
-                    syncDelayed = snapshot.hasIncompleteSync,
-                )
+            query.collectLatest { selectedQuery ->
+                repository.observeInbox(accountId, selectedQuery).collectLatest { snapshot ->
+                    _state.value = _state.value.copy(
+                        items = snapshot.items,
+                        query = selectedQuery,
+                        unreadState = snapshot.unreadState,
+                        checkpoint = snapshot.checkpoint,
+                        syncDelayed = snapshot.hasIncompleteSync,
+                    )
+                }
             }
         }
+        refresh()
+    }
+
+    fun selectQuery(selectedQuery: NotificationQuery) {
+        if (query.value == selectedQuery) return
+        query.value = selectedQuery
+        _state.value = _state.value.copy(query = selectedQuery, checkpoint = null, error = null)
         refresh()
     }
 
@@ -85,10 +97,11 @@ class NotificationsViewModel @AssistedInject constructor(
             )
             try {
                 val token = currentToken()
-                val result = if (repository.checkpoint(accountId, NotificationQuery()) == null) {
-                    synchronizer.establishBaseline(source, token)
+                val selectedQuery = query.value
+                val result = if (repository.checkpoint(accountId, selectedQuery) == null) {
+                    synchronizer.establishBaseline(source, token, selectedQuery)
                 } else {
-                    synchronizer.catchUpNewer(source, token)
+                    synchronizer.catchUpNewer(source, token, selectedQuery)
                 }
                 _state.value = _state.value.copy(
                     loading = false,
@@ -114,7 +127,7 @@ class NotificationsViewModel @AssistedInject constructor(
         olderJob = viewModelScope.launch {
             _state.value = _state.value.copy(loadingMore = true, error = null)
             try {
-                val result = synchronizer.loadOlder(source, currentToken())
+                val result = synchronizer.loadOlder(source, currentToken(), query.value)
                 _state.value = _state.value.copy(loadingMore = false, syncDelayed = result.delayed)
             } catch (error: CancellationException) {
                 throw error
