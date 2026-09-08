@@ -60,6 +60,9 @@ import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
 import me.foxtails.palustris.ui.notifications.NotificationSettingsScreen
 import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
+import me.foxtails.palustris.ui.profile.ProfileCategory
+import me.foxtails.palustris.ui.profile.ProfileScreen as RichProfileScreen
+import me.foxtails.palustris.ui.profile.ProfileUiState
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
@@ -157,12 +160,16 @@ private fun contextualActionFor(
     destination: Destination,
     searchPanel: SearchPanel,
     notificationsPanel: NotificationsPanel,
-    editProfileEnabled: Boolean,
+    profileTarget: Account?,
+    authenticatedAccountId: AccountId?,
+    profileState: ProfileUiState,
     onCompose: () -> Unit,
     onSearchToggle: () -> Unit,
     onNotificationsToggle: () -> Unit,
     onEditProfile: () -> Unit,
-): ContextualBottomAction = when (destination) {
+    onFollowProfile: () -> Unit,
+    onUnfollowProfile: () -> Unit,
+): ContextualBottomAction? = when (destination) {
     Destination.Home -> ContextualBottomAction(AppIcons.Compose, "Compose post", true, onCompose)
     Destination.Search -> if (searchPanel == SearchPanel.Search) {
         ContextualBottomAction(AppIcons.WaffleGrid, "Alternate search", true, onSearchToggle)
@@ -174,7 +181,25 @@ private fun contextualActionFor(
     } else {
         ContextualBottomAction(AppIcons.Notifications, "Notifications", true, onNotificationsToggle)
     }
-    Destination.Profile -> ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", editProfileEnabled, onEditProfile)
+    Destination.Profile -> when {
+        profileTarget?.id == authenticatedAccountId && authenticatedAccountId != null ->
+            ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", true, onEditProfile)
+        profileState.relationshipSupported == true && profileState.relationship != null -> {
+            val relationship = profileState.relationship
+            val following = relationship.following || relationship.requested
+            ContextualBottomAction(
+                icon = AppIcons.Person,
+                contentDescription = when {
+                    relationship.following -> "Unfollow profile"
+                    relationship.requested -> "Cancel follow request"
+                    else -> "Follow profile"
+                },
+                enabled = !profileState.relationshipMutation,
+                onClick = if (following) onUnfollowProfile else onFollowProfile,
+            )
+        }
+        else -> null
+    }
 }
 
 @Composable
@@ -207,7 +232,7 @@ private fun TimelineSelector(
 @Composable
 private fun CompactContextualNavigationBar(
     destination: Destination,
-    action: ContextualBottomAction,
+    action: ContextualBottomAction?,
     account: Account?,
     onOpenAccounts: () -> Unit,
     onDestinationSelected: (Destination) -> Unit,
@@ -242,7 +267,19 @@ private fun CompactContextualNavigationBar(
                 }
             }
         }
-        FilledIconButton(onClick = action.onClick, enabled = action.enabled, modifier = Modifier.size(52.dp).semantics { contentDescription = action.contentDescription }, colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer, disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest, disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant)) { Icon(action.icon, null) }
+        action?.let { contextualAction ->
+            FilledIconButton(
+                onClick = contextualAction.onClick,
+                enabled = contextualAction.enabled,
+                modifier = Modifier.size(52.dp).semantics { contentDescription = contextualAction.contentDescription },
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            ) { Icon(contextualAction.icon, null) }
+        }
     }
 }
 
@@ -251,6 +288,13 @@ fun PalustrisApp(
     account: Account? = null,
     feedState: FeedState? = null,
     profile: Account? = null,
+    profileState: ProfileUiState = ProfileUiState(),
+    onProfileShown: (Account) -> Unit = {},
+    onProfileCategorySelected: (ProfileCategory) -> Unit = {},
+    onRefreshProfile: () -> Unit = {},
+    onLoadMoreProfile: () -> Unit = {},
+    onFollowProfile: () -> Unit = {},
+    onUnfollowProfile: () -> Unit = {},
     onRefresh: (Timeline) -> Unit = {},
     onLoadMore: (Timeline) -> Unit = {},
     onSignOut: () -> Unit = {},
@@ -468,7 +512,32 @@ fun PalustrisApp(
                                     },
                                     onSelectQuery = onSelectNotificationQuery,
                                 ) else MessagesScreen()
-                                Destination.Profile -> ProfileScreen(displayedProfile, compactLayout = !wide)
+                                Destination.Profile -> RichProfileScreen(
+                                    account = displayedProfile,
+                                    profileState = profileState,
+                                    compactLayout = !wide,
+                                    compactNavigationVisible = navigationVisible,
+                                    authenticatedAccountId = account?.id,
+                                    onProfileShown = onProfileShown,
+                                    onCategorySelected = onProfileCategorySelected,
+                                    onRefresh = onRefreshProfile,
+                                    onLoadMore = onLoadMoreProfile,
+                                    onFollow = onFollowProfile,
+                                    onUnfollow = onUnfollowProfile,
+                                    onEditProfile = {
+                                        if (account != null && displayedProfile?.id == account.id) {
+                                            overlayKey = Overlay.EditProfile::class.simpleName
+                                        }
+                                    },
+                                    onOpenProfile = ::openProfile,
+                                    onSearchHashtag = ::openHashtagSearch,
+                                    availableActions = feedState?.actions ?: emptySet(),
+                                    onReact = onReact,
+                                    onReply = onReply,
+                                    onReshare = onReshare,
+                                    onBookmark = onBookmark,
+                                    onReaction = onReaction,
+                                )
                             } }
                         }
                     }
@@ -499,7 +568,42 @@ fun PalustrisApp(
                                     TimelineSelector(timeline) { sheet = "Timelines" }
                                     Spacer(Modifier.height(CompactOverlayControlSpacing))
                                 }
-                                CompactContextualNavigationBar(destination, contextualActionFor(destination, searchPanel, notificationsPanel, account == null || displayedProfile?.id == account.id, ::openComposer, { searchPanelName = if (searchPanel == SearchPanel.Search) SearchPanel.Alternate.name else SearchPanel.Search.name }, { notificationsPanelName = if (notificationsPanel == NotificationsPanel.Notifications) NotificationsPanel.DirectMessages.name else NotificationsPanel.Notifications.name }, { if (account != null && displayedProfile?.id == account.id) overlayKey = Overlay.EditProfile::class.simpleName }), account, { sheet = "Accounts" }) { selectDestination(it) }
+                                CompactContextualNavigationBar(
+                                    destination = destination,
+                                    action = contextualActionFor(
+                                        destination = destination,
+                                        searchPanel = searchPanel,
+                                        notificationsPanel = notificationsPanel,
+                                        profileTarget = displayedProfile,
+                                        authenticatedAccountId = account?.id,
+                                        profileState = profileState,
+                                        onCompose = ::openComposer,
+                                        onSearchToggle = {
+                                            searchPanelName = if (searchPanel == SearchPanel.Search) {
+                                                SearchPanel.Alternate.name
+                                            } else {
+                                                SearchPanel.Search.name
+                                            }
+                                        },
+                                        onNotificationsToggle = {
+                                            notificationsPanelName = if (notificationsPanel == NotificationsPanel.Notifications) {
+                                                NotificationsPanel.DirectMessages.name
+                                            } else {
+                                                NotificationsPanel.Notifications.name
+                                            }
+                                        },
+                                        onEditProfile = {
+                                            if (account != null && displayedProfile?.id == account.id) {
+                                                overlayKey = Overlay.EditProfile::class.simpleName
+                                            }
+                                        },
+                                        onFollowProfile = onFollowProfile,
+                                        onUnfollowProfile = onUnfollowProfile,
+                                    ),
+                                    account = account,
+                                    onOpenAccounts = { sheet = "Accounts" },
+                                    onDestinationSelected = ::selectDestination,
+                                )
                             }
                         }
                     }
