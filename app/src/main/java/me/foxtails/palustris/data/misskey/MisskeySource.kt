@@ -27,6 +27,7 @@ import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileRelationship
+import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PushSubscription
 import me.foxtails.palustris.domain.PushSubscriptionSpec
@@ -65,6 +66,7 @@ class MisskeySource(
     private val cacheKey = CapabilityCacheKey(origin, accountId ?: AccountId(Connection(origin, Protocol.MISSKEY), "anonymous"))
     private val _capabilities = MutableStateFlow(initialCapabilities)
     val capabilitiesFlow: StateFlow<ServerCapabilities> = _capabilities
+    private val profileService = MisskeyProfileService(origin, token, api, accountId)
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request(invalidateCapabilitiesOnNotFound = true) {
@@ -89,10 +91,25 @@ class MisskeySource(
         MisskeyMapper.post(JSONObject(response.body), origin)
     }
 
-    override suspend fun profile(id: AccountId): Account = request {
-        val response = api.post(origin, "users/show", JSONObject().put("i", token).put("userId", id.localId))
-        MisskeyMapper.account(JSONObject(response.body), origin)
+    override suspend fun profile(id: AccountId): Account = request { profileService.profile(id) }
+
+    override suspend fun profileTimeline(query: ProfileTimelineQuery, cursor: String?): Page<Post> = request {
+        profileService.timeline(query, cursor)
     }
+
+    override suspend fun profileRelationship(id: AccountId): ProfileRelationship = request {
+        profileService.relationship(id)
+    }
+
+    override suspend fun followProfile(id: AccountId): ProfileRelationship = request {
+        profileService.follow(id)
+    }
+
+    override suspend fun unfollowProfile(id: AccountId): ProfileRelationship = request {
+        profileService.unfollow(id)
+    }
+
+    override suspend fun pinnedPosts(id: AccountId): List<Post> = request { profileService.pinnedPosts(id) }
 
     override suspend fun searchAccounts(query: String): List<Account> = request {
         val parts = query.trim().removePrefix("@").split('@')

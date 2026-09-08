@@ -9,6 +9,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -218,6 +219,119 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
             val lookupBody = JSONObject(lookup.body.readUtf8())
             assertEquals("alice", lookupBody.getString("username"))
             assertEquals("example.org", lookupBody.getString("host"))
+        }
+    }
+
+    @Test fun misskeyProfileTimelineUsesFlagsOuterCursorAndSharedClassification() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val target = AccountId(Connection(origin, Protocol.MISSKEY), "user-a")
+            val reply = JSONObject(note("reply"))
+                .put("replyId", "parent-note")
+                .put("replyUserId", "other-user")
+            val media = JSONObject(note("media")).put("files", JSONArray().put(
+                JSONObject().put("url", "https://example.org/photo.jpg").put("type", "image/jpeg"),
+            ))
+            val repost = JSONObject(note("repost"))
+            repost.remove("text")
+            repost.put("renote", JSONObject(note("quoted")))
+
+            server.enqueue(MockResponse().setBody(JSONArray().put(JSONObject(note("root"))).put(repost).put(reply).toString()))
+            server.enqueue(MockResponse().setBody("[]"))
+            server.enqueue(MockResponse().setBody(JSONArray().put(JSONObject(note("plain"))).put(media).toString()))
+            server.enqueue(MockResponse().setBody(JSONArray().put(repost).toString()))
+            server.enqueue(MockResponse().setBody(JSONArray().put(reply).toString()))
+            val source = MisskeySource(origin, "test-token", MisskeyApi())
+
+            val posts = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Posts))
+            source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Posts), posts.nextCursor)
+            val mediaPage = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Media))
+            val reposts = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Reposts))
+            val replies = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Replies))
+
+            assertEquals(listOf("root"), posts.items.map { it.id.value })
+            assertEquals("reply", posts.nextCursor)
+            assertEquals(listOf("media"), mediaPage.items.map { it.id.value })
+            assertEquals(listOf("repost"), reposts.items.map { it.id.value })
+            assertEquals(listOf("reply"), replies.items.map { it.id.value })
+
+            val firstBody = JSONObject(server.takeRequest().body.readUtf8())
+            val continuationBody = JSONObject(server.takeRequest().body.readUtf8())
+            val mediaBody = JSONObject(server.takeRequest().body.readUtf8())
+            val repostBody = JSONObject(server.takeRequest().body.readUtf8())
+            val repliesBody = JSONObject(server.takeRequest().body.readUtf8())
+            assertEquals("user-a", firstBody.getString("userId"))
+            assertEquals(40, firstBody.getInt("limit"))
+            assertFalse(firstBody.getBoolean("withReplies"))
+            assertFalse(firstBody.getBoolean("withRenotes"))
+            assertEquals("reply", continuationBody.getString("untilId"))
+            assertTrue(mediaBody.getBoolean("withFiles"))
+            assertFalse(mediaBody.getBoolean("withRenotes"))
+            assertFalse(repostBody.getBoolean("withReplies"))
+            assertTrue(repostBody.getBoolean("withRenotes"))
+            assertTrue(repliesBody.getBoolean("withReplies"))
+            assertFalse(repliesBody.getBoolean("withRenotes"))
+        }
+    }
+
+    @Test fun misskeyProfileRelationshipFollowUnfollowRereadsState() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val target = AccountId(Connection(origin, Protocol.MISSKEY), "user-a")
+            server.enqueue(MockResponse().setBody("{\"isFollowing\":false,\"isFollowed\":true}"))
+            server.enqueue(MockResponse().setBody("{}"))
+            server.enqueue(MockResponse().setBody("{\"isFollowing\":true}"))
+            server.enqueue(MockResponse().setBody("{}"))
+            server.enqueue(MockResponse().setBody("{\"isFollowing\":false}"))
+            val source = MisskeySource(origin, "test-token", MisskeyApi())
+
+            assertTrue(source.profileRelationship(target).followedBy)
+            assertTrue(source.followProfile(target).following)
+            assertFalse(source.unfollowProfile(target).following)
+
+            val relation = server.takeRequest()
+            assertEquals("/api/users/relation", relation.path)
+            assertEquals("user-a", JSONObject(relation.body.readUtf8()).getString("userId"))
+            assertEquals("/api/following/create", server.takeRequest().path)
+            assertEquals("/api/users/relation", server.takeRequest().path)
+            assertEquals("/api/following/delete", server.takeRequest().path)
+            assertEquals("/api/users/relation", server.takeRequest().path)
+        }
+    }
+
+    @Test fun misskeyPinnedPostsSupportInlineNotesAndBoundedIdFanout() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val target = AccountId(Connection(origin, Protocol.MISSKEY), "user-a")
+            val foreignUser = JSONObject(user).put("id", "user-b").put("username", "bob")
+            val foreignNote = JSONObject(note("foreign")).put("user", foreignUser)
+            server.enqueue(MockResponse().setBody(JSONObject(user).put(
+                "pinnedNotes", JSONArray().put(JSONObject(note("inline")).put("user", JSONObject(user))).put(foreignNote),
+            ).toString()))
+            val source = MisskeySource(origin, "test-token", MisskeyApi())
+            assertEquals(listOf("inline"), source.pinnedPosts(target).map { it.id.value })
+            assertEquals("/api/users/show", server.takeRequest().path)
+
+            server.enqueue(MockResponse().setBody(JSONObject(user).put(
+                "pinnedNotes", JSONArray().put("pin-a").put("pin-b"),
+            ).toString()))
+            server.enqueue(MockResponse().setBody(note("pin-a")))
+            server.enqueue(MockResponse().setBody(note("pin-b")))
+            assertEquals(listOf("pin-a", "pin-b"), source.pinnedPosts(target).map { it.id.value })
+            assertEquals("/api/users/show", server.takeRequest().path)
+            assertEquals("/api/notes/show", server.takeRequest().path)
+            assertEquals("/api/notes/show", server.takeRequest().path)
+        }
+    }
+
+    @Test fun misskeyProfileRejectsForeignTargetOriginBeforeNetwork() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val foreign = AccountId(Connection("https://other.example", Protocol.MISSKEY), "user-a")
+            val source = MisskeySource(origin, "test-token", MisskeyApi())
+
+            assertThrows(SourceError.Unsupported::class.java) { runBlocking { source.profile(foreign) } }
+            assertEquals(0, server.requestCount)
         }
     }
 
