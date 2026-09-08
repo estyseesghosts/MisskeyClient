@@ -8,10 +8,19 @@ data class ServerCapabilities(
     val maxPostLength: Int? = null,
     val canPublish: Boolean = false,
     val notifications: NotificationCapabilities = NotificationCapabilities(),
+    val profile: ProfileCapabilities = ProfileCapabilities(),
     val capabilitiesLastUpdated: Long = 0,
 )
 
 enum class CapabilityStatus { Supported, Denied, Unsupported, TemporarilyUnavailable, Unknown }
+
+data class ProfileCapabilities(
+    val details: CapabilityStatus = CapabilityStatus.Unknown,
+    val timelines: CapabilityStatus = CapabilityStatus.Unknown,
+    val relationships: CapabilityStatus = CapabilityStatus.Unknown,
+    val followActions: CapabilityStatus = CapabilityStatus.Unknown,
+    val pinnedPosts: CapabilityStatus = CapabilityStatus.Unknown,
+)
 
 enum class NotificationReadSemantics { PerNotification, AccountWide, TimelineMarker, Unknown }
 
