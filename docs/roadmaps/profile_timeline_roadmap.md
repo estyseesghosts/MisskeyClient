@@ -8,9 +8,9 @@ Replace the placeholder profile timeline with real feeds backing the first four 
 2. **Media** — only posts authored by the displayed account that contain one or more uploaded media attachments. A boosted/reposted post with somebody else's media is not media authored by the displayed account.
 3. **Reposts** — only pure reposts/renotes/boosts performed by the displayed account. Quote-reposts must not appear here.
 4. **Replies** — only replies authored by the displayed account **to another account's post or reply**. Self-replies must not appear.
-5. **Show more...** — a reserved UI category with no feed request or behavior in this roadmap.
+5. **Show more...** — a details category with no feed request; it renders the loaded profile details inline.
 
-The profile header, biography, and self-only profile actions remain. The retired profile-fields dialog and the former conventional tab row are not part of this feature; profile fields remain available in the domain model for a separately scoped profile-details design. This is deliberately a protocol-neutral UI and ViewModel feature: protocol selection and endpoint details remain in the `SocialSource` adapters.
+The profile header, biography, self-only profile actions, and inline profile details remain. The retired profile-fields dialog and former conventional tab row are not part of this feature. This is deliberately a protocol-neutral UI and ViewModel feature: protocol selection and endpoint details remain in the `SocialSource` adapters.
 
 ## Definition of the four classifications
 
@@ -32,7 +32,7 @@ The adapter must apply this filter after mapping its server response even when i
 Introduce a domain query instead of leaking Mastodon URL parameters or Misskey request bodies above the adapter boundary:
 
 ```kotlin
-enum class ProfileTimelineTab { Posts, Replies, Media, Reposts }
+enum class ProfileTimelineTab { Posts, Media, Reposts, Replies }
 
 data class ProfileTimelineQuery(
     val profileId: AccountId,
@@ -152,7 +152,7 @@ Refactor `ProfileScreen` so the profile chips defined by `profile_ui_roadmap.md`
 The resulting screen should:
 
 - retain the banner placeholder, avatar, display name, handle, biography, and self-only profile controls; do not restore the retired profile-fields dialog or banner action;
-- display exactly `Posts`, `Replies`, `Media`, and `Reposts`, in that order;
+- display exactly `Posts`, `Media`, `Reposts`, and `Replies`, in that order;
 - key `rememberSaveable` tab selection to `account.id.connection` and `account.id.localId`, so opening another profile does not leave it on the previous person's selected tab;
 - request/refresh the selected tab in `LaunchedEffect(account.id, selectedTab)` and request the selected tab when the profile screen is re-entered, so self-posts made elsewhere do not remain indefinitely stale;
 - render initial loading, pull-to-refresh, load-more spinner, error/retry/sign-in-again, a tab-specific empty state, and a terminal “You’re up to date” state;
@@ -234,7 +234,7 @@ No changes are required in `MainActivity.kt`, `SourceFactory.kt`, `FeedViewModel
 ## Acceptance criteria
 
 - The profile has exactly five chips in this order: Posts, Media, Reposts, Replies, Show more.... The former About category and conventional tab row are absent.
-- The first four chips operate as real feeds for the signed-in profile and a profile opened from any supported entry point; Show more... remains a UI-only placeholder.
+- The first four chips operate as real feeds for the signed-in profile and a profile opened from any supported entry point; Show more... renders inline details without a timeline request.
 - Mastodon and Misskey adapters both use their native profile-status endpoint, keep their cursor semantics inside the adapter, and return only the requested category.
 - Posts includes authored root posts and quote-reposts, but no replies or pure reposts.
 - Replies contains only verified replies to another account; self-replies and unknown-parent replies are absent.
@@ -259,4 +259,10 @@ No changes are required in `MainActivity.kt`, `SourceFactory.kt`, `FeedViewModel
 
 > **Warning — guard against stale concurrent requests.** Switching profiles or tabs quickly can reorder responses. Cancel old work and check `(profileId, tab)` at publication time; cancellation alone is insufficient because a response can finish just before cancellation is observed.
 
-> **Warning — current profile data may be partial.** A profile opened from a feed uses the `Account` embedded in a post. This roadmap keeps the existing profile-header behavior; it does not add a new remote profile-detail refresh. If product requirements later demand authoritative follower counts, banners, or fields for remote profiles, that should be a separate `SocialSource.profile` refresh task rather than being mixed into timeline pagination.
+> **Warning — seed data may be partial.** A profile opened from a feed uses the `Account` embedded in a post for immediate rendering, then `ProfileViewModel` requests authoritative details for the active target. If the refresh fails, the seed remains visible with a retry state; live server behavior still needs validation against real accounts.
+
+## Implementation status
+
+The profile milestone described by this roadmap is implemented in the current source tree. Profile domain contracts and classification live under `domain/`, protocol-specific detail/timeline/relationship services live under the Mastodon and Misskey adapters, and the dedicated state owner and single lazy scroll owner live under `ui/profile/`. The first four categories apply the shared classifier after mapping, preserve adapter-owned cursors, retain filtered-page continuation, and render through the shared `PostRow`; `Show more...` displays inline details.
+
+Focused classifier, ViewModel, screen, source-contract, adapter, navigation, and home-feed tests pass. A debug APK has also been installed and launched on the connected device. Authenticated Mastodon/Misskey profile behavior, server-version compatibility, and the broader device matrix remain live-validation work because no test accounts were supplied.
