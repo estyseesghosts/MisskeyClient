@@ -72,7 +72,7 @@ class SavedPostsViewModel @AssistedInject constructor(
         unsaveJob?.cancel()
         unsaveJob = viewModelScope.launch {
             try {
-                source.unsave(ownedPost.post.id)
+                source.unsave(ownedPost.post.actionTargetId ?: ownedPost.post.id)
                 _state.value = _state.value.copy(posts = _state.value.posts.filterNot { it.post.id == ownedPost.post.id })
             } catch (error: Exception) {
                 if (error is CancellationException) throw error

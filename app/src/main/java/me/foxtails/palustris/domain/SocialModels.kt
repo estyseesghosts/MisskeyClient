@@ -47,6 +47,8 @@ data class Post(
     val saved: Boolean = false,
     val myReaction: String? = null,
     val ownRepostId: EntityId? = null,
+    /** ID accepted by post actions when the displayed row wraps another post, such as a renote. */
+    val actionTargetId: EntityId? = null,
 )
 
 data class PostActionResult(

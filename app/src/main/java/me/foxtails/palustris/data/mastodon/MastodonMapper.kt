@@ -71,6 +71,7 @@ object MastodonMapper {
                 reposted = json.optBoolean("reblogged", resharedPost.reposted),
                 favourited = json.optBoolean("favourited", resharedPost.favourited),
                 saved = json.optBoolean("bookmarked", resharedPost.saved),
+                actionTargetId = resharedPost.actionTargetId ?: resharedPost.id,
             )
         }
 

@@ -63,13 +63,17 @@ object MisskeyMapper {
         val textPresent = json.has("text") && !json.isNull("text")
         val pureReshare = renote != null && !textPresent && files.length() == 0 &&
             json.optJSONObject("poll") == null && json.nullableString("cw") == null
-        if (pureReshare && depth < MAX_NESTING_DEPTH) return post(renote!!, origin, depth + 1).copy(
-            id = EntityId(origin, json.getString("id")),
-            resharedBy = account(json.getJSONObject("user"), origin),
-            reposted = json.optString("myRenoteId").takeIf { it.isNotBlank() } != null,
-            ownRepostId = json.optString("myRenoteId").takeIf { it.isNotBlank() }
-                ?.let { EntityId(origin, it) },
-        )
+        if (pureReshare && depth < MAX_NESTING_DEPTH) {
+            val displayedPost = post(renote!!, origin, depth + 1)
+            return displayedPost.copy(
+                id = EntityId(origin, json.getString("id")),
+                resharedBy = account(json.getJSONObject("user"), origin),
+                reposted = json.optString("myRenoteId").takeIf { it.isNotBlank() } != null,
+                ownRepostId = json.optString("myRenoteId").takeIf { it.isNotBlank() }
+                    ?.let { EntityId(origin, it) },
+                actionTargetId = displayedPost.actionTargetId ?: displayedPost.id,
+            )
+        }
         val id = EntityId(origin, json.getString("id"))
         val reactionJson = json.optJSONObject("reactions") ?: JSONObject()
         val reactionImages = json.optJSONObject("reactionEmojis") ?: JSONObject()

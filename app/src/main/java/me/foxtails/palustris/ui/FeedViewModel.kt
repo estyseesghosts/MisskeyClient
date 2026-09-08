@@ -236,6 +236,7 @@ class FeedViewModel @AssistedInject constructor(
 
     fun favorite(ownedPost: OwnedPost) {
         val selected = !ownedPost.post.favourited
+        val actionTargetId = ownedPost.post.actionTargetId ?: ownedPost.post.id
         runAction(
             ownedPost = ownedPost,
             action = PostAction.Favorite,
@@ -251,26 +252,28 @@ class FeedViewModel @AssistedInject constructor(
                 if (selected && source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) {
                     val previousReaction = ownedPost.post.myReaction
                     if (previousReaction != null && previousReaction != favouriteEmoji) {
-                        source.removeReaction(ownedPost.post.id, previousReaction)
+                        source.removeReaction(actionTargetId, previousReaction)
                     }
                 }
-                source.setPrimaryFavourite(ownedPost.post.id, favouriteEmoji, selected)
+                source.setPrimaryFavourite(actionTargetId, favouriteEmoji, selected)
             },
         )
     }
 
     fun reshare(ownedPost: OwnedPost) {
         val selected = !ownedPost.post.reposted
+        val actionTargetId = ownedPost.post.actionTargetId ?: ownedPost.post.id
         runAction(
             ownedPost = ownedPost,
             action = PostAction.Reshare,
             optimistic = { post -> post.copy(reposted = selected, reshareCount = (post.reshareCount + if (selected) 1 else -1).coerceAtLeast(0)) },
-            operation = { source.setReshared(ownedPost.post.id, selected, ownedPost.post.ownRepostId) },
+            operation = { source.setReshared(actionTargetId, selected, ownedPost.post.ownRepostId) },
         )
     }
 
     fun react(ownedPost: OwnedPost, emoji: String) {
         val selected = ownedPost.post.myReaction == emoji
+        val actionTargetId = ownedPost.post.actionTargetId ?: ownedPost.post.id
         runAction(
             ownedPost = ownedPost,
             action = PostAction.React,
@@ -278,12 +281,12 @@ class FeedViewModel @AssistedInject constructor(
             operation = {
                 val previousReaction = ownedPost.post.myReaction
                 if (selected) {
-                    source.removeReaction(ownedPost.post.id, emoji)
+                    source.removeReaction(actionTargetId, emoji)
                 } else {
                     if (previousReaction != null && previousReaction != emoji) {
-                        source.removeReaction(ownedPost.post.id, previousReaction)
+                        source.removeReaction(actionTargetId, previousReaction)
                     }
-                    source.react(ownedPost.post.id, emoji)
+                    source.react(actionTargetId, emoji)
                 }
                 PostActionResult(selected = !selected)
             },
@@ -292,11 +295,12 @@ class FeedViewModel @AssistedInject constructor(
 
     fun bookmark(ownedPost: OwnedPost) {
         val selected = !ownedPost.post.saved
+        val actionTargetId = ownedPost.post.actionTargetId ?: ownedPost.post.id
         runAction(
             ownedPost = ownedPost,
             action = PostAction.Bookmark,
             optimistic = { post -> post.copy(saved = selected) },
-            operation = { source.setSaved(ownedPost.post.id, selected) },
+            operation = { source.setSaved(actionTargetId, selected) },
         )
     }
 

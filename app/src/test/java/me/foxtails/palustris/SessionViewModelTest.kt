@@ -118,7 +118,14 @@ class SessionViewModelTest {
         )
 
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(
-            listOf(Post(EntityId("https://example.org", "post"), author, "Post", 0, Audience.Public)),
+            listOf(Post(
+                EntityId("https://example.org", "post"),
+                author,
+                "Post",
+                0,
+                Audience.Public,
+                actionTargetId = EntityId("https://example.org", "original"),
+            )),
         )
 
         override suspend fun favorite(id: EntityId) {
@@ -309,11 +316,12 @@ class SessionViewModelTest {
             model.favorite(ownedPost)
             model.favorite(ownedPost)
             advanceUntilIdle()
-            assertEquals(listOf(ownedPost.post.id), source.favoriteIds)
+            val actionTarget = EntityId("https://example.org", "original")
+            assertEquals(listOf(actionTarget), source.favoriteIds)
 
             model.react(ownedPost, "🎉")
             advanceUntilIdle()
-            assertEquals(listOf(ownedPost.post.id), source.reactionIds)
+            assertEquals(listOf(actionTarget), source.reactionIds)
 
             val otherAccount = AccountId(Connection("https://example.org", Protocol.MISSKEY), "other")
             model.reshare(OwnedPost(otherAccount, ownedPost.post))
@@ -327,7 +335,7 @@ class SessionViewModelTest {
             source.actionError = null
             model.reshare(ownedPost)
             advanceUntilIdle()
-            assertEquals(listOf(ownedPost.post.id), source.reshareIds)
+            assertEquals(listOf(actionTarget), source.reshareIds)
         } finally {
             owner.clear()
             coordinator.close()
