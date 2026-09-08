@@ -139,7 +139,11 @@ fun ConnectedApp(
     LaunchedEffect(pendingNotificationLaunch, state.starting, accountIndex) {
         val launch = pendingNotificationLaunch ?: return@LaunchedEffect
         if (state.starting) return@LaunchedEffect
-        initialNotificationRoute = if (accountIndex.accounts.any { it.accountId == launch.accountId }) {
+        val receivingAccountExists = accountIndex.accounts.any { it.accountId == launch.accountId }
+        if (receivingAccountExists && activeSession?.accountId != launch.accountId) {
+            accountManager.switchAccount(launch.accountId)
+        }
+        initialNotificationRoute = if (receivingAccountExists) {
             NotificationRouteResolver.detail(launch.accountId, launch.notificationId)
         } else {
             AppRoute.AccountUnavailable(launch.accountId, launch.notificationId)

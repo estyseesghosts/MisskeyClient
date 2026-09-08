@@ -1,7 +1,9 @@
 package me.foxtails.palustris.ui.notifications
 
+import android.content.Context
 import android.content.Intent
 import androidx.core.net.toUri
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,17 +20,84 @@ data class NotificationLaunch(
     val notificationId: EntityId,
 )
 
+private const val PREFERENCES = "notification_launch"
+private const val KEY_ORIGIN = "origin"
+private const val KEY_ACCOUNT_LOCAL_ID = "account_local_id"
+private const val KEY_PROTOCOL = "protocol"
+private const val KEY_NOTIFICATION_ID = "notification_id"
+
+internal interface NotificationLaunchStore {
+    fun read(): NotificationLaunch?
+    fun write(launch: NotificationLaunch)
+    fun clear()
+}
+
+private class SharedPreferencesNotificationLaunchStore(
+    context: Context,
+) : NotificationLaunchStore {
+    private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+
+    override fun read(): NotificationLaunch? {
+        val origin = preferences.getString(KEY_ORIGIN, null) ?: return null
+        val localId = preferences.getString(KEY_ACCOUNT_LOCAL_ID, null) ?: return null
+        val protocol = preferences.getString(KEY_PROTOCOL, null) ?: return null
+        val notificationId = preferences.getString(KEY_NOTIFICATION_ID, null) ?: return null
+        return runCatching {
+            val connection = Connection(origin, Protocol.valueOf(protocol))
+            NotificationLaunch(AccountId(connection, localId), EntityId(origin, notificationId))
+        }.getOrNull()
+    }
+
+    override fun write(launch: NotificationLaunch) {
+        preferences.edit()
+            .putString(KEY_ORIGIN, launch.accountId.connection.origin)
+            .putString(KEY_ACCOUNT_LOCAL_ID, launch.accountId.localId)
+            .putString(KEY_PROTOCOL, launch.accountId.connection.protocol.name)
+            .putString(KEY_NOTIFICATION_ID, launch.notificationId.value)
+            .apply()
+    }
+
+    override fun clear() {
+        preferences.edit().clear().apply()
+    }
+}
+
+internal class InMemoryNotificationLaunchStore : NotificationLaunchStore {
+    private var value: NotificationLaunch? = null
+
+    override fun read(): NotificationLaunch? = value
+
+    override fun write(launch: NotificationLaunch) {
+        value = launch
+    }
+
+    override fun clear() {
+        value = null
+    }
+}
+
 /** Parses only the app-owned notification intent contract; payload URLs are never trusted here. */
 @Singleton
-class NotificationLaunchRouter @Inject constructor() {
-    private val _pending = MutableStateFlow<NotificationLaunch?>(null)
+class NotificationLaunchRouter internal constructor(
+    private val store: NotificationLaunchStore,
+) {
+    @Inject
+    constructor(@ApplicationContext context: Context) : this(SharedPreferencesNotificationLaunchStore(context))
+
+    constructor() : this(InMemoryNotificationLaunchStore())
+
+    private val _pending = MutableStateFlow(store.read())
     val pending: StateFlow<NotificationLaunch?> = _pending.asStateFlow()
 
     fun accept(intent: Intent) {
-        parse(intent)?.let { _pending.value = it }
+        parse(intent)?.let {
+            store.write(it)
+            _pending.value = it
+        }
     }
 
     fun clear() {
+        store.clear()
         _pending.value = null
     }
 

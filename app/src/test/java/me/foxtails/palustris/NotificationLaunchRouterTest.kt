@@ -8,6 +8,7 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.notifications.NotificationLaunch
 import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
+import me.foxtails.palustris.ui.notifications.InMemoryNotificationLaunchStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -20,6 +21,18 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class NotificationLaunchRouterTest {
     private val router = NotificationLaunchRouter()
+
+    @Test
+    fun pendingLaunchSurvivesRouterRecreation() {
+        val store = InMemoryNotificationLaunchStore()
+        val launch = NotificationLaunch(account, EntityId(account.connection.origin, "event"))
+        NotificationLaunchRouter(store).accept(NotificationLaunchRouter.intentFor(launch))
+
+        val restored = NotificationLaunchRouter(store)
+        assertEquals(launch, restored.pending.value)
+        restored.clear()
+        assertNull(NotificationLaunchRouter(store).pending.value)
+    }
     private val account = AccountId(Connection("https://example.org", Protocol.MISSKEY), "receiver")
     private val launch = NotificationLaunch(account, EntityId(account.connection.origin, "event"))
 
