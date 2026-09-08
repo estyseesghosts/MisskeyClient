@@ -33,6 +33,12 @@ The implementation is ready for the user-provided live Samsung/Sunup verificatio
 - Moved periodic fallback scheduling to its dedicated WorkManager name and cancel the legacy incorrectly named periodic work when scheduling an upgraded installation.
 - `NotificationRepositoryTest` passes, including a regression with an existing read row and an incoming streamed notification.
 
+### 2026-09-08 — account-bound alert launch identity
+
+- Notification launch data URIs now contain a deterministic opaque digest of the receiving account and canonical notification ID.
+- Router parsing validates that digest against intent extras, preventing extras from being replaced by an equivalent PendingIntent belonging to another account on the same server.
+- `NotificationLaunchRouterTest` passes, including account-specific URI and URI/extra mismatch coverage.
+
 ## Implemented changes
 
 ### Account-scoped repository

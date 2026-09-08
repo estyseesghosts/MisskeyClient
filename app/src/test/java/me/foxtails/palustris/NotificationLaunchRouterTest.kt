@@ -9,6 +9,7 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.notifications.NotificationLaunch
 import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,6 +26,19 @@ class NotificationLaunchRouterTest {
     @Test
     fun roundTripIntentPreservesOnlyValidatedAccountAndEventIdentity() {
         assertEquals(launch, router.parse(NotificationLaunchRouter.intentFor(launch)))
+    }
+
+    @Test
+    fun accountAndEventSpecificUriPreventsPendingIntentIdentityCollisions() {
+        val secondAccount = account.copy(localId = "receiver-b")
+        val firstIntent = NotificationLaunchRouter.intentFor(launch)
+        val secondIntent = NotificationLaunchRouter.intentFor(NotificationLaunch(secondAccount, launch.notificationId))
+
+        assertNotEquals(firstIntent.data, secondIntent.data)
+        assertEquals(launch, router.parse(firstIntent))
+        assertNull(router.parse(firstIntent.apply {
+            putExtra(NotificationLaunchRouter.EXTRA_ACCOUNT_LOCAL_ID, secondAccount.localId)
+        }))
     }
 
     @Test
