@@ -13,7 +13,9 @@
     <exclude domain="database" path="unifiedpush-connector.db" />
     <exclude domain="database" path="unifiedpush-connector.db-wal" />
     <exclude domain="database" path="unifiedpush-connector.db-shm" />
+    <exclude domain="database" path="unifiedpush-connector-journal" />
     <exclude domain="file" path="accounts" />
     <exclude domain="file" path="notifications" />
     <exclude domain="sharedpref" path="notification_launch.xml" />
+    <exclude domain="sharedpref" path="unifiedpush.connector.xml" />
 </full-backup-content>

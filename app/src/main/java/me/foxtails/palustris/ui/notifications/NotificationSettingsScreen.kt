@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +41,9 @@ fun NotificationSettingsScreen(
     onCategoryChanged: (NotificationCategory, Boolean) -> Unit = { _, _ -> },
     onRunLocalTest: () -> Unit = {},
     onRetryRegistration: () -> Unit = {},
+    onRefreshDistributors: () -> Unit = {},
+    onSelectDistributor: (String) -> Unit = {},
+    onRunPushConnectionTest: () -> Unit = {},
     onPermissionChanged: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -100,6 +105,27 @@ fun NotificationSettingsScreen(
         }
         HorizontalDivider(Modifier.padding(vertical = 12.dp))
         Text(stringResource(R.string.notifications_settings_delivery), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.notifications_push_provider), style = MaterialTheme.typography.titleMedium)
+        when {
+            state.distributorLoading -> Text(stringResource(R.string.notifications_push_registering_distributor))
+            state.availableDistributors.isEmpty() -> Text(stringResource(R.string.notifications_push_no_provider))
+            else -> state.availableDistributors.forEach { distributor ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onSelectDistributor(distributor.packageName) },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = state.selectedDistributor == distributor.packageName,
+                        onClick = { onSelectDistributor(distributor.packageName) },
+                        enabled = !state.saving,
+                    )
+                    Text(distributor.label)
+                }
+            }
+        }
+        TextButton(onClick = onRefreshDistributors, enabled = !state.distributorLoading) {
+            Text(stringResource(R.string.notifications_push_select_provider))
+        }
         Text(
             if (state.permissionGranted) stringResource(R.string.notifications_settings_permission_granted)
             else stringResource(R.string.notifications_settings_permission_missing),
@@ -123,7 +149,10 @@ fun NotificationSettingsScreen(
             ) { Text(stringResource(R.string.notifications_settings_retry_registration)) }
         }
         TextButton(onClick = onRunLocalTest, enabled = !state.saving) {
-            Text(stringResource(R.string.notifications_settings_local_test))
+            Text(stringResource(R.string.notifications_push_test))
+        }
+        TextButton(onClick = onRunPushConnectionTest, enabled = !state.saving) {
+            Text(stringResource(R.string.notifications_push_connection_test))
         }
         state.localTestMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

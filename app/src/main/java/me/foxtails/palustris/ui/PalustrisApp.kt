@@ -350,6 +350,9 @@ fun PalustrisApp(
     onNotificationLocalTest: () -> Unit = {},
     onNotificationRetryRegistration: () -> Unit = {},
     onNotificationPermissionChanged: () -> Unit = {},
+    onNotificationRefreshDistributors: () -> Unit = {},
+    onNotificationSelectDistributor: (String) -> Unit = {},
+    onNotificationPushConnectionTest: () -> Unit = {},
 ) = PalustrisTheme {
     val context = LocalContext.current
     val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
@@ -873,6 +876,9 @@ fun PalustrisApp(
                     onRunLocalTest = onNotificationLocalTest,
                     onRetryRegistration = onNotificationRetryRegistration,
                     onPermissionChanged = onNotificationPermissionChanged,
+                    onRefreshDistributors = onNotificationRefreshDistributors,
+                    onSelectDistributor = onNotificationSelectDistributor,
+                    onRunPushConnectionTest = onNotificationPushConnectionTest,
                     modifier = Modifier.fillMaxWidth().weight(1f),
                 )
             }

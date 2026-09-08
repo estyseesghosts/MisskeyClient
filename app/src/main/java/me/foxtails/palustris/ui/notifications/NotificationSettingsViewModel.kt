@@ -1,11 +1,13 @@
 package me.foxtails.palustris.ui.notifications
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +20,7 @@ import me.foxtails.palustris.data.notifications.NotificationPresenter
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.NotificationSettingsRepository
 import me.foxtails.palustris.data.notifications.push.PushRegistrationManager
+import me.foxtails.palustris.data.notifications.push.UnifiedPushConnector
 import me.foxtails.palustris.data.notifications.work.NotificationWorkScheduler
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Account
@@ -27,6 +30,7 @@ import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.NotificationSettings
+import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.domain.withCategoryEnabled
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -40,6 +44,14 @@ data class NotificationSettingsUiState(
     val saving: Boolean = false,
     val error: String? = null,
     val localTestMessage: String? = null,
+    val availableDistributors: List<UnifiedPushDistributorUi> = emptyList(),
+    val selectedDistributor: String? = null,
+    val distributorLoading: Boolean = false,
+)
+
+data class UnifiedPushDistributorUi(
+    val packageName: String,
+    val label: String,
 )
 
 @HiltViewModel(assistedFactory = NotificationSettingsViewModel.Factory::class)
@@ -52,6 +64,9 @@ class NotificationSettingsViewModel @AssistedInject constructor(
     private val permissionController: NotificationPermissionController,
     private val presentationFactory: NotificationPresentationFactory,
     private val presenter: NotificationPresenter,
+    private val connector: UnifiedPushConnector,
+    private val sessionStore: SessionStore,
+    @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val _state = MutableStateFlow(NotificationSettingsUiState(
         permissionGranted = permissionController.isGranted(),
@@ -63,7 +78,10 @@ class NotificationSettingsViewModel @AssistedInject constructor(
     init {
         viewModelScope.launch {
             settingsRepository.observe(accountId).collectLatest { settings ->
-                _state.value = _state.value.copy(settings = settings)
+                _state.value = _state.value.copy(
+                    settings = settings,
+                    selectedDistributor = settings.selectedDistributor,
+                )
             }
         }
         viewModelScope.launch {
@@ -77,12 +95,19 @@ class NotificationSettingsViewModel @AssistedInject constructor(
                 )
             }
         }
+        refreshDistributors()
     }
 
     fun setAlertsEnabled(enabled: Boolean) = save(_state.value.settings.copy(alertsEnabled = enabled))
 
     fun refreshPermission() {
-        _state.value = _state.value.copy(permissionGranted = permissionController.isGranted())
+        val granted = permissionController.isGranted()
+        _state.value = _state.value.copy(permissionGranted = granted)
+        if (granted && _state.value.settings.alertsEnabled &&
+            _state.value.registrationState == NotificationPushRegistrationState.PermissionRequired
+        ) {
+            viewModelScope.launch { pushRegistrationManager.enable(accountId) }
+        }
         if (_state.value.settings.alertsEnabled) workScheduler.enqueueDelivery(accountId)
     }
 
@@ -106,6 +131,47 @@ class NotificationSettingsViewModel @AssistedInject constructor(
             runCatching { pushRegistrationManager.retry(accountId) }
                 .onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Delivery registration could not be retried.") }
         }
+    }
+
+    fun refreshDistributors() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(distributorLoading = true)
+            val distributors = runCatching {
+                connector.availableDistributors().map { packageName ->
+                    UnifiedPushDistributorUi(packageName, distributorLabel(packageName))
+                }
+            }.getOrDefault(emptyList())
+            _state.value = _state.value.copy(
+                availableDistributors = distributors,
+                distributorLoading = false,
+            )
+        }
+    }
+
+    fun selectDistributor(packageName: String) {
+        if (_state.value.availableDistributors.none { it.packageName == packageName }) return
+        save(_state.value.settings.copy(selectedDistributor = packageName))
+    }
+
+    fun runPushConnectionTest() {
+        val current = _state.value
+        val session = sessionStore.read(accountId)
+        val registration = repository.pushRegistration(accountId)
+        val selected = current.settings.selectedDistributor
+        val distributor = connector.acknowledgedDistributor()
+        val message = when {
+            !current.permissionGranted -> "Android notification permission is required."
+            current.availableDistributors.isEmpty() -> "No notification distributor is installed."
+            selected != null && distributor != selected -> "The selected notification distributor is not connected."
+            session == null || session.pushState.publicKey.isNullOrBlank() || session.pushState.authSecret.isNullOrBlank() ->
+                "The push encryption keys are not available."
+            session.pushState.endpoint == null -> "The distributor endpoint is not available."
+            registration?.serverEndpoint == null -> "The server endpoint is not registered."
+            registration.state != NotificationPushRegistrationState.Connected ->
+                "The push connection is not connected."
+            else -> "Push connection is connected."
+        }
+        _state.value = _state.value.copy(localTestMessage = message)
     }
 
     fun runLocalPresentationTest() {
@@ -167,6 +233,10 @@ class NotificationSettingsViewModel @AssistedInject constructor(
             }
         }
     }
+
+    private fun distributorLabel(packageName: String): String = runCatching {
+        context.packageManager.getApplicationInfo(packageName, 0).loadLabel(context.packageManager).toString()
+    }.getOrDefault(packageName)
 
     @AssistedFactory
     interface Factory {
