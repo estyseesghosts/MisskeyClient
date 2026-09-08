@@ -200,6 +200,7 @@ private fun contextualActionFor(
         ContextualBottomAction(AppIcons.Notifications, "Notifications", true, onNotificationsToggle)
     }
     Destination.Profile -> when {
+        profileTarget?.movedTo != null -> null
         profileTarget?.id == authenticatedAccountId && authenticatedAccountId != null ->
             ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", true, onEditProfile)
         profileState.relationshipSupported == true && profileState.relationship != null -> {

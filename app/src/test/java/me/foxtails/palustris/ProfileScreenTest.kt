@@ -215,6 +215,58 @@ class ProfileScreenTest {
     }
 
     @Test
+    fun redirectedProfileShowsDestinationBeforeHeaderAndUsesInAppCallback() {
+        val destination = account("new-profile", "New profile").copy(
+            handle = "@new-profile@example.org",
+            avatarUrl = "https://example.org/new-profile.png",
+        )
+        val profile = account("moved-profile", "Moved profile").copy(movedTo = destination)
+        var opened: Account? = null
+
+        show {
+            ProfileScreen(
+                account = profile,
+                profileState = profileState(profile, emptyList()),
+                compactLayout = false,
+                authenticatedAccountId = self.id,
+                onOpenProfile = { opened = it },
+            )
+        }
+
+        compose.onNodeWithTag("profile_redirect").assertIsDisplayed()
+        compose.onNodeWithText("Moved profile has indicated that their new account is now:").assertIsDisplayed()
+        compose.onNodeWithText("New profile").assertIsDisplayed()
+        compose.onNodeWithText("@new-profile@example.org").assertIsDisplayed()
+        compose.onNodeWithTag("profile_redirect_go_to_profile").assertIsDisplayed().performClick()
+        assertEquals(destination.id, opened?.id)
+        val redirectBounds = compose.onNodeWithTag("profile_redirect").fetchSemanticsNode().boundsInRoot
+        val bannerBounds = compose.onNodeWithTag("profile_banner").fetchSemanticsNode().boundsInRoot
+        assertTrue("redirect notice should precede the profile banner", redirectBounds.bottom <= bannerBounds.top)
+        compose.onNodeWithTag("profile_follow_action").assertDoesNotExist()
+    }
+
+    @Test
+    fun redirectedProfileKeepsLongDestinationIdentityUsableInCompactLayout() {
+        val destination = account("long-destination", "A destination account name that is deliberately very long").copy(
+            handle = "@a-very-long-destination-handle@example.org",
+        )
+        val profile = account("compact-moved", "Compact moved profile").copy(movedTo = destination)
+
+        show {
+            ProfileScreen(
+                account = profile,
+                profileState = profileState(profile, emptyList()),
+                compactLayout = true,
+                authenticatedAccountId = self.id,
+            )
+        }
+
+        compose.onNodeWithTag("profile_redirect").assertIsDisplayed()
+        compose.onNodeWithTag("profile_redirect_destination").assertIsDisplayed()
+        compose.onNodeWithTag("profile_redirect_go_to_profile").assertIsDisplayed()
+    }
+
+    @Test
     fun selfGetsEditActionAndUnsupportedRemoteRelationshipGetsNoDeadAction() {
         val selfState = mutableStateOf(profileState(self, emptyList()))
         var edits = 0

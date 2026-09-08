@@ -42,6 +42,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -148,6 +151,7 @@ fun ProfileScreen(
                     onFollow = onFollow,
                     onUnfollow = onUnfollow,
                     onEditProfile = onEditProfile,
+                    onOpenProfile = onOpenProfile,
                 )
             },
             details = { ProfileDetails(displayedAccount) },
@@ -206,11 +210,23 @@ private fun ProfileHeader(
     onFollow: () -> Unit,
     onUnfollow: () -> Unit,
     onEditProfile: () -> Unit,
+    onOpenProfile: (Account) -> Unit,
 ) {
     val statusBarHeight = with(LocalDensity.current) {
         WindowInsets.statusBars.getTop(this).toDp()
     }.coerceAtLeast(1.dp)
     Column(Modifier.fillMaxWidth().testTag("profile_header")) {
+        val movedTo = account.movedTo?.takeIf {
+            it.id.localId.isNotBlank() &&
+                (it.displayName.isNotBlank() || it.handle.trim('@').isNotBlank() || it.avatarUrl != null)
+        }
+        movedTo?.let { destination ->
+            ProfileRedirectBanner(
+                account = account,
+                destination = destination,
+                onOpenProfile = { onOpenProfile(destination) },
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -276,7 +292,7 @@ private fun ProfileHeader(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (!isSelf && state.relationshipSupported == true && state.relationship != null) {
+                if (!isSelf && movedTo == null && state.relationshipSupported == true && state.relationship != null) {
                     val relationship = state.relationship
                     val following = relationship.following || relationship.requested
                     Button(
@@ -296,7 +312,7 @@ private fun ProfileHeader(
                             )
                         }
                     }
-                } else if (isSelf) {
+                } else if (isSelf && movedTo == null) {
                     OutlinedButton(
                         onClick = onEditProfile,
                         modifier = Modifier.testTag("profile_edit_action"),
@@ -347,6 +363,80 @@ private fun ProfileHeader(
             }
 
             Spacer(Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun ProfileRedirectBanner(
+    account: Account,
+    destination: Account,
+    onOpenProfile: () -> Unit,
+) {
+    val destinationName = destination.displayName.ifBlank { destination.handle }
+    val destinationDescription = stringResource(
+        R.string.profile_redirect_destination_description,
+        destinationName,
+        destination.handle,
+    )
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .testTag("profile_redirect"),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(
+                text = stringResource(
+                    R.string.profile_redirect_notice,
+                    account.displayName.ifBlank { account.handle },
+                ),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(12.dp))
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("profile_redirect_destination")
+                    .semantics {
+                        contentDescription = destinationDescription
+                        role = Role.Button
+                    }
+                    .clickable(role = Role.Button, onClick = onOpenProfile),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surface,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    AccountAvatar(destination, Modifier.size(56.dp), exposeSemantics = false)
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            destinationName,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            destination.handle,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = onOpenProfile,
+                modifier = Modifier.fillMaxWidth().testTag("profile_redirect_go_to_profile"),
+            ) {
+                Text(stringResource(R.string.profile_redirect_go_to_profile))
+            }
         }
     }
 }

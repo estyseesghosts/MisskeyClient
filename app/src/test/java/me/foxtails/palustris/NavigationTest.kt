@@ -702,6 +702,33 @@ class NavigationTest {
         compose.onNodeWithContentDescription("Profile").assertIsSelected()
     }
 
+    @Test fun profileRedirectActionUsesExistingInAppProfileSelection() {
+        val old = fixtureAccount("moved-old").copy(
+            displayName = "Moved old",
+            movedTo = fixtureAccount("moved-new").copy(displayName = "Moved new"),
+        )
+        val state = ProfileUiState(
+            targetId = old.id,
+            seedAccount = old,
+            account = old,
+            relationship = me.foxtails.palustris.domain.ProfileRelationship(old.id),
+            relationshipSupported = true,
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent { PalustrisApp(account = old, profileState = state) }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription("Follow profile").assertDoesNotExist()
+        compose.onNodeWithTag("profile_redirect_go_to_profile").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Moved new", substring = false).assertIsDisplayed()
+        compose.onNodeWithText("@moved-new@fixture.example", substring = false).assertIsDisplayed()
+        compose.onNodeWithTag("profile_redirect").assertDoesNotExist()
+    }
+
     @Test fun profileAvatarLongPressOpensExistingAccountSwitcher() {
         val current = Account(
             AccountId(Connection("https://example.org", Protocol.MASTODON), "current"),
