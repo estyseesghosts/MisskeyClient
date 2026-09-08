@@ -76,6 +76,16 @@ class ProfileViewModel @AssistedInject constructor(
         loadDetails(target, generation)
     }
 
+    fun refresh() {
+        if (stopped) return
+        val target = _state.value.targetId ?: return
+        val targetGeneration = generation
+        loadDetails(target, targetGeneration)
+        loadRelationshipIfNeeded(target, targetGeneration)
+        loadPinned(target, targetGeneration)
+        refreshSelected()
+    }
+
     fun selectCategory(category: ProfileCategory) {
         if (stopped || _state.value.selectedTab == category) return
         _state.value = _state.value.copy(selectedTab = category)
