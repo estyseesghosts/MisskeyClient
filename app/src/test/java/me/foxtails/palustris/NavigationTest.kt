@@ -241,7 +241,7 @@ class NavigationTest {
         compose.onNodeWithText("photography").assertIsDisplayed()
         compose.onNodeWithText("Hashtags").assertIsSelected()
         compose.onNodeWithContentDescription("Profile").performClick()
-        compose.onNodeWithText("No account selected").assertIsDisplayed()
+        compose.onAllNodesWithText("Your profile").onLast().assertIsDisplayed()
     }
 
     @Test fun compactNotificationsDockSitsAboveNavigation() {
@@ -638,7 +638,8 @@ class NavigationTest {
         compose.onNodeWithText("All caught up").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("Profile").performClick()
-        compose.onNodeWithContentDescription("Edit profile").assertIsEnabled().performClick()
+        compose.onNodeWithContentDescription("Edit profile").assertDoesNotExist()
+        compose.onAllNodesWithText("Your profile").onLast().assertIsDisplayed()
         compose.onNodeWithContentDescription("Profile").assertIsSelected()
     }
 
