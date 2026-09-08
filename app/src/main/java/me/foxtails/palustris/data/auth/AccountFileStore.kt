@@ -15,6 +15,7 @@ import me.foxtails.palustris.domain.NotificationCapabilities
 import me.foxtails.palustris.domain.NotificationReadSemantics
 import me.foxtails.palustris.domain.NotificationUnreadPrecision
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.ProfileCapabilities
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
@@ -141,6 +142,7 @@ private fun ServerCapabilities.toJson(): JSONObject = JSONObject()
     .put("maxPostLength", maxPostLength)
     .put("canPublish", canPublish)
     .put("notifications", notifications.toJson())
+    .put("profile", profile.toJson())
     .put("capabilitiesLastUpdated", capabilitiesLastUpdated)
 
 private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities(
@@ -150,7 +152,23 @@ private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities
     maxPostLength = if (isNull("maxPostLength")) null else optInt("maxPostLength"),
     canPublish = optBoolean("canPublish"),
     notifications = optJSONObject("notifications")?.toNotificationCapabilities() ?: NotificationCapabilities(),
+    profile = optJSONObject("profile")?.toProfileCapabilities() ?: ProfileCapabilities(),
     capabilitiesLastUpdated = optLong("capabilitiesLastUpdated"),
+)
+
+private fun ProfileCapabilities.toJson(): JSONObject = JSONObject()
+    .put("details", details.name)
+    .put("timelines", timelines.name)
+    .put("relationships", relationships.name)
+    .put("followActions", followActions.name)
+    .put("pinnedPosts", pinnedPosts.name)
+
+private fun JSONObject.toProfileCapabilities(): ProfileCapabilities = ProfileCapabilities(
+    details = enumOrDefault("details", CapabilityStatus.Unknown),
+    timelines = enumOrDefault("timelines", CapabilityStatus.Unknown),
+    relationships = enumOrDefault("relationships", CapabilityStatus.Unknown),
+    followActions = enumOrDefault("followActions", CapabilityStatus.Unknown),
+    pinnedPosts = enumOrDefault("pinnedPosts", CapabilityStatus.Unknown),
 )
 
 private fun NotificationCapabilities.toJson(): JSONObject = JSONObject()

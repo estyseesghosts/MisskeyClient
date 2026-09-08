@@ -27,6 +27,7 @@ import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ProfileField
+import me.foxtails.palustris.domain.ProfileCapabilities
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.Timeline
@@ -120,6 +121,13 @@ class CrossCuttingTest {
             ),
         )
         val capabilities = ServerCapabilities(
+            profile = ProfileCapabilities(
+                details = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                timelines = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                relationships = me.foxtails.palustris.domain.CapabilityStatus.Unknown,
+                followActions = me.foxtails.palustris.domain.CapabilityStatus.Denied,
+                pinnedPosts = me.foxtails.palustris.domain.CapabilityStatus.Unsupported,
+            ),
             notifications = me.foxtails.palustris.domain.NotificationCapabilities(
                 listing = me.foxtails.palustris.domain.CapabilityStatus.Supported,
                 supportedCategories = setOf(me.foxtails.palustris.domain.NotificationCategory.Mentions),
