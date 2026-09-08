@@ -348,6 +348,7 @@ fun PalustrisApp(
     onNotificationQuietHours: (Boolean) -> Unit = {},
     onNotificationCategoryChanged: (me.foxtails.palustris.domain.NotificationCategory, Boolean) -> Unit = { _, _ -> },
     onNotificationLocalTest: () -> Unit = {},
+    onNotificationRetryRegistration: () -> Unit = {},
     onNotificationPermissionChanged: () -> Unit = {},
 ) = PalustrisTheme {
     val context = LocalContext.current
@@ -851,6 +852,7 @@ fun PalustrisApp(
                     onQuietHours = onNotificationQuietHours,
                     onCategoryChanged = onNotificationCategoryChanged,
                     onRunLocalTest = onNotificationLocalTest,
+                    onRetryRegistration = onNotificationRetryRegistration,
                     onPermissionChanged = onNotificationPermissionChanged,
                     modifier = Modifier.fillMaxWidth().weight(1f),
                 )

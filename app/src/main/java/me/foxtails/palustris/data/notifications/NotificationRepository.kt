@@ -528,6 +528,23 @@ class NotificationRepository @Inject constructor(
         return true
     }
 
+    /** Records only the Android surface dismissal; it never acknowledges the source notification. */
+    suspend fun markAndroidDismissed(accountId: AccountId, id: EntityId): Boolean {
+        val next = synchronized(this) {
+            val state = states[accountId]?.value ?: return false
+            if (state.items.none { it.id == id }) return false
+            state.copy(items = state.items.map { item ->
+                if (item.id == id) item.copy(readState = item.readState.copy(androidDismissed = true)) else item
+            }).also { states.getValue(accountId).value = it }
+        }
+        withContext(Dispatchers.IO) {
+            synchronized(this@NotificationRepository) {
+                if (states[accountId]?.value == next) store.write(accountId, next)
+            }
+        }
+        return true
+    }
+
     suspend fun acknowledge(
         token: NotificationSyncToken,
         acknowledgement: NotificationAcknowledgement,
@@ -707,6 +724,7 @@ class NotificationRepository @Inject constructor(
             locallySeen = readState.locallySeen || previous?.locallySeen == true,
             serverAcknowledged = readState.serverAcknowledged || previous?.serverAcknowledged == true,
             androidPresented = readState.androidPresented || previous?.androidPresented == true,
+            androidDismissed = readState.androidDismissed || previous?.androidDismissed == true,
         ))
     }
 
@@ -891,6 +909,7 @@ private fun encodeNotification(notification: Notification): JSONObject = JSONObj
     put("locallySeen", notification.readState.locallySeen)
     put("serverAcknowledged", notification.readState.serverAcknowledged)
     put("androidPresented", notification.readState.androidPresented)
+    put("androidDismissed", notification.readState.androidDismissed)
     put("rawType", notification.rawType)
     notification.group?.let { put("group", encodeGroup(it)) }
 }
@@ -911,6 +930,7 @@ private fun decodeNotification(json: JSONObject): Notification = Notification(
         locallySeen = json.optBoolean("locallySeen"),
         serverAcknowledged = json.optBoolean("serverAcknowledged"),
         androidPresented = json.optBoolean("androidPresented"),
+        androidDismissed = json.optBoolean("androidDismissed"),
     ),
     rawType = json.optString("rawType", "unknown"),
     group = json.optJSONObject("group")?.let(::decodeGroup),

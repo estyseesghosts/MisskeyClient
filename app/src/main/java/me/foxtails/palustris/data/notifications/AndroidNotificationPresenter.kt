@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -53,12 +54,14 @@ class NotificationPresentationFactory @Inject constructor(
             ?.joinToString()
             ?: notification.actors.map { it.displayName }.filter(String::isNotBlank).joinToString()
         val safeActorLabel = actorLabel.ifBlank { context.getString(R.string.notifications_actorless) }
-        val body = if (showPreview && !notification.post?.text.isNullOrBlank()) {
-            notification.post?.text.orEmpty()
-        } else if (showPreview && notification.post?.contentWarning != null) {
-            notification.post.contentWarning.orEmpty()
-        } else {
-            safeActorLabel
+        val body = when {
+            !showPreview -> safeActorLabel
+            notification.post?.contentWarning != null -> notification.post.contentWarning
+                .takeUnless(String::isNullOrBlank)
+                ?.let { context.getString(R.string.notifications_content_warning_with_text, it) }
+                ?: context.getString(R.string.notifications_content_warning)
+            !notification.post?.text.isNullOrBlank() -> notification.post?.text.orEmpty()
+            else -> safeActorLabel
         }
         return NotificationPresentation(
             accountId = notification.accountId,
@@ -103,24 +106,49 @@ class AndroidNotificationPresenter @Inject constructor(
                 Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
         ) return false
+        if (!manager.areNotificationsEnabled()) return false
         ensureChannels()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            context.getSystemService(NotificationManager::class.java)
+                .getNotificationChannel(channelId(presentation.channel))?.importance == NotificationManager.IMPORTANCE_NONE
+        ) return false
+        val launch = NotificationLaunch(
+            presentation.accountId,
+            presentation.notificationId,
+        )
         val pendingIntent = PendingIntent.getActivity(
             context,
             presentation.androidId,
-            NotificationLaunchRouter.intentFor(
-                NotificationLaunch(presentation.accountId, presentation.notificationId),
-            ).setClass(context, MainActivity::class.java),
+            NotificationLaunchRouter.intentFor(launch).setClass(context, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val deleteIntent = PendingIntent.getBroadcast(
+            context,
+            presentation.androidId,
+            NotificationLaunchRouter.intentFor(launch).apply {
+                action = NotificationLaunchRouter.ACTION_DISMISS
+                setClass(context, AndroidNotificationDismissReceiver::class.java)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val publicVersion = NotificationCompat.Builder(context, channelId(presentation.channel))
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(context.getString(R.string.notifications_public_title))
+            .setContentText(context.getString(R.string.notifications_public_text))
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
         val builder = NotificationCompat.Builder(context, channelId(presentation.channel))
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(presentation.title)
             .setContentText(presentation.body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(presentation.body))
             .setContentIntent(pendingIntent)
+            .setDeleteIntent(deleteIntent)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
             .setGroup(presentation.group)
         return try {
             manager.notify(presentation.tag, presentation.androidId, builder.build())

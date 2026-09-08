@@ -112,4 +112,6 @@ data class NotificationReadState(
     val serverAcknowledged: Boolean = false,
     /** True after this event has been handed to the Android notification presenter. */
     val androidPresented: Boolean = false,
+    /** True after the user dismissed the Android alert; this is not a server read. */
+    val androidDismissed: Boolean = false,
 )

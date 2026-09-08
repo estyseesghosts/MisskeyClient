@@ -44,5 +44,8 @@
                 <action android:name="org.unifiedpush.android.connector.PUSH_EVENT" />
             </intent-filter>
         </service>
+        <receiver
+            android:name=".data.notifications.AndroidNotificationDismissReceiver"
+            android:exported="false" />
     </application>
 </manifest>

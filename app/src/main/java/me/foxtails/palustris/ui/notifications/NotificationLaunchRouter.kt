@@ -33,7 +33,13 @@ class NotificationLaunchRouter @Inject constructor() {
     }
 
     fun parse(intent: Intent): NotificationLaunch? {
-        if (intent.action != Intent.ACTION_VIEW) return null
+        return parse(intent, Intent.ACTION_VIEW)
+    }
+
+    fun parseDismiss(intent: Intent): NotificationLaunch? = parse(intent, ACTION_DISMISS)
+
+    private fun parse(intent: Intent, expectedAction: String): NotificationLaunch? {
+        if (intent.action != expectedAction) return null
         val origin = intent.getStringExtra(EXTRA_ORIGIN)?.trim().orEmpty()
         val localId = intent.getStringExtra(EXTRA_ACCOUNT_LOCAL_ID)?.trim().orEmpty()
         val protocol = intent.getStringExtra(EXTRA_PROTOCOL)?.trim().orEmpty()
@@ -56,6 +62,7 @@ class NotificationLaunchRouter @Inject constructor() {
         const val SCHEME = "palustris"
         const val HOST = "notification"
         const val PATH = "/open"
+        const val ACTION_DISMISS = "me.foxtails.palustris.action.NOTIFICATION_DISMISSED"
         private const val PATH_SEGMENT = "open"
 
         fun intentFor(launch: NotificationLaunch): Intent = Intent(Intent.ACTION_VIEW).apply {

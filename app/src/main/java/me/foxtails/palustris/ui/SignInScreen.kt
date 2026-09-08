@@ -197,6 +197,7 @@ fun ConnectedApp(
                     notificationSettingsModel?.setCategoryEnabled(category, enabled)
                 },
                 onNotificationLocalTest = { notificationSettingsModel?.runLocalPresentationTest() },
+                onNotificationRetryRegistration = { notificationSettingsModel?.retryRegistration() },
                 onNotificationPermissionChanged = { notificationSettingsModel?.refreshPermission() },
                 profileState = profileState,
                 onProfileShown = { seed -> profileModel?.open(seed) },

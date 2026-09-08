@@ -91,6 +91,25 @@ class NotificationRepositoryTest {
     }
 
     @Test
+    fun androidDismissalIsPersistedWithoutMarkingNotificationRead() = runBlocking {
+        val store = InMemoryNotificationStore()
+        val repository = NotificationRepository(store)
+        val token = NotificationSyncToken(account, 1)
+        repository.activate(token)
+        val item = notification("swiped", NotificationActivity.Mention)
+        repository.ingest(token, NotificationPage(listOf(item), unreadState = NotificationUnreadState.Exact(1)))
+
+        assertTrue(repository.markAndroidDismissed(account, item.id))
+
+        val readState = repository.observe(account).value.items.single().readState
+        assertEquals(NotificationReadStatus.Unknown, readState.status)
+        assertFalse(readState.serverAcknowledged)
+        assertFalse(readState.androidPresented)
+        assertTrue(readState.androidDismissed)
+        assertTrue(NotificationRepository(store).observe(account).value.items.single().readState.androidDismissed)
+    }
+
+    @Test
     fun localDismissalIsAStableTombstoneAcrossRepositoryRecreation() = runBlocking {
         val store = InMemoryNotificationStore()
         val first = NotificationRepository(store)

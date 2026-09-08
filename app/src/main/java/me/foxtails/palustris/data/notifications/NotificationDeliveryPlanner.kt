@@ -47,7 +47,8 @@ class NotificationDeliveryPlanner @Inject constructor() {
             else -> NotificationChannelKind.Social
         }
         val decision = when {
-            notification.readState.androidPresented -> NotificationDeliveryDecision.AlreadyPresented
+            notification.readState.androidPresented || notification.readState.androidDismissed ->
+                NotificationDeliveryDecision.AlreadyPresented
             !settings.alertsEnabled || !categoryEnabled(notification, settings) || foreground ->
                 NotificationDeliveryDecision.SuppressedBySettings
             !permissionGranted -> NotificationDeliveryDecision.PermissionRequired

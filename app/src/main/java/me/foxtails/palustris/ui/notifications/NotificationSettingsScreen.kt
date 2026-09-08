@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
+import me.foxtails.palustris.domain.PushRegistrationFailureReason
 
 @Composable
 fun NotificationSettingsScreen(
@@ -37,6 +38,7 @@ fun NotificationSettingsScreen(
     onQuietHours: (Boolean) -> Unit = {},
     onCategoryChanged: (NotificationCategory, Boolean) -> Unit = { _, _ -> },
     onRunLocalTest: () -> Unit = {},
+    onRetryRegistration: () -> Unit = {},
     onPermissionChanged: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -109,10 +111,17 @@ fun NotificationSettingsScreen(
             }
         }
         Text(
-            registrationText(state.registrationState),
+            registrationText(state.registrationState, state.failureReason),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(stringResource(R.string.notifications_settings_connector_deferred), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (state.registrationState != NotificationPushRegistrationState.Connected &&
+            state.registrationState != NotificationPushRegistrationState.Off
+        ) {
+            TextButton(
+                onClick = onRetryRegistration,
+                enabled = !state.saving,
+            ) { Text(stringResource(R.string.notifications_settings_retry_registration)) }
+        }
         TextButton(onClick = onRunLocalTest, enabled = !state.saving) {
             Text(stringResource(R.string.notifications_settings_local_test))
         }
@@ -141,9 +150,23 @@ private fun SettingSwitch(
 }
 
 @Composable
-private fun registrationText(state: NotificationPushRegistrationState): String = when (state) {
+private fun registrationText(
+    state: NotificationPushRegistrationState,
+    reason: PushRegistrationFailureReason?,
+): String = when {
+    reason == PushRegistrationFailureReason.Unsupported -> stringResource(R.string.notifications_settings_registration_unsupported)
+    reason == PushRegistrationFailureReason.Unauthorized -> stringResource(R.string.notifications_settings_registration_reauthorize)
+    state == NotificationPushRegistrationState.RegisteringWithDistributor -> stringResource(R.string.notifications_settings_registration_distributor)
+    state == NotificationPushRegistrationState.EndpointReceived -> stringResource(R.string.notifications_settings_registration_endpoint)
+    state == NotificationPushRegistrationState.RegisteringWithServer -> stringResource(R.string.notifications_settings_registration_server)
+    state == NotificationPushRegistrationState.TemporarilyUnavailable -> stringResource(R.string.notifications_settings_registration_retrying)
+    state == NotificationPushRegistrationState.AccessDenied -> stringResource(R.string.notifications_settings_registration_reauthorize)
+    state == NotificationPushRegistrationState.DistributorSelectionRequired -> stringResource(R.string.notifications_settings_registration_choose_distributor)
+    state == NotificationPushRegistrationState.PermissionRequired -> stringResource(R.string.notifications_settings_registration_permission)
+    else -> when (state) {
     NotificationPushRegistrationState.Off -> stringResource(R.string.notifications_settings_registration_off)
     NotificationPushRegistrationState.NoDistributor -> stringResource(R.string.notifications_settings_registration_no_distributor)
     NotificationPushRegistrationState.Connected -> stringResource(R.string.notifications_settings_registration_connected)
     else -> stringResource(R.string.notifications_settings_registration_pending)
+    }
 }

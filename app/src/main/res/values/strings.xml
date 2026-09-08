@@ -13,6 +13,10 @@
     <string name="notifications_follow_action_in_progress">Updating follow request</string>
     <string name="notifications_follow_action_failed">Couldn’t update follow request</string>
     <string name="notifications_actorless">Activity from your server</string>
+    <string name="notifications_content_warning">Content warning</string>
+    <string name="notifications_content_warning_with_text">Content warning: %1$s</string>
+    <string name="notifications_public_title">Palustris notification</string>
+    <string name="notifications_public_text">Open Palustris to view this notification.</string>
     <string name="notifications_grouped_actors">%1$s and %2$d others</string>
     <string name="notifications_grouped_two_actors">%1$s and %2$s</string>
     <string name="notifications_grouped_many_actors">%1$s, %2$s, and %3$d others</string>
@@ -85,5 +89,14 @@
     <string name="notifications_settings_registration_off">Device alert registration is off.</string>
     <string name="notifications_settings_registration_no_distributor">No external distributor is available.</string>
     <string name="notifications_settings_registration_connected">Connected to the selected distributor and server.</string>
+    <string name="notifications_settings_registration_distributor">Registering with the notification distributor.</string>
+    <string name="notifications_settings_registration_endpoint">Waiting to reconcile the distributor endpoint.</string>
+    <string name="notifications_settings_registration_server">Registering this account with the server.</string>
+    <string name="notifications_settings_registration_retrying">Delivery registration will retry when the network is available.</string>
+    <string name="notifications_settings_registration_unsupported">This server or credential cannot use push registration; periodic inbox refresh remains available.</string>
+    <string name="notifications_settings_registration_reauthorize">Reauthorize this account with notification push access, then retry.</string>
+    <string name="notifications_settings_registration_choose_distributor">Choose an installed notification distributor.</string>
+    <string name="notifications_settings_registration_permission">Android notification permission is required for device alerts.</string>
+    <string name="notifications_settings_retry_registration">Retry registration</string>
     <string name="notifications_settings_registration_pending">Delivery registration is pending or retrying.</string>
 </resources>
