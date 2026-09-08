@@ -61,6 +61,7 @@ import me.foxtails.palustris.ui.CompactFilterDockHeight
 import me.foxtails.palustris.ui.CompactOverlayHorizontalPadding
 import me.foxtails.palustris.ui.components.FilterChipEntry
 import me.foxtails.palustris.ui.components.FilterChipRow
+import me.foxtails.palustris.ui.media.MediaOpenRequest
 
 @Composable
 fun ProfileScreen(
@@ -86,6 +87,7 @@ fun ProfileScreen(
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+    onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
     LaunchedEffect(account?.id) {
         account?.let(onProfileShown)
@@ -136,6 +138,7 @@ fun ProfileScreen(
             onReshare = onReshare,
             onBookmark = onBookmark,
             onReaction = onReaction,
+            onOpenMedia = onOpenMedia,
             header = {
                 ProfileHeader(
                     account = displayedAccount,

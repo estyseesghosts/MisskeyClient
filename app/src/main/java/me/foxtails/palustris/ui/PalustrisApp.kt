@@ -72,6 +72,8 @@ import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfileScreen as RichProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
+import me.foxtails.palustris.ui.media.MediaOpenRequest
+import me.foxtails.palustris.ui.media.MediaViewerScreen
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
@@ -384,6 +386,7 @@ fun PalustrisApp(
     var profileBiography by rememberSaveable { mutableStateOf("") }
     var profileDialog by rememberSaveable { mutableStateOf(false) }
     var signOutDialog by remember { mutableStateOf(false) }
+    var mediaRequest by remember { mutableStateOf<MediaOpenRequest?>(null) }
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
     var notificationRoute by remember { mutableStateOf<AppRoute?>(initialNotificationRoute) }
     var closing by remember { mutableStateOf(false) }
@@ -393,7 +396,7 @@ fun PalustrisApp(
         "NotificationSettings" -> Overlay.NotificationSettings
         else -> null
     }
-    val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog
+    val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog || mediaRequest != null
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
     val profileTargetId = viewedProfile?.id ?: account?.id
     val refreshedProfile = profileState.account?.takeIf { it.id == profileTargetId }
@@ -431,6 +434,7 @@ fun PalustrisApp(
         composerTarget = null
         composerQuoteOf = null
         savedQuoteOf = null
+        mediaRequest = null
     }
     LaunchedEffect(initialNotificationRoute) {
         notificationRoute = initialNotificationRoute
@@ -576,8 +580,15 @@ fun PalustrisApp(
         onSearchAccounts(hashtag)
     }
 
-    BackHandler(enabled = notificationRoute != null || overlay != null || page != null || destination != Destination.Home) {
+    fun openMedia(request: MediaOpenRequest) {
+        if (account?.id != null && request.ownedPost.fetchedBy != account.id) return
+        if (request.attachmentIndex !in request.ownedPost.post.attachments.indices) return
+        mediaRequest = request
+    }
+
+    BackHandler(enabled = mediaRequest != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home) {
         when {
+            mediaRequest != null -> mediaRequest = null
             overlay == Overlay.NotificationSettings -> closeNotificationSettings()
             overlay == Overlay.Composer -> closeComposer()
             overlay == Overlay.EditProfile -> closeProfile()
@@ -637,8 +648,9 @@ fun PalustrisApp(
                                     onReact = onReact,
                                     onReply = onReply,
                                     onReshare = onReshare,
-                                    onReaction = onReaction,
-                                    availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
+                                     onReaction = onReaction,
+                                     onOpenMedia = ::openMedia,
+                                     availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
                                     onOpenProfile = ::openProfile,
                                     onSearchHashtag = ::openHashtagSearch,
                                 )
@@ -646,8 +658,8 @@ fun PalustrisApp(
                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                             LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                                Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
-                                Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill, compactLayout = !wide, compactNavigationVisible = !wide)
+                                 Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenMedia = ::openMedia) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                 Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill, compactLayout = !wide, compactNavigationVisible = !wide, mediaOwner = account?.id, onOpenMedia = ::openMedia)
                                 Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(
                                     connected = account != null,
                                     compactLayout = !wide,
@@ -697,8 +709,9 @@ fun PalustrisApp(
                                     onReply = onReply,
                                     onReshare = onReshare,
                                     onBookmark = onBookmark,
-                                    onReaction = onReaction,
-                                )
+                                     onReaction = onReaction,
+                                     onOpenMedia = ::openMedia,
+                                 )
                             } }
                         }
                     }
@@ -771,6 +784,16 @@ fun PalustrisApp(
                 }
             }
         }
+    }
+
+    mediaRequest?.let { request ->
+        MediaViewerScreen(
+            request = request,
+            onClose = { mediaRequest = null },
+            onReact = onReact,
+            onReply = onReply,
+            onReshare = onReshare,
+        )
     }
 
     if (sheet != null) ModalBottomSheet(onDismissRequest = { sheet = null }) {

@@ -27,7 +27,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.ui.components.CategoryChips
+import me.foxtails.palustris.ui.media.MediaOpenRequest
 
 private val exactHashtagQuery = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
 
@@ -42,6 +44,8 @@ fun SearchScreen(
     initialQuery: String = "",
     compactLayout: Boolean = true,
     compactNavigationVisible: Boolean = false,
+    mediaOwner: AccountId? = null,
+    onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
     if (mode == SearchPanel.Alternate) {
         EmptyState(AppIcons.WaffleGrid, "Alternate search", "A second search surface will be available in a future update.")
@@ -84,6 +88,8 @@ fun SearchScreen(
                 onAccountClick = onAccountClick,
                 onLoadMoreSearch = onLoadMoreSearch,
                 endClearance = 0.dp,
+                mediaOwner = mediaOwner,
+                onOpenMedia = onOpenMedia,
             )
         }
     } else {
@@ -98,6 +104,8 @@ fun SearchScreen(
                 onAccountClick = onAccountClick,
                 onLoadMoreSearch = onLoadMoreSearch,
                 endClearance = searchEndClearance,
+                mediaOwner = mediaOwner,
+                onOpenMedia = onOpenMedia,
             )
             Box(
                 Modifier
@@ -130,10 +138,12 @@ private fun SearchContent(
     onAccountClick: (Account) -> Unit,
     onLoadMoreSearch: () -> Unit,
     endClearance: Dp,
+    mediaOwner: AccountId?,
+    onOpenMedia: (MediaOpenRequest) -> Unit,
 ) {
     Box(modifier.testTag("search_content")) {
         if (tab == 0 || hashtagSearchRequested) {
-            if (hashtagSearchRequested) HashtagSearchResults(accountSearch, query, onLoadMoreSearch, endClearance)
+             if (hashtagSearchRequested) HashtagSearchResults(accountSearch, query, onLoadMoreSearch, endClearance, mediaOwner, onOpenMedia)
             else AccountSearchResults(query, accountSearch, onAccountClick, endClearance)
         } else {
             EmptyState(
@@ -184,6 +194,8 @@ private fun HashtagSearchResults(
     query: String,
     onLoadMore: () -> Unit,
     endClearance: Dp,
+    mediaOwner: AccountId?,
+    onOpenMedia: (MediaOpenRequest) -> Unit,
 ) {
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -194,10 +206,11 @@ private fun HashtagSearchResults(
         ) {
             items(state.posts, key = { "${it.id.connection}/${it.id.value}" }) { post ->
                 PostRow(
-                    ownedPost = OwnedPost(post.author.id, post),
+                    ownedPost = OwnedPost(mediaOwner ?: post.author.id, post),
                     availableActions = emptySet(),
                     onReact = {}, onReply = {}, onReshare = {}, onBookmark = {}, onReaction = { _, _ -> }, onOpenProfile = {},
                     onSearchHashtag = null,
+                    onOpenMedia = if (mediaOwner != null) onOpenMedia else { _: MediaOpenRequest -> },
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
             }

@@ -46,6 +46,8 @@ import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import kotlinx.coroutines.flow.distinctUntilChanged
 import me.foxtails.palustris.domain.*
+import me.foxtails.palustris.ui.media.MediaOpenRequest
+import me.foxtails.palustris.ui.media.PostMediaCarousel
 
 internal fun openExternal(context: Context, url: String?) {
     val uri = url?.toUri() ?: return
@@ -76,6 +78,7 @@ fun HomeFeed(
     onQuote: (OwnedPost) -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
+    onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
     val list = rememberLazyListState()
     val pullToRefreshState = rememberPullToRefreshState()
@@ -155,6 +158,7 @@ fun HomeFeed(
                     onSearchHashtag,
                     quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported,
                     onQuote = onQuote,
+                    onOpenMedia = onOpenMedia,
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
             }
@@ -199,6 +203,7 @@ internal fun PostRow(
     onSearchHashtag: ((String) -> Unit)?,
     quoteEnabled: Boolean = false,
     onQuote: (OwnedPost) -> Unit = {},
+    onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
@@ -239,7 +244,7 @@ internal fun PostRow(
                     }
                 }
             }
-            post.attachments.forEach { AttachmentView(it) }
+            PostMediaCarousel(ownedPost = ownedPost, onOpenMedia = onOpenMedia)
             post.pollOptions.forEach { option ->
                 Surface(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
                     Row(Modifier.padding(12.dp)) { Text(option.text, Modifier.weight(1f)); Text("${option.votes}", style = MaterialTheme.typography.labelLarge) }
@@ -541,7 +546,7 @@ private fun InteractionButton(
     }
 }
 
-private fun sharePost(context: Context, post: Post) {
+internal fun sharePost(context: Context, post: Post) {
     val text = post.url ?: post.text
     try {
         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
@@ -550,30 +555,5 @@ private fun sharePost(context: Context, post: Post) {
         }, "Share post"))
     } catch (_: android.content.ActivityNotFoundException) {
         Toast.makeText(context, "No app can share this post.", Toast.LENGTH_SHORT).show()
-    }
-}
-
-@Composable
-private fun AttachmentView(attachment: Attachment) {
-    var revealed by rememberSaveable(attachment.url) { mutableStateOf(!attachment.sensitive) }
-    val context = LocalContext.current
-    if (!revealed) Surface(Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 16.dp, vertical = 4.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.large) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Icon(AppIcons.Image, null)
-            TextButton(onClick = { revealed = true }) { Text("Show sensitive media") }
-        }
-    } else Column {
-        if (attachment.mimeType.startsWith("image/") || attachment.previewUrl != null) AsyncImage(
-            model = attachment.previewUrl ?: attachment.url,
-            contentDescription = attachment.description ?: "Post attachment",
-            modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 360.dp).padding(vertical = 4.dp).clickable { openExternal(context, attachment.url) },
-            contentScale = ContentScale.Fit,
-        )
-        if (attachment.sensitive) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-                TextButton(onClick = { revealed = false }) { Text("Hide media") }
-            }
-        }
     }
 }

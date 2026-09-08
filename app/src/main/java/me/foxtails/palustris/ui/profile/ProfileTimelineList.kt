@@ -46,6 +46,7 @@ import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.PostRow
 import me.foxtails.palustris.ui.components.FilterChipEntry
 import me.foxtails.palustris.ui.components.FilterChipRow
+import me.foxtails.palustris.ui.media.MediaOpenRequest
 
 @Composable
 internal fun ProfileTimelineList(
@@ -67,6 +68,7 @@ internal fun ProfileTimelineList(
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
     onReaction: (OwnedPost, String) -> Unit,
+    onOpenMedia: (MediaOpenRequest) -> Unit,
     header: @Composable () -> Unit,
     details: @Composable () -> Unit,
 ) {
@@ -134,6 +136,7 @@ internal fun ProfileTimelineList(
                 onReaction = onReaction,
                 onOpenProfile = onOpenProfile,
                 onSearchHashtag = onSearchHashtag,
+                onOpenMedia = onOpenMedia,
             )
             if (state.selectedTab == ProfileCategory.ShowMore) {
                 item(key = "profile-details") { details() }
@@ -150,6 +153,7 @@ internal fun ProfileTimelineList(
                     onReaction = onReaction,
                     onOpenProfile = onOpenProfile,
                     onSearchHashtag = onSearchHashtag,
+                    onOpenMedia = onOpenMedia,
                 )
             }
         }
@@ -203,6 +207,7 @@ private fun LazyListScope.profilePinnedItems(
     onReaction: (OwnedPost, String) -> Unit,
     onOpenProfile: (Account) -> Unit,
     onSearchHashtag: (String) -> Unit,
+    onOpenMedia: (MediaOpenRequest) -> Unit,
 ) {
     if (state.pinnedLoading) item(key = "profile-pinned-loading") {
         Text("Featured posts", Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
@@ -233,6 +238,7 @@ private fun LazyListScope.profilePinnedItems(
                 onReaction = onReaction,
                 onOpenProfile = onOpenProfile,
                 onSearchHashtag = onSearchHashtag,
+                onOpenMedia = onOpenMedia,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
         }
@@ -251,6 +257,7 @@ private fun LazyListScope.profilePageItems(
     onReaction: (OwnedPost, String) -> Unit,
     onOpenProfile: (Account) -> Unit,
     onSearchHashtag: (String) -> Unit,
+    onOpenMedia: (MediaOpenRequest) -> Unit,
 ) {
     if (page == null || page.initialLoading && page.posts.isEmpty()) {
         item(key = "profile-timeline-loading") {
@@ -286,6 +293,7 @@ private fun LazyListScope.profilePageItems(
             onReaction = onReaction,
             onOpenProfile = onOpenProfile,
             onSearchHashtag = onSearchHashtag,
+            onOpenMedia = onOpenMedia,
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
     }

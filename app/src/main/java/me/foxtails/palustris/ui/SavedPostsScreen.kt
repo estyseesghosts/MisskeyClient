@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.asPaddingValues
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.ui.media.MediaOpenRequest
 
 @Composable
 fun SavedPostsScreen(
@@ -42,6 +43,7 @@ fun SavedPostsScreen(
     availableActions: Set<PostAction> = setOf(PostAction.Bookmark),
     onOpenProfile: (me.foxtails.palustris.domain.Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
+    onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
     val title = if (state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites) "favourites" else "bookmarks"
     val refreshState = rememberPullToRefreshState()
@@ -96,6 +98,7 @@ fun SavedPostsScreen(
                         onReaction = onReaction,
                         onOpenProfile = onOpenProfile,
                         onSearchHashtag = onSearchHashtag,
+                        onOpenMedia = onOpenMedia,
                     )
                     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 }
