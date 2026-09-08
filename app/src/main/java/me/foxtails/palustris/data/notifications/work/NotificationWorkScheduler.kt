@@ -45,6 +45,17 @@ class NotificationWorkScheduler @Inject constructor(
         )
     }
 
+    fun enqueueRegistration(accountId: AccountId) {
+        workManager.enqueueUniqueWork(
+            NotificationWorkNames.registration(accountId),
+            ExistingWorkPolicy.KEEP,
+            OneTimeWorkRequestBuilder<PushRegistrationWorker>()
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .setInputData(accountData(accountId))
+                .build(),
+        )
+    }
+
     fun schedulePeriodicFallback(accountId: AccountId) {
         workManager.cancelUniqueWork(NotificationWorkNames.reconcile(accountId))
         workManager.enqueueUniquePeriodicWork(
@@ -61,6 +72,7 @@ class NotificationWorkScheduler @Inject constructor(
         workManager.cancelUniqueWork(NotificationWorkNames.reconcile(accountId))
         workManager.cancelUniqueWork(NotificationWorkNames.catchUp(accountId))
         workManager.cancelUniqueWork(NotificationWorkNames.delivery(accountId))
+        workManager.cancelUniqueWork(NotificationWorkNames.registration(accountId))
         cancelPeriodicFallback(accountId)
     }
 

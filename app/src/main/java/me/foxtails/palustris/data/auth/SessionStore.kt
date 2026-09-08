@@ -9,9 +9,11 @@ import me.foxtails.palustris.domain.AccessGrant
 import me.foxtails.palustris.domain.AccessScope
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.PushSessionState
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
+import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -57,6 +59,58 @@ interface SessionStore {
     fun writeIndex(index: AccountIndex)
     fun clear()
     fun writePushInstance(accountId: AccountId, instanceName: String) = Unit
+
+    /** Atomically replaces encrypted callback state only when the instance still owns the account. */
+    fun recordPushEndpoint(
+        accountId: AccountId,
+        instanceName: String,
+        endpoint: ValidatedUrl,
+        publicKey: String,
+        authSecret: String,
+        callbackAtEpochMillis: Long = System.currentTimeMillis(),
+    ): Boolean {
+        val session = read(accountId) ?: return false
+        if (session.pushInstanceName != instanceName || publicKey.isBlank() || authSecret.isBlank()) return false
+        val old = session.pushState
+        val changed = old.endpoint != endpoint || old.publicKey != publicKey || old.authSecret != authSecret
+        write(accountId, session.copy(
+            pushState = old.copy(
+                endpoint = endpoint,
+                publicKey = publicKey,
+                authSecret = authSecret,
+                endpointGeneration = if (changed) old.endpointGeneration + 1 else old.endpointGeneration,
+                endpointCallbackPending = true,
+                lastCallbackAtEpochMillis = callbackAtEpochMillis,
+            ),
+        ))
+        return true
+    }
+
+    fun recordPushMessageHint(accountId: AccountId, instanceName: String): Boolean {
+        val session = read(accountId) ?: return false
+        if (session.pushInstanceName != instanceName) return false
+        write(accountId, session.copy(pushState = session.pushState.copy(messageHintPending = true)))
+        return true
+    }
+
+    fun clearPushEndpointPending(accountId: AccountId, instanceName: String): Boolean = updatePushState(accountId, instanceName) {
+        it.copy(endpointCallbackPending = false)
+    }
+
+    fun clearPushMessageHint(accountId: AccountId, instanceName: String): Boolean = updatePushState(accountId, instanceName) {
+        it.copy(messageHintPending = false)
+    }
+
+    fun updatePushState(
+        accountId: AccountId,
+        instanceName: String,
+        update: (PushSessionState) -> PushSessionState,
+    ): Boolean {
+        val session = read(accountId) ?: return false
+        if (session.pushInstanceName != instanceName) return false
+        write(accountId, session.copy(pushState = update(session.pushState)))
+        return true
+    }
 
     /** Pending authentication is intentionally separate from committed account sessions. */
     fun readPending(): PendingLogin? = null
@@ -167,6 +221,15 @@ class EncryptedSessionStore private constructor(
     override fun writePushInstance(accountId: AccountId, instanceName: String) {
         migrateFromLegacy()
         accountFiles.writePushInstance(accountId, instanceName)
+    }
+
+    override fun updatePushState(
+        accountId: AccountId,
+        instanceName: String,
+        update: (PushSessionState) -> PushSessionState,
+    ): Boolean {
+        migrateFromLegacy()
+        return accountFiles.updatePushState(accountId, instanceName, update)
     }
 
     private fun readIndexInternal(): AccountIndex {

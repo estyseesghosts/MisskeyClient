@@ -228,6 +228,23 @@ class NotificationRepository @Inject constructor(
         NotificationSyncToken(accountId, it)
     }
 
+    /** Rehydrates a worker token only when the durable registration still belongs to this session. */
+    @Synchronized
+    fun recoverToken(accountId: AccountId, sessionRevision: Long): NotificationSyncToken? {
+        val registration = stateForLocked(accountId).value.pushRegistration
+        if (registration != null && registration.sessionRevision != 0L &&
+            registration.sessionRevision != sessionRevision
+        ) return null
+        val generation = maxOf(
+            generations[accountId] ?: 0L,
+            registration?.generation ?: 0L,
+            sessionRevision,
+        )
+        val token = NotificationSyncToken(accountId, generation)
+        activate(token)
+        return token
+    }
+
     @Synchronized
     fun invalidate(accountId: AccountId, generation: Long) {
         val next = maxOf(generations[accountId] ?: 0L, generation + 1L)
@@ -752,6 +769,7 @@ private fun decode(json: JSONObject): NotificationRepositoryState {
 private fun encodePushRegistration(registration: PushRegistration): JSONObject = JSONObject().apply {
     put("accountId", encodeAccountId(registration.accountId))
     put("generation", registration.generation)
+    put("sessionRevision", registration.sessionRevision)
     put("instanceName", registration.instanceName)
     registration.distributorPackage?.let { put("distributorPackage", it) }
     registration.endpoint?.let { put("endpoint", it.value) }
@@ -778,6 +796,7 @@ private fun decodePushRegistration(json: JSONObject): PushRegistration {
     return PushRegistration(
         accountId = decodeAccountId(json.getJSONObject("accountId")),
         generation = json.optLong("generation"),
+        sessionRevision = json.optLong("sessionRevision", 1L),
         instanceName = json.getString("instanceName"),
         distributorPackage = json.optString("distributorPackage").takeIf { it.isNotBlank() },
         endpoint = endpoint,

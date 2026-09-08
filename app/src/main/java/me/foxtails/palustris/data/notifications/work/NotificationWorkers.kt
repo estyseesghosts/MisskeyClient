@@ -58,11 +58,10 @@ abstract class AccountNotificationWorker(
     )
 
     protected suspend fun token(accountId: AccountId): NotificationSyncToken? {
+        val session = dependencies().sessionStore().read(accountId) ?: return null
         val repository = dependencies().repository()
         repository.currentToken(accountId)?.let { return it }
-        val token = NotificationSyncToken(accountId, 1L)
-        repository.activate(token)
-        return token
+        return repository.recoverToken(accountId, session.sessionRevision)
     }
 }
 
@@ -81,6 +80,11 @@ class NotificationReconcileWorker(
                 dependencies.sourceFactory().create(session),
                 token,
             )
+            if (!result.delayed) {
+                dependencies.sessionStore().read(accountId)?.pushInstanceName?.let { instance ->
+                    dependencies.sessionStore().clearPushMessageHint(accountId, instance)
+                }
+            }
             dependencies.scheduler().enqueueDelivery(accountId)
             if (result.delayed) Result.retry() else Result.success()
         } catch (error: IOException) {

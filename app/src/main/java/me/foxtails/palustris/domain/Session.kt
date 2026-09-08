@@ -8,4 +8,7 @@ data class Session(
     val access: AccessGrant = AccessGrant(),
     /** Opaque per-account UnifiedPush instance, kept with the encrypted session. */
     val pushInstanceName: String? = null,
+    /** Durable owner revision used to reject callbacks from an older authentication session. */
+    val sessionRevision: Long = 1L,
+    val pushState: PushSessionState = PushSessionState(),
 )

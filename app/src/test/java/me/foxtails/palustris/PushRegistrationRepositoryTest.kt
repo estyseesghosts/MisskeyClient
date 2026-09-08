@@ -31,7 +31,13 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class PushRegistrationRepositoryTest {
     private val account = AccountId(Connection("https://push.example", Protocol.MASTODON), "receiver")
-    private val session = Session(account, "session-token", ServerCapabilities())
+    private val session = Session(
+        account,
+        "session-token",
+        ServerCapabilities(),
+        pushInstanceName = "push-instance",
+        sessionRevision = 4,
+    )
 
     @Test
     fun callbackOwnerCanRehydrateARepositoryAfterProcessRestart() = runBlocking {
@@ -43,6 +49,7 @@ class PushRegistrationRepositoryTest {
             accountId = account,
             generation = persistedToken.generation,
             instanceName = "push-instance",
+            sessionRevision = session.sessionRevision,
             endpoint = ValidatedUrl.https("https://push.example/endpoint"),
             state = NotificationPushRegistrationState.TemporarilyUnavailable,
         ))
@@ -54,6 +61,9 @@ class PushRegistrationRepositoryTest {
         assertEquals(0L, owner!!.token.generation)
         assertEquals(0L, restarted.currentToken(account)?.generation)
         assertEquals(persistedToken.generation, owner.registration.generation)
+        assertEquals(session.sessionRevision, owner.session.sessionRevision)
+        assertEquals(null, restarted.recoverToken(account, session.sessionRevision + 1))
+        assertEquals(7L, restarted.recoverToken(account, session.sessionRevision)?.generation)
     }
 
     @Test
@@ -78,6 +88,53 @@ class PushRegistrationRepositoryTest {
 
         assertEquals(confirmed, restarted.pushRegistration(account)?.serverEndpoint)
         restarted.remove(account)
+    }
+
+    @Test
+    fun endpointAndMessageCallbacksAreDurableAndDuplicateEndpointDoesNotAdvanceRevision() {
+        val store = MemorySessionStore(session)
+        val endpoint = ValidatedUrl.https("https://push.example/endpoint")!!
+
+        assertEquals(
+            true,
+            store.recordPushEndpoint(
+                account,
+                "push-instance",
+                endpoint,
+                "public-key",
+                "auth-secret",
+            ),
+        )
+        val first = store.read(account)!!.pushState
+        assertEquals(1L, first.endpointGeneration)
+        assertEquals(true, first.endpointCallbackPending)
+
+        store.recordPushEndpoint(account, "push-instance", endpoint, "public-key", "auth-secret")
+        assertEquals(1L, store.read(account)!!.pushState.endpointGeneration)
+        assertEquals(true, store.recordPushMessageHint(account, "push-instance"))
+        assertEquals(true, store.read(account)!!.pushState.messageHintPending)
+        assertEquals(true, store.clearPushEndpointPending(account, "push-instance"))
+        assertEquals(false, store.read(account)!!.pushState.endpointCallbackPending)
+    }
+
+    @Test
+    fun callbackFromAReplacedInstanceCannotClaimTheAccount() {
+        val store = MemorySessionStore(session)
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val owner = PushRegistrationRepository(repository, store)
+        val token = NotificationSyncToken(account, 2)
+        runBlocking {
+            repository.activate(token)
+            repository.updatePushRegistration(token, PushRegistration(
+                accountId = account,
+                generation = token.generation,
+                sessionRevision = session.sessionRevision,
+                instanceName = "push-instance",
+            ))
+        }
+
+        assertNotNull(owner.find("push-instance"))
+        assertEquals(null, owner.find("old-instance"))
     }
 
     private class MemorySessionStore(initial: Session) : SessionStore {

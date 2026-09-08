@@ -18,11 +18,13 @@ import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileCapabilities
 import me.foxtails.palustris.domain.PrimaryFavouriteCapability
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
+import me.foxtails.palustris.domain.PushSessionState
 import me.foxtails.palustris.domain.SavedPostsCapability
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
+import me.foxtails.palustris.domain.ValidatedUrl
 import me.foxtails.palustris.domain.Timeline
 import org.json.JSONArray
 import org.json.JSONObject
@@ -50,11 +52,13 @@ class AccountFileStore internal constructor(
         val json = readJson(file)
         val storedConnection = Connection(json.getString("origin"), Protocol.valueOf(json.getString("protocol")))
         return Session(
-            AccountId(storedConnection, json.getString("localId")),
-            json.getString("token"),
-            json.optJSONObject("capabilities")?.toCapabilities() ?: ServerCapabilities(),
-            json.optJSONObject("access")?.toAccessGrant() ?: AccessGrant(),
-            json.optString("pushInstanceName").takeIf { it.isNotBlank() },
+            accountId = AccountId(storedConnection, json.getString("localId")),
+            token = json.getString("token"),
+            capabilities = json.optJSONObject("capabilities")?.toCapabilities() ?: ServerCapabilities(),
+            access = json.optJSONObject("access")?.toAccessGrant() ?: AccessGrant(),
+            pushInstanceName = json.optString("pushInstanceName").takeIf { it.isNotBlank() },
+            sessionRevision = json.optLong("sessionRevision", 1L).coerceAtLeast(1L),
+            pushState = json.optJSONObject("pushState")?.toPushSessionState() ?: PushSessionState(),
         )
     }
 
@@ -68,6 +72,8 @@ class AccountFileStore internal constructor(
             .put("capabilities", session.capabilities.toJson())
             .put("access", session.access.toJson())
             .put("pushInstanceName", session.pushInstanceName)
+            .put("sessionRevision", session.sessionRevision)
+            .put("pushState", session.pushState.toJson())
             .put("profile", JSONObject(profile.toString())))
     }
 
@@ -76,6 +82,18 @@ class AccountFileStore internal constructor(
         val json = readJson(file)
         json.put("pushInstanceName", instanceName)
         writeJson(file, json)
+    }
+
+    fun updatePushState(
+        accountId: AccountId,
+        instanceName: String,
+        update: (PushSessionState) -> PushSessionState,
+    ): Boolean {
+        val file = fileFor(accountId)
+        val current = read(accountId) ?: return false
+        if (current.pushInstanceName != instanceName) return false
+        write(accountId, current.copy(pushState = update(current.pushState)), readJson(file).optJSONObject("profile") ?: JSONObject())
+        return true
     }
 
     fun writeProfile(accountId: AccountId, profile: JSONObject) {
@@ -138,6 +156,25 @@ class AccountFileStore internal constructor(
         }.generateKey()
     }
 }
+
+private fun PushSessionState.toJson(): JSONObject = JSONObject()
+    .put("endpoint", endpoint?.value)
+    .put("publicKey", publicKey)
+    .put("authSecret", authSecret)
+    .put("endpointGeneration", endpointGeneration)
+    .put("endpointCallbackPending", endpointCallbackPending)
+    .put("messageHintPending", messageHintPending)
+    .put("lastCallbackAt", lastCallbackAtEpochMillis)
+
+private fun JSONObject.toPushSessionState(): PushSessionState = PushSessionState(
+    endpoint = optString("endpoint").takeIf { it.isNotBlank() }?.let(ValidatedUrl::https),
+    publicKey = optString("publicKey").takeIf { it.isNotBlank() },
+    authSecret = optString("authSecret").takeIf { it.isNotBlank() },
+    endpointGeneration = optLong("endpointGeneration"),
+    endpointCallbackPending = optBoolean("endpointCallbackPending"),
+    messageHintPending = optBoolean("messageHintPending"),
+    lastCallbackAtEpochMillis = optLong("lastCallbackAt"),
+)
 
 private fun ServerCapabilities.toJson(): JSONObject = JSONObject()
     .put("timelines", JSONArray(timelines.map { it.name }))

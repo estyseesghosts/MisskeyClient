@@ -90,6 +90,7 @@ private val selectableNotificationCategories = NotificationCategory.entries
 data class PushRegistration(
     val accountId: AccountId,
     val generation: Long,
+    val sessionRevision: Long = 1L,
     val instanceName: String,
     val distributorPackage: String? = null,
     /** The latest endpoint reported by the distributor; it may still be pending server registration. */

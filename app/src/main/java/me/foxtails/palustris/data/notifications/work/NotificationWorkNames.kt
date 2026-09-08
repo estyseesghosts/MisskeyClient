@@ -11,6 +11,7 @@ object NotificationWorkNames {
     fun reconcile(accountId: AccountId): String = "notifications.reconcile.${accountKey(accountId)}"
     fun catchUp(accountId: AccountId): String = "notifications.catch-up.${accountKey(accountId)}"
     fun delivery(accountId: AccountId): String = "notifications.delivery.${accountKey(accountId)}"
+    fun registration(accountId: AccountId): String = "notifications.registration.${accountKey(accountId)}"
     fun periodic(accountId: AccountId): String = "notifications.periodic.${accountKey(accountId)}"
 
     private fun accountKey(accountId: AccountId): String = MessageDigest.getInstance("SHA-256")

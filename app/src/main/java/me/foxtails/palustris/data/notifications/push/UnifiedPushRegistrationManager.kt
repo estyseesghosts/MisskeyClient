@@ -35,13 +35,18 @@ interface PushRegistrationManager {
     fun onSessionAvailable(accountId: AccountId)
     suspend fun enable(accountId: AccountId)
     suspend fun retry(accountId: AccountId)
+    suspend fun processPendingEndpoint(accountId: AccountId): PushRegistrationWorkResult
     suspend fun disable(accountId: AccountId)
 }
+
+enum class PushRegistrationWorkResult { NoWork, Success, Retry, Terminal }
 
 class NoOpPushRegistrationManager : PushRegistrationManager {
     override fun onSessionAvailable(accountId: AccountId) = Unit
     override suspend fun enable(accountId: AccountId) = Unit
     override suspend fun retry(accountId: AccountId) = Unit
+    override suspend fun processPendingEndpoint(accountId: AccountId): PushRegistrationWorkResult =
+        PushRegistrationWorkResult.NoWork
     override suspend fun disable(accountId: AccountId) = Unit
 }
 
@@ -66,6 +71,9 @@ class UnifiedPushRegistrationManager @Inject constructor(
             if (registration?.state == NotificationPushRegistrationState.Connected) return@launch
             if (registration != null && registration.nextRetryAtEpochMillis > System.currentTimeMillis()) return@launch
             enable(accountId)
+            if (sessionStore.read(accountId)?.pushState?.endpointCallbackPending == true) {
+                scheduler.enqueueRegistration(accountId)
+            }
         }
     }
 
@@ -168,26 +176,58 @@ class UnifiedPushRegistrationManager @Inject constructor(
     }
 
     fun onNewEndpoint(endpoint: PushEndpoint, instanceName: String) {
-        scope.launch { handleNewEndpoint(endpoint, instanceName) }
+        val owner = registrationRepository.find(instanceName) ?: return
+        val publicKeySet = endpoint.pubKeySet ?: return
+        val validatedEndpoint = me.foxtails.palustris.domain.ValidatedUrl.https(endpoint.url) ?: return
+        if (sessionStore.recordPushEndpoint(
+                owner.accountId,
+                instanceName,
+                validatedEndpoint,
+                publicKeySet.pubKey,
+                publicKeySet.auth,
+            )
+        ) {
+            scheduler.enqueueRegistration(owner.accountId)
+        }
     }
 
     fun onMessage(message: PushMessage, instanceName: String) {
-        scope.launch {
-            val owner = registrationRepository.find(instanceName) ?: return@launch
-            if (!message.decrypted) {
-                scheduler.enqueueCatchUp(owner.accountId)
-                return@launch
-            }
-            when (PushPayloadParser.classify(message.content)) {
-                PushPayloadHint.Ignored -> Unit
-                PushPayloadHint.Notification,
-                PushPayloadHint.ReadInvalidation,
-                PushPayloadHint.RegistrationInvalidation,
-                PushPayloadHint.Refresh,
-                PushPayloadHint.RejectedSensitive,
-                -> scheduler.enqueueCatchUp(owner.accountId)
-            }
+        val owner = registrationRepository.find(instanceName) ?: return
+        val shouldCatchUp = !message.decrypted || when (PushPayloadParser.classify(message.content)) {
+            PushPayloadHint.Ignored -> false
+            PushPayloadHint.Notification,
+            PushPayloadHint.ReadInvalidation,
+            PushPayloadHint.RegistrationInvalidation,
+            PushPayloadHint.Refresh,
+            PushPayloadHint.RejectedSensitive,
+            -> true
         }
+        if (shouldCatchUp && sessionStore.recordPushMessageHint(owner.accountId, instanceName)) {
+            scheduler.enqueueCatchUp(owner.accountId)
+        }
+    }
+
+    override suspend fun processPendingEndpoint(accountId: AccountId): PushRegistrationWorkResult {
+        val session = sessionStore.read(accountId) ?: return PushRegistrationWorkResult.NoWork
+        repository.recoverToken(accountId, session.sessionRevision)
+            ?: return PushRegistrationWorkResult.NoWork
+        val registration = repository.pushRegistration(accountId) ?: return PushRegistrationWorkResult.NoWork
+        val endpoint = session.pushState.endpoint ?: return PushRegistrationWorkResult.NoWork
+        val publicKey = session.pushState.publicKey ?: return PushRegistrationWorkResult.Terminal
+        val authSecret = session.pushState.authSecret ?: return PushRegistrationWorkResult.Terminal
+        if (!session.pushState.endpointCallbackPending) return PushRegistrationWorkResult.NoWork
+        val owner = registrationRepository.find(registration.instanceName) ?: return PushRegistrationWorkResult.NoWork
+        if (owner.accountId != accountId || owner.session.sessionRevision != session.sessionRevision) {
+            return PushRegistrationWorkResult.Terminal
+        }
+        return handleNewEndpoint(
+            PushEndpoint(
+                endpoint.value,
+                org.unifiedpush.android.connector.data.PublicKeySet(publicKey, authSecret),
+                false,
+            ),
+            registration.instanceName,
+        )
     }
 
     fun onRegistrationFailed(instanceName: String, reason: String? = null) {
@@ -221,8 +261,11 @@ class UnifiedPushRegistrationManager @Inject constructor(
         )
     }
 
-    private suspend fun handleNewEndpoint(endpoint: PushEndpoint, instanceName: String) = lock.withLock {
-        val owner = registrationRepository.find(instanceName) ?: return
+    private suspend fun handleNewEndpoint(
+        endpoint: PushEndpoint,
+        instanceName: String,
+    ): PushRegistrationWorkResult = lock.withLock {
+        val owner = registrationRepository.find(instanceName) ?: return@withLock PushRegistrationWorkResult.NoWork
         val publicKeySet = endpoint.pubKeySet ?: run {
             update(owner.token, owner.registration.copy(
                 state = NotificationPushRegistrationState.TemporarilyUnavailable,
@@ -230,7 +273,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 failureStage = PushRegistrationFailureStage.EndpointValidation,
                 failureReason = PushRegistrationFailureReason.MissingKeys,
             ))
-            return
+            return@withLock PushRegistrationWorkResult.Terminal
         }
         val validatedEndpoint = me.foxtails.palustris.domain.ValidatedUrl.https(endpoint.url) ?: run {
             update(owner.token, owner.registration.copy(
@@ -239,12 +282,12 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 failureStage = PushRegistrationFailureStage.EndpointValidation,
                 failureReason = PushRegistrationFailureReason.InvalidEndpoint,
             ))
-            return
+            return@withLock PushRegistrationWorkResult.Terminal
         }
         val previousServerEndpoint = owner.registration.serverEndpoint
         if (owner.registration.endpoint == validatedEndpoint &&
             owner.registration.state == NotificationPushRegistrationState.Connected
-        ) return
+        ) return@withLock PushRegistrationWorkResult.Success
         val received = owner.registration.copy(
             generation = owner.token.generation,
             endpoint = validatedEndpoint,
@@ -290,7 +333,9 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 failureReason = null,
                 nextRetryAtEpochMillis = 0,
             ))
+            sessionStore.clearPushEndpointPending(owner.accountId, owner.registration.instanceName)
             scheduler.enqueueCatchUp(owner.accountId)
+            PushRegistrationWorkResult.Success
         } catch (error: CancellationException) {
             throw error
         } catch (error: SourceError) {
@@ -304,6 +349,11 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 failureReason = errorReason(error),
                 nextRetryAtEpochMillis = nextRetryAt(received.retryCount + 1),
             ))
+            if (error == SourceError.Unauthorized || error is SourceError.Unsupported) {
+                PushRegistrationWorkResult.Terminal
+            } else {
+                PushRegistrationWorkResult.Retry
+            }
         } catch (error: Exception) {
             update(owner.token, received.copy(
                 state = NotificationPushRegistrationState.TemporarilyUnavailable,
@@ -314,6 +364,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 failureReason = PushRegistrationFailureReason.Server,
                 nextRetryAtEpochMillis = nextRetryAt(received.retryCount + 1),
             ))
+            PushRegistrationWorkResult.Retry
         }
     }
 

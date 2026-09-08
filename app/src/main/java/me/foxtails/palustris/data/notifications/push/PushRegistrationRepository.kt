@@ -36,6 +36,7 @@ class PushRegistrationRepository @Inject constructor(
         )).copy(
             accountId = token.accountId,
             generation = token.generation,
+            sessionRevision = session.sessionRevision,
             distributorPackage = distributorPackage,
         )
         check(repository.updatePushRegistration(token, registration)) { "Notification account session changed." }
@@ -48,6 +49,14 @@ class PushRegistrationRepository @Inject constructor(
             val session = sessionStore.read(reference.accountId) ?: return@mapNotNull null
             val registration = repository.pushRegistration(reference.accountId) ?: return@mapNotNull null
             if (registration.instanceName != instanceName) return@mapNotNull null
+            if (session.pushInstanceName == null) {
+                sessionStore.writePushInstance(reference.accountId, instanceName)
+            } else if (session.pushInstanceName != instanceName) {
+                return@mapNotNull null
+            }
+            if (registration.sessionRevision != 0L && registration.sessionRevision != session.sessionRevision) {
+                return@mapNotNull null
+            }
             // A distributor callback can start the app in a fresh process, before the
             // account synchronizer has created its in-memory generation. Generation zero is
             // the repository's restart-safe callback token and is superseded by the next

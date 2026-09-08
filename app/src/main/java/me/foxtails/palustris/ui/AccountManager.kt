@@ -29,6 +29,7 @@ import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.PostPreferencesRepository
+import me.foxtails.palustris.domain.PushSessionState
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.SourceError
@@ -220,13 +221,17 @@ class AccountManager @Inject constructor(
                 request.replacingAccountId?.let { expected ->
                     if (account.id != expected) throw SourceError.AccountMismatch
                 }
-                val session = Session(
-                    accountId = account.id,
-                    token = result.token,
-                    capabilities = ServerCapabilities(canPublish = result.canPublish),
-                    access = result.access,
-                )
-                withContext(ioDispatcher) {
+                val session = withContext(ioDispatcher) {
+                    val previous = store.read(account.id)
+                    val session = Session(
+                        accountId = account.id,
+                        token = result.token,
+                        capabilities = ServerCapabilities(canPublish = result.canPublish),
+                        access = result.access,
+                        pushInstanceName = previous?.pushInstanceName,
+                        sessionRevision = (previous?.sessionRevision ?: 0L) + 1L,
+                        pushState = previous?.pushState ?: PushSessionState(),
+                    )
                     store.write(account.id, session)
                     store.writeProfile(account.id, result.user)
                     val index = store.readIndex()
@@ -234,6 +239,7 @@ class AccountManager @Inject constructor(
                     store.writeIndex(updatedIndex)
                     store.clearPending()
                     _accountIndex.value = updatedIndex
+                    session
                 }
                 pending = null
                 startNotificationSync(session)
