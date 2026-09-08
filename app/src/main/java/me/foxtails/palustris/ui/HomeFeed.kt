@@ -195,7 +195,7 @@ internal fun PostRow(
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
     onReaction: (OwnedPost, String) -> Unit,
-    onOpenProfile: (Account) -> Unit,
+    onOpenProfile: ((Account) -> Unit)?,
     onSearchHashtag: (String) -> Unit,
     quoteEnabled: Boolean = false,
     onQuote: (OwnedPost) -> Unit = {},
@@ -213,7 +213,7 @@ internal fun PostRow(
         PostMetadataRow(
             post = post,
             filteredHashtags = presentation.filteredHashtags.takeIf { contentVisible }.orEmpty(),
-            onOpenProfile = { onOpenProfile(post.author) },
+            onOpenProfile = onOpenProfile?.let { callback -> { callback(post.author) } },
             onSearchHashtag = onSearchHashtag,
         )
         if (post.replyTo != null) Text("Reply", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
@@ -275,7 +275,7 @@ internal fun PostRow(
 }
 
 @Composable
-private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenProfile: () -> Unit, onSearchHashtag: (String) -> Unit) {
+private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenProfile: (() -> Unit)?, onSearchHashtag: (String) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -285,7 +285,9 @@ private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenPr
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            modifier = Modifier.weight(1f).clickable(onClick = onOpenProfile),
+            modifier = Modifier
+                .weight(1f)
+                .then(onOpenProfile?.let { callback -> Modifier.clickable(onClick = callback) } ?: Modifier),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AccountAvatar(post.author, Modifier.size(40.dp))

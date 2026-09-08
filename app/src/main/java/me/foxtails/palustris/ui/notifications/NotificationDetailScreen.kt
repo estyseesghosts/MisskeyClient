@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,7 +17,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Notification
+import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.NotificationTarget
+import me.foxtails.palustris.domain.ValidatedUrl
 import me.foxtails.palustris.ui.EmptyState
+import me.foxtails.palustris.ui.PostRow
 import me.foxtails.palustris.ui.openExternal
 import me.foxtails.palustris.ui.navigation.AppRoute
 
@@ -23,6 +29,7 @@ import me.foxtails.palustris.ui.navigation.AppRoute
 fun NotificationDetailScreen(
     route: AppRoute,
     items: List<Notification>,
+    onOpenTarget: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -64,20 +71,16 @@ fun NotificationDetailScreen(
                     modifier,
                 )
             } else {
-                NotificationRow(notification, onOpen = {})
+                NotificationRow(notification)
             }
         }
-        is AppRoute.Post,
-        is AppRoute.Profile,
-        is AppRoute.Poll,
-        is AppRoute.Conversation,
-        -> {
+        is AppRoute.Post, is AppRoute.Profile, is AppRoute.Poll, is AppRoute.Conversation -> {
             val notification = items.firstOrNull { candidate ->
                 when (route) {
-                    is AppRoute.Post -> candidate.target == me.foxtails.palustris.domain.NotificationTarget.Post(route.postId)
-                    is AppRoute.Profile -> candidate.target == me.foxtails.palustris.domain.NotificationTarget.Profile(route.profileId)
-                    is AppRoute.Poll -> candidate.target == me.foxtails.palustris.domain.NotificationTarget.Poll(route.pollId)
-                    is AppRoute.Conversation -> candidate.target == me.foxtails.palustris.domain.NotificationTarget.Conversation(route.conversationId)
+                    is AppRoute.Post -> candidate.target == NotificationTarget.Post(route.postId)
+                    is AppRoute.Profile -> candidate.target == NotificationTarget.Profile(route.profileId)
+                    is AppRoute.Poll -> candidate.target == NotificationTarget.Poll(route.pollId)
+                    is AppRoute.Conversation -> candidate.target == NotificationTarget.Conversation(route.conversationId)
                     else -> false
                 }
             }
@@ -88,9 +91,62 @@ fun NotificationDetailScreen(
                     stringResource(R.string.notifications_target_unavailable),
                     modifier,
                 )
+            } else if (route is AppRoute.Post || route is AppRoute.Poll || route is AppRoute.Conversation) {
+                val post = notification.post
+                if (post == null) {
+                    NotificationTargetFallback(notification, onOpenTarget, modifier)
+                } else {
+                    val owner = when (route) {
+                        is AppRoute.Post -> route.accountId
+                        is AppRoute.Poll -> route.accountId
+                        is AppRoute.Conversation -> route.accountId
+                        else -> notification.accountId
+                    }
+                    Column(
+                        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 12.dp),
+                    ) {
+                        PostRow(
+                            ownedPost = OwnedPost(owner, post),
+                            availableActions = emptySet(),
+                            onReact = {},
+                            onReply = {},
+                            onReshare = {},
+                            onBookmark = {},
+                            onReaction = { _, _ -> },
+                            onOpenProfile = null,
+                            onSearchHashtag = {},
+                        )
+                        ValidatedUrl.https(post.url.orEmpty())?.let { url ->
+                            Button(
+                                onClick = { openExternal(context, url.value) },
+                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                            ) { Text(stringResource(R.string.notifications_open_on_server)) }
+                        }
+                    }
+                }
             } else {
-                NotificationRow(notification, onOpen = {})
+                NotificationTargetFallback(notification, onOpenTarget, modifier)
             }
+        }
+    }
+}
+
+@Composable
+private fun NotificationTargetFallback(
+    notification: Notification,
+    onOpenTarget: (() -> Unit)?,
+    modifier: Modifier,
+) {
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        NotificationRow(notification)
+        onOpenTarget?.let { openTarget ->
+            Button(
+                onClick = openTarget,
+                modifier = Modifier.padding(top = 16.dp),
+            ) { Text(stringResource(R.string.notifications_open_target)) }
         }
     }
 }

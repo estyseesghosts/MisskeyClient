@@ -553,6 +553,18 @@ fun PalustrisApp(
         notificationRoute = null
     }
 
+    fun openNotificationTarget(route: AppRoute) {
+        if (route !is AppRoute.Profile) {
+            notificationRoute = null
+            return
+        }
+        val target = notificationState.items
+            .firstOrNull { it.target == me.foxtails.palustris.domain.NotificationTarget.Profile(route.profileId) }
+            ?.actors
+            ?.firstOrNull { it.id == route.profileId }
+        if (target != null) openProfile(target) else notificationRoute = null
+    }
+
     fun openHashtagSearch(hashtag: String) {
         searchPrefill = hashtag
         searchPanelName = SearchPanel.Search.name
@@ -602,7 +614,14 @@ fun PalustrisApp(
                 }) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
                         if (notificationRoute != null) {
-                            NotificationDetailScreen(notificationRoute!!, notificationState.items, Modifier.fillMaxSize())
+                            NotificationDetailScreen(
+                                route = notificationRoute!!,
+                                items = notificationState.items,
+                                onOpenTarget = (notificationRoute as? AppRoute.Profile)?.let { route ->
+                                    { openNotificationTarget(route) }
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
                         } else when (page) {
                             LocalPage.SavedPosts -> savedPostsState?.let { savedState ->
                                 SavedPostsScreen(

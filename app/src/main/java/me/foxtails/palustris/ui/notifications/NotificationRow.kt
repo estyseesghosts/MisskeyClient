@@ -40,7 +40,7 @@ fun NotificationRow(
     notification: Notification,
     actionState: NotificationActionState = NotificationActionState.Idle,
     actionError: String? = null,
-    onOpen: () -> Unit = {},
+    onOpen: (() -> Unit)? = null,
     onDismiss: () -> Unit = {},
     onFollowRequest: (Boolean) -> Unit = {},
 ) {
@@ -57,7 +57,7 @@ fun NotificationRow(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("notification_row_${notification.id.value}")
-            .clickable(onClick = onOpen)
+            .then(onOpen?.let { callback -> Modifier.clickable(onClick = callback) } ?: Modifier)
             .semantics {
                 contentDescription = "$activityLabel, $summary"
                 if (stateLabel.isNotBlank()) stateDescription = stateLabel
