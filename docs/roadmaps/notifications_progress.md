@@ -4,7 +4,7 @@ Updated 2026-09-08 while implementing the plan in `docs/roadmaps/notifications.m
 
 ## Current conclusion
 
-The notification foundation and an account-scoped inbox are implemented without changing the recent Replies/Reposts/Likes chip or compact navigation-dock behavior. The app can retrieve, persist, merge, filter, page, locally mark, explicitly acknowledge, and dismiss notifications for the active account. Mastodon multi-page newer catch-up now follows the server's moving continuation and stops when the server reports no newer page. Stored accounts are supervised independently of `FeedViewModel`.
+The notification foundation and an account-scoped inbox are implemented without changing the recent Replies/Reposts/Likes chip or compact navigation-dock behavior. The app can retrieve, persist, merge, filter, page, locally mark, explicitly acknowledge, and dismiss notifications for the active account. Mastodon multi-page newer and older traversal now follows the server's moving continuations and records terminal history. Misskey WebSocket request construction now preserves HTTPS for OkHttp's upgrade path. Stored accounts are supervised independently of `FeedViewModel`.
 
 The implementation is ready for the user-provided live Samsung/Sunup verification. This is not a claim that the live round trip has already succeeded: distributor callbacks, authenticated server registration, background delivery, process death, and device presentation still require that test.
 
@@ -12,7 +12,7 @@ The implementation is ready for the user-provided live Samsung/Sunup verificatio
 |---|---|---|
 | Milestone 0: protocol and push feasibility | Implemented in code; live gate open | Connector 3.3.5 is pinned, Sunup is the preferred installed distributor, and both server push contracts are implemented. Live version compatibility and a real push round trip remain. |
 | Milestone 1: domain contracts and permissions | Mostly implemented | Typed account-bound notifications, opaque cursors, unread precision, acknowledgement contracts, access metadata, and typed follow-request targets exist. Capability refresh is not yet persisted as authoritative session state. |
-| Milestone 2: REST adapters and mapping | Substantially implemented; Mastodon catch-up corrected | Listing, filters, opaque cursors, grouped mapping, unknown records, unread lookup, Misskey mark-all, Mastodon marker acknowledgement, dismiss, follow-request routing, and multi-page Mastodon newer traversal are covered synthetically. Live-version and marker race verification remain. |
+| Milestone 2: REST adapters and mapping | Substantially implemented; Mastodon catch-up corrected | Listing, filters, opaque cursors, grouped mapping, unknown records, unread lookup, Misskey mark-all, Mastodon marker acknowledgement, dismiss, follow-request routing, and multi-page Mastodon traversal are covered synthetically. Live-version and marker race verification remain. |
 | Milestone 3: durable repository and lifecycle | Core implemented | App-private atomic files, bounded deduplication, checkpoints, account isolation, generation fencing, local-seen/server-acknowledged/Android-presented state, account restoration, and account-lifetime polling are implemented. Migration, pending-operation outbox, and crash/restart race coverage remain. |
 | Milestone 4: inbox and actions | Core implemented | `NotificationsViewModel`, cached list rows, Replies/Reposts/Likes filtering, refresh, older pagination, mark-all, local seen, dismiss, and Direct messages isolation are wired. Native target routing, follow-request controls, newer-arrival UX, content previews, and scroll restoration remain. |
 | Milestone 5: UnifiedPush and Android alerts | Implemented; live gate open | Connector service, encrypted key manager, stable account mapping, endpoint registration, safe payload hints, WorkManager catch-up, permission-safe presentation, and account-bound pending intents are implemented. Live delivery remains unverified. |
@@ -50,6 +50,11 @@ The implementation is ready for the user-provided live Samsung/Sunup verificatio
 - Older Mastodon pages now honor the persisted moving continuation when present.
 - A terminal older page clears the repository's `oldest` cursor, preventing the inbox from requesting the final page repeatedly.
 - The Mastodon synchronization regression now covers both multi-page newer catch-up and a two-page older range with terminal state.
+
+### 2026-09-08 — WebSocket transport request shape
+
+- Misskey WebSocket requests retain an HTTPS URL so OkHttp performs the protocol upgrade through its supported WebSocket transport.
+- Added a focused request-shape regression for the HTTPS scheme, streaming path, and authorization header.
 
 ## Implemented changes
 

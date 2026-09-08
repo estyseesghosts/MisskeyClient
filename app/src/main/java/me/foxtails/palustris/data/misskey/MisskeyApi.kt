@@ -132,7 +132,9 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
             "Stream origin must be HTTPS without credentials"
         }
         val url = base.newBuilder()
-            .scheme("wss")
+            // OkHttp's WebSocket factory upgrades an HTTPS request itself. HttpUrl only
+            // accepts HTTP(S) schemes, so keeping HTTPS here also preserves validation.
+            .scheme("https")
             .encodedPath(path)
             .query(null)
             .fragment(null)
