@@ -50,7 +50,7 @@ class NotificationSynchronizer @Inject constructor(
             val page = source.fetchNewerNotifications(query, requestCheckpoint)
                 .copy(direction = NotificationPageDirection.Newer)
             if (page.items.isEmpty() && page.resolvedContinuation == previousContinuation && page.resolvedContinuation != null) {
-                return NotificationSyncResult(pages, false, unread, delayed = true)
+                return catchUpResult(source, token, pages, complete = false, delayed = true, unread)
             }
             repository.ingestNewerPage(token, page)
             pages += 1
@@ -58,15 +58,34 @@ class NotificationSynchronizer @Inject constructor(
             checkpoint = repository.checkpoint(token.accountId, query) ?: checkpoint
             continuation = checkpoint.newerContinuation
             if (continuation == null) {
-                if (unread !is NotificationUnreadState.Unknown) repository.updateUnreadState(token, unread)
-                return NotificationSyncResult(pages, true, unread)
+                return catchUpResult(source, token, pages, complete = true, delayed = false, unread)
             }
             if (continuation == previousContinuation) {
-                return NotificationSyncResult(pages, false, unread, delayed = true)
+                return catchUpResult(source, token, pages, complete = false, delayed = true, unread)
             }
             previousContinuation = continuation
         }
-        return NotificationSyncResult(pages, false, unread, delayed = true)
+        return catchUpResult(source, token, pages, complete = false, delayed = true, unread)
+    }
+
+    private suspend fun catchUpResult(
+        source: SocialSource,
+        token: NotificationSyncToken,
+        pages: Int,
+        complete: Boolean,
+        delayed: Boolean,
+        fallbackUnread: NotificationUnreadState,
+    ): NotificationSyncResult {
+        val refreshedUnread = readUnread(source)
+        if (refreshedUnread !is NotificationUnreadState.Unknown) {
+            repository.updateUnreadState(token, refreshedUnread)
+        }
+        return NotificationSyncResult(
+            pages = pages,
+            complete = complete,
+            unreadState = refreshedUnread.takeUnless { it is NotificationUnreadState.Unknown } ?: fallbackUnread,
+            delayed = delayed,
+        )
     }
 
     suspend fun loadOlder(

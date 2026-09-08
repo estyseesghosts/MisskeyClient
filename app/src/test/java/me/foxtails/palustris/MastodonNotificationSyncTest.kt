@@ -30,9 +30,11 @@ import org.robolectric.annotation.Config
 class MastodonNotificationSyncTest {
     private lateinit var server: MockWebServer
     private val paths = mutableListOf<String>()
+    private var unreadCountRequests = 0
 
     @Before
     fun startServer() {
+        unreadCountRequests = 0
         server = MockWebServer().also { it.start() }
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
@@ -42,7 +44,7 @@ class MastodonNotificationSyncTest {
                     path == "/api/v1/notifications" -> MockResponse()
                         .setBody(JSONArray().put(notification("baseline")).toString())
                     path == "/api/v1/notifications/unread_count" -> MockResponse()
-                        .setBody(JSONObject().put("count", 0).toString())
+                        .setBody(JSONObject().put("count", if (unreadCountRequests++ == 0) 0 else 2).toString())
                     path == "/api/v1/notifications?min_id=baseline" -> page(
                         "page-3",
                         "min_id=page-3",
@@ -86,9 +88,12 @@ class MastodonNotificationSyncTest {
                 "/api/v1/notifications?min_id=baseline",
                 "/api/v1/notifications?min_id=page-3",
                 "/api/v1/notifications?min_id=page-2",
+                "/api/v1/notifications/unread_count",
             ),
             paths,
         )
+        assertEquals(me.foxtails.palustris.domain.NotificationUnreadState.AtLeast(2), result.unreadState)
+        assertEquals(result.unreadState, repository.observe(account).value.unreadState)
     }
 
     @Test
