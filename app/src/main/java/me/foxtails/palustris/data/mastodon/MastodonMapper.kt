@@ -23,7 +23,7 @@ import org.json.JSONObject
 import java.time.Instant
 
 object MastodonMapper {
-    fun account(json: JSONObject, origin: String): Account {
+    fun account(json: JSONObject, origin: String, includeMovedTo: Boolean = true): Account {
         val username = json.optString("username")
         val host = json.optString("acct").substringAfter('@', "").ifBlank {
             java.net.URI(origin).host.orEmpty()
@@ -35,7 +35,7 @@ object MastodonMapper {
                 }?.takeIf { it.name.isNotBlank() || it.value.isNotBlank() }
             }.take(4)
         }.orEmpty()
-        return Account(
+        val account = Account(
             id = AccountId(Connection(origin, Protocol.MASTODON), json.getString("id")),
             displayName = json.optString("display_name").ifBlank { username },
             handle = "@$username@$host",
@@ -49,6 +49,11 @@ object MastodonMapper {
             locked = json.optBoolean("locked"),
             bot = json.optBoolean("bot"),
         )
+        if (!includeMovedTo) return account
+        val destination = json.optJSONObject("moved")?.let { moved ->
+            runCatching { account(moved, origin, includeMovedTo = false) }.getOrNull()
+        }?.takeIf { it.id.localId.isNotBlank() && (it.displayName.isNotBlank() || it.handle.isNotBlank() || it.avatarUrl != null) }
+        return account.copy(movedTo = destination)
     }
 
     fun relationship(json: JSONObject, profileId: AccountId): ProfileRelationship = ProfileRelationship(

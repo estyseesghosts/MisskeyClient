@@ -275,6 +275,31 @@ class MastodonIntegrationTest {
     }
 
     @Test
+    fun profileMapsOneHopMovedDestinationWithoutAnotherRequest() = runBlocking {
+        val destination = account("new-user", "newalice", "New Alice")
+            .put("acct", "newalice@remote.example")
+            .put("moved", account("third-user", "third", "Third"))
+        server.enqueue(MockResponse().setBody(JSONObject(localAccount.toString()).put("moved", destination).toString()))
+
+        val profile = source().profile(AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user"))
+
+        assertEquals("new-user", profile.movedTo?.id?.localId)
+        assertEquals("New Alice", profile.movedTo?.displayName)
+        assertEquals("@newalice@remote.example", profile.movedTo?.handle)
+        assertEquals("https://example.org/avatar.png", profile.movedTo?.avatarUrl)
+        assertNull(profile.movedTo?.movedTo)
+        assertEquals(1, server.requestCount)
+        assertEquals("/api/v1/accounts/local-user", server.takeRequest().path)
+    }
+
+    @Test
+    fun mapperIgnoresMissingNullAndMalformedMovedDestinations() {
+        assertNull(MastodonMapper.account(localAccount, origin).movedTo)
+        assertNull(MastodonMapper.account(JSONObject(localAccount.toString()).put("moved", JSONObject.NULL), origin).movedTo)
+        assertNull(MastodonMapper.account(JSONObject(localAccount.toString()).put("moved", JSONObject().put("username", "broken")), origin).movedTo)
+    }
+
+    @Test
     fun profileTimelineUsesSafeAccountPathAndFiltersMixedStatusesLocally() = runBlocking {
         val target = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user")
         val other = account("other-user", "other", "Other")
