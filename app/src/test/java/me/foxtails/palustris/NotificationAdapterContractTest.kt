@@ -2,9 +2,11 @@ package me.foxtails.palustris
 
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.mastodon.MastodonMapper
+import me.foxtails.palustris.data.mastodon.MastodonNotificationMapper
 import me.foxtails.palustris.data.mastodon.MastodonSource
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.misskey.MisskeyMapper
+import me.foxtails.palustris.data.misskey.MisskeyNotificationMapper
 import me.foxtails.palustris.data.misskey.MisskeySource
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
@@ -122,7 +124,7 @@ class NotificationAdapterContractTest {
         val origin = server.url("/").toString().removeSuffix("/")
         val receiver = AccountId(Connection(origin, Protocol.MASTODON), "receiver")
         assertThrows(IllegalArgumentException::class.java) {
-            MastodonMapper.groupedNotification(
+            MastodonNotificationMapper.groupedNotification(
                 JSONObject().put("group_key", "favourite-status-1").put("type", "favourite"),
                 emptyMap(),
                 emptyMap(),
@@ -220,8 +222,8 @@ class NotificationAdapterContractTest {
             .put("type", "future_system")
             .put("createdAt", "2026-09-07T10:00:00Z")
         val result = listOf(
-            MisskeyMapper.notification(groupedReaction, origin, receiver),
-            MisskeyMapper.notification(system, origin, receiver),
+            MisskeyNotificationMapper.notification(groupedReaction, origin, receiver),
+            MisskeyNotificationMapper.notification(system, origin, receiver),
         )
 
         assertEquals(2, result.first().group?.totalCount)
@@ -245,7 +247,7 @@ class NotificationAdapterContractTest {
     fun mastodonQuotedUpdateUsesQuoteSpecificActivity() {
         val origin = server.url("/").toString().removeSuffix("/")
         val receiver = AccountId(Connection(origin, Protocol.MASTODON), "receiver")
-        val notification = MastodonMapper.notification(
+        val notification = MastodonNotificationMapper.notification(
             JSONObject()
                 .put("id", "quoted-update")
                 .put("type", "quoted_update")

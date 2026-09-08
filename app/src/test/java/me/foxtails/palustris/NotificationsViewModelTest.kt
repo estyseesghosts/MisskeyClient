@@ -18,6 +18,7 @@ import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationPage
 import me.foxtails.palustris.domain.NotificationQuery
+import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
@@ -51,10 +52,12 @@ class NotificationsViewModelTest {
             rawType = "follow",
         )
         val source = UnsupportedDismissSource(notification)
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        repository.activate(NotificationSyncToken(account, 1))
         val viewModel = NotificationsViewModel(
             account,
             source,
-            NotificationRepository(InMemoryNotificationStore()),
+            repository,
         )
         advanceUntilIdle()
 

@@ -1,7 +1,8 @@
 package me.foxtails.palustris
 
+import me.foxtails.palustris.data.mastodon.MastodonNotificationMapper
+import me.foxtails.palustris.data.misskey.MisskeyNotificationMapper
 import me.foxtails.palustris.data.mastodon.MastodonMapper
-import me.foxtails.palustris.data.misskey.MisskeyMapper
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.Connection
@@ -29,7 +30,7 @@ class NotificationContractTest {
 
     @Test
     fun mastodonUnknownAndActorlessSystemNotificationsRemainRenderable() {
-        val unknown = MastodonMapper.notification(
+        val unknown = MastodonNotificationMapper.notification(
             JSONObject()
                 .put("id", "unknown-1")
                 .put("type", "future_type")
@@ -37,7 +38,7 @@ class NotificationContractTest {
             origin,
             receivingAccount,
         )
-        val system = MastodonMapper.notification(
+        val system = MastodonNotificationMapper.notification(
             JSONObject()
                 .put("id", "system-1")
                 .put("type", "admin.report")
@@ -56,7 +57,7 @@ class NotificationContractTest {
 
     @Test
     fun misskeyReactionPreservesUnicodeCustomEmojiAndActorlessEvents() {
-        val reaction = MisskeyMapper.notification(
+        val reaction = MisskeyNotificationMapper.notification(
             JSONObject()
                 .put("id", "reaction-1")
                 .put("type", "reaction")
@@ -66,7 +67,7 @@ class NotificationContractTest {
             origin,
             AccountId(Connection(origin, Protocol.MISSKEY), "receiver"),
         )
-        val event = MisskeyMapper.notification(
+        val event = MisskeyNotificationMapper.notification(
             JSONObject()
                 .put("id", "event-1")
                 .put("type", "future_event")
@@ -84,7 +85,7 @@ class NotificationContractTest {
 
     @Test
     fun postActivityUsesCanonicalPostTargetAndAccountScopedIdentity() {
-        val notification = MastodonMapper.notification(
+        val notification = MastodonNotificationMapper.notification(
             JSONObject()
                 .put("id", "mention-1")
                 .put("type", "mention")

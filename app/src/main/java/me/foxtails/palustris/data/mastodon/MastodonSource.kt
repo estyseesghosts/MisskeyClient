@@ -24,6 +24,7 @@ import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationCapabilities
 import me.foxtails.palustris.domain.NotificationCursor
 import me.foxtails.palustris.domain.NotificationPage
+import me.foxtails.palustris.domain.NotificationPageDirection
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Notification
@@ -194,12 +195,12 @@ class MastodonSource(
         return if (variant == NotificationApiVariant.V1) {
             val values = JSONArray(response.body)
             val items = (0 until values.length()).map { index ->
-                MastodonMapper.notification(values.getJSONObject(index), origin, account)
+                MastodonNotificationMapper.notification(values.getJSONObject(index), origin, account)
             }
             val previousUrl = response.linkHeaderCursor("prev")
                 ?: items.firstOrNull()?.id?.value?.let { notificationUrl(query, variant, minId = it).toString() }
             val nextUrl = response.linkHeaderCursor("next")
-            pageFromContinuations(query, items, previousUrl, nextUrl, decodedCursor?.url, variant)
+            pageFromContinuations(query, items, previousUrl, nextUrl, decodedCursor?.url, variant, cursorDirection)
         } else {
             val payload = JSONObject(response.body)
             val accounts = payload.optJSONArray("accounts").toAccounts(origin)
@@ -207,11 +208,11 @@ class MastodonSource(
             val groups = payload.optJSONArray("notification_groups")
                 ?: throw SourceError.ServerError("Grouped notifications response was missing notification_groups")
             val items = (0 until groups.length()).map { index ->
-                MastodonMapper.groupedNotification(groups.getJSONObject(index), accounts, statuses, origin, account)
+                MastodonNotificationMapper.groupedNotification(groups.getJSONObject(index), accounts, statuses, origin, account)
             }
             val previousUrl = response.linkHeaderCursor("prev")
             val nextUrl = response.linkHeaderCursor("next")
-            pageFromContinuations(query, items, previousUrl, nextUrl, decodedCursor?.url, variant)
+            pageFromContinuations(query, items, previousUrl, nextUrl, decodedCursor?.url, variant, cursorDirection)
         }
     }
 
@@ -222,9 +223,19 @@ class MastodonSource(
         nextUrl: String?,
         currentUrl: String?,
         variant: NotificationApiVariant,
+        cursorDirection: CursorDirection,
     ): NotificationPage {
         val newerCursor = previousUrl?.let { continuation(it, query, variant, CursorDirection.Newer, currentUrl) }
         val olderCursor = nextUrl?.let { continuation(it, query, variant, CursorDirection.Older, currentUrl) }
+        val direction = if (currentUrl == null) NotificationPageDirection.Initial else when (cursorDirection) {
+            CursorDirection.Newer -> NotificationPageDirection.Newer
+            CursorDirection.Older -> NotificationPageDirection.Older
+        }
+        val continuation = when (direction) {
+            NotificationPageDirection.Newer -> newerCursor
+            NotificationPageDirection.Older -> olderCursor
+            NotificationPageDirection.Initial -> null
+        }
         return NotificationPage(
             items = items,
             olderCursor = olderCursor,
@@ -243,7 +254,22 @@ class MastodonSource(
                 },
                 oldest = olderCursor,
                 capturedAtEpochMillis = clock(),
+                newerContinuation = if (direction == NotificationPageDirection.Newer) newerCursor else null,
+                olderContinuation = if (direction == NotificationPageDirection.Older) olderCursor else null,
             ),
+            direction = direction,
+            continuation = continuation,
+            newestBoundary = newerCursor ?: items.firstOrNull()?.id?.value?.let {
+                NotificationCursorCodec.encode(
+                    variant,
+                    accountId,
+                    query,
+                    CursorDirection.Newer,
+                    notificationUrl(query, variant, minId = it).toString(),
+                )
+            },
+            oldestBoundary = olderCursor,
+            reachedBoundary = continuation == null,
         )
     }
 

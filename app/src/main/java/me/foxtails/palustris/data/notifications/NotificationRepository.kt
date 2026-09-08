@@ -11,7 +11,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import me.foxtails.palustris.data.notifications.db.NotificationDatabase
+import me.foxtails.palustris.data.notifications.db.NotificationStateEntity
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
@@ -113,6 +116,50 @@ class FileNotificationStore @javax.inject.Inject constructor(
     private fun fileFor(accountId: AccountId): AtomicFile = AtomicFile(
         File(directory, "${accountId.stableFileName()}.json"),
     )
+}
+
+/** Room-backed production store. The repository owns domain merging; Room owns durability. */
+class RoomNotificationStore @javax.inject.Inject constructor(
+    private val database: NotificationDatabase,
+    private val importer: LegacyNotificationFileImporter,
+) : NotificationStore {
+    private val dao = database.notificationDao()
+
+    override fun read(accountId: AccountId): NotificationRepositoryState? = runBlocking(Dispatchers.IO) {
+        val key = accountId.stableFileName()
+        dao.state(key)?.let { return@runBlocking decode(JSONObject(it.stateJson)) }
+        importer.importIfPresent(accountId)?.also { imported ->
+            dao.saveState(NotificationStateEntity(key, encode(imported).toString(), System.currentTimeMillis()))
+        }
+    }
+
+    override fun write(accountId: AccountId, state: NotificationRepositoryState) {
+        runBlocking(Dispatchers.IO) {
+            dao.saveState(NotificationStateEntity(
+                accountId.stableFileName(),
+                encode(state).toString(),
+                System.currentTimeMillis(),
+            ))
+        }
+    }
+
+    override fun delete(accountId: AccountId) {
+        runBlocking(Dispatchers.IO) {
+            val key = accountId.stableFileName()
+            database.runInTransaction {
+                dao.deleteState(key)
+                dao.deleteEvents(key)
+                dao.deleteActors(key)
+                dao.deleteGroups(key)
+                dao.deleteQueryState(key)
+                dao.deleteDismissals(key)
+                dao.deleteDelivery(key)
+                dao.deleteAcknowledgements(key)
+                dao.deletePushRegistration(key)
+                dao.deleteSettings(key)
+            }
+        }
+    }
 }
 
 /**
@@ -273,9 +320,12 @@ class NotificationRepository @javax.inject.Inject constructor(
         val query = pageCheckpoint?.query ?: previous?.query ?: error("Notification page has no query")
         val newest = when (direction) {
             NotificationPageDirection.Older -> previous?.newest ?: page.resolvedNewestBoundary
-            NotificationPageDirection.Initial,
-            NotificationPageDirection.Newer,
-            -> page.resolvedNewestBoundary ?: previous?.newest
+            NotificationPageDirection.Initial -> page.resolvedNewestBoundary ?: previous?.newest
+            NotificationPageDirection.Newer -> if (previous?.newerContinuation != null) {
+                previous.newest
+            } else {
+                page.resolvedNewestBoundary ?: previous?.newest
+            }
         }
         val oldest = when (direction) {
             NotificationPageDirection.Newer -> previous?.oldest ?: page.resolvedOldestBoundary
@@ -512,7 +562,7 @@ class NotificationRepository @javax.inject.Inject constructor(
     }
 }
 
-private fun AccountId.stableFileName(): String {
+internal fun AccountId.stableFileName(): String {
     val bytes = "$connection\u0000$localId".toByteArray(Charsets.UTF_8)
     return MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }

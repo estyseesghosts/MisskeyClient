@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.DraftStore
 
@@ -24,16 +25,20 @@ import me.foxtails.palustris.data.auth.DraftStore
 fun ConnectedApp(
     accountManager: AccountManager,
     sourceFactory: SocialSourceFactory,
+    sourceRegistry: AccountSourceRegistry,
     draftStore: DraftStore,
 ) {
     val state by accountManager.session.collectAsStateWithLifecycle()
     val accountIndex by accountManager.accountIndex.collectAsStateWithLifecycle()
     val activeSession by accountManager.activeSession.collectAsStateWithLifecycle()
+    val sharedSource = activeSession?.let { session ->
+        sourceRegistry.sourceFor(session.accountId) ?: sourceFactory.create(session)
+    }
     val feedModel = activeSession?.let { session ->
         hiltViewModel<FeedViewModel, FeedViewModel.Factory>(
             key = "feed-${session.accountId}-${state.sessionGeneration}",
             creationCallback = { factory ->
-                factory.create(session.accountId, sourceFactory.create(session))
+                factory.create(session.accountId, sharedSource!!)
             },
         )
     }
@@ -41,7 +46,7 @@ fun ConnectedApp(
         hiltViewModel<NotificationsViewModel, NotificationsViewModel.Factory>(
             key = "notifications-${session.accountId}-${state.sessionGeneration}",
             creationCallback = { factory ->
-                factory.create(session.accountId, sourceFactory.create(session))
+                factory.create(session.accountId, sharedSource!!)
             },
         )
     }

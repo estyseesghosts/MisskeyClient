@@ -1,6 +1,7 @@
 package me.foxtails.palustris.di
 
 import android.content.Context
+import androidx.room.Room
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,12 +24,14 @@ import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.notifications.NotificationRepository
-import me.foxtails.palustris.data.notifications.FileNotificationStore
 import me.foxtails.palustris.data.notifications.NotificationStore
+import me.foxtails.palustris.data.notifications.NotificationSyncController
+import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
+import me.foxtails.palustris.data.notifications.RoomNotificationStore
+import me.foxtails.palustris.data.notifications.db.NotificationDatabase
+import me.foxtails.palustris.data.notifications.db.NOTIFICATION_MIGRATIONS
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
-import me.foxtails.palustris.ui.AccountSyncCoordinator
-import me.foxtails.palustris.ui.AccountNotificationSyncController
 import org.json.JSONObject
 
 @Qualifier
@@ -80,7 +83,21 @@ object StorageModule {
 
     @Provides
     @Singleton
-    fun provideNotificationStore(store: FileNotificationStore): NotificationStore = store
+    fun provideNotificationDatabase(@ApplicationContext context: Context): NotificationDatabase =
+        Room.databaseBuilder(context, NotificationDatabase::class.java, "notifications.db")
+            .addMigrations(*NOTIFICATION_MIGRATIONS)
+            .build()
+
+    @Provides
+    @Singleton
+    fun provideRoomNotificationStore(
+        database: NotificationDatabase,
+        importer: me.foxtails.palustris.data.notifications.LegacyNotificationFileImporter,
+    ): RoomNotificationStore = RoomNotificationStore(database, importer)
+
+    @Provides
+    @Singleton
+    fun provideNotificationStore(store: RoomNotificationStore): NotificationStore = store
 }
 
 @Module
@@ -96,14 +113,9 @@ object SourceModule {
 object SyncModule {
     @Provides
     @Singleton
-    fun provideAccountSyncCoordinator(repository: NotificationRepository): AccountSyncCoordinator =
-        AccountSyncCoordinator(repository)
-
-    @Provides
-    @Singleton
     fun provideAccountNotificationSyncController(
-        coordinator: AccountSyncCoordinator,
-    ): AccountNotificationSyncController = coordinator
+        coordinator: NotificationSyncOrchestrator,
+    ): NotificationSyncController = coordinator
 
     @Provides
     @IoDispatcher
