@@ -29,6 +29,7 @@ import me.foxtails.palustris.domain.Timeline
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.security.KeyStore
 import java.util.Base64
 import javax.crypto.Cipher
@@ -52,7 +53,9 @@ class AccountFileStore internal constructor(
         val json = readJson(file)
         val storedConnection = Connection(json.getString("origin"), Protocol.valueOf(json.getString("protocol")))
         val storedAccountId = AccountId(storedConnection, json.getString("localId"))
-        if (storedAccountId != accountId) return null
+        if (storedAccountId != accountId) {
+            return null
+        }
         return Session(
             accountId = storedAccountId,
             token = json.getString("token"),
@@ -109,7 +112,8 @@ class AccountFileStore internal constructor(
         val file = fileFor(accountId)
         val current = read(accountId) ?: return false
         val json = readJson(file)
-        write(accountId, current.copy(capabilities = update(current.capabilities)), json.optJSONObject("profile") ?: JSONObject())
+        val updated = current.copy(capabilities = update(current.capabilities))
+        write(accountId, updated, json.optJSONObject("profile") ?: JSONObject())
         return true
     }
 
@@ -146,15 +150,24 @@ class AccountFileStore internal constructor(
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val bytes = cipher.iv + cipher.doFinal(json.toString().toByteArray(Charsets.UTF_8))
-        val atomicFile = AtomicFile(file)
-        val stream = atomicFile.startWrite()
-        try {
+        val temporary = File(file.parentFile, "${file.name}.${System.nanoTime()}.tmp")
+        FileOutputStream(temporary).use { stream ->
             stream.write(bytes)
             stream.fd.sync()
-            atomicFile.finishWrite(stream)
-        } catch (error: Exception) {
-            atomicFile.failWrite(stream)
-            throw error
+        }
+        try {
+            java.nio.file.Files.move(
+                temporary.toPath(),
+                file.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+            )
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            java.nio.file.Files.move(
+                temporary.toPath(),
+                file.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+            )
         }
     }
 
