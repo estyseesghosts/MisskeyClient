@@ -7,5 +7,13 @@
 -->
 <full-backup-content>
     <exclude domain="database" path="notifications.db" />
+    <exclude domain="database" path="notifications.db-wal" />
+    <exclude domain="database" path="notifications.db-shm" />
+    <exclude domain="database" path="unifiedpush-connector" />
+    <exclude domain="database" path="unifiedpush-connector.db" />
+    <exclude domain="database" path="unifiedpush-connector.db-wal" />
+    <exclude domain="database" path="unifiedpush-connector.db-shm" />
+    <exclude domain="file" path="accounts" />
     <exclude domain="file" path="notifications" />
+    <exclude domain="sharedpref" path="notification_launch.xml" />
 </full-backup-content>
