@@ -17,6 +17,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import me.foxtails.palustris.data.AccountSourceRegistry
+import me.foxtails.palustris.data.notifications.work.NoOpNotificationDeliveryScheduler
+import me.foxtails.palustris.data.notifications.work.NotificationDeliveryScheduler
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Event
 import me.foxtails.palustris.domain.NotificationQuery
@@ -80,11 +82,13 @@ class NotificationSyncOrchestrator @Inject constructor(
     private val repository: NotificationRepository,
     private val synchronizer: NotificationSynchronizer,
     private val sourceRegistry: AccountSourceRegistry,
+    private val deliveryScheduler: NotificationDeliveryScheduler,
 ) : NotificationSyncController, NotificationSyncIntents, AutoCloseable {
     private constructor(dependencies: Dependencies) : this(
         dependencies.repository,
         dependencies.synchronizer,
         dependencies.sourceRegistry,
+        dependencies.deliveryScheduler,
     )
 
     constructor() : this(Dependencies())
@@ -93,6 +97,7 @@ class NotificationSyncOrchestrator @Inject constructor(
         val repository = NotificationRepository()
         val synchronizer = NotificationSynchronizer(repository)
         val sourceRegistry = AccountSourceRegistry()
+        val deliveryScheduler = NoOpNotificationDeliveryScheduler()
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -222,12 +227,16 @@ class NotificationSyncOrchestrator @Inject constructor(
         token: NotificationSyncToken,
         source: SocialSource,
         query: NotificationQuery,
-    ): NotificationSyncResult = lockFor(token.accountId).withLock {
+    ): NotificationSyncResult {
+        val result = lockFor(token.accountId).withLock {
         if (repository.checkpoint(token.accountId, query) == null) {
             synchronizer.establishBaseline(source, token, query)
         } else {
             synchronizer.catchUpNewer(source, token, query)
         }
+        }
+        deliveryScheduler.enqueueDelivery(token.accountId)
+        return result
     }
 
     private fun lockFor(accountId: AccountId): Mutex = synchronized(this) {

@@ -29,6 +29,8 @@ import me.foxtails.palustris.data.notifications.NotificationStore
 import me.foxtails.palustris.data.notifications.NotificationSyncController
 import me.foxtails.palustris.data.notifications.NotificationSyncIntents
 import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
+import me.foxtails.palustris.data.notifications.work.NotificationDeliveryScheduler
+import me.foxtails.palustris.data.notifications.work.NotificationWorkScheduler
 import me.foxtails.palustris.data.notifications.ForegroundNotificationStreamController
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.data.notifications.AndroidNotificationPermissionController
@@ -156,6 +158,12 @@ object SyncModule {
 @Module
 @InstallIn(SingletonComponent::class)
 object NotificationPresentationModule {
+    @Provides
+    @Singleton
+    fun provideNotificationDeliveryScheduler(
+        scheduler: NotificationWorkScheduler,
+    ): NotificationDeliveryScheduler = scheduler
+
     @Provides
     @Singleton
     fun provideUnifiedPushConnector(

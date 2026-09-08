@@ -15,17 +15,28 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import me.foxtails.palustris.domain.AccountId
 
+interface NotificationDeliveryScheduler {
+    fun enqueueDelivery(accountId: AccountId)
+}
+
+class NoOpNotificationDeliveryScheduler : NotificationDeliveryScheduler {
+    override fun enqueueDelivery(accountId: AccountId) = Unit
+}
+
 @Singleton
 class NotificationWorkScheduler @Inject constructor(
     @param:ApplicationContext context: Context,
-) {
+) : NotificationDeliveryScheduler {
     private val workManager by lazy { WorkManager.getInstance(context) }
 
     fun enqueueReconcile(accountId: AccountId) {
         workManager.enqueueUniqueWork(
             NotificationWorkNames.reconcile(accountId),
             ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<NotificationReconcileWorker>().setInputData(accountData(accountId)).build(),
+            OneTimeWorkRequestBuilder<NotificationReconcileWorker>()
+                .setConstraints(connectedNetworkConstraints())
+                .setInputData(accountData(accountId))
+                .build(),
         )
     }
 
@@ -33,11 +44,14 @@ class NotificationWorkScheduler @Inject constructor(
         workManager.enqueueUniqueWork(
             NotificationWorkNames.catchUp(accountId),
             ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<NotificationCatchUpWorker>().setInputData(accountData(accountId)).build(),
+            OneTimeWorkRequestBuilder<NotificationCatchUpWorker>()
+                .setConstraints(connectedNetworkConstraints())
+                .setInputData(accountData(accountId))
+                .build(),
         )
     }
 
-    fun enqueueDelivery(accountId: AccountId) {
+    override fun enqueueDelivery(accountId: AccountId) {
         workManager.enqueueUniqueWork(
             NotificationWorkNames.delivery(accountId),
             ExistingWorkPolicy.KEEP,
@@ -85,4 +99,7 @@ class NotificationWorkScheduler @Inject constructor(
         .putString(NotificationWorkNames.INPUT_LOCAL_ID, accountId.localId)
         .putString(NotificationWorkNames.INPUT_PROTOCOL, accountId.connection.protocol.name)
         .build()
+
+    private fun connectedNetworkConstraints(): Constraints =
+        Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 }
