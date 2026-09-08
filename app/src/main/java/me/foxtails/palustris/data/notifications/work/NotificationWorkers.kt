@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.foxtails.palustris.data.SocialSourceFactory
@@ -24,6 +25,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.NotificationDeliveryState
 import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.data.notifications.NotificationDeliveryDecision
 
 @EntryPoint
@@ -66,7 +68,7 @@ abstract class AccountNotificationWorker(
     }
 }
 
-class NotificationReconcileWorker(
+open class NotificationReconcileWorker(
     appContext: Context,
     workerParams: WorkerParameters,
 ) : AccountNotificationWorker(appContext, workerParams) {
@@ -74,21 +76,30 @@ class NotificationReconcileWorker(
         val accountId = accountId() ?: return Result.failure()
         val dependencies = dependencies()
         if (withContext(Dispatchers.IO) { dependencies.sessionStore().read(accountId) } == null) return Result.success()
-        val token = token(accountId) ?: return Result.success()
         return try {
+            val token = token(accountId) ?: return Result.success()
             val session = withContext(Dispatchers.IO) { dependencies.sessionStore().read(accountId) } ?: return Result.success()
+            val messageGeneration = session.pushState.messageGeneration
+            val instanceName = session.pushInstanceName
             val result = dependencies.synchronizer().catchUpNewer(
                 dependencies.sourceFactory().create(session),
                 token,
             )
-            if (!result.delayed) {
-                dependencies.sessionStore().read(accountId)?.pushInstanceName?.let { instance ->
-                    dependencies.sessionStore().clearPushMessageHint(accountId, instance)
-                }
+            if (result.delayed) {
+                Result.retry()
+            } else {
+                val hintCleared = instanceName?.let { instance ->
+                    dependencies.sessionStore().clearPushMessageHint(accountId, instance, messageGeneration)
+                } ?: true
+                if (!hintCleared) dependencies.scheduler().enqueueCatchUp(accountId)
+                dependencies.scheduler().enqueueDelivery(accountId)
+                if (hintCleared) Result.success() else Result.retry()
             }
-            dependencies.scheduler().enqueueDelivery(accountId)
-            if (result.delayed) Result.retry() else Result.success()
-        } catch (error: IOException) {
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: SourceError) {
+            if (error.isTerminalWorkerError()) Result.failure() else Result.retry()
+        } catch (_: IOException) {
             Result.retry()
         } catch (_: Exception) {
             Result.retry()
@@ -99,8 +110,16 @@ class NotificationReconcileWorker(
 class NotificationCatchUpWorker(
     appContext: Context,
     workerParams: WorkerParameters,
-) : AccountNotificationWorker(appContext, workerParams) {
-    override suspend fun doWork(): Result = NotificationReconcileWorker(applicationContext, workerParameters).doWork()
+) : NotificationReconcileWorker(appContext, workerParams)
+
+private fun SourceError.isTerminalWorkerError(): Boolean = when (this) {
+    SourceError.Unauthorized,
+    SourceError.AccountMismatch,
+    is SourceError.Unsupported,
+    is SourceError.UnsupportedCredential,
+    is SourceError.ServerUnsupported,
+    -> true
+    else -> false
 }
 
 class NotificationDeliveryWorker(
@@ -147,7 +166,7 @@ class NotificationDeliveryWorker(
                                 errorCategory,
                                 claimed.claimId,
                             )
-                            retryRequested = availability == NotificationPresentationAvailability.Available
+                            retryRequested = retryRequested || availability == NotificationPresentationAvailability.Available
                         }
                     }
                     NotificationDeliveryDecision.AlreadyPresented -> repository.finishDelivery(

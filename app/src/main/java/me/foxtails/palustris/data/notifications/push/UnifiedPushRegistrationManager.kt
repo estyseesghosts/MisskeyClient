@@ -219,6 +219,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
             ?: return PushRegistrationWorkResult.NoWork
         val registration = repository.pushRegistration(accountId) ?: return PushRegistrationWorkResult.NoWork
         val endpoint = session.pushState.endpoint ?: return PushRegistrationWorkResult.NoWork
+        val endpointGeneration = session.pushState.endpointGeneration
         val publicKey = session.pushState.publicKey ?: return PushRegistrationWorkResult.Terminal
         val authSecret = session.pushState.authSecret ?: return PushRegistrationWorkResult.Terminal
         if (!session.pushState.endpointCallbackPending) return PushRegistrationWorkResult.NoWork
@@ -233,6 +234,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 false,
             ),
             registration.instanceName,
+            endpointGeneration,
         )
     }
 
@@ -270,6 +272,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
     private suspend fun handleNewEndpoint(
         endpoint: PushEndpoint,
         instanceName: String,
+        expectedEndpointGeneration: Long,
     ): PushRegistrationWorkResult = lock.withLock {
         val owner = registrationRepository.find(instanceName) ?: return@withLock PushRegistrationWorkResult.NoWork
         val publicKeySet = endpoint.pubKeySet ?: run {
@@ -294,6 +297,11 @@ class UnifiedPushRegistrationManager @Inject constructor(
             ?: return@withLock PushRegistrationWorkResult.NoWork
         if (currentSession.sessionRevision != owner.session.sessionRevision) {
             return@withLock PushRegistrationWorkResult.Terminal
+        }
+        if (currentSession.pushState.endpointGeneration != expectedEndpointGeneration ||
+            currentSession.pushState.endpoint != validatedEndpoint
+        ) {
+            return@withLock PushRegistrationWorkResult.Retry
         }
         val previousServerEndpoint = owner.registration.serverEndpoint
         val desiredEndpointGeneration = currentSession.pushState.endpointGeneration.takeIf { it > 0L }
@@ -336,6 +344,19 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 confirmed
             }
             val policy = source.updatePushAlertPolicy(subscription, settings.categories)
+            val latestSession = sessionStore.read(owner.accountId)
+            if (latestSession?.sessionRevision != owner.session.sessionRevision ||
+                latestSession.pushState.endpointGeneration != expectedEndpointGeneration ||
+                latestSession.pushState.endpoint != validatedEndpoint
+            ) {
+                return@withLock PushRegistrationWorkResult.Retry
+            }
+            val clearPending = sessionStore.clearPushEndpointPending(
+                owner.accountId,
+                owner.registration.instanceName,
+                expectedEndpointGeneration,
+            )
+            if (!clearPending) return@withLock PushRegistrationWorkResult.Retry
             update(owner.token, received.copy(
                 endpoint = subscription.endpoint,
                 serverEndpoint = subscription.endpoint,
@@ -352,7 +373,6 @@ class UnifiedPushRegistrationManager @Inject constructor(
             sessionStore.updateCapabilities(owner.accountId) {
                 it.copy(notifications = it.notifications.copy(webPush = CapabilityStatus.Supported))
             }
-            sessionStore.clearPushEndpointPending(owner.accountId, owner.registration.instanceName)
             scheduler.enqueueCatchUp(owner.accountId)
             PushRegistrationWorkResult.Success
         } catch (error: CancellationException) {

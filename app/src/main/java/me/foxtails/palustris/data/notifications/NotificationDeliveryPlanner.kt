@@ -5,9 +5,9 @@ import java.time.ZoneId
 import javax.inject.Inject
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Notification
-import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationDeliveryState
 import me.foxtails.palustris.domain.NotificationSettings
+import me.foxtails.palustris.domain.matchesCategory
 
 enum class NotificationDeliveryDecision {
     Present,
@@ -64,20 +64,7 @@ class NotificationDeliveryPlanner @Inject constructor() {
     }
 
     private fun categoryEnabled(notification: Notification, settings: NotificationSettings): Boolean =
-        NotificationCategory.All in settings.categories || settings.categories.any { category ->
-            when (category) {
-                NotificationCategory.All -> true
-                NotificationCategory.Mentions -> notification.activity == me.foxtails.palustris.domain.NotificationActivity.Mention
-                NotificationCategory.Replies -> notification.activity == me.foxtails.palustris.domain.NotificationActivity.Reply
-                NotificationCategory.Quotes -> notification.activity == me.foxtails.palustris.domain.NotificationActivity.Quote
-                NotificationCategory.Social -> notification.activity !is me.foxtails.palustris.domain.NotificationActivity.System &&
-                    notification.activity !is me.foxtails.palustris.domain.NotificationActivity.Unknown &&
-                    notification.activity !is me.foxtails.palustris.domain.NotificationActivity.PollResult
-                NotificationCategory.Polls -> notification.activity is me.foxtails.palustris.domain.NotificationActivity.PollResult
-                NotificationCategory.System -> notification.activity is me.foxtails.palustris.domain.NotificationActivity.System ||
-                    notification.activity is me.foxtails.palustris.domain.NotificationActivity.Unknown
-            }
-        }
+        settings.categories.any(notification.activity::matchesCategory)
 
     private fun isQuietHours(settings: NotificationSettings, nowMinutes: Int): Boolean {
         val start = settings.quietHoursStartMinutes ?: return false

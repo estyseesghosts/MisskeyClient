@@ -9,6 +9,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
+import me.foxtails.palustris.domain.categories
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationReadState
 import me.foxtails.palustris.domain.NotificationSettings
@@ -50,6 +51,24 @@ class NotificationDeliveryPlannerTest {
         )
 
         assertEquals(NotificationDeliveryDecision.SuppressedByQuietHours, plan.decision)
+    }
+
+    @Test
+    fun categoryClassifierKeepsActivityFamiliesDisjoint() {
+        assertEquals(setOf(NotificationCategory.Mentions), NotificationActivity.Mention.categories())
+        assertEquals(setOf(NotificationCategory.Replies), NotificationActivity.Reply.categories())
+        assertEquals(setOf(NotificationCategory.Quotes), NotificationActivity.QuotedPostUpdate.categories())
+        assertEquals(setOf(NotificationCategory.Polls), NotificationActivity.PollResult().categories())
+        assertEquals(setOf(NotificationCategory.System), NotificationActivity.Unknown("unknown").categories())
+        assertEquals(setOf(NotificationCategory.Social), NotificationActivity.PostUpdate.categories())
+
+        val socialDisabled = planner.plan(
+            notification.copy(activity = NotificationActivity.Reply),
+            NotificationSettings(alertsEnabled = true, categories = setOf(NotificationCategory.Social)),
+            permissionGranted = true,
+            foreground = false,
+        )
+        assertEquals(NotificationDeliveryDecision.SuppressedBySettings, socialDisabled.decision)
     }
 
     @Test

@@ -25,6 +25,7 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationActivity
+import me.foxtails.palustris.domain.matchesCategory
 import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationDeliveryRecord
 import me.foxtails.palustris.domain.NotificationDeliveryState
@@ -1101,26 +1102,7 @@ private fun meFoxtailsNotificationCursor(value: String) = me.foxtails.palustris.
 
 private fun Notification.matches(query: NotificationQuery): Boolean {
     if (query.isAll) return true
-    return query.categories.any { category ->
-        when (category) {
-            me.foxtails.palustris.domain.NotificationCategory.All -> true
-            me.foxtails.palustris.domain.NotificationCategory.Mentions -> activity == NotificationActivity.Mention
-            me.foxtails.palustris.domain.NotificationCategory.Replies -> activity == NotificationActivity.Reply
-            me.foxtails.palustris.domain.NotificationCategory.Quotes -> activity == NotificationActivity.Quote ||
-                activity == NotificationActivity.QuotedPostUpdate
-            me.foxtails.palustris.domain.NotificationCategory.Social -> activity in setOf(
-                NotificationActivity.Reshare,
-                NotificationActivity.Favourite,
-                NotificationActivity.Follow,
-                NotificationActivity.FollowRequest,
-                NotificationActivity.AcceptedRequest,
-                NotificationActivity.SubscribedPost,
-            ) || activity is NotificationActivity.EmojiReaction
-            me.foxtails.palustris.domain.NotificationCategory.Polls -> activity is NotificationActivity.PollResult
-            me.foxtails.palustris.domain.NotificationCategory.System -> activity is NotificationActivity.System ||
-                activity is NotificationActivity.Unknown
-        }
-    }
+    return query.categories.any(activity::matchesCategory)
 }
 
 private fun stableNotificationId(id: EntityId): Int = (id.connection + "\u0000" + id.value).hashCode()
