@@ -4,7 +4,7 @@ Updated 2026-09-08 while implementing the plan in `docs/roadmaps/notifications.m
 
 ## Current conclusion
 
-The notification foundation and an account-scoped inbox are now implemented without changing the recent Replies/Reposts/Likes chip or compact navigation-dock behavior. The app can retrieve, persist, merge, filter, page, locally mark, explicitly acknowledge, and dismiss notifications for the active account. Stored accounts are supervised independently of `FeedViewModel`.
+The notification foundation and an account-scoped inbox are implemented without changing the recent Replies/Reposts/Likes chip or compact navigation-dock behavior. The app can retrieve, persist, merge, filter, page, locally mark, explicitly acknowledge, and dismiss notifications for the active account. Mastodon multi-page newer catch-up now follows the server's moving continuation and stops when the server reports no newer page. Stored accounts are supervised independently of `FeedViewModel`.
 
 The implementation is ready for the user-provided live Samsung/Sunup verification. This is not a claim that the live round trip has already succeeded: distributor callbacks, authenticated server registration, background delivery, process death, and device presentation still require that test.
 
@@ -12,7 +12,7 @@ The implementation is ready for the user-provided live Samsung/Sunup verificatio
 |---|---|---|
 | Milestone 0: protocol and push feasibility | Implemented in code; live gate open | Connector 3.3.5 is pinned, Sunup is the preferred installed distributor, and both server push contracts are implemented. Live version compatibility and a real push round trip remain. |
 | Milestone 1: domain contracts and permissions | Mostly implemented | Typed account-bound notifications, opaque cursors, unread precision, acknowledgement contracts, access metadata, and typed follow-request targets exist. Capability refresh is not yet persisted as authoritative session state. |
-| Milestone 2: REST adapters and mapping | Substantially implemented | Listing, filters, cursors, grouped mapping, unknown records, unread lookup, Misskey mark-all, Mastodon marker acknowledgement, dismiss, and follow-request routing are covered synthetically. Live-version and marker race verification remain. |
+| Milestone 2: REST adapters and mapping | Substantially implemented; Mastodon catch-up corrected | Listing, filters, opaque cursors, grouped mapping, unknown records, unread lookup, Misskey mark-all, Mastodon marker acknowledgement, dismiss, follow-request routing, and multi-page Mastodon newer traversal are covered synthetically. Live-version and marker race verification remain. |
 | Milestone 3: durable repository and lifecycle | Core implemented | App-private atomic files, bounded deduplication, checkpoints, account isolation, generation fencing, local-seen/server-acknowledged/Android-presented state, account restoration, and account-lifetime polling are implemented. Migration, pending-operation outbox, and crash/restart race coverage remain. |
 | Milestone 4: inbox and actions | Core implemented | `NotificationsViewModel`, cached list rows, Replies/Reposts/Likes filtering, refresh, older pagination, mark-all, local seen, dismiss, and Direct messages isolation are wired. Native target routing, follow-request controls, newer-arrival UX, content previews, and scroll restoration remain. |
 | Milestone 5: UnifiedPush and Android alerts | Implemented; live gate open | Connector service, encrypted key manager, stable account mapping, endpoint registration, safe payload hints, WorkManager catch-up, permission-safe presentation, and account-bound pending intents are implemented. Live delivery remains unverified. |
@@ -38,6 +38,12 @@ The implementation is ready for the user-provided live Samsung/Sunup verificatio
 - Notification launch data URIs now contain a deterministic opaque digest of the receiving account and canonical notification ID.
 - Router parsing validates that digest against intent extras, preventing extras from being replaced by an equivalent PendingIntent belonging to another account on the same server.
 - `NotificationLaunchRouterTest` passes, including account-specific URI and URI/extra mismatch coverage.
+
+### 2026-09-08 — Mastodon moving continuation catch-up
+
+- Mastodon newer reconciliation now prefers its moving `newerContinuation` over the committed newest boundary.
+- The initial-page `min_id` fallback is limited to baseline requests; a continuation page with no `prev` link now terminates instead of inventing another request.
+- `MastodonNotificationSyncTest` covers a baseline followed by three server pages and asserts every requested continuation URL.
 
 ## Implemented changes
 
@@ -83,9 +89,9 @@ Navigation and Compose regression coverage verifies these relationships.
 1. Record the live Samsung/Sunup outcome against the selected Misskey-family and
    Mastodon server versions, including grouped pagination, marker semantics,
    push registration, delivery, process death, and logout cleanup.
-2. Add serialized Mastodon marker writes with conflict/re-read handling and
-   explicit filtered-view semantics; verify adapter behavior against the
-   selected live versions.
+2. Finish Mastodon older-history terminal/exhaustion handling and add
+   serialized marker writes with conflict/re-read handling; verify adapter
+   behavior against the selected live versions.
 3. Persist refreshed capability results only for the matching session
    generation and expose supported/denied/unsupported/temporarily-unavailable
    states to UI.
@@ -98,6 +104,7 @@ Navigation and Compose regression coverage verifies these relationships.
 Passed:
 
 - `./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.NotificationRepositoryTest --tests me.foxtails.palustris.NotificationAdapterContractTest --tests me.foxtails.palustris.NotificationsScreenTest --tests me.foxtails.palustris.NavigationTest --tests me.foxtails.palustris.WideNavigationTest`
+- `./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.MastodonNotificationSyncTest`
 - `./gradlew lintDebug`
 - `./gradlew test assembleRelease`
 - `./gradlew :app:compileDebugKotlin`

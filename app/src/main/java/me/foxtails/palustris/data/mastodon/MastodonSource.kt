@@ -139,7 +139,11 @@ class MastodonSource(
         checkpoint: NotificationCheckpoint,
     ): NotificationPage = request {
         validateCheckpoint(query, checkpoint)
-        val cursor = checkpoint.newest ?: return@request emptyNotificationPage(query)
+        val cursor = checkpoint.newerContinuation ?: checkpoint.newest
+        if (cursor == null && checkpoint.baselineEstablished) {
+            return@request loadNotifications(query, null, CursorDirection.Newer)
+        }
+        cursor ?: return@request emptyNotificationPage(query)
         loadNotifications(query, cursor, CursorDirection.Newer)
     }
 
@@ -148,7 +152,8 @@ class MastodonSource(
         checkpoint: NotificationCheckpoint,
     ): NotificationPage = request {
         validateCheckpoint(query, checkpoint)
-        val cursor = checkpoint.oldest ?: return@request emptyNotificationPage(query)
+        val cursor = checkpoint.olderContinuation ?: checkpoint.oldest
+            ?: return@request emptyNotificationPage(query)
         loadNotifications(query, cursor, CursorDirection.Older)
     }
 
@@ -300,7 +305,11 @@ class MastodonSource(
                 MastodonNotificationMapper.notification(values.getJSONObject(index), origin, account)
             }
             val previousUrl = response.linkHeaderCursor("prev")
-                ?: items.firstOrNull()?.id?.value?.let { notificationUrl(query, variant, minId = it).toString() }
+                ?: if (cursor == null && cursorDirection == CursorDirection.Older) {
+                    items.firstOrNull()?.id?.value?.let { notificationUrl(query, variant, minId = it).toString() }
+                } else {
+                    null
+                }
             val nextUrl = response.linkHeaderCursor("next")
             pageFromContinuations(query, items, previousUrl, nextUrl, decodedCursor?.url, variant, cursorDirection)
         } else {
