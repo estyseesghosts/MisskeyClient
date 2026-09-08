@@ -1,20 +1,57 @@
 package me.foxtails.palustris.ui
 
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathNode
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.unit.dp
 
 /** Bundled application icons, using the provided traced artwork where available. */
 object AppIcons {
+    private const val SvgViewport = 2048f
+    private const val SvgContentSize = 1728f
+
     private fun icon(name: String, path: String) = ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f)
         .addPath(addPathNodes(path), fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd).build()
-    private fun tracedIcon(name: String, path: String) = ImageVector.Builder(name, 24.dp, 24.dp, 2048f, 2048f)
-        .addPath(addPathNodes(path), fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd).build()
-    private fun tracedIcon(name: String, paths: List<String>) = ImageVector.Builder(name, 24.dp, 24.dp, 2048f, 2048f)
-        .apply { paths.forEach { addPath(addPathNodes(it), fill = SolidColor(Color.Black)) } }.build()
+    private fun tracedIcon(name: String, path: String) = tracedIcon(name, listOf(path))
+    private fun tracedIcon(name: String, paths: List<String>): ImageVector {
+        val parsedPaths = paths.map { pathString ->
+            val parser = PathParser().parsePathString(pathString)
+            ParsedPath(parser.toNodes(), parser.toPath(Path()).getBounds())
+        }
+        val left = parsedPaths.minOf { it.bounds.left }
+        val top = parsedPaths.minOf { it.bounds.top }
+        val right = parsedPaths.maxOf { it.bounds.right }
+        val bottom = parsedPaths.maxOf { it.bounds.bottom }
+        val width = (right - left).coerceAtLeast(1f)
+        val height = (bottom - top).coerceAtLeast(1f)
+        val scale = minOf(SvgContentSize / width, SvgContentSize / height)
+        val translationX = (SvgViewport - width * scale) / 2f - left * scale
+        val translationY = (SvgViewport - height * scale) / 2f - top * scale
+
+        return ImageVector.Builder(name, 24.dp, 24.dp, SvgViewport, SvgViewport).apply {
+            group(scaleX = scale, scaleY = scale, translationX = translationX, translationY = translationY) {
+                parsedPaths.forEach { parsedPath ->
+                    addPath(
+                        parsedPath.nodes,
+                        fill = SolidColor(Color.Black),
+                        pathFillType = PathFillType.EvenOdd,
+                    )
+                }
+            }
+        }.build()
+    }
+
+    private data class ParsedPath(
+        val nodes: List<PathNode>,
+        val bounds: Rect,
+    )
 
     val Home = tracedIcon("Home", SvgIconPaths.Home)
     val Search = tracedIcon("Search", SvgIconPaths.Search)
