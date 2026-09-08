@@ -26,6 +26,14 @@ import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.SocialSource
 
+enum class NotificationStreamStatus {
+    Stopped,
+    Connecting,
+    Ready,
+    Backoff,
+    Unsupported,
+}
+
 data class NotificationSyncState(
     val unreadState: NotificationUnreadState = NotificationUnreadState.Unknown,
     val lastUpdated: Long = 0,
@@ -34,6 +42,7 @@ data class NotificationSyncState(
     val error: String? = null,
     val streamConnected: Boolean = false,
     val streamError: String? = null,
+    val streamStatus: NotificationStreamStatus = NotificationStreamStatus.Stopped,
 )
 
 interface NotificationSyncController {
@@ -188,10 +197,23 @@ class NotificationSyncOrchestrator @Inject constructor(
     }
 
     fun setStreamConnected(accountId: AccountId, connected: Boolean, error: String? = null) {
+        setStreamStatus(
+            accountId,
+            if (connected) NotificationStreamStatus.Ready else NotificationStreamStatus.Stopped,
+            error,
+        )
+    }
+
+    fun setStreamStatus(
+        accountId: AccountId,
+        status: NotificationStreamStatus,
+        error: String? = null,
+    ) {
         synchronized(this) {
             states[accountId]?.value = states[accountId]?.value?.copy(
-                streamConnected = connected,
+                streamConnected = status == NotificationStreamStatus.Ready,
                 streamError = error,
+                streamStatus = status,
             ) ?: return
         }
     }

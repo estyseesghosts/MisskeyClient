@@ -1,12 +1,15 @@
 package me.foxtails.palustris
 
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import me.foxtails.palustris.data.misskey.MisskeySource
+import me.foxtails.palustris.data.mastodon.MastodonSource
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
@@ -15,11 +18,17 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okhttp3.Response
 import okio.ByteString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class WebSocketTransportTest {
     @Test
     fun websocketRequestKeepsHttpsForOkHttpUpgrade() {
@@ -58,14 +67,59 @@ class WebSocketTransportTest {
         assertEquals("Bearer test-token", client.request?.header("Authorization"))
     }
 
+    @Test
+    fun mastodonStreamReportsReadyAfterWebSocketOpen() = runBlocking {
+        val client = CapturingWebSocketClient()
+        val origin = "https://example.org"
+        val account = AccountId(Connection(origin, Protocol.MASTODON), "receiver")
+        val source = MastodonSource(origin, "test-token", MisskeyApi(client), account)
+        val event = async { source.streamEvents().first() }
+        withTimeout(1_000) {
+            while (client.listener == null) yield()
+        }
+
+        client.listener!!.onOpen(client.socket, response(client.request!!))
+
+        assertEquals("stream.ready", (event.await().payload as me.foxtails.palustris.domain.SocialEvent.Other).kind)
+    }
+
+    @Test
+    fun misskeyStreamReportsReadyOnlyAfterNotificationsChannelAcknowledgement() = runBlocking {
+        val client = CapturingWebSocketClient()
+        val origin = "https://example.org"
+        val account = AccountId(Connection(origin, Protocol.MISSKEY), "receiver")
+        val source = MisskeySource(origin, "test-token", MisskeyApi(client), accountId = account)
+        val event = async { source.streamEvents().first() }
+        withTimeout(1_000) {
+            while (client.listener == null) yield()
+        }
+
+        client.listener!!.onMessage(
+            client.socket,
+            "{\"type\":\"connected\",\"body\":{\"id\":\"notifications\"}}",
+        )
+
+        assertEquals("stream.ready", (event.await().payload as me.foxtails.palustris.domain.SocialEvent.Other).kind)
+    }
+
     private class CapturingWebSocketClient : OkHttpClient() {
         var request: Request? = null
+        var listener: WebSocketListener? = null
+        lateinit var socket: WebSocket
 
         override fun newWebSocket(request: Request, listener: WebSocketListener): WebSocket {
             this.request = request
-            return NoOpWebSocket(request)
+            this.listener = listener
+            return NoOpWebSocket(request).also { socket = it }
         }
     }
+
+    private fun response(request: Request): Response = Response.Builder()
+        .request(request)
+        .protocol(okhttp3.Protocol.HTTP_1_1)
+        .code(101)
+        .message("Switching Protocols")
+        .build()
 
     private class NoOpWebSocket(
         private val requestValue: Request,

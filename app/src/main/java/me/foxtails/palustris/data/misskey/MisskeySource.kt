@@ -313,7 +313,16 @@ class MisskeySource(
             override fun onMessage(webSocket: okhttp3.WebSocket, text: String) {
                 runCatching {
                     val message = JSONObject(text)
-                    if (message.optString("type") != "channel") return@runCatching
+                    when (message.optString("type")) {
+                        "connected" -> {
+                            if (message.optJSONObject("body")?.optString("id") == "notifications") {
+                                trySend(Event(account, SocialEvent.Other("stream.ready")))
+                            }
+                            return@runCatching
+                        }
+                        "channel" -> Unit
+                        else -> return@runCatching
+                    }
                     val body = message.optJSONObject("body") ?: return@runCatching
                     when (body.optString("type")) {
                         "notification" -> {

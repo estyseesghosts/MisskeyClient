@@ -418,6 +418,10 @@ class MastodonSource(
             "/api/v1/streaming/user",
             headers = mapOf("Authorization" to "Bearer $token"),
             listener = object : okhttp3.WebSocketListener() {
+                override fun onOpen(webSocket: okhttp3.WebSocket, response: okhttp3.Response) {
+                    trySend(Event(accountId, SocialEvent.Other("stream.ready")))
+                }
+
                 override fun onMessage(webSocket: okhttp3.WebSocket, text: String) {
                     runCatching {
                         val message = JSONObject(text)

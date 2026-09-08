@@ -10,6 +10,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.AccountSourceRegistry
@@ -47,35 +48,55 @@ class ForegroundNotificationStreamController @Inject constructor(
     @Synchronized
     override fun stop(accountId: AccountId) {
         jobs.remove(accountId)?.cancel()
-        synchronizer.setStreamConnected(accountId, connected = false)
+        synchronizer.setStreamStatus(accountId, NotificationStreamStatus.Stopped)
     }
 
     private suspend fun run(accountId: AccountId) {
         var backoffMillis = INITIAL_BACKOFF_MILLIS
         while (scope.isActive) {
             val source = sourceRegistry.sourceFor(accountId) ?: return
+            var ready = false
             try {
-                synchronizer.setStreamConnected(accountId, connected = true)
-                source.streamEvents().collect { event ->
-                    if (!synchronizer.accept(event)) return@collect
+                synchronizer.setStreamStatus(accountId, NotificationStreamStatus.Connecting)
+                source.streamEvents().takeWhile { event ->
+                    if (sourceRegistry.sourceFor(accountId) !== source) return@takeWhile false
+                    if (event.payload is SocialEvent.Other && event.payload.kind == "stream.ready") {
+                        ready = true
+                        synchronizer.setStreamStatus(accountId, NotificationStreamStatus.Ready)
+                        return@takeWhile true
+                    }
+                    if (!synchronizer.accept(event)) return@takeWhile true
                     when (event.payload) {
                         is SocialEvent.NotificationReceived -> scheduler.enqueueDelivery(accountId)
                         is SocialEvent.NotificationReadChanged -> Unit
                         is SocialEvent.Other -> scheduler.enqueueCatchUp(accountId)
                         else -> Unit
                     }
-                }
-                synchronizer.setStreamConnected(accountId, connected = false, error = "stream_closed")
+                    true
+                }.collect()
+                if (sourceRegistry.sourceFor(accountId) !== source) return
+                synchronizer.setStreamStatus(
+                    accountId,
+                    NotificationStreamStatus.Backoff,
+                    error = if (ready) "stream_closed" else "stream_not_ready",
+                )
             } catch (error: CancellationException) {
-                synchronizer.setStreamConnected(accountId, connected = false)
+                synchronizer.setStreamStatus(accountId, NotificationStreamStatus.Stopped)
                 throw error
             } catch (error: SourceError.Unsupported) {
-                synchronizer.setStreamConnected(accountId, connected = false, error = "stream_unsupported")
+                synchronizer.setStreamStatus(accountId, NotificationStreamStatus.Unsupported, "stream_unsupported")
+                return
+            } catch (error: SourceError.UnsupportedCredential) {
+                synchronizer.setStreamStatus(accountId, NotificationStreamStatus.Unsupported, "stream_unsupported")
+                return
+            } catch (error: SourceError.ServerUnsupported) {
+                synchronizer.setStreamStatus(accountId, NotificationStreamStatus.Unsupported, "stream_unsupported")
                 return
             } catch (_: Exception) {
-                synchronizer.setStreamConnected(accountId, connected = false, error = "stream_unavailable")
+                synchronizer.setStreamStatus(accountId, NotificationStreamStatus.Backoff, "stream_unavailable")
             }
             if (!scope.isActive) return
+            if (sourceRegistry.sourceFor(accountId) !== source) return
             try {
                 val result: NotificationSyncResult = synchronizer.refresh(accountId)
                 if (result.pages > 0) scheduler.enqueueDelivery(accountId)
@@ -83,7 +104,11 @@ class ForegroundNotificationStreamController @Inject constructor(
                 scheduler.enqueueCatchUp(accountId)
             }
             delay(backoffMillis)
-            backoffMillis = (backoffMillis * 2).coerceAtMost(MAX_BACKOFF_MILLIS)
+            backoffMillis = if (ready) {
+                INITIAL_BACKOFF_MILLIS
+            } else {
+                (backoffMillis * 2).coerceAtMost(MAX_BACKOFF_MILLIS)
+            }
         }
     }
 
