@@ -287,7 +287,6 @@ private fun CompactContextualNavigationBar(
 fun PalustrisApp(
     account: Account? = null,
     feedState: FeedState? = null,
-    profile: Account? = null,
     profileState: ProfileUiState = ProfileUiState(),
     onProfileShown: (Account) -> Unit = {},
     onProfileCategorySelected: (ProfileCategory) -> Unit = {},
