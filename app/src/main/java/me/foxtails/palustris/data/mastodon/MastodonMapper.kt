@@ -38,10 +38,10 @@ object MastodonMapper {
             id = AccountId(Connection(origin, Protocol.MASTODON), json.getString("id")),
             displayName = json.optString("display_name").ifBlank { username },
             handle = "@$username@$host",
-            avatarUrl = json.optString("avatar").takeIf { it.isNotBlank() },
+            avatarUrl = json.nullableString("avatar"),
             biography = json.optString("note").stripHtml(),
             profileFields = fields,
-            bannerUrl = json.optString("header").takeIf { it.isNotBlank() },
+            bannerUrl = json.nullableString("header"),
             followersCount = json.optionalNonNegativeLong("followers_count"),
             followingCount = json.optionalNonNegativeLong("following_count"),
             postsCount = json.optionalNonNegativeLong("statuses_count"),
@@ -67,7 +67,7 @@ object MastodonMapper {
             return resharedPost.copy(
                 id = id,
                 resharedBy = account(json.getJSONObject("account"), origin),
-                url = json.optString("url").takeIf { it.isNotBlank() } ?: resharedPost.url,
+                url = json.nullableString("url") ?: resharedPost.url,
                 reposted = json.optBoolean("reblogged", resharedPost.reposted),
                 favourited = json.optBoolean("favourited", resharedPost.favourited),
                 saved = json.optBoolean("bookmarked", resharedPost.saved),
@@ -92,13 +92,12 @@ object MastodonMapper {
             attachments = json.optJSONArray("media_attachments")?.let { media ->
                 (0 until media.length()).map { attachment(media.getJSONObject(it), statusSensitive) }
             }.orEmpty(),
-            contentWarning = json.optString("spoiler_text").takeIf { it.isNotBlank() },
-            replyTo = json.optString("in_reply_to_id").takeIf { it.isNotBlank() }?.let { EntityId(origin, it) },
-            replyToAuthorId = json.optString("in_reply_to_account_id").takeIf { it.isNotBlank() }
+            contentWarning = json.nullableString("spoiler_text"),
+            replyTo = json.nullableString("in_reply_to_id")?.let { EntityId(origin, it) },
+            replyToAuthorId = json.nullableString("in_reply_to_account_id")
                 ?.let { AccountId(Connection(origin, Protocol.MASTODON), it) },
             availableActions = MASTODON_ACTIONS,
-            url = json.optString("url").takeIf { it.isNotBlank() }
-                ?: json.optString("uri").takeIf { it.isNotBlank() },
+            url = json.nullableString("url") ?: json.nullableString("uri"),
             replyCount = json.optInt("replies_count"),
             reshareCount = json.optInt("reblogs_count"),
             quote = quotedStatus?.takeIf { depth < MAX_NESTING_DEPTH }?.let { post(it, origin, depth + 1) },
@@ -116,12 +115,11 @@ object MastodonMapper {
     }
 
     fun attachment(json: JSONObject, statusSensitive: Boolean = false): Attachment = Attachment(
-        url = json.optString("url").takeIf { it.isNotBlank() }
-            ?: json.optString("preview_url"),
-        mimeType = json.optJSONObject("meta")?.optJSONObject("original")?.optString("mime_type")
-            ?.takeIf { it.isNotBlank() } ?: json.optString("type").toMastodonMimeType(),
-        description = json.optString("description").takeIf { it.isNotBlank() },
-        previewUrl = json.optString("preview_url").takeIf { it.isNotBlank() },
+        url = json.nullableString("url") ?: json.nullableString("preview_url").orEmpty(),
+        mimeType = json.optJSONObject("meta")?.optJSONObject("original")?.nullableString("mime_type")
+            ?: json.optString("type").toMastodonMimeType(),
+        description = json.nullableString("description"),
+        previewUrl = json.nullableString("preview_url"),
         sensitive = statusSensitive || json.optBoolean("sensitive"),
     )
 
@@ -138,6 +136,9 @@ object MastodonMapper {
     private const val MAX_NESTING_DEPTH = 3
     private val MASTODON_ACTIONS = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.Bookmark)
 }
+
+private fun JSONObject.nullableString(key: String): String? =
+    if (isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
 
 private fun JSONObject.optionalNonNegativeLong(key: String): Long? {
     if (!has(key) || isNull(key)) return null

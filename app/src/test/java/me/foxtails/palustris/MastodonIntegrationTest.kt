@@ -139,6 +139,16 @@ class MastodonIntegrationTest {
     }
 
     @Test
+    fun mapperTreatsExplicitNullReplyFieldsAsNoReply() {
+        val post = MastodonMapper.post(status("top-level")
+            .put("in_reply_to_id", JSONObject.NULL)
+            .put("in_reply_to_account_id", JSONObject.NULL), origin)
+
+        assertNull(post.replyTo)
+        assertNull(post.replyToAuthorId)
+    }
+
+    @Test
     fun sourceUsesLinkCursorAndBearerTimelineRequest() = runBlocking {
         server.enqueue(MockResponse().setBody("[${status("newest")}]" ).addHeader(
             "Link", "<$origin/api/v1/timelines/home?max_id=newest>; rel=\"next\"",
@@ -268,13 +278,14 @@ class MastodonIntegrationTest {
     fun profileTimelineUsesSafeAccountPathAndFiltersMixedStatusesLocally() = runBlocking {
         val target = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user")
         val other = account("other-user", "other", "Other")
+        val root = status("root").put("in_reply_to_id", JSONObject.NULL).put("in_reply_to_account_id", JSONObject.NULL)
         val media = status("media").put("media_attachments", JSONArray().put(JSONObject()
             .put("type", "image").put("url", "https://example.org/photo.jpg")))
         val reply = status("reply").put("in_reply_to_id", "parent").put("in_reply_to_account_id", "other-user")
         val selfReply = status("self-reply").put("in_reply_to_id", "parent").put("in_reply_to_account_id", "local-user")
         val boost = status("boost").put("account", localAccount).put("reblog", status("original").put("account", other))
         val quote = status("quote").put("quoted_status", status("quoted").put("account", other))
-        server.enqueue(MockResponse().setBody(JSONArray().put(status("root")).put(media).put(reply).put(selfReply).put(boost).put(quote).toString()))
+        server.enqueue(MockResponse().setBody(JSONArray().put(root).put(media).put(reply).put(selfReply).put(boost).put(quote).toString()))
 
         val page = source().profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Posts))
 
