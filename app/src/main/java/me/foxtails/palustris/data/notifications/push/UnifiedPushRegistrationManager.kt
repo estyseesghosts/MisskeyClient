@@ -188,10 +188,11 @@ class UnifiedPushRegistrationManager @Inject constructor(
             ))
             return
         }
-        val previousEndpoint = owner.registration.endpoint
+        val previousServerEndpoint = owner.registration.serverEndpoint
         val received = owner.registration.copy(
             generation = owner.token.generation,
             endpoint = validatedEndpoint,
+            serverEndpoint = previousServerEndpoint,
             endpointGeneration = owner.registration.endpointGeneration + 1,
             state = NotificationPushRegistrationState.EndpointReceived,
             lastErrorCategory = null,
@@ -207,7 +208,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
         )
         try {
             update(owner.token, received.copy(state = NotificationPushRegistrationState.RegisteringWithServer))
-            val subscription = if (previousEndpoint == null) {
+            val subscription = if (previousServerEndpoint == null) {
                 sourceFor(owner.session, owner.token)?.createPushSubscription(spec)
                     ?: throw SourceError.Unauthorized
             } else {
@@ -216,6 +217,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
             }
             update(owner.token, received.copy(
                 endpoint = subscription.endpoint,
+                serverEndpoint = subscription.endpoint,
                 state = NotificationPushRegistrationState.Connected,
                 retryCount = 0,
                 lastErrorCategory = null,

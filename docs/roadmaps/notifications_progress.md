@@ -4,18 +4,18 @@ Updated 2026-09-08 while implementing the plan in `docs/roadmaps/notifications.m
 
 ## Current conclusion
 
-The notification foundation and an account-scoped inbox are implemented without changing the recent Replies/Reposts/Likes chip or compact navigation-dock behavior. The app can retrieve, persist, merge, filter, page, locally mark, explicitly acknowledge, and dismiss notifications for the active account. Mastodon multi-page newer and older traversal now follows the server's moving continuations and records terminal history. Older-history and overlapping retained rows are excluded from new audible delivery eligibility. Newer catch-up refreshes adapter unread knowledge even when page payloads are unknown. Category switches now honor the requested state, including All-minus-one and empty selections. Delivery claims are now lease-based and claim-safe across worker recovery. REST reconciliation remains active even while a stream is marked connected, and Misskey streams send the account bearer token during the WebSocket upgrade; verified readiness and reconnect behavior remain open. Stored accounts are supervised independently of `FeedViewModel`.
+The notification foundation and an account-scoped inbox are implemented without changing the recent Replies/Reposts/Likes chip or compact navigation-dock behavior. The app can retrieve, persist, merge, filter, page, locally mark, explicitly acknowledge, and dismiss notifications for the active account. Mastodon multi-page newer and older traversal now follows the server's moving continuations and records terminal history. Older-history and overlapping retained rows are excluded from new audible delivery eligibility. Newer catch-up refreshes adapter unread knowledge even when page payloads are unknown. Category switches now honor the requested state, including All-minus-one and empty selections. Delivery claims are now lease-based and claim-safe across worker recovery. REST reconciliation remains active even while a stream is marked connected, and Misskey streams send the account bearer token during the WebSocket upgrade; verified readiness and reconnect behavior remain open. Stored accounts are supervised independently of `FeedViewModel`. UnifiedPush callbacks can now rehydrate a restart-safe repository token, and server-confirmed subscription state is kept separate from a distributor endpoint that has only been received; the actual distributor/server delivery round trip remains unverified.
 
 The implementation is ready for the user-provided live Samsung/Sunup verification. This is not a claim that the live round trip has already succeeded: distributor callbacks, authenticated server registration, background delivery, process death, and device presentation still require that test.
 
 | Roadmap area | Status | Evidence or remaining gate |
 |---|---|---|
-| Milestone 0: protocol and push feasibility | Implemented in code; live gate open | Connector 3.3.5 is pinned, Sunup is the preferred installed distributor, and both server push contracts are implemented. Live version compatibility and a real push round trip remain. |
+| Milestone 0: protocol and push feasibility | Implemented in code; live gate open | Connector 3.3.5 is pinned, Sunup is the preferred installed distributor, both server push contracts are implemented, and callback/endpoint recovery is locally covered. Live version compatibility and a real push round trip remain. |
 | Milestone 1: domain contracts and permissions | Mostly implemented | Typed account-bound notifications, opaque cursors, unread precision, acknowledgement contracts, access metadata, and typed follow-request targets exist. Capability refresh is not yet persisted as authoritative session state. |
 | Milestone 2: REST adapters and mapping | Substantially implemented; Mastodon catch-up corrected | Listing, filters, opaque cursors, grouped mapping, unknown records, unread lookup, Misskey mark-all, Mastodon marker acknowledgement, dismiss, follow-request routing, and multi-page Mastodon traversal are covered synthetically. Live-version and marker race verification remain. |
 | Milestone 3: durable repository and lifecycle | Core implemented | App-private atomic files, bounded deduplication, checkpoints, account isolation, generation fencing, local-seen/server-acknowledged/Android-presented state, account restoration, and account-lifetime polling are implemented. Migration, pending-operation outbox, and crash/restart race coverage remain. |
 | Milestone 4: inbox and actions | Core implemented | `NotificationsViewModel`, cached list rows, Replies/Reposts/Likes filtering, refresh, older pagination, mark-all, local seen, dismiss, and Direct messages isolation are wired. Native target routing, follow-request controls, newer-arrival UX, content previews, and scroll restoration remain. |
-| Milestone 5: UnifiedPush and Android alerts | Implemented; live gate open | Connector service, encrypted key manager, stable account mapping, endpoint registration, safe payload hints, WorkManager catch-up, permission-safe presentation, and account-bound pending intents are implemented. Live delivery remains unverified. |
+| Milestone 5: UnifiedPush and Android alerts | Implemented; live gate open | Connector service, encrypted key manager, stable account mapping, restart-safe callback ownership, confirmed-versus-pending endpoint state, safe payload hints, WorkManager catch-up, permission-safe presentation, and account-bound pending intents are implemented. Live delivery remains unverified. |
 | Milestone 6: streaming, recovery, and settings | Implemented; live gate open | Foreground-only adapter streams, reconnect/reconcile, account-unique workers, registration settings, permission request, quiet hours, categories, and periodic fallback are implemented. Live process-death and distributor recovery remain. |
 | Milestone 7: release gates | Partial | Focused tests, lint, full tests, and release assembly must pass on the final push slice. Samsung rendering, authenticated servers, process death, distributor changes, and real push remain unverified until the user test. |
 
@@ -90,6 +90,13 @@ The implementation is ready for the user-provided live Samsung/Sunup verificatio
 - The account synchronizer no longer skips its periodic REST catch-up merely because the foreground stream state is connected.
 - This keeps missed events and a socket that has not completed readiness from suppressing reconciliation.
 
+### 2026-09-08 — UnifiedPush callback and endpoint recovery
+
+- Distributor callbacks now restore a generation-zero repository token when the callback arrives before the account synchronizer has rebuilt in-memory state; the next account sync generation supersedes it.
+- Push registration stores the last server-confirmed endpoint separately from the latest distributor endpoint, so a failed first server registration retries with create while an existing subscription continues to use update.
+- File-backed notification state persists the confirmed endpoint and upgrades older connected records from the legacy single-endpoint representation.
+- `PushRegistrationRepositoryTest` covers cold-process owner lookup and confirmed endpoint persistence; live distributor and server behavior remain unverified.
+
 ## Implemented changes
 
 ### Account-scoped repository
@@ -134,9 +141,8 @@ Navigation and Compose regression coverage verifies these relationships.
 1. Record the live Samsung/Sunup outcome against the selected Misskey-family and
    Mastodon server versions, including grouped pagination, marker semantics,
    push registration, delivery, process death, and logout cleanup.
-2. Finish Mastodon older-history terminal/exhaustion handling and add
-   serialized marker writes with conflict/re-read handling; verify adapter
-   behavior against the selected live versions.
+2. Add serialized marker writes with conflict/re-read handling and verify
+   adapter behavior against the selected live versions.
 3. Persist refreshed capability results only for the matching session
    generation and expose supported/denied/unsupported/temporarily-unavailable
    states to UI.
@@ -150,13 +156,13 @@ Passed:
 
 - `./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.NotificationRepositoryTest --tests me.foxtails.palustris.NotificationAdapterContractTest --tests me.foxtails.palustris.NotificationsScreenTest --tests me.foxtails.palustris.NavigationTest --tests me.foxtails.palustris.WideNavigationTest`
 - `./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.MastodonNotificationSyncTest`
+- `./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.PushRegistrationRepositoryTest --tests me.foxtails.palustris.NotificationRepositoryTest`
 - `./gradlew lintDebug`
 - `./gradlew test assembleRelease`
 - `./gradlew :app:compileDebugKotlin`
 
 Not verified:
 
-- Android Studio Run-button install/launch on the connected live device. The native computer-use surface was unavailable in this task, so no device result is claimed.
-- Authenticated Misskey/Mastodon delivery, Sunup callback behavior, process-death/reboot recovery, distributor removal, and cold-start notification taps.
+- Authenticated Misskey/Mastodon delivery, Sunup callback behavior, process-death/reboot recovery beyond the repository-level callback test, distributor removal, and cold-start notification taps.
 
-Commits for the implementation are focused and pushed to `origin/main`; unrelated worktree files were preserved. The connector and lifecycle dependencies are recorded in the completion log with their reasons.
+The debug build was installed and launched with the local `platform-tools\adb` against the connected Samsung SM-G986W transport; the package install and launch command completed successfully. No live authenticated server or UnifiedPush delivery result is claimed. Commits for the implementation are focused and pushed to `origin/main`; unrelated worktree files were preserved. The connector and lifecycle dependencies are recorded in the completion log with their reasons.

@@ -48,7 +48,12 @@ class PushRegistrationRepository @Inject constructor(
             val session = sessionStore.read(reference.accountId) ?: return@mapNotNull null
             val registration = repository.pushRegistration(reference.accountId) ?: return@mapNotNull null
             if (registration.instanceName != instanceName) return@mapNotNull null
-            val token = repository.currentToken(reference.accountId) ?: return@mapNotNull null
+            // A distributor callback can start the app in a fresh process, before the
+            // account synchronizer has created its in-memory generation. Generation zero is
+            // the repository's restart-safe callback token and is superseded by the next
+            // account sync generation.
+            val token = repository.currentToken(reference.accountId)
+                ?: NotificationSyncToken(reference.accountId, 0L).also(repository::activate)
             PushRegistrationOwner(reference.accountId, session, token, registration)
         }.firstOrNull()
     }

@@ -68,7 +68,10 @@ data class PushRegistration(
     val generation: Long,
     val instanceName: String,
     val distributorPackage: String? = null,
+    /** The latest endpoint reported by the distributor; it may still be pending server registration. */
     val endpoint: ValidatedUrl? = null,
+    /** The last endpoint accepted by the server; a newer distributor endpoint may still be pending. */
+    val serverEndpoint: ValidatedUrl? = null,
     val state: NotificationPushRegistrationState = NotificationPushRegistrationState.Off,
     val endpointGeneration: Long = 0,
     val retryCount: Int = 0,

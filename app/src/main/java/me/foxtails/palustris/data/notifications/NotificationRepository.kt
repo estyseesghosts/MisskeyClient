@@ -753,24 +753,35 @@ private fun encodePushRegistration(registration: PushRegistration): JSONObject =
     put("instanceName", registration.instanceName)
     registration.distributorPackage?.let { put("distributorPackage", it) }
     registration.endpoint?.let { put("endpoint", it.value) }
+    registration.serverEndpoint?.let { put("serverEndpoint", it.value) }
     put("state", registration.state.name)
     put("endpointGeneration", registration.endpointGeneration)
     put("retryCount", registration.retryCount)
     registration.lastErrorCategory?.let { put("lastErrorCategory", it) }
 }
 
-private fun decodePushRegistration(json: JSONObject): PushRegistration = PushRegistration(
-    accountId = decodeAccountId(json.getJSONObject("accountId")),
-    generation = json.optLong("generation"),
-    instanceName = json.getString("instanceName"),
-    distributorPackage = json.optString("distributorPackage").takeIf { it.isNotBlank() },
-    endpoint = json.optString("endpoint").takeIf { it.isNotBlank() }?.let { ValidatedUrl.https(it) },
-    state = runCatching { NotificationPushRegistrationState.valueOf(json.optString("state")) }
-        .getOrDefault(NotificationPushRegistrationState.Off),
-    endpointGeneration = json.optLong("endpointGeneration"),
-    retryCount = json.optInt("retryCount"),
-    lastErrorCategory = json.optString("lastErrorCategory").takeIf { it.isNotBlank() },
-)
+private fun decodePushRegistration(json: JSONObject): PushRegistration {
+    val endpoint = json.optString("endpoint").takeIf { it.isNotBlank() }?.let { ValidatedUrl.https(it) }
+    val state = runCatching { NotificationPushRegistrationState.valueOf(json.optString("state")) }
+        .getOrDefault(NotificationPushRegistrationState.Off)
+    val serverEndpoint = json.optString("serverEndpoint").takeIf { it.isNotBlank() }
+        ?.let { ValidatedUrl.https(it) }
+        // Older stores only had one endpoint field. Connected records were written after a
+        // successful server response, so they can safely seed the confirmed field on upgrade.
+        ?: endpoint.takeIf { state == NotificationPushRegistrationState.Connected }
+    return PushRegistration(
+        accountId = decodeAccountId(json.getJSONObject("accountId")),
+        generation = json.optLong("generation"),
+        instanceName = json.getString("instanceName"),
+        distributorPackage = json.optString("distributorPackage").takeIf { it.isNotBlank() },
+        endpoint = endpoint,
+        serverEndpoint = serverEndpoint,
+        state = state,
+        endpointGeneration = json.optLong("endpointGeneration"),
+        retryCount = json.optInt("retryCount"),
+        lastErrorCategory = json.optString("lastErrorCategory").takeIf { it.isNotBlank() },
+    )
+}
 
 private fun encodeSettings(settings: NotificationSettings): JSONObject = JSONObject().apply {
     put("alertsEnabled", settings.alertsEnabled)
