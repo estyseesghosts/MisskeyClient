@@ -5,6 +5,14 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.ui.MessagesScreen
 import me.foxtails.palustris.ui.NotificationsScreen
+import me.foxtails.palustris.ui.NotificationsUiState
+import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.Notification
+import me.foxtails.palustris.domain.NotificationActivity
+import me.foxtails.palustris.domain.Protocol
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -23,6 +31,7 @@ class NotificationsScreenTest {
         connected: Boolean = false,
         accountIdentity: String = "preview",
         compactLayout: Boolean = true,
+        notificationState: NotificationsUiState = NotificationsUiState(),
     ) {
         compose.activity.runOnUiThread {
             compose.activity.setContent {
@@ -30,6 +39,7 @@ class NotificationsScreenTest {
                     connected = connected,
                     compactLayout = compactLayout,
                     accountIdentity = accountIdentity,
+                    notificationState = notificationState,
                 )
             }
         }
@@ -44,7 +54,7 @@ class NotificationsScreenTest {
     @Test fun defaultStateShowsAllNotificationsAndRequiredChipOrder() {
         showNotifications()
 
-        val labels = listOf("Replies", "Reposts", "Likes")
+        val labels = listOf("Replies", "Reposts", "Followers", "Likes")
         labels.forEach { label ->
             compose.onNodeWithText(label).assertIsDisplayed().assertIsNotSelected()
         }
@@ -62,6 +72,7 @@ class NotificationsScreenTest {
         val cases = listOf(
             "Replies" to ("Replies coming soon" to "Replies to you will appear here."),
             "Reposts" to ("Reposts coming soon" to "Reposts of your posts will appear here."),
+            "Followers" to ("Followers coming soon" to "New followers will appear here."),
             "Likes" to ("Likes coming soon" to "Likes on your posts will appear here."),
         )
 
@@ -73,7 +84,7 @@ class NotificationsScreenTest {
             compose.onNodeWithText("All caught up").assertDoesNotExist()
             compose.onNodeWithText(label).performClick().assertIsNotSelected()
             compose.onNodeWithText("All caught up").assertIsDisplayed()
-            listOf("Replies", "Reposts", "Likes").forEach { filter ->
+            listOf("Replies", "Reposts", "Followers", "Likes").forEach { filter ->
                 compose.onNodeWithText(filter).assertIsNotSelected()
             }
         }
@@ -94,10 +105,41 @@ class NotificationsScreenTest {
 
         compose.onNodeWithText("Replies").performClick().assertIsSelected()
         compose.onNodeWithText("Replies").performClick().assertIsNotSelected()
-        listOf("Replies", "Reposts", "Likes").forEach { label ->
+        listOf("Replies", "Reposts", "Followers", "Likes").forEach { label ->
             compose.onNodeWithText(label).assertIsNotSelected()
         }
         compose.onNodeWithText("All caught up").assertIsDisplayed()
+    }
+
+    @Test fun followersFilterShowsOnlyFollowActivity() {
+        val connection = Connection("https://example.org", Protocol.MISSKEY)
+        val accountId = AccountId(connection, "receiver")
+        val actor = Account(AccountId(connection, "actor"), "Actor", "@actor@example.org")
+        val notifications = NotificationsUiState(
+            items = listOf(
+                Notification(
+                    id = EntityId(connection.origin, "follow"),
+                    accountId = accountId,
+                    createdAtEpochMillis = 2,
+                    activity = NotificationActivity.Follow,
+                    actors = listOf(actor),
+                    rawType = "follow",
+                ),
+                Notification(
+                    id = EntityId(connection.origin, "like"),
+                    accountId = accountId,
+                    createdAtEpochMillis = 1,
+                    activity = NotificationActivity.Favourite,
+                    actors = listOf(actor),
+                    rawType = "favourite",
+                ),
+            ),
+        )
+        showNotifications(connected = true, notificationState = notifications)
+
+        compose.onNodeWithText("Followers").performClick().assertIsSelected()
+        compose.onNodeWithText("Followed you").assertIsDisplayed()
+        compose.onNodeWithText("Liked your post").assertDoesNotExist()
     }
 
     @Test fun changingAccountIdentityResetsTransientFilter() {
@@ -124,7 +166,7 @@ class NotificationsScreenTest {
 
         compose.onNodeWithText("Direct messages coming soon").assertIsDisplayed()
         compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more").assertDoesNotExist()
-        listOf("Replies", "Reposts", "Likes").forEach { label ->
+        listOf("Replies", "Reposts", "Followers", "Likes").forEach { label ->
             compose.onNodeWithText(label).assertDoesNotExist()
         }
     }

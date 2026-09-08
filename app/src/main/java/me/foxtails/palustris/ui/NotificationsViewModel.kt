@@ -20,6 +20,7 @@ import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.NotificationUnreadState
+import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.SocialSource
 
 data class NotificationsUiState(
@@ -122,8 +123,13 @@ class NotificationsViewModel @AssistedInject constructor(
         requestJob?.cancel()
         requestJob = viewModelScope.launch {
             try {
-                source.dismissNotification(notification.id)
-                repository.dismiss(currentToken(), notification.id)
+                val token = currentToken()
+                try {
+                    source.dismissNotification(notification.id)
+                } catch (_: SourceError.Unsupported) {
+                    // Keep dismissal useful for protocols without server-side removal.
+                }
+                repository.dismiss(token, notification.id)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

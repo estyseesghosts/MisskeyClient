@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
@@ -189,6 +190,7 @@ private fun CategoryChips(
     titles: List<String>,
     selected: Int?,
     rowContentDescription: String,
+    transparent: Boolean = false,
     onSelect: (Int) -> Unit,
 ) {
     LazyRow(
@@ -204,6 +206,15 @@ private fun CategoryChips(
                 selected = selected == index,
                 onClick = { onSelect(index) },
                 label = { Text(titles[index]) },
+                colors = if (transparent) {
+                    FilterChipDefaults.filterChipColors(
+                        containerColor = Color.Transparent,
+                        selectedContainerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+                    )
+                } else {
+                    FilterChipDefaults.filterChipColors()
+                },
                 modifier = Modifier
                     .height(CompactSearchChipRowHeight)
                     .semantics {
@@ -281,6 +292,7 @@ private enum class NotificationFilter(
 ) {
     Replies("Replies", "Replies coming soon", "Replies to you will appear here."),
     Reposts("Reposts", "Reposts coming soon", "Reposts of your posts will appear here."),
+    Followers("Followers", "Followers coming soon", "New followers will appear here."),
     Likes("Likes", "Likes coming soon", "Likes on your posts will appear here."),
 }
 
@@ -348,7 +360,8 @@ fun NotificationsScreen(
                     notificationFilters.map(NotificationFilter::label),
                     selectedIndex,
                     NotificationFilterDescription,
-                    ::toggleFilter,
+                    transparent = true,
+                    onSelect = ::toggleFilter,
                 )
             }
         }
@@ -358,7 +371,8 @@ fun NotificationsScreen(
                 notificationFilters.map(NotificationFilter::label),
                 selectedIndex,
                 NotificationFilterDescription,
-                ::toggleFilter,
+                transparent = true,
+                onSelect = ::toggleFilter,
             )
             NotificationContent(
                 title = title,
@@ -455,6 +469,7 @@ private fun NotificationRow(
 private fun NotificationFilter.matches(notification: Notification): Boolean = when (this) {
     NotificationFilter.Replies -> notification.activity == NotificationActivity.Reply
     NotificationFilter.Reposts -> notification.activity == NotificationActivity.Reshare
+    NotificationFilter.Followers -> notification.activity == NotificationActivity.Follow
     NotificationFilter.Likes -> notification.activity == NotificationActivity.Favourite ||
         notification.activity is NotificationActivity.EmojiReaction
 }
@@ -568,7 +583,7 @@ fun ProfileScreen(account: Account? = null, compactLayout: Boolean = true) {
                     .padding(horizontal = CompactOverlayHorizontalPadding)
                     .windowInsetsPadding(dockInsets),
             ) {
-                CategoryChips(profileCategories, selectedCategory, ProfileCategoryDescription) { selectedCategory = it }
+                CategoryChips(profileCategories, selectedCategory, ProfileCategoryDescription, transparent = true) { selectedCategory = it }
             }
         }
     } else {
@@ -616,7 +631,7 @@ private fun ProfileContent(
             Spacer(Modifier.height(24.dp))
         }
         if (showCategoryChips) {
-            CategoryChips(profileCategories, selectedCategory, ProfileCategoryDescription, onCategorySelected)
+            CategoryChips(profileCategories, selectedCategory, ProfileCategoryDescription, transparent = true, onSelect = onCategorySelected)
         }
         Box(Modifier.fillMaxWidth().heightIn(min = 280.dp)) {
             val copy = profilePlaceholderCopy[selectedCategory]

@@ -59,7 +59,7 @@ class WideNavigationTest {
         val rowBounds = row.fetchSemanticsNode().boundsInRoot
         val placeholderBounds = compose.onNodeWithText("All caught up").fetchSemanticsNode().boundsInRoot
         assertTrue("wide notification chips should precede the placeholder in page flow", rowBounds.bottom < placeholderBounds.top)
-        listOf("Replies", "Reposts", "Likes").forEach { label ->
+        listOf("Replies", "Reposts", "Followers", "Likes").forEach { label ->
             compose.onNodeWithText(label).assertIsDisplayed().assertIsNotSelected()
         }
         compose.onNodeWithText("All caught up").assertIsDisplayed()
