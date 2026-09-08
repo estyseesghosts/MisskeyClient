@@ -8,6 +8,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
+import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationPage
@@ -61,6 +62,26 @@ class NotificationRepositoryTest {
 
         assertFalse(repository.ingest(token, NotificationPage(listOf(notification("late", NotificationActivity.Follow)))))
         assertTrue(repository.observe(account).value.items.isEmpty())
+    }
+
+    @Test
+    fun acknowledgementSeparatesServerReadAndAndroidPresentationState() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        repository.activate(token)
+        val item = notification("one", NotificationActivity.Mention)
+        repository.ingest(token, NotificationPage(listOf(item), unreadState = NotificationUnreadState.Exact(1)))
+
+        assertTrue(repository.markPresented(token, item.id))
+        assertTrue(repository.acknowledge(
+            token,
+            NotificationAcknowledgement(account, NotificationUnreadState.None, 20),
+        ))
+
+        val readState = repository.observe(account).value.items.single().readState
+        assertEquals(NotificationReadStatus.Read, readState.status)
+        assertTrue(readState.serverAcknowledged)
+        assertTrue(readState.androidPresented)
     }
 
     private fun notification(id: String, activity: NotificationActivity) = Notification(

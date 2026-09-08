@@ -108,4 +108,8 @@ enum class NotificationReadStatus { Read, Unread, Unknown }
 data class NotificationReadState(
     val status: NotificationReadStatus = NotificationReadStatus.Unknown,
     val locallySeen: Boolean = false,
+    /** True only after an explicit server acknowledgement for this event or its coverage. */
+    val serverAcknowledged: Boolean = false,
+    /** True after this event has been handed to the Android notification presenter. */
+    val androidPresented: Boolean = false,
 )

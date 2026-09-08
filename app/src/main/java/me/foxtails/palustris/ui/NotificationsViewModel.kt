@@ -105,7 +105,7 @@ class NotificationsViewModel @AssistedInject constructor(
         requestJob = viewModelScope.launch {
             try {
                 val acknowledgement = source.acknowledgeNotifications()
-                repository.updateUnreadState(currentToken(), acknowledgement.readState)
+                repository.acknowledge(currentToken(), acknowledgement)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

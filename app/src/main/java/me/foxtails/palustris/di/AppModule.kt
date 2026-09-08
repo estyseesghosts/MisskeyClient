@@ -22,6 +22,7 @@ import me.foxtails.palustris.data.auth.MisskeyAuth
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
+import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.FileNotificationStore
 import me.foxtails.palustris.data.notifications.NotificationStore
 import me.foxtails.palustris.domain.Connection
@@ -95,7 +96,8 @@ object SourceModule {
 object SyncModule {
     @Provides
     @Singleton
-    fun provideAccountSyncCoordinator(): AccountSyncCoordinator = AccountSyncCoordinator()
+    fun provideAccountSyncCoordinator(repository: NotificationRepository): AccountSyncCoordinator =
+        AccountSyncCoordinator(repository)
 
     @Provides
     @Singleton

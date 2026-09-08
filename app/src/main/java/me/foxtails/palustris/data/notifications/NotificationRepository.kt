@@ -15,6 +15,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
+import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationDestination
@@ -174,6 +175,46 @@ class NotificationRepository @javax.inject.Inject constructor(
         return true
     }
 
+    suspend fun markPresented(token: NotificationSyncToken, id: EntityId): Boolean {
+        val next = synchronized(this) {
+            if (!isCurrentLocked(token)) return false
+            val current = stateForLocked(token.accountId).value
+            val items = current.items.map { item ->
+                if (item.id == id) item.copy(readState = item.readState.copy(androidPresented = true)) else item
+            }
+            current.copy(items = items).also { stateForLocked(token.accountId).value = it }
+        }
+        persistIfCurrent(token, next)
+        return true
+    }
+
+    suspend fun acknowledge(
+        token: NotificationSyncToken,
+        acknowledgement: NotificationAcknowledgement,
+    ): Boolean {
+        val next = synchronized(this) {
+            if (!isCurrentLocked(token) || acknowledgement.accountId != token.accountId) return false
+            val current = stateForLocked(token.accountId).value
+            val items = when (acknowledgement.readState) {
+                NotificationUnreadState.None,
+                is NotificationUnreadState.Exact,
+                -> current.items.map { item ->
+                    item.copy(readState = item.readState.copy(
+                        status = NotificationReadStatus.Read,
+                        serverAcknowledged = true,
+                    ))
+                }
+                else -> current.items.map { item ->
+                    item.copy(readState = item.readState.copy(serverAcknowledged = true))
+                }
+            }
+            current.copy(items = items, unreadState = acknowledgement.readState)
+                .also { stateForLocked(token.accountId).value = it }
+        }
+        persistIfCurrent(token, next)
+        return true
+    }
+
     suspend fun dismiss(token: NotificationSyncToken, id: EntityId): Boolean {
         val next = synchronized(this) {
             if (!isCurrentLocked(token)) return false
@@ -193,10 +234,10 @@ class NotificationRepository @javax.inject.Inject constructor(
         store.delete(accountId)
     }
 
-    private suspend fun persistIfCurrent(token: NotificationSyncToken, state: NotificationRepositoryState) {
+    private suspend fun persistIfCurrent(token: NotificationSyncToken, @Suppress("UNUSED_PARAMETER") state: NotificationRepositoryState) {
         withContext(Dispatchers.IO) {
             synchronized(this@NotificationRepository) {
-                if (isCurrentLocked(token)) store.write(token.accountId, state)
+                if (isCurrentLocked(token)) store.write(token.accountId, stateForLocked(token.accountId).value)
             }
         }
     }
@@ -207,6 +248,8 @@ class NotificationRepository @javax.inject.Inject constructor(
         return copy(readState = readState.copy(
             status = known,
             locallySeen = readState.locallySeen || previous?.locallySeen == true,
+            serverAcknowledged = readState.serverAcknowledged || previous?.serverAcknowledged == true,
+            androidPresented = readState.androidPresented || previous?.androidPresented == true,
         ))
     }
 
@@ -255,6 +298,8 @@ private fun encodeNotification(notification: Notification): JSONObject = JSONObj
     notification.target?.let { put("target", encodeTarget(it)) }
     put("readStatus", notification.readState.status.name)
     put("locallySeen", notification.readState.locallySeen)
+    put("serverAcknowledged", notification.readState.serverAcknowledged)
+    put("androidPresented", notification.readState.androidPresented)
     put("rawType", notification.rawType)
     notification.group?.let { put("group", encodeGroup(it)) }
 }
@@ -273,6 +318,8 @@ private fun decodeNotification(json: JSONObject): Notification = Notification(
         status = runCatching { NotificationReadStatus.valueOf(json.optString("readStatus")) }
             .getOrDefault(NotificationReadStatus.Unknown),
         locallySeen = json.optBoolean("locallySeen"),
+        serverAcknowledged = json.optBoolean("serverAcknowledged"),
+        androidPresented = json.optBoolean("androidPresented"),
     ),
     rawType = json.optString("rawType", "unknown"),
     group = json.optJSONObject("group")?.let(::decodeGroup),
