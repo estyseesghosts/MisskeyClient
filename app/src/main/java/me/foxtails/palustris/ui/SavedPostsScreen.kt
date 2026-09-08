@@ -103,8 +103,8 @@ fun SavedPostsScreen(
                     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                         when {
                             state.loadingMore -> CircularProgressIndicator(Modifier.padding(8.dp))
+                            state.error != null -> TextButton(onClick = onLoadMore) { Text("Retry") }
                             state.nextCursor != null -> TextButton(onClick = onLoadMore) { Text("Load older posts") }
-                            state.error != null -> TextButton(onClick = onRefresh) { Text("Retry") }
                             else -> Text("You’re up to date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }

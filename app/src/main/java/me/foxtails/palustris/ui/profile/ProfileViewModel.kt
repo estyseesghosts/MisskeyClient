@@ -348,6 +348,7 @@ class ProfileViewModel @AssistedInject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                if (cursor != null) cursorSet.remove(cursor)
                 publishPageFailure(target, tab, targetGeneration, refreshing, error)
             } finally {
                 if (pageJobs[tab] === coroutineContext[Job]) pageJobs.remove(tab)

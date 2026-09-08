@@ -27,7 +27,7 @@ class SavedPostsViewModel @AssistedInject constructor(
     private val _state = MutableStateFlow(SavedPostsUiState())
     val state = _state.asStateFlow()
     private var requestJob: Job? = null
-    private var unsaveJob: Job? = null
+    private val unsaveJobs = mutableMapOf<String, Job>()
     private val requestedCursors = mutableSetOf<String?>()
     private var stopped = false
 
@@ -59,7 +59,12 @@ class SavedPostsViewModel @AssistedInject constructor(
         if (stopped) return
         val current = _state.value
         val cursor = current.nextCursor ?: return
-        if (current.loading || current.loadingMore || current.error != null || !requestedCursors.add(cursor)) return
+        if (current.loading || current.loadingMore) return
+        if (current.error != null) {
+            requestedCursors.remove(cursor)
+            _state.value = current.copy(error = null)
+        }
+        if (!requestedCursors.add(cursor)) return
         requestJob?.cancel()
         requestJob = viewModelScope.launch {
             _state.value = current.copy(loadingMore = true, error = null)
@@ -69,23 +74,27 @@ class SavedPostsViewModel @AssistedInject constructor(
 
     fun unsave(ownedPost: OwnedPost) {
         if (stopped || ownedPost.fetchedBy != accountId) return
-        unsaveJob?.cancel()
-        unsaveJob = viewModelScope.launch {
+        val key = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}"
+        unsaveJobs[key]?.cancel()
+        val job = viewModelScope.launch {
             try {
                 source.unsave(ownedPost.post.actionTargetId ?: ownedPost.post.id)
                 _state.value = _state.value.copy(posts = _state.value.posts.filterNot { it.post.id == ownedPost.post.id })
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 _state.value = _state.value.copy(error = sourceErrorMessage(error), needsSignIn = requiresSignIn(error))
+            } finally {
+                if (unsaveJobs[key] === coroutineContext[Job]) unsaveJobs.remove(key)
             }
         }
+        unsaveJobs[key] = job
     }
 
     fun stop() {
         if (stopped) return
         stopped = true
         requestJob?.cancel()
-        unsaveJob?.cancel()
+        unsaveJobs.values.forEach(Job::cancel)
     }
 
     private suspend fun load(kind: SavedPostsKind, cursor: String?, replace: Boolean) {
@@ -109,6 +118,7 @@ class SavedPostsViewModel @AssistedInject constructor(
             if (error is CancellationException) throw error
             val permission = error is SourceError.Unauthorized || error is SourceError.Unsupported &&
                 error.feature.contains("permission", ignoreCase = true)
+            if (cursor != null) requestedCursors.remove(cursor)
             _state.value = _state.value.copy(
                 loading = false,
                 loadingMore = false,
