@@ -158,6 +158,43 @@ class NavigationTest {
         assertTrue("search field should keep the compact navigation side margins", field.right / density <= 411f - 16f)
     }
 
+    @Test fun compactProfileDockSitsAboveNavigationAndResetsForAnotherProfile() {
+        val connection = Connection("https://example.org", Protocol.MASTODON)
+        val alice = Account(AccountId(connection, "alice"), "Alice Profile", "@alice@example.org")
+        val bob = Account(AccountId(connection, "bob"), "Bob Profile", "@bob@example.org", biography = "Bob's biography")
+        val post = Post(EntityId("https://example.org", "bob-post"), bob, "Bob's post", 0, Audience.Public)
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(account = alice, feedState = FeedState(posts = listOf(post)))
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.waitForIdle()
+
+        val categories = bounds("Profile categories; swipe horizontally for more")
+        val action = bounds("Edit profile")
+        val density = compose.activity.resources.displayMetrics.density
+        assertTrue("profile categories should be above navigation", categories.bottom < action.top)
+        assertTrue("profile categories should keep compact side margins", categories.left / density >= 16f)
+        assertTrue("profile categories should keep compact side margins", categories.right / density <= 411f - 16f)
+        compose.onNodeWithContentDescription("Profile categories; swipe horizontally for more").assert(hasScrollAction())
+        compose.onNodeWithText("Posts").assertIsSelected()
+        compose.onNodeWithText("Media").performClick()
+        compose.onNodeWithText("Media").assertIsSelected()
+
+        compose.onNodeWithContentDescription("Home").performClick()
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithText("Media").assertIsSelected()
+
+        compose.onNodeWithContentDescription("Home").performClick()
+        compose.onNodeWithText("Bob Profile").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Bob's biography").assertIsDisplayed()
+        compose.onNodeWithText("Posts").assertIsSelected()
+        compose.onNodeWithText("Media").assertIsNotSelected()
+    }
+
     @Test fun searchDockNeverCrossesNavigationDuringKeyboardDismissal() {
         compose.onNodeWithContentDescription("Search").performClick()
         val density = compose.activity.resources.displayMetrics.density

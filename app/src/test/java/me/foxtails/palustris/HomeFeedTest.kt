@@ -153,7 +153,7 @@ class HomeFeedTest {
         compose.onNodeWithText("Open image").assertDoesNotExist()
     }
 
-    @Test fun tappingPostAuthorOpensProfileAndShowsBiographyFieldsCard() {
+    @Test fun tappingPostAuthorOpensProfileWithCategoryChips() {
         val author = account.copy(
             displayName = "Author Profile",
             biography = "A profile biography",
@@ -163,10 +163,21 @@ class HomeFeedTest {
 
         compose.onNodeWithText("Author Profile").performClick()
         compose.onNodeWithText("A profile biography").assertIsDisplayed()
+        val categories = compose.onNodeWithContentDescription("Profile categories; swipe horizontally for more")
+        categories.assert(hasScrollAction())
+        compose.onNodeWithText("Posts").assertIsSelected()
+        listOf("Posts", "Media", "Reposts", "Replies", "Show more...").forEach { label ->
+            compose.onNodeWithText(label).assertExists()
+        }
+        compose.onNodeWithText("Media").performClick()
+        compose.onNodeWithText("Media").assertIsSelected()
+        categories.performScrollToNode(hasText("Show more..."))
         compose.onNodeWithText("Show more...").performClick()
-        compose.onNodeWithText("Additional profile information").assertIsDisplayed()
-        compose.onNodeWithText("https://example.org").assertIsDisplayed()
-        compose.onNodeWithText("@author:example.org").assertIsDisplayed()
+        compose.onNodeWithText("Show more...").assertIsSelected()
+        compose.onNodeWithText("More profile views coming soon").assertIsDisplayed()
+        compose.onNodeWithText("Additional profile information").assertDoesNotExist()
+        compose.onNodeWithText("https://example.org").assertDoesNotExist()
+        compose.onNodeWithText("@author:example.org").assertDoesNotExist()
     }
 
     @Test fun searchSubmitsWebfingerHandleWithKeyboardSearch() {

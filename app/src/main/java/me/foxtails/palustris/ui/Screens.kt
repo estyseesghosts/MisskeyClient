@@ -60,7 +60,7 @@ fun SearchScreen(
     // Keep these as live insets: windowInsetsPadding reads them during layout,
     // on the same frame as the IME animation. The navigation clearance is a
     // floor throughout dismissal, not a replacement applied after it finishes.
-    val dockInsets = searchDockInsets(
+    val dockInsets = compactDockInsets(
         WindowInsets.navigationBarsIgnoringVisibility,
         WindowInsets.ime,
         compactNavigationVisible,
@@ -69,7 +69,7 @@ fun SearchScreen(
     if (!compactLayout) {
         Column(Modifier.fillMaxSize()) {
             SearchField(query, ::submitSearch) { query = it }
-            SearchCategoryChips(sections, tab) { tab = it }
+            CategoryChips(sections, tab, "Search categories; swipe horizontally for more") { tab = it }
             SearchContent(
                 modifier = Modifier.weight(1f),
                 query = query,
@@ -107,7 +107,7 @@ fun SearchScreen(
                         .windowInsetsPadding(dockInsets),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    SearchCategoryChips(sections, tab) { tab = it }
+                    CategoryChips(sections, tab, "Search categories; swipe horizontally for more") { tab = it }
                     SearchField(query, ::submitSearch) { query = it }
                 }
             }
@@ -115,7 +115,7 @@ fun SearchScreen(
     }
 }
 
-internal fun searchDockInsets(
+internal fun compactDockInsets(
     navigationBars: WindowInsets,
     ime: WindowInsets,
     navigationVisible: Boolean,
@@ -182,12 +182,17 @@ private fun SearchField(query: String, onSubmit: () -> Unit, onQueryChange: (Str
 }
 
 @Composable
-private fun SearchCategoryChips(titles: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+private fun CategoryChips(
+    titles: List<String>,
+    selected: Int,
+    rowContentDescription: String,
+    onSelect: (Int) -> Unit,
+) {
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(CompactSearchChipRowHeight)
-            .semantics { contentDescription = "Search categories; swipe horizontally for more" },
+            .semantics { contentDescription = rowContentDescription },
         contentPadding = PaddingValues(horizontal = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -312,19 +317,81 @@ fun EditProfileScreen(
     }
 }
 
+private val profileCategories = listOf("Posts", "Media", "Reposts", "Replies", "Show more...")
+
+private val profilePlaceholderCopy = listOf(
+    "Posts coming soon" to "Posts from this profile will appear here.",
+    "Media coming soon" to "Photos and videos from this profile will appear here.",
+    "Reposts coming soon" to "Reposts from this profile will appear here.",
+    "Replies coming soon" to "Replies from this profile will appear here.",
+    "More profile views coming soon" to "Additional profile views will appear here.",
+)
+
+private const val ProfileCategoryDescription = "Profile categories; swipe horizontally for more"
+private val profileDockHeight = CompactSearchChipRowHeight + 8.dp
+
 @Composable
-fun ProfileScreen(account: Account? = null) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    var extraFieldsVisible by rememberSaveable(account?.id?.connection, account?.id?.localId) { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+@OptIn(ExperimentalLayoutApi::class)
+fun ProfileScreen(account: Account? = null, compactLayout: Boolean = true) {
+    val profileIdentity = account?.id?.let { "${it.connection.origin}\u0000${it.localId}" } ?: "preview"
+    key(profileIdentity) {
+        var selectedCategory by rememberSaveable(profileIdentity) { mutableIntStateOf(0) }
+    val dockInsets = compactDockInsets(
+        WindowInsets.navigationBarsIgnoringVisibility,
+        WindowInsets(bottom = 0.dp),
+        navigationVisible = compactLayout,
+    )
+
+    if (compactLayout) {
+        Box(Modifier.fillMaxSize()) {
+            ProfileContent(
+                account = account,
+                selectedCategory = selectedCategory,
+                showCategoryChips = false,
+                onCategorySelected = { selectedCategory = it },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(dockInsets)
+                    .padding(bottom = profileDockHeight)
+                    .verticalScroll(rememberScrollState()),
+            )
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = CompactOverlayHorizontalPadding)
+                    .windowInsetsPadding(dockInsets),
+            ) {
+                CategoryChips(profileCategories, selectedCategory, ProfileCategoryDescription) { selectedCategory = it }
+            }
+        }
+    } else {
+        ProfileContent(
+            account = account,
+            selectedCategory = selectedCategory,
+            showCategoryChips = true,
+            onCategorySelected = { selectedCategory = it },
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        )
+    }
+}
+
+}
+
+@Composable
+private fun ProfileContent(
+    account: Account?,
+    selectedCategory: Int,
+    showCategoryChips: Boolean,
+    onCategorySelected: (Int) -> Unit,
+    modifier: Modifier,
+) {
+    Column(modifier) {
         Box(Modifier.fillMaxWidth().height(220.dp)) {
             Box(Modifier.fillMaxWidth().height(144.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest))
             Surface(Modifier.padding(start = 16.dp).offset(y = 100.dp).size(112.dp),
                 shape = CircleShape, color = MaterialTheme.colorScheme.surface) {
                 if (account != null) AccountAvatar(account, Modifier.padding(4.dp)) else Avatar(Modifier.padding(4.dp))
-            }
-            FilledTonalButton(onClick = { extraFieldsVisible = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp)) {
-                Text("Show more...")
             }
         }
         Column(Modifier.padding(horizontal = 16.dp)) {
@@ -342,37 +409,18 @@ fun ProfileScreen(account: Account? = null) {
             }
             Spacer(Modifier.height(24.dp))
         }
-        SectionTabs(listOf("Posts", "Replies", "Media", "About"), tab) { tab = it }
+        if (showCategoryChips) {
+            CategoryChips(profileCategories, selectedCategory, ProfileCategoryDescription, onCategorySelected)
+        }
         Box(Modifier.fillMaxWidth().heightIn(min = 280.dp)) {
-            if (account != null) EmptyState(AppIcons.Person, "Profile timeline coming soon", "For now, your conversations are in the Home tab.")
-            else EmptyState(if (tab == 2) AppIcons.Image else AppIcons.Person,
-                when (tab) { 0 -> "No posts yet"; 1 -> "No replies yet"; 2 -> "No media yet"; else -> "A little about you" },
-                when (tab) { 0 -> "Your posts will appear here."; 1 -> "Your replies will appear here."; 2 -> "Photos and videos you share will appear here."; else -> "Profile information will appear here." })
+            val copy = profilePlaceholderCopy[selectedCategory]
+            EmptyState(
+                if (selectedCategory == 1) AppIcons.Image else AppIcons.Person,
+                copy.first,
+                copy.second,
+            )
         }
         Spacer(Modifier.height(80.dp))
-    }
-    if (extraFieldsVisible) {
-        AlertDialog(
-            onDismissRequest = { extraFieldsVisible = false },
-            title = { Text("Additional profile information") },
-            text = {
-                val fields = account?.profileFields.orEmpty().take(4)
-                if (fields.isEmpty()) {
-                    Text("No additional profile information.")
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        fields.forEach { field ->
-                            Column {
-                                Text(field.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(Modifier.height(2.dp))
-                                Text(field.value, style = MaterialTheme.typography.bodyLarge)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { extraFieldsVisible = false }) { Text("Close") } },
-        )
     }
 }
 
