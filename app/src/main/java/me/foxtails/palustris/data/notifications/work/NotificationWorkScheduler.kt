@@ -46,8 +46,9 @@ class NotificationWorkScheduler @Inject constructor(
     }
 
     fun schedulePeriodicFallback(accountId: AccountId) {
+        workManager.cancelUniqueWork(NotificationWorkNames.reconcile(accountId))
         workManager.enqueueUniquePeriodicWork(
-            NotificationWorkNames.reconcile(accountId),
+            NotificationWorkNames.periodic(accountId),
             ExistingPeriodicWorkPolicy.UPDATE,
             PeriodicWorkRequestBuilder<NotificationReconcileWorker>(30, TimeUnit.MINUTES)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

@@ -415,10 +415,10 @@ class NotificationRepository @Inject constructor(
                     if (incoming.accountId != token.accountId || incoming.id.connection != token.accountId.connection.origin) {
                         current
                     } else {
-                        val previous = current.items.associateBy(Notification::id)[incoming.id]
+                        val previous = current.items.associateBy(Notification::id)
                         val merged = (listOf(incoming) + current.items)
                             .distinctBy(Notification::id)
-                            .map { item -> item.mergeReadState(previous?.readState) }
+                            .map { item -> item.mergeReadState(previous[item.id]?.readState) }
                             .filterNot { it.id in current.dismissedIds }
                             .sortedWith(compareByDescending<Notification> { it.createdAtEpochMillis }.thenByDescending { it.id.value })
                             .take(MAX_ITEMS)

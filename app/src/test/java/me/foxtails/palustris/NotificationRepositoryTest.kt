@@ -7,6 +7,7 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.Event
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationActivity
@@ -18,6 +19,7 @@ import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.SocialEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertFalse
@@ -159,6 +161,27 @@ class NotificationRepositoryTest {
         ))
         assertEquals("newest-2", repository.checkpoint(account, query)?.newest?.value)
         assertEquals("oldest-2", repository.checkpoint(account, query)?.oldest?.value)
+    }
+
+    @Test
+    fun streamArrivalPreservesEachCachedRowsReadState() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val alreadyRead = notification("read", NotificationActivity.Follow).copy(
+            readState = me.foxtails.palustris.domain.NotificationReadState(NotificationReadStatus.Read),
+        )
+        repository.activate(token)
+        repository.establishBaseline(token, NotificationPage(listOf(alreadyRead)))
+
+        assertTrue(repository.applyStreamEvent(token, Event(
+            account,
+            SocialEvent.NotificationReceived(notification("new", NotificationActivity.Mention)),
+        )))
+
+        assertEquals(
+            NotificationReadStatus.Read,
+            repository.observe(account).value.items.single { it.id == alreadyRead.id }.readState.status,
+        )
     }
 
     @Test
