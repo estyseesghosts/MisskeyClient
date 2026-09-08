@@ -13,6 +13,8 @@ data class Account(
     val postsCount: Long? = null,
     val locked: Boolean = false,
     val bot: Boolean = false,
+    /** A normalized, one-hop destination profile seed for a moved account. */
+    val movedTo: Account? = null,
 )
 
 data class ProfileField(val name: String, val value: String)
