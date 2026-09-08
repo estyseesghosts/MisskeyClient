@@ -138,10 +138,9 @@ class NotificationSyncOrchestrator @Inject constructor(
         val job = scope.launch {
             while (isActive && isCurrent(token)) {
                 try {
-                    if (state.value.streamConnected) {
-                        delay(POLL_INTERVAL_MILLIS)
-                        continue
-                    }
+                    // A socket is an optimization, not the freshness authority. Keep REST
+                    // reconciliation active because readiness can be overstated and events can
+                    // be missed while a stream reconnects.
                     val result = synchronize(token, source, NotificationQuery())
                     if (!isCurrent(token)) break
                     state.value = state.value.copy(
