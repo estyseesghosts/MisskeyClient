@@ -9,6 +9,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.PollRequest
 import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.PostDraftQuotePreview
@@ -124,13 +125,51 @@ private fun PostDraft.toJson() = JSONObject()
             .put("text", it.text)
             .put("url", it.url)
     })
-    .put("attachments", JSONArray(attachments.map { JSONObject().put("url", it.url).put("mimeType", it.mimeType).put("description", it.description).put("previewUrl", it.previewUrl).put("sensitive", it.sensitive) }))
+    .put("attachments", JSONArray(attachments.map { attachment ->
+        JSONObject()
+            .put("id", attachment.id)
+            .put("url", attachment.url)
+            .put("mimeType", attachment.mimeType)
+            .put("kind", attachment.kind.name)
+            .put("description", attachment.description)
+            .put("previewUrl", attachment.previewUrl)
+            .put("sensitive", attachment.sensitive)
+            .put("width", attachment.width)
+            .put("height", attachment.height)
+            .put("previewWidth", attachment.previewWidth)
+            .put("previewHeight", attachment.previewHeight)
+            .put("blurhash", attachment.blurhash)
+            .put("remoteOriginalUrl", attachment.remoteOriginalUrl)
+    }))
     .put("poll", poll?.let { JSONObject().put("choices", JSONArray(it.choices)).put("multiple", it.multiple).put("expiresAt", it.expiresAt?.toEpochMilli()) })
 
 private fun JSONObject.toDraft(): PostDraft {
     val origin = optString("origin").takeIf { it.isNotBlank() }
     val accountId = if (origin == null || isNull("localId") || isNull("protocol")) null else AccountId(me.foxtails.palustris.domain.Connection(origin, me.foxtails.palustris.domain.Protocol.valueOf(getString("protocol"))), getString("localId"))
-    val attachments = optJSONArray("attachments")?.let { array -> (0 until array.length()).map { index -> array.getJSONObject(index).let { Attachment(it.getString("url"), it.getString("mimeType"), it.optString("description").takeIf(String::isNotBlank), it.optString("previewUrl").takeIf(String::isNotBlank), it.optBoolean("sensitive")) } } }.orEmpty()
+    val attachments = optJSONArray("attachments")?.let { array ->
+        (0 until array.length()).map { index ->
+            array.getJSONObject(index).let { json ->
+                val mimeType = json.nullableString("mimeType") ?: "application/octet-stream"
+                Attachment(
+                    id = json.nullableString("id"),
+                    url = json.nullableString("url"),
+                    mimeType = mimeType,
+                    kind = json.optString("kind").takeIf { it.isNotBlank() }?.let { value ->
+                        runCatching { MediaKind.valueOf(value) }.getOrNull()
+                    } ?: me.foxtails.palustris.domain.mediaKindForMimeType(mimeType),
+                    description = json.nullableString("description"),
+                    previewUrl = json.nullableString("previewUrl"),
+                    sensitive = json.optBoolean("sensitive"),
+                    width = json.positiveInt("width"),
+                    height = json.positiveInt("height"),
+                    previewWidth = json.positiveInt("previewWidth"),
+                    previewHeight = json.positiveInt("previewHeight"),
+                    blurhash = json.nullableString("blurhash"),
+                    remoteOriginalUrl = json.nullableString("remoteOriginalUrl"),
+                )
+            }
+        }
+    }.orEmpty()
     val pollJson = optJSONObject("poll")
     val poll = pollJson?.let { PollRequest((0 until it.getJSONArray("choices").length()).map(it.getJSONArray("choices")::getString), it.optBoolean("multiple"), it.optLong("expiresAt").takeIf { value -> value > 0 }?.let(java.time.Instant::ofEpochMilli)) }
     val quotePreview = optJSONObject("quotePreview")?.let {
@@ -142,4 +181,13 @@ private fun JSONObject.toDraft(): PostDraft {
         )
     }?.takeIf { it.authorDisplayName.isNotBlank() || it.authorHandle.isNotBlank() || it.text.isNotBlank() }
     return PostDraft(getString("id"), accountId, optString("text"), Audience.valueOf(optString("audience", Audience.Public.name)), optString("contentWarning").takeIf(String::isNotBlank), optString("replyTo").takeIf(String::isNotBlank)?.let { EntityId(origin.orEmpty(), it) }, optString("quoteOf").takeIf(String::isNotBlank)?.let { EntityId(origin.orEmpty(), it) }, attachments, poll, optLong("updatedAt"), quotePreview)
+}
+
+private fun JSONObject.nullableString(key: String): String? =
+    if (isNull(key)) null else optString(key).takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+
+private fun JSONObject.positiveInt(key: String): Int? = when (val value = opt(key)) {
+    is Number -> value.toInt().takeIf { it > 0 }
+    is String -> value.toIntOrNull()?.takeIf { it > 0 }
+    else -> null
 }

@@ -14,6 +14,8 @@ import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Reaction
+import me.foxtails.palustris.domain.MediaKind
+import me.foxtails.palustris.domain.mediaKindForMimeType
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -88,10 +90,7 @@ object MisskeyMapper {
             text = if (json.optBoolean("isHidden")) "This post is not available to your account." else json.nullableString("text").orEmpty(),
             publishedAtEpochMillis = runCatching { Instant.parse(json.getString("createdAt")).toEpochMilli() }.getOrDefault(0),
             audience = when (json.optString("visibility")) { "home" -> Audience.Unlisted; "followers" -> Audience.Followers; "specified" -> Audience.Direct; else -> Audience.Public },
-            attachments = (0 until files.length()).map { i -> files.getJSONObject(i).let {
-                Attachment(it.getString("url"), it.optString("type", "application/octet-stream"), it.nullableString("comment"),
-                    it.nullableString("thumbnailUrl"), it.optBoolean("isSensitive"))
-            } },
+            attachments = (0 until files.length()).mapNotNull { i -> attachment(files.optJSONObject(i)) },
             contentWarning = if (json.isNull("cw")) null else json.optString("cw"),
             replyTo = json.nullableString("replyId")?.let { EntityId(origin, it) },
             replyToAuthorId = replyToAuthorId?.let { AccountId(Connection(origin, Protocol.MISSKEY), it) },
@@ -112,6 +111,28 @@ object MisskeyMapper {
         )
     }
 
+    private fun attachment(json: JSONObject?): Attachment? {
+        if (json == null) return null
+        val mimeType = json.nullableString("type") ?: "application/octet-stream"
+        val properties = json.optJSONObject("properties")
+        val kind = when {
+            mimeType.equals("image/gif", ignoreCase = true) || mimeType.equals("image/apng", ignoreCase = true) -> MediaKind.AnimatedImage
+            else -> mediaKindForMimeType(mimeType)
+        }
+        return Attachment(
+            id = json.nullableString("id"),
+            url = json.nullableString("url"),
+            mimeType = mimeType,
+            kind = kind,
+            description = json.nullableString("comment"),
+            previewUrl = json.nullableString("thumbnailUrl"),
+            sensitive = json.optBoolean("isSensitive"),
+            width = properties?.positiveInt("width"),
+            height = properties?.positiveInt("height"),
+            blurhash = json.nullableString("blurhash"),
+        )
+    }
+
     private const val MAX_NESTING_DEPTH = 3
     private val MISSKEY_ACTIONS = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.React, PostAction.Bookmark)
 }
@@ -125,4 +146,10 @@ private fun JSONObject.optionalNonNegativeLong(key: String): Long? {
         else -> null
     }
     return parsed?.takeIf { it >= 0L }
+}
+
+private fun JSONObject.positiveInt(key: String): Int? = when (val value = opt(key)) {
+    is Number -> value.toInt().takeIf { it > 0 }
+    is String -> value.toIntOrNull()?.takeIf { it > 0 }
+    else -> null
 }

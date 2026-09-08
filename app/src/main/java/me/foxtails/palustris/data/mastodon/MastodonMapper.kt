@@ -15,6 +15,7 @@ import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.Protocol
@@ -114,14 +115,27 @@ object MastodonMapper {
         )
     }
 
-    fun attachment(json: JSONObject, statusSensitive: Boolean = false): Attachment = Attachment(
-        url = json.nullableString("url") ?: json.nullableString("preview_url").orEmpty(),
-        mimeType = json.optJSONObject("meta")?.optJSONObject("original")?.nullableString("mime_type")
-            ?: json.optString("type").toMastodonMimeType(),
-        description = json.nullableString("description"),
-        previewUrl = json.nullableString("preview_url"),
-        sensitive = statusSensitive || json.optBoolean("sensitive"),
-    )
+    fun attachment(json: JSONObject, statusSensitive: Boolean = false): Attachment {
+        val type = json.optString("type")
+        val originalMeta = json.optJSONObject("meta")?.optJSONObject("original")
+        val smallMeta = json.optJSONObject("meta")?.optJSONObject("small")
+        val mimeType = originalMeta?.nullableString("mime_type") ?: type.toMastodonMimeType()
+        return Attachment(
+            id = json.nullableString("id"),
+            url = json.nullableString("url"),
+            mimeType = mimeType,
+            kind = type.toMastodonMediaKind(mimeType),
+            description = json.nullableString("description"),
+            previewUrl = json.nullableString("preview_url"),
+            sensitive = statusSensitive || json.optBoolean("sensitive"),
+            width = originalMeta?.positiveInt("width"),
+            height = originalMeta?.positiveInt("height"),
+            previewWidth = smallMeta?.positiveInt("width"),
+            previewHeight = smallMeta?.positiveInt("height"),
+            blurhash = json.nullableString("blurhash"),
+            remoteOriginalUrl = json.nullableString("remote_url"),
+        )
+    }
 
     private fun quotedStatus(json: JSONObject): JSONObject? {
         json.optJSONObject("quote")?.let { quote ->
@@ -154,8 +168,23 @@ private fun JSONObject.optionalNonNegativeLong(key: String): Long? {
 private fun String.toMastodonMimeType(): String = when (this) {
     "image" -> "image/*"
     "video" -> "video/*"
+    "gifv" -> "video/*"
     "audio" -> "audio/*"
     else -> if (isBlank()) "application/octet-stream" else this
+}
+
+private fun String.toMastodonMediaKind(mimeType: String): MediaKind = when (this) {
+    "image" -> MediaKind.Image
+    "gifv" -> MediaKind.AnimatedImage
+    "video" -> MediaKind.Video
+    "audio" -> MediaKind.Audio
+    else -> me.foxtails.palustris.domain.mediaKindForMimeType(mimeType)
+}
+
+private fun JSONObject.positiveInt(key: String): Int? = when (val value = opt(key)) {
+    is Number -> value.toInt().takeIf { it > 0 }
+    is String -> value.toIntOrNull()?.takeIf { it > 0 }
+    else -> null
 }
 
 private fun String.stripHtml(): String = htmlToText()

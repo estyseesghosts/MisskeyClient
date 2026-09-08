@@ -11,6 +11,17 @@ enum class PrimaryFavouriteMode { Native, Reaction, Unavailable }
 
 enum class SavedPostsKind { Bookmarks, Favourites }
 
+enum class MediaKind { Image, AnimatedImage, Video, Audio, Unknown }
+
+fun mediaKindForMimeType(mimeType: String): MediaKind = when {
+    mimeType.equals("image/gif", ignoreCase = true) ||
+        mimeType.equals("image/apng", ignoreCase = true) -> MediaKind.AnimatedImage
+    mimeType.startsWith("image/", ignoreCase = true) -> MediaKind.Image
+    mimeType.startsWith("video/", ignoreCase = true) -> MediaKind.Video
+    mimeType.startsWith("audio/", ignoreCase = true) -> MediaKind.Audio
+    else -> MediaKind.Unknown
+}
+
 data class PrimaryFavouriteCapability(
     val status: CapabilityStatus = CapabilityStatus.Unknown,
     val mode: PrimaryFavouriteMode = PrimaryFavouriteMode.Unavailable,
@@ -21,7 +32,25 @@ data class SavedPostsCapability(
     val kind: SavedPostsKind,
 )
 
-data class Attachment(val url: String, val mimeType: String, val description: String?, val previewUrl: String? = null, val sensitive: Boolean = false)
+/**
+ * `url` is the best full-view resource supplied by the server, not a guaranteed original upload.
+ * `previewUrl` is a separate, preview-quality resource and must not be substituted for `url`.
+ */
+data class Attachment(
+    val url: String? = null,
+    val mimeType: String = "application/octet-stream",
+    val description: String? = null,
+    val previewUrl: String? = null,
+    val sensitive: Boolean = false,
+    val id: String? = null,
+    val kind: MediaKind = mediaKindForMimeType(mimeType),
+    val width: Int? = null,
+    val height: Int? = null,
+    val previewWidth: Int? = null,
+    val previewHeight: Int? = null,
+    val blurhash: String? = null,
+    val remoteOriginalUrl: String? = null,
+)
 data class Reaction(val emoji: String, val count: Int, val selected: Boolean, val imageUrl: String? = null)
 data class PollOption(val text: String, val votes: Int)
 data class Post(
