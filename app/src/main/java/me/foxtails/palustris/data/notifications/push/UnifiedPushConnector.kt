@@ -21,7 +21,7 @@ interface UnifiedPushConnector {
      * Connector 3.3.5 creates the registration row before asking the key manager to generate
      * the instance keys. Callers must not pre-generate keys for an instance.
      */
-    fun register(instanceName: String, messageForDistributor: String?)
+    fun register(instanceName: String, messageForDistributor: String?, vapidPublicKey: String?)
 
     fun unregister(instanceName: String)
 }
@@ -56,14 +56,14 @@ class AndroidUnifiedPushConnector @Inject constructor(
         }
     }
 
-    override fun register(instanceName: String, messageForDistributor: String?) {
+    override fun register(instanceName: String, messageForDistributor: String?, vapidPublicKey: String?) {
         runConnector(PushConnectorOperation.Registration) {
             // UnifiedPush.register owns the connector registration-row/key ordering.
             UnifiedPush.register(
                 context,
                 instanceName,
                 messageForDistributor,
-                null,
+                vapidPublicKey,
                 DefaultKeyManager(context),
             )
         }
@@ -90,7 +90,8 @@ internal fun registerWithDistributor(
     distributorPackage: String,
     instanceName: String,
     messageForDistributor: String,
+    vapidPublicKey: String? = null,
 ) {
     connector.saveDistributor(distributorPackage)
-    connector.register(instanceName, messageForDistributor)
+    connector.register(instanceName, messageForDistributor, vapidPublicKey)
 }

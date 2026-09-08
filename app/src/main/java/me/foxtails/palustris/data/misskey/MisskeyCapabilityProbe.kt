@@ -4,6 +4,7 @@ import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.NotificationCapabilities
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PrimaryFavouriteCapability
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
@@ -33,6 +34,11 @@ class MisskeyCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
             quotes = CapabilityStatus.Supported,
             primaryFavourite = PrimaryFavouriteCapability(CapabilityStatus.Supported, PrimaryFavouriteMode.Reaction),
             savedPosts = SavedPostsCapability(CapabilityStatus.Supported, SavedPostsKind.Favourites),
+            notifications = NotificationCapabilities(
+                webPush = meta.optString("swPublickey").takeIf(String::isNotBlank)
+                    ?.let { CapabilityStatus.Supported }
+                    ?: CapabilityStatus.Unsupported,
+            ),
             capabilitiesLastUpdated = System.currentTimeMillis(),
         )
     }

@@ -45,6 +45,7 @@ import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PushSubscription
 import me.foxtails.palustris.domain.PushSubscriptionSpec
+import me.foxtails.palustris.domain.PushProviderInfo
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
@@ -266,6 +267,10 @@ class MastodonSource(
         val count = JSONObject(api.get(origin, "v1/notifications/unread_count", token).body).optInt("count", -1)
         if (count < 0) NotificationUnreadState.Unknown else NotificationUnreadState.AtLeast(count)
     }
+
+    override suspend fun pushProviderInfo(): PushProviderInfo = PushProviderInfo(
+        status = CapabilityStatus.Supported,
+    )
 
     override suspend fun acknowledgeNotifications(): NotificationAcknowledgement = request {
         val latest = runCatching {

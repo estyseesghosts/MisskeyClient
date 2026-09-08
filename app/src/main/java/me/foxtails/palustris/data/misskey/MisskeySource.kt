@@ -4,6 +4,7 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.CapabilityProbe
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EntityId
@@ -33,6 +34,7 @@ import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PushSubscription
 import me.foxtails.palustris.domain.PushSubscriptionSpec
+import me.foxtails.palustris.domain.PushProviderInfo
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
@@ -391,6 +393,15 @@ class MisskeySource(
                 if (json.optBoolean("hasUnreadNotification")) NotificationUnreadState.Present else NotificationUnreadState.None
             else -> NotificationUnreadState.Unknown
         }
+    }
+
+    override suspend fun pushProviderInfo(): PushProviderInfo = request {
+        val meta = JSONObject(api.post(origin, "meta").body)
+        val key = meta.optString("swPublickey").takeIf(String::isNotBlank)
+        PushProviderInfo(
+            status = if (key == null) CapabilityStatus.Unsupported else CapabilityStatus.Supported,
+            vapidPublicKey = key,
+        )
     }
 
     override suspend fun acknowledgeNotifications(): NotificationAcknowledgement = request {

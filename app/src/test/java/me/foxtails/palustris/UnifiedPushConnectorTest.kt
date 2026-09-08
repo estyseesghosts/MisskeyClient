@@ -20,7 +20,7 @@ class UnifiedPushConnectorTest {
         assertEquals(
             listOf(
                 "save:org.unifiedpush.distributor.sunup",
-                "register:account-instance",
+                "register:account-instance:null",
             ),
             connector.operations,
         )
@@ -51,8 +51,8 @@ class UnifiedPushConnectorTest {
             if (failSave) error("save failed")
         }
 
-        override fun register(instanceName: String, messageForDistributor: String?) {
-            operations += "register:$instanceName"
+        override fun register(instanceName: String, messageForDistributor: String?, vapidPublicKey: String?) {
+            operations += "register:$instanceName:$vapidPublicKey"
         }
 
         override fun unregister(instanceName: String) {

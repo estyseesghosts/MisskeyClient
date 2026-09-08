@@ -64,6 +64,7 @@ interface SocialSource {
     ): NotificationPage = unsupported("notifications.older")
     suspend fun notificationUnreadState(): NotificationUnreadState = unsupported("notifications.unread")
     suspend fun acknowledgeNotifications(): NotificationAcknowledgement = unsupported("notifications.acknowledge")
+    suspend fun pushProviderInfo(): PushProviderInfo = PushProviderInfo(CapabilityStatus.Unsupported)
     suspend fun dismissNotification(id: EntityId) = unsupported<Unit>("notifications.dismiss")
     suspend fun respondToFollowRequest(targetAccountId: AccountId, accept: Boolean) =
         unsupported<Unit>("notifications.followRequest")

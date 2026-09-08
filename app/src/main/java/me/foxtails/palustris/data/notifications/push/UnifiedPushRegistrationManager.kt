@@ -1,6 +1,8 @@
 package me.foxtails.palustris.data.notifications.push
 
+import android.content.Context
 import android.util.Log
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -15,6 +17,7 @@ import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.notifications.NotificationPresenter
+import me.foxtails.palustris.data.notifications.NotificationPermissionController
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.work.NotificationWorkScheduler
 import me.foxtails.palustris.domain.AccessScope
@@ -31,6 +34,7 @@ import me.foxtails.palustris.domain.SourceError
 import org.unifiedpush.android.connector.FailedReason
 import org.unifiedpush.android.connector.data.PushEndpoint
 import org.unifiedpush.android.connector.data.PushMessage
+import org.unifiedpush.android.connector.keys.DefaultKeyManager
 
 interface PushRegistrationManager {
     fun onSessionAvailable(accountId: AccountId)
@@ -62,6 +66,8 @@ class UnifiedPushRegistrationManager @Inject constructor(
     private val scheduler: NotificationWorkScheduler,
     private val presenter: NotificationPresenter,
     private val connector: UnifiedPushConnector,
+    private val permissionController: NotificationPermissionController,
+    @param:ApplicationContext private val context: Context,
 ) : PushRegistrationManager, AutoCloseable {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lock = Mutex()
@@ -87,6 +93,16 @@ class UnifiedPushRegistrationManager @Inject constructor(
         val session = sessionStore.read(accountId) ?: return
         val settings = repository.settings(accountId)
         val existing = repository.pushRegistration(accountId)
+        if (!permissionController.isGranted()) {
+            val registration = registrationRepository.prepare(token, existing?.distributorPackage)
+            update(token, registration.copy(
+                state = NotificationPushRegistrationState.PermissionRequired,
+                lastErrorCategory = "notification_permission_required",
+                failureStage = PushRegistrationFailureStage.ConnectorRegistration,
+                failureReason = PushRegistrationFailureReason.Unknown,
+            ))
+            return
+        }
         if (!force && existing?.state == NotificationPushRegistrationState.Connected) return
         if (!force && existing != null && existing.nextRetryAtEpochMillis > System.currentTimeMillis()) return
         val distributor = try {
@@ -139,12 +155,48 @@ class UnifiedPushRegistrationManager @Inject constructor(
         )
         update(token, registering)
         try {
+            val source = sourceFor(session, token) ?: throw SourceError.Unauthorized
+            val providerInfo = source.pushProviderInfo()
+            if (providerInfo.status == CapabilityStatus.Unsupported ||
+                providerInfo.status == CapabilityStatus.Denied
+            ) {
+                update(token, registering.copy(
+                    state = if (providerInfo.status == CapabilityStatus.Denied) {
+                        NotificationPushRegistrationState.AccessDenied
+                    } else {
+                        NotificationPushRegistrationState.TemporarilyUnavailable
+                    },
+                    lastErrorCategory = "server_push_unsupported",
+                    failureStage = PushRegistrationFailureStage.ServerSubscription,
+                    failureReason = if (providerInfo.status == CapabilityStatus.Denied) {
+                        PushRegistrationFailureReason.Unauthorized
+                    } else {
+                        PushRegistrationFailureReason.Unsupported
+                    },
+                ))
+                return
+            }
             registerWithDistributor(
                 connector = connector,
                 distributorPackage = distributor,
                 instanceName = registering.instanceName,
                 messageForDistributor = "Palustris notifications",
+                vapidPublicKey = providerInfo.vapidPublicKey,
             )
+        } catch (error: SourceError) {
+            update(token, registering.copy(
+                state = if (error == SourceError.Unauthorized) {
+                    NotificationPushRegistrationState.AccessDenied
+                } else {
+                    NotificationPushRegistrationState.TemporarilyUnavailable
+                },
+                lastErrorCategory = "server_push_metadata_failed",
+                lastErrorDetail = safePushDiagnostic(error),
+                failureStage = PushRegistrationFailureStage.ServerSubscription,
+                failureReason = errorReason(error),
+                retryCount = registering.retryCount + 1,
+                nextRetryAtEpochMillis = nextRetryAt(registering.retryCount + 1),
+            ))
         } catch (error: PushConnectorFailure) {
             recordFailure(token, registering, error)
         } catch (error: Exception) {
@@ -183,7 +235,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
 
     fun onNewEndpoint(endpoint: PushEndpoint, instanceName: String) {
         val owner = registrationRepository.find(instanceName) ?: return
-        val publicKeySet = endpoint.pubKeySet ?: return
+        val publicKeySet = endpoint.pubKeySet ?: DefaultKeyManager(context).getPublicKeySet(instanceName) ?: return
         val validatedEndpoint = me.foxtails.palustris.domain.ValidatedUrl.https(endpoint.url) ?: return
         if (sessionStore.recordPushEndpoint(
                 owner.accountId,
@@ -275,7 +327,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
         expectedEndpointGeneration: Long,
     ): PushRegistrationWorkResult = lock.withLock {
         val owner = registrationRepository.find(instanceName) ?: return@withLock PushRegistrationWorkResult.NoWork
-        val publicKeySet = endpoint.pubKeySet ?: run {
+        val publicKeySet = endpoint.pubKeySet ?: DefaultKeyManager(context).getPublicKeySet(instanceName) ?: run {
             update(owner.token, owner.registration.copy(
                 state = NotificationPushRegistrationState.TemporarilyUnavailable,
                 lastErrorCategory = "endpoint_keys_missing",

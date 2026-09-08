@@ -44,6 +44,11 @@ data class NotificationCapabilities(
     val webPush: CapabilityStatus = CapabilityStatus.Unknown,
 )
 
+data class PushProviderInfo(
+    val status: CapabilityStatus,
+    val vapidPublicKey: String? = null,
+)
+
 /**
  * Resolves a feature's usable state without treating a failed request as proof of server absence.
  */
