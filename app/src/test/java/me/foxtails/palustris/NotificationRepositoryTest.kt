@@ -12,6 +12,7 @@ import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationPage
+import me.foxtails.palustris.domain.NotificationPageDirection
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationSyncToken
@@ -82,6 +83,81 @@ class NotificationRepositoryTest {
         assertEquals(NotificationReadStatus.Read, readState.status)
         assertTrue(readState.serverAcknowledged)
         assertTrue(readState.androidPresented)
+    }
+
+    @Test
+    fun localDismissalIsAStableTombstoneAcrossRepositoryRecreation() = runBlocking {
+        val store = InMemoryNotificationStore()
+        val first = NotificationRepository(store)
+        val token = NotificationSyncToken(account, 1)
+        first.activate(token)
+        val item = notification("dismissed", NotificationActivity.Follow)
+        first.establishBaseline(token, NotificationPage(
+            items = listOf(item),
+            checkpoint = NotificationCheckpoint(account, NotificationQuery()),
+        ))
+        first.dismissFromInbox(token, item.id, remoteApplied = false)
+
+        val restarted = NotificationRepository(store)
+        restarted.activate(token)
+        restarted.establishBaseline(token, NotificationPage(
+            items = listOf(item),
+            checkpoint = NotificationCheckpoint(account, NotificationQuery()),
+        ))
+
+        assertTrue(restarted.observe(account).value.items.isEmpty())
+        assertTrue(item.id in restarted.observe(account).value.dismissedIds)
+    }
+
+    @Test
+    fun olderAndNewerWritesAdvanceOnlyTheirOwnBoundary() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val query = NotificationQuery()
+        repository.activate(token)
+        repository.establishBaseline(token, NotificationPage(
+            items = listOf(notification("initial", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(
+                account,
+                query,
+                newest = me.foxtails.palustris.domain.NotificationCursor("newest-1"),
+                oldest = me.foxtails.palustris.domain.NotificationCursor("oldest-1"),
+                capturedAtEpochMillis = 1,
+            ),
+            direction = NotificationPageDirection.Initial,
+        ))
+        repository.ingestOlderPage(token, NotificationPage(
+            items = listOf(notification("older", NotificationActivity.Mention)),
+            olderCursor = me.foxtails.palustris.domain.NotificationCursor("oldest-2"),
+            checkpoint = NotificationCheckpoint(
+                account,
+                query,
+                newest = me.foxtails.palustris.domain.NotificationCursor("should-not-win"),
+                oldest = me.foxtails.palustris.domain.NotificationCursor("oldest-2"),
+                capturedAtEpochMillis = 2,
+            ),
+            direction = NotificationPageDirection.Older,
+        ))
+        assertEquals(
+            "newest-1",
+            repository.checkpoint(account, query)?.newest?.value,
+        )
+        assertEquals("oldest-2", repository.checkpoint(account, query)?.oldest?.value)
+
+        repository.ingestNewerPage(token, NotificationPage(
+            items = listOf(notification("newer", NotificationActivity.Mention)),
+            newerCursor = me.foxtails.palustris.domain.NotificationCursor("newest-2"),
+            checkpoint = NotificationCheckpoint(
+                account,
+                query,
+                newest = me.foxtails.palustris.domain.NotificationCursor("newest-2"),
+                oldest = me.foxtails.palustris.domain.NotificationCursor("should-not-win"),
+                capturedAtEpochMillis = 3,
+            ),
+            direction = NotificationPageDirection.Newer,
+        ))
+        assertEquals("newest-2", repository.checkpoint(account, query)?.newest?.value)
+        assertEquals("oldest-2", repository.checkpoint(account, query)?.oldest?.value)
     }
 
     private fun notification(id: String, activity: NotificationActivity) = Notification(

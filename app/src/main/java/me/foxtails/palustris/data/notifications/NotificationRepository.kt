@@ -6,9 +6,11 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -18,13 +20,18 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCheckpoint
+import me.foxtails.palustris.domain.NotificationDeliveryRecord
+import me.foxtails.palustris.domain.NotificationDeliveryState
 import me.foxtails.palustris.domain.NotificationDestination
 import me.foxtails.palustris.domain.NotificationGroup
 import me.foxtails.palustris.domain.NotificationGroupId
 import me.foxtails.palustris.domain.NotificationPage
+import me.foxtails.palustris.domain.NotificationPageDirection
+import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.NotificationReadState
 import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationReaction
+import me.foxtails.palustris.domain.NotificationSyncCompleteness
 import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.NotificationUnreadState
@@ -38,6 +45,19 @@ data class NotificationRepositoryState(
     val unreadState: NotificationUnreadState = NotificationUnreadState.Unknown,
     val checkpoint: NotificationCheckpoint? = null,
     val lastSyncedAtEpochMillis: Long = 0,
+    /** Checkpoints are keyed by the stable query fingerprint, never shared between filters. */
+    val checkpoints: Map<String, NotificationCheckpoint> = emptyMap(),
+    /** Tombstones make local-only dismissal survive refetch, restart, and older-page ingestion. */
+    val dismissedIds: Set<EntityId> = emptySet(),
+    val deliveries: Map<EntityId, NotificationDeliveryRecord> = emptyMap(),
+)
+
+data class NotificationInboxSnapshot(
+    val items: List<Notification>,
+    val unreadState: NotificationUnreadState,
+    val checkpoint: NotificationCheckpoint?,
+    val lastSyncedAtEpochMillis: Long,
+    val hasIncompleteSync: Boolean,
 )
 
 interface NotificationStore {
@@ -112,6 +132,29 @@ class NotificationRepository @javax.inject.Inject constructor(
         MutableStateFlow(store.read(accountId) ?: NotificationRepositoryState())
     }.asStateFlow()
 
+    fun observeInbox(accountId: AccountId, query: NotificationQuery): Flow<NotificationInboxSnapshot> =
+        observe(accountId).map { state ->
+            val checkpoint = state.checkpoints[query.stableKey]
+                ?: state.checkpoint?.takeIf { it.query == query }
+            NotificationInboxSnapshot(
+                items = state.items.filter { it.matches(query) },
+                unreadState = state.unreadState,
+                checkpoint = checkpoint,
+                lastSyncedAtEpochMillis = state.lastSyncedAtEpochMillis,
+                hasIncompleteSync = checkpoint?.completeness == NotificationSyncCompleteness.Incomplete ||
+                    checkpoint?.completeness == NotificationSyncCompleteness.Gap,
+            )
+        }
+
+    fun observeUnread(accountId: AccountId): Flow<NotificationUnreadState> =
+        observe(accountId).map { it.unreadState }
+
+    @Synchronized
+    fun checkpoint(accountId: AccountId, query: NotificationQuery): NotificationCheckpoint? {
+        val state = stateForLocked(accountId).value
+        return state.checkpoints[query.stableKey] ?: state.checkpoint?.takeIf { it.query == query }
+    }
+
     @Synchronized
     fun activate(token: NotificationSyncToken) {
         val current = generations[token.accountId]
@@ -130,25 +173,163 @@ class NotificationRepository @javax.inject.Inject constructor(
         generations[accountId] = next
     }
 
-    suspend fun ingest(token: NotificationSyncToken, page: NotificationPage): Boolean {
+    suspend fun establishBaseline(token: NotificationSyncToken, page: NotificationPage): Boolean =
+        applyPage(token, page, NotificationPageDirection.Initial, baselineEstablished = true)
+
+    suspend fun ingestNewerPage(token: NotificationSyncToken, page: NotificationPage): Boolean =
+        applyPage(token, page, NotificationPageDirection.Newer)
+
+    suspend fun ingestOlderPage(token: NotificationSyncToken, page: NotificationPage): Boolean =
+        applyPage(token, page, NotificationPageDirection.Older)
+
+    /** Compatibility entry point; new synchronization code must choose a direction explicitly. */
+    @Deprecated("Use establishBaseline, ingestNewerPage, or ingestOlderPage")
+    suspend fun ingest(token: NotificationSyncToken, page: NotificationPage): Boolean =
+        when (page.direction) {
+            NotificationPageDirection.Initial -> establishBaseline(token, page)
+            NotificationPageDirection.Newer -> ingestNewerPage(token, page)
+            NotificationPageDirection.Older -> ingestOlderPage(token, page)
+        }
+
+    private suspend fun applyPage(
+        token: NotificationSyncToken,
+        page: NotificationPage,
+        direction: NotificationPageDirection,
+        baselineEstablished: Boolean = false,
+    ): Boolean {
         val next = synchronized(this) {
             if (!isCurrentLocked(token)) return false
             val state = stateForLocked(token.accountId).value
+            val query = page.checkpoint?.query ?: page.items.firstOrNull()?.let { state.checkpoint?.query }
+            if (query == null) {
+                applyLegacyPageLocked(token, page, direction, baselineEstablished)
+            } else {
+            val previousCheckpoint = state.checkpoints[query.stableKey]
+                ?: state.checkpoint?.takeIf { it.query == query }
             val previous = state.items.associateBy(Notification::id)
-            val merged = (page.items + state.items)
+            val incoming = page.items.filter { item ->
+                item.accountId == token.accountId && item.id.connection == token.accountId.connection.origin
+            }
+            val merged = (incoming + state.items)
                 .distinctBy(Notification::id)
                 .map { item -> item.mergeReadState(previous[item.id]?.readState) }
+                .filterNot { it.id in state.dismissedIds }
                 .sortedWith(compareByDescending<Notification> { it.createdAtEpochMillis }.thenByDescending { it.id.value })
                 .take(MAX_ITEMS)
+            val pageCheckpoint = page.checkpoint?.takeIf { it.accountId == token.accountId && it.query == query }
+            val nextCheckpoint = mergeCheckpoint(
+                previous = previousCheckpoint,
+                page = page,
+                pageCheckpoint = pageCheckpoint,
+                direction = direction,
+                baselineEstablished = baselineEstablished,
+            )
+            val checkpoints = state.checkpoints + (query.stableKey to nextCheckpoint)
             state.copy(
                 items = merged,
                 unreadState = page.unreadState.takeIf { it !is NotificationUnreadState.Unknown } ?: state.unreadState,
-                checkpoint = page.checkpoint ?: state.checkpoint,
-                lastSyncedAtEpochMillis = page.checkpoint?.capturedAtEpochMillis ?: state.lastSyncedAtEpochMillis,
+                checkpoint = if (query.isAll) nextCheckpoint else state.checkpoint,
+                checkpoints = checkpoints,
+                lastSyncedAtEpochMillis = nextCheckpoint.capturedAtEpochMillis.takeIf { it > 0 }
+                    ?: state.lastSyncedAtEpochMillis,
+                deliveries = updateDeliveryOutbox(state, incoming, previousCheckpoint, baselineEstablished),
             ).also { stateForLocked(token.accountId).value = it }
+            }
         }
         persistIfCurrent(token, next)
         return true
+    }
+
+    private fun applyLegacyPageLocked(
+        token: NotificationSyncToken,
+        page: NotificationPage,
+        direction: NotificationPageDirection,
+        baselineEstablished: Boolean,
+    ): NotificationRepositoryState {
+        val state = stateForLocked(token.accountId).value
+        val previous = state.items.associateBy(Notification::id)
+        val incoming = page.items.filter { it.accountId == token.accountId }
+        val merged = (incoming + state.items).distinctBy(Notification::id)
+            .map { it.mergeReadState(previous[it.id]?.readState) }
+            .filterNot { it.id in state.dismissedIds }
+            .sortedWith(compareByDescending<Notification> { it.createdAtEpochMillis }.thenByDescending { it.id.value })
+            .take(MAX_ITEMS)
+        return state.copy(
+            items = merged,
+            unreadState = page.unreadState.takeIf { it !is NotificationUnreadState.Unknown } ?: state.unreadState,
+            checkpoint = page.checkpoint ?: state.checkpoint,
+            lastSyncedAtEpochMillis = page.checkpoint?.capturedAtEpochMillis ?: state.lastSyncedAtEpochMillis,
+            deliveries = updateDeliveryOutbox(state, incoming, state.checkpoint, baselineEstablished),
+        ).also { stateForLocked(token.accountId).value = it }
+    }
+
+    private fun mergeCheckpoint(
+        previous: NotificationCheckpoint?,
+        page: NotificationPage,
+        pageCheckpoint: NotificationCheckpoint?,
+        direction: NotificationPageDirection,
+        baselineEstablished: Boolean,
+    ): NotificationCheckpoint {
+        val query = pageCheckpoint?.query ?: previous?.query ?: error("Notification page has no query")
+        val newest = when (direction) {
+            NotificationPageDirection.Older -> previous?.newest ?: page.resolvedNewestBoundary
+            NotificationPageDirection.Initial,
+            NotificationPageDirection.Newer,
+            -> page.resolvedNewestBoundary ?: previous?.newest
+        }
+        val oldest = when (direction) {
+            NotificationPageDirection.Newer -> previous?.oldest ?: page.resolvedOldestBoundary
+            NotificationPageDirection.Initial,
+            NotificationPageDirection.Older,
+            -> page.resolvedOldestBoundary ?: previous?.oldest
+        }
+        val continuation = page.continuation ?: when (direction) {
+            NotificationPageDirection.Older -> page.olderCursor
+            NotificationPageDirection.Newer -> page.newerCursor
+            NotificationPageDirection.Initial -> null
+        }
+        val newerContinuation = when (direction) {
+            NotificationPageDirection.Newer -> continuation
+            else -> previous?.newerContinuation
+        }
+        val olderContinuation = when (direction) {
+            NotificationPageDirection.Older -> continuation
+            else -> previous?.olderContinuation
+        }
+        val complete = page.reachedBoundary || continuation == null
+        return NotificationCheckpoint(
+            accountId = queryAccountId(page, previous),
+            query = query,
+            newest = newest,
+            oldest = oldest,
+            capturedAtEpochMillis = pageCheckpoint?.capturedAtEpochMillis ?: previous?.capturedAtEpochMillis ?: 0,
+            newerContinuation = newerContinuation,
+            olderContinuation = olderContinuation,
+            completeness = if (complete) NotificationSyncCompleteness.Complete else NotificationSyncCompleteness.Incomplete,
+            baselineEstablished = baselineEstablished || previous?.baselineEstablished == true,
+        )
+    }
+
+    private fun queryAccountId(page: NotificationPage, previous: NotificationCheckpoint?): AccountId =
+        page.checkpoint?.accountId ?: previous?.accountId ?: page.items.firstOrNull()?.accountId
+        ?: error("Notification page has no account")
+
+    private fun updateDeliveryOutbox(
+        state: NotificationRepositoryState,
+        incoming: List<Notification>,
+        previousCheckpoint: NotificationCheckpoint?,
+        baselineEstablished: Boolean,
+    ): Map<EntityId, NotificationDeliveryRecord> {
+        if (baselineEstablished || previousCheckpoint?.baselineEstablished != true) return state.deliveries
+        return incoming.fold(state.deliveries) { deliveries, notification ->
+            if (notification.id in deliveries || notification.id in state.dismissedIds) deliveries
+            else deliveries + (notification.id to NotificationDeliveryRecord(
+                accountId = notification.accountId,
+                notificationId = notification.id,
+                androidTag = "${notification.accountId.connection.origin}:${notification.accountId.localId}",
+                androidId = stableNotificationId(notification.id),
+            ))
+        }
     }
 
     suspend fun updateUnreadState(token: NotificationSyncToken, unreadState: NotificationUnreadState): Boolean {
@@ -157,6 +338,18 @@ class NotificationRepository @javax.inject.Inject constructor(
             stateForLocked(token.accountId).value.copy(unreadState = unreadState).also {
                 stateForLocked(token.accountId).value = it
             }
+        }
+        persistIfCurrent(token, next)
+        return true
+    }
+
+    suspend fun markLocallySeen(token: NotificationSyncToken, ids: Set<EntityId>): Boolean {
+        val next = synchronized(this) {
+            if (!isCurrentLocked(token)) return false
+            val current = stateForLocked(token.accountId).value
+            current.copy(items = current.items.map { item ->
+                if (item.id in ids) item.copy(readState = item.readState.copy(locallySeen = true)) else item
+            }).also { stateForLocked(token.accountId).value = it }
         }
         persistIfCurrent(token, next)
         return true
@@ -215,17 +408,72 @@ class NotificationRepository @javax.inject.Inject constructor(
         return true
     }
 
+    suspend fun applyAcknowledgement(
+        token: NotificationSyncToken,
+        acknowledgement: NotificationAcknowledgement,
+    ): Boolean = acknowledge(token, acknowledgement)
+
     suspend fun dismiss(token: NotificationSyncToken, id: EntityId): Boolean {
+        return dismissFromInbox(token, id, remoteApplied = false)
+    }
+
+    suspend fun dismissFromInbox(token: NotificationSyncToken, id: EntityId, remoteApplied: Boolean): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token)) return false
+            if (!isCurrentLocked(token) || id.connection != token.accountId.connection.origin) return false
             val current = stateForLocked(token.accountId).value
-            current.copy(items = current.items.filterNot { it.id == id }).also {
+            current.copy(
+                items = current.items.filterNot { it.id == id },
+                dismissedIds = current.dismissedIds + id,
+                deliveries = current.deliveries - id,
+            ).also {
                 stateForLocked(token.accountId).value = it
             }
         }
         persistIfCurrent(token, next)
         return true
     }
+
+    suspend fun claimDelivery(token: NotificationSyncToken, id: EntityId): NotificationDeliveryRecord? {
+        val result = synchronized(this) {
+            if (!isCurrentLocked(token)) return null
+            val current = stateForLocked(token.accountId).value
+            val record = current.deliveries[id] ?: return null
+            if (record.state != NotificationDeliveryState.Pending && record.state != NotificationDeliveryState.Failed) return null
+            val claimed = record.copy(
+                state = NotificationDeliveryState.Posting,
+                attemptCount = record.attemptCount + 1,
+                lastAttemptAtEpochMillis = System.currentTimeMillis(),
+            )
+            stateForLocked(token.accountId).value = current.copy(deliveries = current.deliveries + (id to claimed))
+            claimed
+        }
+        result?.let { persistIfCurrent(token, observe(token.accountId).value) }
+        return result
+    }
+
+    suspend fun finishDelivery(
+        token: NotificationSyncToken,
+        id: EntityId,
+        state: NotificationDeliveryState,
+        errorCategory: String? = null,
+    ): Boolean {
+        val next = synchronized(this) {
+            if (!isCurrentLocked(token)) return false
+            val current = stateForLocked(token.accountId).value
+            val existing = current.deliveries[id] ?: return false
+            current.copy(deliveries = current.deliveries + (id to existing.copy(
+                state = state,
+                lastErrorCategory = errorCategory,
+            ))).also { stateForLocked(token.accountId).value = it }
+        }
+        persistIfCurrent(token, next)
+        return true
+    }
+
+    fun pendingDeliveries(accountId: AccountId): List<NotificationDeliveryRecord> =
+        observe(accountId).value.deliveries.values.filter {
+            it.state == NotificationDeliveryState.Pending || it.state == NotificationDeliveryState.Failed
+        }
 
     @Synchronized
     fun remove(accountId: AccountId) {
@@ -270,11 +518,16 @@ private fun AccountId.stableFileName(): String {
 }
 
 private fun encode(state: NotificationRepositoryState): JSONObject = JSONObject().apply {
-    put("version", 1)
+    put("version", 2)
     put("items", JSONArray(state.items.map(::encodeNotification)))
     put("unread", encodeUnread(state.unreadState))
     state.checkpoint?.let { checkpoint -> put("checkpoint", encodeCheckpoint(checkpoint)) }
     put("lastSyncedAt", state.lastSyncedAtEpochMillis)
+    put("dismissedIds", JSONArray(state.dismissedIds.map(::encodeEntity)))
+    put("checkpoints", JSONObject().apply {
+        state.checkpoints.forEach { (key, checkpoint) -> put(key, encodeCheckpoint(checkpoint)) }
+    })
+    put("deliveries", JSONArray(state.deliveries.values.map(::encodeDelivery)))
 }
 
 private fun decode(json: JSONObject): NotificationRepositoryState {
@@ -286,8 +539,41 @@ private fun decode(json: JSONObject): NotificationRepositoryState {
         unreadState = decodeUnread(json.optJSONObject("unread")),
         checkpoint = json.optJSONObject("checkpoint")?.let(::decodeCheckpoint),
         lastSyncedAtEpochMillis = json.optLong("lastSyncedAt", 0),
+        dismissedIds = json.optJSONArray("dismissedIds")?.let { values ->
+            (0 until values.length()).mapNotNull { index -> runCatching { decodeEntity(values.getJSONObject(index)) }.getOrNull() }
+        }?.toSet().orEmpty(),
+        checkpoints = json.optJSONObject("checkpoints")?.let { values ->
+            values.keys().asSequence().mapNotNull { key -> runCatching { key to decodeCheckpoint(values.getJSONObject(key)) }.getOrNull() }
+                .toMap()
+        }.orEmpty(),
+        deliveries = json.optJSONArray("deliveries")?.let { values ->
+            (0 until values.length()).mapNotNull { index -> runCatching { decodeDelivery(values.getJSONObject(index)) }.getOrNull() }
+        }?.associateBy { it.notificationId }.orEmpty(),
     )
 }
+
+private fun encodeDelivery(record: NotificationDeliveryRecord): JSONObject = JSONObject().apply {
+    put("accountId", encodeAccountId(record.accountId))
+    put("notificationId", encodeEntity(record.notificationId))
+    put("state", record.state.name)
+    put("androidTag", record.androidTag)
+    put("androidId", record.androidId)
+    put("attemptCount", record.attemptCount)
+    put("lastAttemptAt", record.lastAttemptAtEpochMillis)
+    record.lastErrorCategory?.let { put("lastErrorCategory", it) }
+}
+
+private fun decodeDelivery(json: JSONObject): NotificationDeliveryRecord = NotificationDeliveryRecord(
+    accountId = decodeAccountId(json.getJSONObject("accountId")),
+    notificationId = decodeEntity(json.getJSONObject("notificationId")),
+    state = runCatching { NotificationDeliveryState.valueOf(json.optString("state")) }
+        .getOrDefault(NotificationDeliveryState.Pending),
+    androidTag = json.optString("androidTag"),
+    androidId = json.optInt("androidId"),
+    attemptCount = json.optInt("attemptCount"),
+    lastAttemptAtEpochMillis = json.optLong("lastAttemptAt"),
+    lastErrorCategory = json.optString("lastErrorCategory").takeIf { it.isNotBlank() },
+)
 
 private fun encodeNotification(notification: Notification): JSONObject = JSONObject().apply {
     put("id", encodeEntity(notification.id))
@@ -459,6 +745,10 @@ private fun encodeCheckpoint(checkpoint: NotificationCheckpoint): JSONObject = J
         .put("limit", checkpoint.query.limit).put("grouped", checkpoint.query.grouped))
     checkpoint.newest?.let { put("newest", it.value) }
     checkpoint.oldest?.let { put("oldest", it.value) }
+    checkpoint.newerContinuation?.let { put("newerContinuation", it.value) }
+    checkpoint.olderContinuation?.let { put("olderContinuation", it.value) }
+    put("completeness", checkpoint.completeness.name)
+    put("baselineEstablished", checkpoint.baselineEstablished)
 }
 
 private fun decodeCheckpoint(json: JSONObject): NotificationCheckpoint {
@@ -474,7 +764,38 @@ private fun decodeCheckpoint(json: JSONObject): NotificationCheckpoint {
         newest = json.optString("newest").takeIf { it.isNotBlank() }?.let(::meFoxtailsNotificationCursor),
         oldest = json.optString("oldest").takeIf { it.isNotBlank() }?.let(::meFoxtailsNotificationCursor),
         capturedAtEpochMillis = json.optLong("capturedAt"),
+        newerContinuation = json.optString("newerContinuation").takeIf { it.isNotBlank() }?.let(::meFoxtailsNotificationCursor),
+        olderContinuation = json.optString("olderContinuation").takeIf { it.isNotBlank() }?.let(::meFoxtailsNotificationCursor),
+        completeness = runCatching { NotificationSyncCompleteness.valueOf(json.optString("completeness")) }
+            .getOrDefault(NotificationSyncCompleteness.Unknown),
+        baselineEstablished = json.optBoolean("baselineEstablished"),
     )
 }
 
 private fun meFoxtailsNotificationCursor(value: String) = me.foxtails.palustris.domain.NotificationCursor(value)
+
+private fun Notification.matches(query: NotificationQuery): Boolean {
+    if (query.isAll) return true
+    return query.categories.any { category ->
+        when (category) {
+            me.foxtails.palustris.domain.NotificationCategory.All -> true
+            me.foxtails.palustris.domain.NotificationCategory.Mentions -> activity == NotificationActivity.Mention
+            me.foxtails.palustris.domain.NotificationCategory.Replies -> activity == NotificationActivity.Reply
+            me.foxtails.palustris.domain.NotificationCategory.Quotes -> activity == NotificationActivity.Quote ||
+                activity == NotificationActivity.QuotedPostUpdate
+            me.foxtails.palustris.domain.NotificationCategory.Social -> activity in setOf(
+                NotificationActivity.Reshare,
+                NotificationActivity.Favourite,
+                NotificationActivity.Follow,
+                NotificationActivity.FollowRequest,
+                NotificationActivity.AcceptedRequest,
+                NotificationActivity.SubscribedPost,
+            ) || activity is NotificationActivity.EmojiReaction
+            me.foxtails.palustris.domain.NotificationCategory.Polls -> activity is NotificationActivity.PollResult
+            me.foxtails.palustris.domain.NotificationCategory.System -> activity is NotificationActivity.System ||
+                activity is NotificationActivity.Unknown
+        }
+    }
+}
+
+private fun stableNotificationId(id: EntityId): Int = (id.connection + "\u0000" + id.value).hashCode()
