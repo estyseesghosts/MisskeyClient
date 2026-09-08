@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.MediaKind
@@ -54,8 +53,8 @@ internal fun MediaPage(
     val decision = MediaRequestPolicy.resolve(attachment, role, revealed = true, explicitlyOpened = selected)
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when (decision) {
-            is MediaRequestDecision.Request -> AsyncImage(
-                model = MediaImageLoader.get(context).request(
+            is MediaRequestDecision.Request -> ZoomableMediaImage(
+                request = MediaImageLoader.get(context).request(
                     context = context,
                     decision = decision,
                     accountIdentity = accountIdentity,
@@ -65,10 +64,8 @@ internal fun MediaPage(
                     decodeWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx().toInt() },
                     decodeHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxHeight.toPx().toInt() },
                 ),
-                imageLoader = MediaImageLoader.get(context).imageLoader,
                 contentDescription = attachment.description ?: "Media ${index + 1}",
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                contentScale = ContentScale.Fit,
             )
             is MediaRequestDecision.NoRequest -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator()

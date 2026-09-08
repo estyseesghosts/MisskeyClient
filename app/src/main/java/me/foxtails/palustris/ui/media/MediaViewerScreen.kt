@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.platform.LocalContext
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.ui.AppIcons
@@ -51,9 +52,12 @@ fun MediaViewerScreen(
     val attachments = request.ownedPost.post.attachments
     val context = LocalContext.current
     val pagerState = rememberPagerState(request.attachmentIndex.coerceIn(0, attachments.lastIndex)) { attachments.size }
-    val revealedPages = remember { mutableStateMapOf<Int, Boolean>() }
+    val revealedPages = remember {
+        mutableStateMapOf<Int, Boolean>().apply { if (request.revealed) put(request.attachmentIndex, true) }
+    }
     var menuVisible by rememberSaveable { mutableStateOf(false) }
     var chromeVisible by rememberSaveable { mutableStateOf(true) }
+    BackHandler(onBack = onClose)
     Surface(Modifier.fillMaxSize(), color = Color.Black) {
         Box(Modifier.fillMaxSize().semantics { contentDescription = "Media viewer" }) {
             HorizontalPager(
@@ -73,49 +77,21 @@ fun MediaViewerScreen(
                 )
             }
             if (chromeVisible) {
-                Row(
-                    Modifier.fillMaxWidth().align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    IconButton(onClick = onClose, modifier = Modifier.semantics { contentDescription = "Close media viewer" }) { Icon(AppIcons.Close, null, tint = Color.White) }
-                    Box {
-                        IconButton(onClick = { menuVisible = true }, modifier = Modifier.semantics { contentDescription = "Media options" }) { Icon(AppIcons.More, null, tint = Color.White) }
-                        DropdownMenu(expanded = menuVisible, onDismissRequest = { menuVisible = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Open media in browser") },
-                                onClick = {
-                                    menuVisible = false
-                                    openExternal(context, attachments[pagerState.settledPage].url)
-                                },
-                            )
-                            request.ownedPost.post.attachments[pagerState.settledPage].description?.let {
-                                DropdownMenuItem(text = { Text("Description") }, onClick = { menuVisible = false })
-                            }
-                        }
-                    }
-                }
-                Text(
-                    "${pagerState.settledPage + 1} / ${attachments.size}",
-                    Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 20.dp),
-                    color = Color.White,
+                MediaViewerChrome(
+                    page = pagerState.settledPage,
+                    pageCount = attachments.size,
+                    descriptionAvailable = attachments[pagerState.settledPage].description != null,
+                    menuVisible = menuVisible,
+                    onMenuVisibilityChanged = { menuVisible = it },
+                    onClose = onClose,
+                    onOpenBrowser = { openExternal(context, attachments[pagerState.settledPage].url) },
+                    onShowDescription = {},
+                    onReact = { onReact(request.ownedPost) },
+                    onReply = { onReply(request.ownedPost) },
+                    onReshare = { onReshare(request.ownedPost) },
+                    onShare = { sharePost(context, request.ownedPost.post) },
                 )
-                Row(
-                    Modifier.fillMaxWidth().align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    ViewerAction(AppIcons.Heart, "Favorite") { onReact(request.ownedPost) }
-                    ViewerAction(AppIcons.Reply, "Reply") { onReply(request.ownedPost) }
-                    ViewerAction(AppIcons.Repost, "Repost") { onReshare(request.ownedPost) }
-                    ViewerAction(AppIcons.Share, "Share") { sharePost(context, request.ownedPost.post) }
-                }
             }
         }
-    }
-}
-
-@Composable
-private fun ViewerAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.semantics { contentDescription = label }) {
-        Icon(icon, label, tint = Color.White)
     }
 }
