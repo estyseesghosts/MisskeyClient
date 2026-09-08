@@ -27,7 +27,9 @@ object ServerAddress {
     }
 }
 
-class ApiFailure(val status: Int, val code: String? = null, val body: String? = null) : IOException("Server request failed ($status)")
+class ApiFailure(val status: Int, val code: String? = null) : IOException(
+    "Server request failed ($status${code?.let { ":$it" }.orEmpty()})",
+)
 
 /** No redirects: an authenticated request must never forward its token to another host. */
 class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
@@ -170,7 +172,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
                             val text = it.body?.string().orEmpty()
                             if (!it.isSuccessful) {
                                 val code = runCatching { JSONObject(text).optJSONObject("error")?.optString("code") }.getOrNull()
-                                throw ApiFailure(it.code, code, text)
+                                throw ApiFailure(it.code, code)
                             }
                             continuation.resume(HttpResponse(text, it.headers))
                         } catch (e: Exception) { if (!continuation.isCancelled) continuation.resumeWithException(e) }

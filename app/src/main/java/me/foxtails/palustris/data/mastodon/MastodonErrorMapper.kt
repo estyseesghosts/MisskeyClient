@@ -6,7 +6,12 @@ import org.json.JSONObject
 import java.io.IOException
 
 object MastodonErrorMapper {
-    fun map(error: ApiFailure): SourceError = map(error.status, error.body)
+    fun map(error: ApiFailure): SourceError = when (error.status) {
+        401, 403 -> SourceError.Unauthorized
+        429 -> SourceError.RateLimited
+        404 -> SourceError.Unsupported("requested feature")
+        else -> SourceError.ServerError(error.code?.takeIf(String::isNotBlank))
+    }
 
     fun map(status: Int, body: String? = null): SourceError = when (status) {
         401, 403 -> SourceError.Unauthorized
