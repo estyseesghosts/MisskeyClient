@@ -118,6 +118,21 @@ class NotificationAdapterContractTest {
     }
 
     @Test
+    fun mastodonGroupedNotificationCannotFabricateAnEventIdFromItsGroupKey() {
+        val origin = server.url("/").toString().removeSuffix("/")
+        val receiver = AccountId(Connection(origin, Protocol.MASTODON), "receiver")
+        assertThrows(IllegalArgumentException::class.java) {
+            MastodonMapper.groupedNotification(
+                JSONObject().put("group_key", "favourite-status-1").put("type", "favourite"),
+                emptyMap(),
+                emptyMap(),
+                origin,
+                receiver,
+            )
+        }
+    }
+
+    @Test
     fun mastodonRejectsForeignNotificationContinuationBeforeSendingCredentials() = runBlocking {
         MockWebServer().use { foreign ->
             val origin = server.url("/").toString().removeSuffix("/")
@@ -256,6 +271,22 @@ class NotificationAdapterContractTest {
         assertEquals(me.foxtails.palustris.domain.NotificationUnreadState.None, source.acknowledgeNotifications().readState)
         assertEquals("/api/i", server.takeRequest().path)
         assertEquals("/api/notifications/mark-all-as-read", server.takeRequest().path)
+    }
+
+    @Test
+    fun mastodonAcknowledgementAdvancesTheNotificationTimelineMarker() = runBlocking {
+        val origin = server.url("/").toString().removeSuffix("/")
+        val account = AccountId(Connection(origin, Protocol.MASTODON), "receiver")
+        server.enqueue(MockResponse().setBody(JSONArray().put(mastodonNotification("latest", "mention")).toString()))
+        server.enqueue(MockResponse().setBody("{}"))
+
+        val acknowledgement = MastodonSource(origin, "token", MisskeyApi(), account).acknowledgeNotifications()
+
+        assertEquals(me.foxtails.palustris.domain.NotificationUnreadState.None, acknowledgement.readState)
+        assertEquals("/api/v1/notifications?limit=1", server.takeRequest().path)
+        val marker = server.takeRequest()
+        assertEquals("/api/v1/markers", marker.path)
+        assertTrue(marker.body.readUtf8().contains("notifications%5Blast_read_id%5D=latest"))
     }
 
     private fun mastodonNotification(id: String, type: String) = JSONObject()

@@ -37,11 +37,21 @@ fun ConnectedApp(
             },
         )
     }
+    val notificationsModel = activeSession?.let { session ->
+        hiltViewModel<NotificationsViewModel, NotificationsViewModel.Factory>(
+            key = "notifications-${session.accountId}-${state.sessionGeneration}",
+            creationCallback = { factory ->
+                factory.create(session.accountId, sourceFactory.create(session))
+            },
+        )
+    }
     DisposableEffect(state.sessionGeneration, feedModel) {
         onDispose { feedModel?.stop() }
     }
     val feed by if (feedModel != null) feedModel.feed.collectAsStateWithLifecycle()
     else remember { mutableStateOf(FeedState()) }
+    val notificationState by if (notificationsModel != null) notificationsModel.state.collectAsStateWithLifecycle()
+    else remember { mutableStateOf(NotificationsUiState()) }
     LaunchedEffect(feed.profile, state.account) {
         feed.profile?.takeIf { it != state.account }?.let(accountManager::updateAccount)
     }
@@ -82,6 +92,12 @@ fun ConnectedApp(
                 onReact = { ownedPost -> feedModel?.favorite(ownedPost) },
                 onReshare = { ownedPost -> feedModel?.reshare(ownedPost) },
                 onReaction = { ownedPost, emoji -> feedModel?.react(ownedPost, emoji) },
+                notificationState = notificationState,
+                onRefreshNotifications = { notificationsModel?.refresh() },
+                onLoadMoreNotifications = { notificationsModel?.loadOlder() },
+                onMarkAllNotificationsRead = { notificationsModel?.markAllRead() },
+                onMarkNotificationSeen = { notification -> notificationsModel?.markSeen(notification?.id) },
+                onDismissNotification = { notification -> notificationsModel?.dismiss(notification) },
             )
         }
     }

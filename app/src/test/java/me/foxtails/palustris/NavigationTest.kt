@@ -128,7 +128,7 @@ class NavigationTest {
         val chips = bounds("Notification filters; swipe horizontally for more")
         val action = bounds("Direct messages")
         val navigation = bounds("Home")
-        val content = bounds("All caught up")
+        val content = compose.onNodeWithText("All caught up").fetchSemanticsNode().boundsInRoot
         val density = compose.activity.resources.displayMetrics.density
 
         assertTrue("notification chips should be above the contextual action", chips.bottom < action.top)

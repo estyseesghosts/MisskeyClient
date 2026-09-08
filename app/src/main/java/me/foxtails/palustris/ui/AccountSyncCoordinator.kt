@@ -42,6 +42,7 @@ interface AccountNotificationSyncController {
     fun observeAccount(accountId: AccountId): StateFlow<AccountSyncState>
     fun register(accountId: AccountId, source: SocialSource)
     fun unregister(accountId: AccountId)
+    fun removeAccount(accountId: AccountId)
 }
 
 class NoOpAccountNotificationSyncController : AccountNotificationSyncController {
@@ -57,6 +58,11 @@ class NoOpAccountNotificationSyncController : AccountNotificationSyncController 
     @Synchronized
     override fun unregister(accountId: AccountId) {
         states[accountId]?.value = states[accountId]?.value?.copy(isActive = false) ?: AccountSyncState()
+    }
+
+    override fun removeAccount(accountId: AccountId) {
+        unregister(accountId)
+        states.remove(accountId)
     }
 }
 
@@ -84,6 +90,13 @@ class AccountSyncCoordinator @Inject constructor(
         jobs.remove(accountId)?.cancel()
         repository.invalidate(accountId, generation)
         states[accountId]?.value = states[accountId]?.value?.copy(isActive = false) ?: AccountSyncState()
+    }
+
+    @Synchronized
+    override fun removeAccount(accountId: AccountId) {
+        unregister(accountId)
+        repository.remove(accountId)
+        states.remove(accountId)
     }
 
     override fun register(accountId: AccountId, source: SocialSource) {

@@ -402,20 +402,22 @@ class SessionViewModelTest {
         }
     }
 
-    @Test fun stoppingFeedUnregistersPollingImmediately() = runTest {
+    @Test fun stoppingFeedDoesNotStopAccountNotificationPolling() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val owner = ViewModelStore()
         val coordinator = AccountSyncCoordinator()
         try {
             val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
-            val model = FeedViewModel(login.account.id, Source(), coordinator)
+            val source = Source()
+            coordinator.register(login.account.id, source)
+            val model = FeedViewModel(login.account.id, source, coordinator)
             owner.put("feed", model)
             advanceUntilIdle()
             assertTrue(model.sync.value.isActive)
 
             model.stop()
 
-            assertFalse(model.sync.value.isActive)
+            assertTrue(model.sync.value.isActive)
         } finally {
             owner.clear()
             coordinator.close()

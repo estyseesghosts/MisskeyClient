@@ -29,6 +29,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.Notification
+import me.foxtails.palustris.domain.NotificationActivity
+import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.OwnedPost
 
 private val exactHashtagQuery = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
@@ -291,6 +294,12 @@ fun NotificationsScreen(
     connected: Boolean = false,
     compactLayout: Boolean = true,
     accountIdentity: String = "preview",
+    notificationState: NotificationsUiState = NotificationsUiState(),
+    onRefreshNotifications: () -> Unit = {},
+    onLoadMoreNotifications: () -> Unit = {},
+    onMarkAllNotificationsRead: () -> Unit = {},
+    onMarkNotificationSeen: (Notification?) -> Unit = {},
+    onDismissNotification: (Notification) -> Unit = {},
 ) {
     var selectedFilterName by rememberSaveable(accountIdentity) { mutableStateOf<String?>(null) }
     val selectedFilter = selectedFilterName?.let { name -> notificationFilters.firstOrNull { it.name == name } }
@@ -304,6 +313,7 @@ fun NotificationsScreen(
     val (title, subtitle) = selectedFilter?.let { it.title to it.subtitle }
         ?: ((if (connected) "Notifications coming soon" else "All caught up") to
             "Activity from people you follow will appear here.")
+    val visibleItems = notificationState.items.filter { item -> selectedFilter?.matches(item) ?: true }
     val dockInsets = compactDockInsets(
         WindowInsets.navigationBarsIgnoringVisibility,
         WindowInsets(bottom = 0.dp),
@@ -312,14 +322,20 @@ fun NotificationsScreen(
 
     if (compactLayout) {
         Box(Modifier.fillMaxSize()) {
-            NotificationPlaceholder(
+            NotificationContent(
                 title = title,
                 subtitle = subtitle,
+                state = notificationState,
+                items = visibleItems,
+                onRefresh = onRefreshNotifications,
+                onLoadMore = onLoadMoreNotifications,
+                onMarkAllRead = onMarkAllNotificationsRead,
+                onMarkSeen = onMarkNotificationSeen,
+                onDismiss = onDismissNotification,
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(dockInsets)
                     .padding(bottom = notificationDockHeight)
-                    .verticalScroll(rememberScrollState()),
             )
             Box(
                 Modifier
@@ -344,13 +360,124 @@ fun NotificationsScreen(
                 NotificationFilterDescription,
                 ::toggleFilter,
             )
-            NotificationPlaceholder(
+            NotificationContent(
                 title = title,
                 subtitle = subtitle,
-                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                state = notificationState,
+                items = visibleItems,
+                onRefresh = onRefreshNotifications,
+                onLoadMore = onLoadMoreNotifications,
+                onMarkAllRead = onMarkAllNotificationsRead,
+                onMarkSeen = onMarkNotificationSeen,
+                onDismiss = onDismissNotification,
+                modifier = Modifier.weight(1f),
             )
         }
     }
+}
+
+@Composable
+private fun NotificationContent(
+    title: String,
+    subtitle: String,
+    state: NotificationsUiState,
+    items: List<Notification>,
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit,
+    onMarkAllRead: () -> Unit,
+    onMarkSeen: (Notification?) -> Unit,
+    onDismiss: (Notification) -> Unit,
+    modifier: Modifier,
+) {
+    when {
+        state.loading && items.isEmpty() -> Box(modifier, contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        items.isEmpty() -> NotificationPlaceholder(title, subtitle, modifier)
+        else -> LazyColumn(
+            modifier = modifier,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onRefresh) { Text("Refresh") }
+                    TextButton(onClick = onMarkAllRead) { Text("Mark all read") }
+                }
+            }
+            items(items, key = { it.id.connection + "\u0000" + it.id.value }) { notification ->
+                NotificationRow(notification, onSeen = { onMarkSeen(notification) }, onDismiss = { onDismiss(notification) })
+            }
+            item {
+                if (state.loadingMore) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp)) }
+                } else if (state.checkpoint?.oldest != null) {
+                    TextButton(onClick = onLoadMore, modifier = Modifier.fillMaxWidth()) { Text("Load older") }
+                }
+            }
+            state.error?.let { error -> item { Text(error, color = MaterialTheme.colorScheme.error) } }
+        }
+    }
+}
+
+@Composable
+private fun NotificationRow(
+    notification: Notification,
+    onSeen: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val actor = notification.actors.firstOrNull()
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onSeen),
+        shape = MaterialTheme.shapes.large,
+        color = if (notification.readState.status == NotificationReadStatus.Unread) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+    ) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (actor != null) AccountAvatar(actor, Modifier.size(44.dp))
+            else Avatar(Modifier.size(44.dp), description = null)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(notification.activity.notificationLabel(), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    notification.actors.joinToString { it.displayName }.ifBlank { "Activity from your server" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            TextButton(onClick = onDismiss) { Text("Dismiss") }
+        }
+    }
+}
+
+private fun NotificationFilter.matches(notification: Notification): Boolean = when (this) {
+    NotificationFilter.Replies -> notification.activity == NotificationActivity.Reply
+    NotificationFilter.Reposts -> notification.activity == NotificationActivity.Reshare
+    NotificationFilter.Likes -> notification.activity == NotificationActivity.Favourite ||
+        notification.activity is NotificationActivity.EmojiReaction
+}
+
+private fun NotificationActivity.notificationLabel(): String = when (this) {
+    NotificationActivity.Mention -> "Mentioned you"
+    NotificationActivity.Reply -> "Replied to you"
+    NotificationActivity.Reshare -> "Reposted your post"
+    NotificationActivity.Quote -> "Quoted your post"
+    NotificationActivity.Favourite -> "Liked your post"
+    is NotificationActivity.EmojiReaction -> "Reacted with ${reaction.fallbackText}"
+    NotificationActivity.Follow -> "Followed you"
+    NotificationActivity.FollowRequest -> "Requested to follow you"
+    NotificationActivity.AcceptedRequest -> "Accepted your follow request"
+    NotificationActivity.SubscribedPost -> "Posted something new"
+    is NotificationActivity.PollResult -> "Your poll ended"
+    NotificationActivity.PostUpdate -> "Updated a post"
+    NotificationActivity.QuotedPostUpdate -> "Updated a quoted post"
+    is NotificationActivity.System.Moderation -> title
+    is NotificationActivity.System.RelationshipChange -> title
+    is NotificationActivity.System.RoleOrAchievement -> title
+    is NotificationActivity.System.AppEvent -> title
+    is NotificationActivity.Unknown -> fallbackText
 }
 
 @Composable

@@ -46,6 +46,7 @@ import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
+import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.Timeline
@@ -205,6 +206,12 @@ fun PalustrisApp(
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+    notificationState: NotificationsUiState = NotificationsUiState(),
+    onRefreshNotifications: () -> Unit = {},
+    onLoadMoreNotifications: () -> Unit = {},
+    onMarkAllNotificationsRead: () -> Unit = {},
+    onMarkNotificationSeen: (Notification?) -> Unit = {},
+    onDismissNotification: (Notification) -> Unit = {},
 ) = PalustrisTheme {
     val context = LocalContext.current
     val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
@@ -335,7 +342,17 @@ fun PalustrisApp(
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
                                 Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                                 Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill, compactLayout = !wide, compactNavigationVisible = !wide)
-                                Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(connected = account != null, compactLayout = !wide, accountIdentity = notificationAccountIdentity) else MessagesScreen()
+                                Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(
+                                    connected = account != null,
+                                    compactLayout = !wide,
+                                    accountIdentity = notificationAccountIdentity,
+                                    notificationState = notificationState,
+                                    onRefreshNotifications = onRefreshNotifications,
+                                    onLoadMoreNotifications = onLoadMoreNotifications,
+                                    onMarkAllNotificationsRead = onMarkAllNotificationsRead,
+                                    onMarkNotificationSeen = onMarkNotificationSeen,
+                                    onDismissNotification = onDismissNotification,
+                                ) else MessagesScreen()
                                 Destination.Profile -> ProfileScreen(displayedProfile, compactLayout = !wide)
                             } }
                         }

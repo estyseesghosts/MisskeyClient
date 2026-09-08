@@ -78,7 +78,7 @@ class AccountManager @Inject constructor(
                     val activeAccountId = index.activeAccountId ?: index.accounts.firstOrNull()?.accountId
                     val sessions = index.accounts.mapNotNull { ref -> store.read(ref.accountId) }
                     val active = activeAccountId?.let { accountId ->
-                        store.read(accountId)?.let { session ->
+                        sessions.firstOrNull { it.accountId == accountId }?.let { session ->
                             session to index.accounts.firstOrNull { it.accountId == accountId }?.toAccount()
                         }
                     }
@@ -259,7 +259,7 @@ class AccountManager @Inject constructor(
     fun removeAccount(accountId: me.foxtails.palustris.domain.AccountId) {
         viewModelScope.launch {
             try {
-                notificationSync.unregister(accountId)
+                notificationSync.removeAccount(accountId)
                 val replacement = withContext(ioDispatcher) {
                     store.delete(accountId)
                     val index = store.readIndex()
