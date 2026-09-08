@@ -5,11 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -21,17 +19,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.ui.components.CategoryChips
 
 private val exactHashtagQuery = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
 
@@ -180,44 +176,6 @@ private fun SearchField(query: String, onSubmit: () -> Unit, onQueryChange: (Str
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
     )
-}
-
-@Composable
-internal fun CategoryChips(
-    titles: List<String>,
-    selected: Int?,
-    rowContentDescription: String,
-    onSelect: (Int) -> Unit,
-) {
-    LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(CompactSearchChipRowHeight)
-            .semantics { contentDescription = rowContentDescription },
-        contentPadding = PaddingValues(horizontal = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(titles.size) { index ->
-            FilterChip(
-                selected = selected == index,
-                onClick = { onSelect(index) },
-                label = { Text(titles[index]) },
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                ),
-                modifier = Modifier
-                    .height(CompactSearchChipRowHeight)
-                    .semantics {
-                        contentDescription = titles[index]
-                        role = Role.Tab
-                        this.selected = selected == index
-                    },
-                shape = RoundedCornerShape(50),
-            )
-        }
-    }
 }
 
 @Composable
@@ -445,6 +403,8 @@ fun ComposeScreen(
     canPublish: Boolean = false,
     publishing: Boolean = false,
     error: String? = null,
+    quoteTarget: OwnedPost? = null,
+    onRemoveQuote: () -> Unit = {},
     onPublish: () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
@@ -455,6 +415,18 @@ fun ComposeScreen(
                 Text("Local draft", style = MaterialTheme.typography.titleMedium)
                 Text(account?.handle ?: "No account selected", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+        quoteTarget?.let { target ->
+            OutlinedCard(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Quoting ${target.post.author.displayName}", style = MaterialTheme.typography.titleSmall)
+                        TextButton(onClick = onRemoveQuote) { Text("Remove") }
+                    }
+                    Text(target.post.text.ifBlank { "This post has no text." }, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
         }
         if (warningEnabled) OutlinedTextField(
             value = warning, onValueChange = onWarningChange,

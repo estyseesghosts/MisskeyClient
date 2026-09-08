@@ -46,7 +46,7 @@ import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.ui.AppIcons
-import me.foxtails.palustris.ui.CategoryChips
+import me.foxtails.palustris.ui.components.CategoryChips
 import me.foxtails.palustris.ui.CompactOverlayHorizontalPadding
 import me.foxtails.palustris.ui.CompactFilterDockHeight
 import me.foxtails.palustris.ui.EmptyState
