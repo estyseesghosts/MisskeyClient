@@ -196,7 +196,7 @@ internal fun PostRow(
     onBookmark: (OwnedPost) -> Unit,
     onReaction: (OwnedPost, String) -> Unit,
     onOpenProfile: ((Account) -> Unit)?,
-    onSearchHashtag: (String) -> Unit,
+    onSearchHashtag: ((String) -> Unit)?,
     quoteEnabled: Boolean = false,
     onQuote: (OwnedPost) -> Unit = {},
 ) {
@@ -275,7 +275,7 @@ internal fun PostRow(
 }
 
 @Composable
-private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenProfile: (() -> Unit)?, onSearchHashtag: (String) -> Unit) {
+private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenProfile: (() -> Unit)?, onSearchHashtag: ((String) -> Unit)?) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -299,7 +299,7 @@ private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenPr
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (filteredHashtags.isNotEmpty()) {
+        if (filteredHashtags.isNotEmpty() && onSearchHashtag != null) {
             Spacer(Modifier.width(4.dp))
             FilteredHashtagSummary(filteredHashtags, onSearchHashtag)
         }

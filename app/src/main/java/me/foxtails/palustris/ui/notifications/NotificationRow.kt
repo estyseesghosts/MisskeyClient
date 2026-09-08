@@ -41,8 +41,8 @@ fun NotificationRow(
     actionState: NotificationActionState = NotificationActionState.Idle,
     actionError: String? = null,
     onOpen: (() -> Unit)? = null,
-    onDismiss: () -> Unit = {},
-    onFollowRequest: (Boolean) -> Unit = {},
+    onDismiss: (() -> Unit)? = null,
+    onFollowRequest: ((Boolean) -> Unit)? = null,
 ) {
     val actor = notification.actors.firstOrNull()
     val activityLabel = notification.activity.label()
@@ -99,22 +99,26 @@ fun NotificationRow(
                     }
                 }
                 if (notification.activity is NotificationActivity.FollowRequest) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = { onFollowRequest(true) },
-                            enabled = actionState != NotificationActionState.Running,
-                            contentPadding = ButtonDefaults.TextButtonContentPadding,
-                        ) { Text(stringResource(R.string.notifications_follow_accept)) }
-                        TextButton(
-                            onClick = { onFollowRequest(false) },
-                            enabled = actionState != NotificationActionState.Running,
-                        ) { Text(stringResource(R.string.notifications_follow_reject)) }
+                    onFollowRequest?.let { respond ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = { respond(true) },
+                                enabled = actionState != NotificationActionState.Running,
+                                contentPadding = ButtonDefaults.TextButtonContentPadding,
+                            ) { Text(stringResource(R.string.notifications_follow_accept)) }
+                            TextButton(
+                                onClick = { respond(false) },
+                                enabled = actionState != NotificationActionState.Running,
+                            ) { Text(stringResource(R.string.notifications_follow_reject)) }
+                        }
                     }
                 }
                 actionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
-            TextButton(onClick = onDismiss, enabled = actionState != NotificationActionState.Running) {
-                Text(stringResource(R.string.notifications_dismiss))
+            onDismiss?.let { dismiss ->
+                TextButton(onClick = dismiss, enabled = actionState != NotificationActionState.Running) {
+                    Text(stringResource(R.string.notifications_dismiss))
+                }
             }
         }
     }

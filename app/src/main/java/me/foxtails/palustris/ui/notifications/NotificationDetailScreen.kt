@@ -114,7 +114,7 @@ fun NotificationDetailScreen(
                             onBookmark = {},
                             onReaction = { _, _ -> },
                             onOpenProfile = null,
-                            onSearchHashtag = {},
+                            onSearchHashtag = null,
                         )
                         ValidatedUrl.https(post.url.orEmpty())?.let { url ->
                             Button(

@@ -197,7 +197,7 @@ private fun HashtagSearchResults(
                     ownedPost = OwnedPost(post.author.id, post),
                     availableActions = emptySet(),
                     onReact = {}, onReply = {}, onReshare = {}, onBookmark = {}, onReaction = { _, _ -> }, onOpenProfile = {},
-                    onSearchHashtag = {},
+                    onSearchHashtag = null,
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
             }
@@ -318,8 +318,11 @@ fun DraftsScreen(drafts: List<me.foxtails.palustris.domain.PostDraft>, onEdit: (
     var confirmDelete by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<me.foxtails.palustris.domain.PostDraft?>(null) }
     if (drafts.isEmpty()) EmptyState(AppIcons.Folder, "No drafts yet", "Save a post while composing to finish it later.")
-    else Column(Modifier.fillMaxSize().padding(16.dp)) {
-        drafts.forEach { draft ->
+    else LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(vertical = 16.dp),
+    ) {
+        items(drafts, key = { it.id }) { draft ->
             ElevatedCard(onClick = { onEdit(draft) }, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                 Column(Modifier.padding(20.dp)) {
                     Text("Draft", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
