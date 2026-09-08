@@ -340,9 +340,12 @@ class NotificationRepository @Inject constructor(
         }
         val oldest = when (direction) {
             NotificationPageDirection.Newer -> previous?.oldest ?: page.resolvedOldestBoundary
-            NotificationPageDirection.Initial,
-            NotificationPageDirection.Older,
-            -> page.resolvedOldestBoundary ?: previous?.oldest
+            NotificationPageDirection.Initial -> page.resolvedOldestBoundary ?: previous?.oldest
+            NotificationPageDirection.Older -> if (page.reachedBoundary || page.resolvedContinuation == null) {
+                null
+            } else {
+                page.resolvedOldestBoundary ?: previous?.oldest
+            }
         }
         val continuation = page.continuation ?: when (direction) {
             NotificationPageDirection.Older -> page.olderCursor

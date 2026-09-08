@@ -45,6 +45,12 @@ The implementation is ready for the user-provided live Samsung/Sunup verificatio
 - The initial-page `min_id` fallback is limited to baseline requests; a continuation page with no `prev` link now terminates instead of inventing another request.
 - `MastodonNotificationSyncTest` covers a baseline followed by three server pages and asserts every requested continuation URL.
 
+### 2026-09-08 — Mastodon older-history exhaustion
+
+- Older Mastodon pages now honor the persisted moving continuation when present.
+- A terminal older page clears the repository's `oldest` cursor, preventing the inbox from requesting the final page repeatedly.
+- The Mastodon synchronization regression now covers both multi-page newer catch-up and a two-page older range with terminal state.
+
 ## Implemented changes
 
 ### Account-scoped repository
