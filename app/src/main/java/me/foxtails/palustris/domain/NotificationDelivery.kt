@@ -16,6 +16,30 @@ enum class NotificationPushRegistrationState {
     Removing,
 }
 
+enum class PushRegistrationFailureStage {
+    DistributorSelection,
+    DistributorSave,
+    ConnectorRegistration,
+    EndpointValidation,
+    ServerSubscription,
+    Callback,
+    Removal,
+}
+
+enum class PushRegistrationFailureReason {
+    ConnectorFailure,
+    NoDistributor,
+    InvalidEndpoint,
+    MissingKeys,
+    Unauthorized,
+    Network,
+    RateLimited,
+    Unsupported,
+    Server,
+    StaleCallback,
+    Unknown,
+}
+
 data class NotificationDeliveryRecord(
     val accountId: AccountId,
     val notificationId: EntityId,
@@ -76,4 +100,8 @@ data class PushRegistration(
     val endpointGeneration: Long = 0,
     val retryCount: Int = 0,
     val lastErrorCategory: String? = null,
+    val lastErrorDetail: String? = null,
+    val failureStage: PushRegistrationFailureStage? = null,
+    val failureReason: PushRegistrationFailureReason? = null,
+    val nextRetryAtEpochMillis: Long = 0,
 )

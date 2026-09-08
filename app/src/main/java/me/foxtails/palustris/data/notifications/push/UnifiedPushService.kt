@@ -20,7 +20,7 @@ class UnifiedPushService : PushService() {
     }
 
     override fun onRegistrationFailed(reason: FailedReason, instance: String) {
-        registrationManager.onRegistrationFailed(instance)
+        registrationManager.onRegistrationFailed(instance, reason.name)
     }
 
     override fun onTempUnavailable(instance: String) {

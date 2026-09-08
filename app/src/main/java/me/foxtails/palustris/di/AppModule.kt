@@ -37,6 +37,8 @@ import me.foxtails.palustris.data.notifications.NotificationPermissionController
 import me.foxtails.palustris.data.notifications.NotificationPresenter
 import me.foxtails.palustris.data.notifications.RoomNotificationStore
 import me.foxtails.palustris.data.notifications.push.PushRegistrationManager
+import me.foxtails.palustris.data.notifications.push.AndroidUnifiedPushConnector
+import me.foxtails.palustris.data.notifications.push.UnifiedPushConnector
 import me.foxtails.palustris.data.notifications.push.UnifiedPushRegistrationManager
 import me.foxtails.palustris.data.notifications.db.NotificationDatabase
 import me.foxtails.palustris.data.notifications.db.NOTIFICATION_MIGRATIONS
@@ -154,6 +156,12 @@ object SyncModule {
 @Module
 @InstallIn(SingletonComponent::class)
 object NotificationPresentationModule {
+    @Provides
+    @Singleton
+    fun provideUnifiedPushConnector(
+        @ApplicationContext context: Context,
+    ): UnifiedPushConnector = AndroidUnifiedPushConnector(context)
+
     @Provides
     @Singleton
     fun provideNotificationPresenter(presenter: AndroidNotificationPresenter): NotificationPresenter = presenter

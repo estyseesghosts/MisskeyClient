@@ -41,6 +41,8 @@ import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationReaction
 import me.foxtails.palustris.domain.NotificationSettings
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
+import me.foxtails.palustris.domain.PushRegistrationFailureReason
+import me.foxtails.palustris.domain.PushRegistrationFailureStage
 import me.foxtails.palustris.domain.PushRegistration
 import me.foxtails.palustris.domain.NotificationSyncCompleteness
 import me.foxtails.palustris.domain.NotificationTarget
@@ -758,6 +760,10 @@ private fun encodePushRegistration(registration: PushRegistration): JSONObject =
     put("endpointGeneration", registration.endpointGeneration)
     put("retryCount", registration.retryCount)
     registration.lastErrorCategory?.let { put("lastErrorCategory", it) }
+    registration.lastErrorDetail?.let { put("lastErrorDetail", it) }
+    registration.failureStage?.let { put("failureStage", it.name) }
+    registration.failureReason?.let { put("failureReason", it.name) }
+    put("nextRetryAt", registration.nextRetryAtEpochMillis)
 }
 
 private fun decodePushRegistration(json: JSONObject): PushRegistration {
@@ -780,6 +786,14 @@ private fun decodePushRegistration(json: JSONObject): PushRegistration {
         endpointGeneration = json.optLong("endpointGeneration"),
         retryCount = json.optInt("retryCount"),
         lastErrorCategory = json.optString("lastErrorCategory").takeIf { it.isNotBlank() },
+        lastErrorDetail = json.optString("lastErrorDetail").takeIf { it.isNotBlank() },
+        failureStage = json.optString("failureStage").takeIf { it.isNotBlank() }?.let {
+            runCatching { PushRegistrationFailureStage.valueOf(it) }.getOrNull()
+        },
+        failureReason = json.optString("failureReason").takeIf { it.isNotBlank() }?.let {
+            runCatching { PushRegistrationFailureReason.valueOf(it) }.getOrNull()
+        },
+        nextRetryAtEpochMillis = json.optLong("nextRetryAt"),
     )
 }
 
