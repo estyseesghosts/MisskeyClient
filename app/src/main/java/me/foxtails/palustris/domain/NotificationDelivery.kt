@@ -97,6 +97,8 @@ data class PushRegistration(
     val endpoint: ValidatedUrl? = null,
     /** The last endpoint accepted by the server; a newer distributor endpoint may still be pending. */
     val serverEndpoint: ValidatedUrl? = null,
+    val serverRemoteId: String? = null,
+    val confirmedEndpointGeneration: Long = 0,
     val state: NotificationPushRegistrationState = NotificationPushRegistrationState.Off,
     val endpointGeneration: Long = 0,
     val retryCount: Int = 0,

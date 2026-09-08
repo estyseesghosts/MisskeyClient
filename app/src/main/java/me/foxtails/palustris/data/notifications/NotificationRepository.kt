@@ -774,6 +774,8 @@ private fun encodePushRegistration(registration: PushRegistration): JSONObject =
     registration.distributorPackage?.let { put("distributorPackage", it) }
     registration.endpoint?.let { put("endpoint", it.value) }
     registration.serverEndpoint?.let { put("serverEndpoint", it.value) }
+    registration.serverRemoteId?.let { put("serverRemoteId", it) }
+    put("confirmedEndpointGeneration", registration.confirmedEndpointGeneration)
     put("state", registration.state.name)
     put("endpointGeneration", registration.endpointGeneration)
     put("retryCount", registration.retryCount)
@@ -801,6 +803,12 @@ private fun decodePushRegistration(json: JSONObject): PushRegistration {
         distributorPackage = json.optString("distributorPackage").takeIf { it.isNotBlank() },
         endpoint = endpoint,
         serverEndpoint = serverEndpoint,
+        serverRemoteId = json.optString("serverRemoteId").takeIf { it.isNotBlank() },
+        confirmedEndpointGeneration = json.optLong("confirmedEndpointGeneration", if (state == NotificationPushRegistrationState.Connected) {
+            json.optLong("endpointGeneration")
+        } else {
+            0L
+        }),
         state = state,
         endpointGeneration = json.optLong("endpointGeneration"),
         retryCount = json.optInt("retryCount"),

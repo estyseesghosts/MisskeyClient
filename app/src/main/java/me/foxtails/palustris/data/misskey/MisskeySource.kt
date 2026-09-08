@@ -390,40 +390,54 @@ class MisskeySource(
         NotificationAcknowledgement(account, NotificationUnreadState.None, clock())
     }
 
-    override suspend fun createPushSubscription(spec: PushSubscriptionSpec): PushSubscription = request {
-        validatePushSpec(spec)
-        val response = JSONObject(api.post(origin, "sw/register", JSONObject()
-            .put("i", token)
-            .put("endpoint", spec.endpoint.value)
-            .put("auth", spec.authSecret)
-            .put("publickey", spec.publicKey)
-            .put("sendReadMessage", false)).body)
-        PushSubscription(
-            accountId = spec.accountId,
-            endpoint = ValidatedUrl.https(response.optString("endpoint")) ?: spec.endpoint,
-            remoteId = response.optString("key").takeIf { it.isNotBlank() },
-        )
+    override suspend fun queryOwnedPushSubscription(knownEndpoint: ValidatedUrl?): PushSubscription? = request {
+        val endpoint = knownEndpoint ?: return@request null
+        readPushSubscription(endpoint)
     }
 
-    override suspend fun updatePushSubscription(spec: PushSubscriptionSpec): PushSubscription = request {
+    override suspend fun createOrReplacePushSubscription(
+        spec: PushSubscriptionSpec,
+        previous: PushSubscription?,
+    ): PushSubscription = request {
         validatePushSpec(spec)
-        val response = JSONObject(api.post(origin, "sw/update-registration", JSONObject()
-            .put("i", token)
-            .put("endpoint", spec.endpoint.value)
-            .put("sendReadMessage", false)).body)
-        PushSubscription(
-            accountId = spec.accountId,
-            endpoint = ValidatedUrl.https(response.optString("endpoint")) ?: spec.endpoint,
+        previous?.let(::validatePushSubscription)
+        val created = confirmedPushSubscription(
+            pushApiCall {
+                api.post(origin, "sw/register", JSONObject()
+                    .put("i", token)
+                    .put("endpoint", spec.endpoint.value)
+                    .put("auth", spec.authSecret)
+                    .put("publickey", spec.publicKey)
+                    .put("sendReadMessage", false))
+            }.body,
+            expectedEndpoint = spec.endpoint,
         )
-    }
-
-    override suspend fun removePushSubscription() = request {
-        val endpoint = JSONObject(api.post(origin, "sw/show-registration", JSONObject().put("i", token)).body)
-            .optString("endpoint")
-        if (endpoint.isNotBlank()) {
-            api.post(origin, "sw/unregister", JSONObject().put("i", token).put("endpoint", endpoint))
+        if (previous != null && previous.endpoint != created.endpoint) {
+            removePushSubscriptionRaw(previous)
         }
-        Unit
+        created
+    }
+
+    override suspend fun updatePushAlertPolicy(
+        subscription: PushSubscription,
+        alerts: Set<NotificationCategory>,
+    ): PushSubscription = request {
+        validatePushSubscription(subscription)
+        val confirmed = confirmedPushSubscription(
+            pushApiCall {
+                api.post(origin, "sw/update-registration", JSONObject()
+                    .put("i", token)
+                    .put("endpoint", subscription.endpoint.value)
+                    .put("sendReadMessage", false))
+            }.body,
+            expectedEndpoint = subscription.endpoint,
+        )
+        confirmed.copy(remoteId = subscription.remoteId ?: confirmed.remoteId)
+    }
+
+    override suspend fun removePushSubscription(subscription: PushSubscription) = request {
+        validatePushSubscription(subscription)
+        removePushSubscriptionRaw(subscription)
     }
 
     override suspend fun respondToFollowRequest(targetAccountId: AccountId, accept: Boolean) = request {
@@ -444,6 +458,65 @@ class MisskeySource(
             throw SourceError.Unsupported("notifications.push.spec")
         }
     }
+
+    private fun validatePushSubscription(subscription: PushSubscription) {
+        if (subscription.accountId != requireAccountId() || subscription.endpoint.value.isBlank()) {
+            throw SourceError.AccountMismatch
+        }
+    }
+
+    private suspend fun readPushSubscription(endpoint: ValidatedUrl): PushSubscription? = try {
+        confirmedPushSubscription(
+            pushApiCall {
+                api.post(origin, "sw/show-registration", JSONObject()
+                    .put("i", token)
+                    .put("endpoint", endpoint.value))
+            }.body,
+            expectedEndpoint = endpoint,
+        )
+    } catch (error: ApiFailure) {
+        if (isMissingPushRegistration(error)) null else throw error
+    }
+
+    private suspend fun removePushSubscriptionRaw(subscription: PushSubscription) {
+        val current = readPushSubscription(subscription.endpoint) ?: return
+        if (current.endpoint != subscription.endpoint) {
+            throw SourceError.ServerError("notifications.push.identity-changed")
+        }
+        try {
+            pushApiCall {
+                api.post(origin, "sw/unregister", JSONObject()
+                    .put("i", token)
+                    .put("endpoint", subscription.endpoint.value))
+            }
+        } catch (error: ApiFailure) {
+            if (!isMissingPushRegistration(error)) throw error
+        }
+    }
+
+    private fun confirmedPushSubscription(body: String, expectedEndpoint: ValidatedUrl): PushSubscription {
+        val json = JSONObject(body)
+        val endpoint = ValidatedUrl.https(json.optString("endpoint"))
+            ?: throw SourceError.ServerError("notifications.push.confirmation")
+        if (endpoint != expectedEndpoint) throw SourceError.ServerError("notifications.push.confirmation")
+        return PushSubscription(
+            accountId = requireAccountId(),
+            endpoint = endpoint,
+            remoteId = json.optString("key").takeIf { it.isNotBlank() },
+        )
+    }
+
+    private suspend fun pushApiCall(call: suspend () -> me.foxtails.palustris.data.misskey.HttpResponse) = try {
+        call()
+    } catch (error: ApiFailure) {
+        if (error.status == 403 && error.code in SECURE_CREDENTIAL_FAILURE_CODES) {
+            throw SourceError.UnsupportedCredential("notifications.push.secure-credential")
+        }
+        throw error
+    }
+
+    private fun isMissingPushRegistration(error: ApiFailure): Boolean =
+        error.status == 404 || error.code in MISSING_PUSH_REGISTRATION_CODES
 
     private suspend fun loadNotifications(
         query: NotificationQuery,
@@ -585,6 +658,8 @@ class MisskeySource(
 
     private companion object {
         const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
+        val SECURE_CREDENTIAL_FAILURE_CODES = setOf("AUTHENTICATION_FAILED", "SECURE_CREDENTIAL_REQUIRED")
+        val MISSING_PUSH_REGISTRATION_CODES = setOf("NOT_FOUND", "NO_SUCH_REGISTRATION", "REGISTRATION_NOT_FOUND")
     }
 }
 

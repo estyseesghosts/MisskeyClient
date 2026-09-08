@@ -67,11 +67,18 @@ interface SocialSource {
     suspend fun dismissNotification(id: EntityId) = unsupported<Unit>("notifications.dismiss")
     suspend fun respondToFollowRequest(targetAccountId: AccountId, accept: Boolean) =
         unsupported<Unit>("notifications.followRequest")
-    suspend fun createPushSubscription(spec: PushSubscriptionSpec): PushSubscription =
-        unsupported("notifications.push.create")
-    suspend fun updatePushSubscription(spec: PushSubscriptionSpec): PushSubscription =
-        unsupported("notifications.push.update")
-    suspend fun removePushSubscription() = unsupported<Unit>("notifications.push.remove")
+    suspend fun queryOwnedPushSubscription(knownEndpoint: ValidatedUrl? = null): PushSubscription? =
+        unsupported("notifications.push.query")
+    suspend fun createOrReplacePushSubscription(
+        spec: PushSubscriptionSpec,
+        previous: PushSubscription? = null,
+    ): PushSubscription = unsupported("notifications.push.create-or-replace")
+    suspend fun updatePushAlertPolicy(
+        subscription: PushSubscription,
+        alerts: Set<NotificationCategory>,
+    ): PushSubscription = unsupported("notifications.push.policy")
+    suspend fun removePushSubscription(subscription: PushSubscription) =
+        unsupported<Unit>("notifications.push.remove")
     suspend fun mute(id: EntityId) = unsupported<Unit>("mute")
     suspend fun block(id: EntityId) = unsupported<Unit>("block")
     fun streamEvents(): kotlinx.coroutines.flow.Flow<Event> = kotlinx.coroutines.flow.emptyFlow()

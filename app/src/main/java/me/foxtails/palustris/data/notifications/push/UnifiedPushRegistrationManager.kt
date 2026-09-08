@@ -162,7 +162,12 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 lastErrorCategory = null,
             ))
             try {
-                if (session != null) sourceFor(session, token)?.removePushSubscription()
+                if (session != null) {
+                    sourceFor(session, token)?.let { source ->
+                        val confirmed = source.queryOwnedPushSubscription(registration?.serverEndpoint)
+                        if (confirmed != null) source.removePushSubscription(confirmed)
+                    }
+                }
             } catch (_: Exception) {
                 // Local opt-out and distributor removal still proceed if the server is unavailable.
             }
@@ -284,19 +289,23 @@ class UnifiedPushRegistrationManager @Inject constructor(
             ))
             return@withLock PushRegistrationWorkResult.Terminal
         }
+        val currentSession = sessionStore.read(owner.accountId)
+            ?: return@withLock PushRegistrationWorkResult.NoWork
+        if (currentSession.sessionRevision != owner.session.sessionRevision) {
+            return@withLock PushRegistrationWorkResult.Terminal
+        }
         val previousServerEndpoint = owner.registration.serverEndpoint
-        if (owner.registration.endpoint == validatedEndpoint &&
-            owner.registration.state == NotificationPushRegistrationState.Connected
-        ) return@withLock PushRegistrationWorkResult.Success
+        val desiredEndpointGeneration = currentSession.pushState.endpointGeneration.takeIf { it > 0L }
+            ?: if (owner.registration.endpoint == validatedEndpoint) {
+                owner.registration.endpointGeneration
+            } else {
+                owner.registration.endpointGeneration + 1L
+            }
         val received = owner.registration.copy(
             generation = owner.token.generation,
             endpoint = validatedEndpoint,
             serverEndpoint = previousServerEndpoint,
-            endpointGeneration = if (owner.registration.endpoint == validatedEndpoint) {
-                owner.registration.endpointGeneration
-            } else {
-                owner.registration.endpointGeneration + 1
-            },
+            endpointGeneration = desiredEndpointGeneration,
             state = NotificationPushRegistrationState.EndpointReceived,
             lastErrorCategory = null,
             lastErrorDetail = null,
@@ -315,16 +324,22 @@ class UnifiedPushRegistrationManager @Inject constructor(
         )
         try {
             update(owner.token, received.copy(state = NotificationPushRegistrationState.RegisteringWithServer))
-            val subscription = if (previousServerEndpoint == null) {
-                sourceFor(owner.session, owner.token)?.createPushSubscription(spec)
-                    ?: throw SourceError.Unauthorized
+            val source = sourceFor(owner.session, owner.token) ?: throw SourceError.Unauthorized
+            val confirmed = source.queryOwnedPushSubscription(previousServerEndpoint)
+            val needsReplacement = confirmed == null ||
+                confirmed.endpoint != validatedEndpoint ||
+                owner.registration.confirmedEndpointGeneration != desiredEndpointGeneration
+            val subscription = if (needsReplacement) {
+                source.createOrReplacePushSubscription(spec, confirmed)
             } else {
-                sourceFor(owner.session, owner.token)?.updatePushSubscription(spec)
-                    ?: throw SourceError.Unauthorized
+                confirmed
             }
+            val policy = source.updatePushAlertPolicy(subscription, settings.categories)
             update(owner.token, received.copy(
                 endpoint = subscription.endpoint,
                 serverEndpoint = subscription.endpoint,
+                serverRemoteId = policy.remoteId,
+                confirmedEndpointGeneration = desiredEndpointGeneration,
                 state = NotificationPushRegistrationState.Connected,
                 retryCount = 0,
                 lastErrorCategory = null,
@@ -349,7 +364,11 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 failureReason = errorReason(error),
                 nextRetryAtEpochMillis = nextRetryAt(received.retryCount + 1),
             ))
-            if (error == SourceError.Unauthorized || error is SourceError.Unsupported) {
+            if (error == SourceError.Unauthorized ||
+                error is SourceError.Unsupported ||
+                error is SourceError.UnsupportedCredential ||
+                error is SourceError.ServerUnsupported
+            ) {
                 PushRegistrationWorkResult.Terminal
             } else {
                 PushRegistrationWorkResult.Retry
@@ -443,6 +462,8 @@ class UnifiedPushRegistrationManager @Inject constructor(
         SourceError.NetworkUnavailable -> "server_push_network"
         SourceError.RateLimited -> "server_push_rate_limited"
         is SourceError.Unsupported -> "server_push_unsupported"
+        is SourceError.UnsupportedCredential -> "server_push_unsupported_credential"
+        is SourceError.ServerUnsupported -> "server_push_server_unsupported"
         is SourceError.ServerError -> "server_push_server_error"
         SourceError.AccountMismatch -> "server_push_account_mismatch"
     }
@@ -452,6 +473,8 @@ class UnifiedPushRegistrationManager @Inject constructor(
         SourceError.NetworkUnavailable -> PushRegistrationFailureReason.Network
         SourceError.RateLimited -> PushRegistrationFailureReason.RateLimited
         is SourceError.Unsupported -> PushRegistrationFailureReason.Unsupported
+        is SourceError.UnsupportedCredential -> PushRegistrationFailureReason.Unsupported
+        is SourceError.ServerUnsupported -> PushRegistrationFailureReason.Unsupported
         is SourceError.ServerError -> PushRegistrationFailureReason.Server
     }
 

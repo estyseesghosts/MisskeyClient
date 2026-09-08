@@ -295,9 +295,10 @@ class NotificationAdapterContractTest {
     }
 
     @Test
-    fun mastodonPushUsesV1SubscriptionContractAndAuthenticatedDelete() = runBlocking {
+    fun mastodonPushQueriesIdentityUsesPostForReplacementAndPutForPolicy() = runBlocking {
         val origin = server.url("/").toString().removeSuffix("/")
         val account = AccountId(Connection(origin, Protocol.MASTODON), "receiver")
+        val oldEndpoint = ValidatedUrl.https("https://push.example/old")!!
         val spec = PushSubscriptionSpec(
             account,
             ValidatedUrl.https("https://push.example/endpoint")!!,
@@ -305,50 +306,102 @@ class NotificationAdapterContractTest {
             "auth-secret",
             alerts = setOf(NotificationCategory.Mentions),
         )
+        server.enqueue(MockResponse().setBody(JSONObject().put("id", "old-push-id").put("endpoint", oldEndpoint.value).toString()))
+        server.enqueue(MockResponse().setBody(JSONObject().put("id", "push-id").put("endpoint", spec.endpoint.value).toString()))
         server.enqueue(MockResponse().setBody(JSONObject().put("id", "push-id").put("endpoint", spec.endpoint.value).toString()))
         server.enqueue(MockResponse().setBody(JSONObject().put("id", "push-id").put("endpoint", spec.endpoint.value).toString()))
         server.enqueue(MockResponse())
         val source = MastodonSource(origin, "token", MisskeyApi(), account)
 
-        source.createPushSubscription(spec)
-        source.updatePushSubscription(spec)
-        source.removePushSubscription()
+        val existing = source.queryOwnedPushSubscription(oldEndpoint)!!
+        val replacement = source.createOrReplacePushSubscription(spec, existing)
+        val policy = source.updatePushAlertPolicy(replacement, spec.alerts)
+        source.removePushSubscription(policy)
 
+        val query = server.takeRequest()
+        assertEquals("/api/v1/push/subscription", query.path)
+        assertEquals("GET", query.method)
         val create = server.takeRequest()
         assertEquals("/api/v1/push/subscription", create.path)
         assertTrue(create.body.readUtf8().contains("subscription%5Bkeys%5D%5Bp256dh%5D=public-key"))
         val update = server.takeRequest()
         assertEquals("/api/v1/push/subscription", update.path)
         assertTrue(update.body.readUtf8().contains("data%5Balerts%5D%5Bmention%5D=true"))
+        val removalQuery = server.takeRequest()
+        assertEquals("GET", removalQuery.method)
+        assertEquals("/api/v1/push/subscription", removalQuery.path)
         assertEquals("DELETE", server.takeRequest().method)
     }
 
     @Test
-    fun misskeyPushUsesWebPushRegistrationFields() = runBlocking {
+    fun misskeyPushRequiresEndpointForQueryAndRemovesOldEndpointAfterReplacement() = runBlocking {
         val origin = server.url("/").toString().removeSuffix("/")
         val account = AccountId(Connection(origin, Protocol.MISSKEY), "receiver")
+        val oldEndpoint = ValidatedUrl.https("https://push.example/old")!!
         val spec = PushSubscriptionSpec(
             account,
             ValidatedUrl.https("https://push.example/endpoint")!!,
             "public-key",
             "auth-secret",
         )
+        server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", oldEndpoint.value).put("key", "old-registration").toString()))
         server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", spec.endpoint.value).put("key", "registration").toString()))
-        server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", spec.endpoint.value).toString()))
-        server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", spec.endpoint.value).toString()))
+        server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", oldEndpoint.value).put("key", "old-registration").toString()))
+        server.enqueue(MockResponse())
+        server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", spec.endpoint.value).put("key", "registration").toString()))
+        server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", spec.endpoint.value).put("key", "registration").toString()))
         server.enqueue(MockResponse())
         val source = MisskeySource(origin, "token", MisskeyApi(), accountId = account)
 
-        source.createPushSubscription(spec)
-        source.updatePushSubscription(spec)
-        source.removePushSubscription()
+        val existing = source.queryOwnedPushSubscription(oldEndpoint)!!
+        val replacement = source.createOrReplacePushSubscription(spec, existing)
+        val updated = source.updatePushAlertPolicy(replacement, spec.alerts)
+        source.removePushSubscription(updated)
 
+        val query = server.takeRequest()
+        assertEquals("/api/sw/show-registration", query.path)
+        assertEquals(oldEndpoint.value, JSONObject(query.body.readUtf8()).getString("endpoint"))
         val create = server.takeRequest()
         assertEquals("/api/sw/register", create.path)
         assertEquals("false", JSONObject(create.body.readUtf8()).getString("sendReadMessage"))
-        assertEquals("/api/sw/update-registration", server.takeRequest().path)
-        assertEquals("/api/sw/show-registration", server.takeRequest().path)
+        val oldShow = server.takeRequest()
+        assertEquals("/api/sw/show-registration", oldShow.path)
+        assertEquals(oldEndpoint.value, JSONObject(oldShow.body.readUtf8()).getString("endpoint"))
         assertEquals("/api/sw/unregister", server.takeRequest().path)
+        assertEquals("/api/sw/update-registration", server.takeRequest().path)
+        val newShow = server.takeRequest()
+        assertEquals("/api/sw/show-registration", newShow.path)
+        assertEquals(spec.endpoint.value, JSONObject(newShow.body.readUtf8()).getString("endpoint"))
+        assertEquals("/api/sw/unregister", server.takeRequest().path)
+    }
+
+    @Test
+    fun pushAdaptersRejectMalformedConfirmationInsteadOfUsingRequestedEndpoint() = runBlocking {
+        val origin = server.url("/").toString().removeSuffix("/")
+        val mastodonAccount = AccountId(Connection(origin, Protocol.MASTODON), "mastodon")
+        val mastodonSpec = PushSubscriptionSpec(
+            mastodonAccount,
+            ValidatedUrl.https("https://push.example/mastodon")!!,
+            "public-key",
+            "auth-secret",
+        )
+        server.enqueue(MockResponse().setBody(JSONObject().put("id", "missing-endpoint").toString()))
+        assertThrows(SourceError.ServerError::class.java) {
+            runBlocking { MastodonSource(origin, "token", MisskeyApi(), mastodonAccount).createOrReplacePushSubscription(mastodonSpec) }
+        }
+
+        val misskeyAccount = AccountId(Connection(origin, Protocol.MISSKEY), "misskey")
+        val misskeySpec = PushSubscriptionSpec(
+            misskeyAccount,
+            ValidatedUrl.https("https://push.example/misskey")!!,
+            "public-key",
+            "auth-secret",
+        )
+        server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", "https://push.example/other").toString()))
+        assertThrows(SourceError.ServerError::class.java) {
+            runBlocking { MisskeySource(origin, "token", MisskeyApi(), accountId = misskeyAccount).createOrReplacePushSubscription(misskeySpec) }
+        }
+        Unit
     }
 
     private fun mastodonNotification(id: String, type: String) = JSONObject()

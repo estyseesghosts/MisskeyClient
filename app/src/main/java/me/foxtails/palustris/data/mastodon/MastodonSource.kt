@@ -50,6 +50,7 @@ import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.UpdateProfileRequest
+import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -303,23 +304,48 @@ class MastodonSource(
         Unit
     }
 
-    override suspend fun createPushSubscription(spec: PushSubscriptionSpec): PushSubscription = request {
+    override suspend fun queryOwnedPushSubscription(knownEndpoint: ValidatedUrl?): PushSubscription? = request {
+        val subscription = readOwnedPushSubscription()
+        if (knownEndpoint != null && subscription != null && subscription.endpoint != knownEndpoint) {
+            throw SourceError.ServerError("notifications.push.identity-changed")
+        }
+        subscription
+    }
+
+    override suspend fun createOrReplacePushSubscription(
+        spec: PushSubscriptionSpec,
+        previous: PushSubscription?,
+    ): PushSubscription = request {
         validatePushSpec(spec)
-        pushSubscription(
+        previous?.let(::validatePushSubscription)
+        // Mastodon POST owns the account's single subscription and is the replacement operation.
+        confirmedPushSubscription(
             api.postForm(origin, "api/v1/push/subscription", pushCreateFields(spec), token).body,
-            spec,
+            expectedEndpoint = spec.endpoint,
         )
     }
 
-    override suspend fun updatePushSubscription(spec: PushSubscriptionSpec): PushSubscription = request {
-        validatePushSpec(spec)
-        pushSubscription(
-            api.putForm(origin, "api/v1/push/subscription", pushAlertFields(spec), token).body,
-            spec,
+    override suspend fun updatePushAlertPolicy(
+        subscription: PushSubscription,
+        alerts: Set<NotificationCategory>,
+    ): PushSubscription = request {
+        validatePushSubscription(subscription)
+        val confirmed = confirmedPushSubscription(
+            api.putForm(origin, "api/v1/push/subscription", pushAlertFields(alerts), token).body,
+            expectedEndpoint = subscription.endpoint,
         )
+        if (!samePushIdentity(confirmed, subscription)) {
+            throw SourceError.ServerError("notifications.push.identity-changed")
+        }
+        confirmed
     }
 
-    override suspend fun removePushSubscription() = request {
+    override suspend fun removePushSubscription(subscription: PushSubscription) = request {
+        validatePushSubscription(subscription)
+        val current = readOwnedPushSubscription() ?: return@request Unit
+        if (!samePushIdentity(current, subscription)) {
+            throw SourceError.ServerError("notifications.push.identity-changed")
+        }
         api.delete(origin, "api/v1/push/subscription", token)
         Unit
     }
@@ -330,26 +356,48 @@ class MastodonSource(
         }
     }
 
-    private fun pushSubscription(body: String, spec: PushSubscriptionSpec): PushSubscription {
+    private suspend fun readOwnedPushSubscription(): PushSubscription? = try {
+        confirmedPushSubscription(api.get(origin, "v1/push/subscription", token).body)
+    } catch (error: ApiFailure) {
+        if (error.status == 404) null else throw error
+    }
+
+    private fun confirmedPushSubscription(body: String, expectedEndpoint: ValidatedUrl? = null): PushSubscription {
         val json = JSONObject(body)
+        val endpoint = ValidatedUrl.https(json.optString("endpoint"))
+            ?: throw SourceError.ServerError("notifications.push.confirmation")
+        if (expectedEndpoint != null && endpoint != expectedEndpoint) {
+            throw SourceError.ServerError("notifications.push.confirmation")
+        }
+        val remoteId = json.optString("id").takeIf { it.isNotBlank() }
+            ?: throw SourceError.ServerError("notifications.push.confirmation")
         return PushSubscription(
-            accountId = spec.accountId,
-            endpoint = me.foxtails.palustris.domain.ValidatedUrl.https(json.optString("endpoint")) ?: spec.endpoint,
-            remoteId = json.optString("id").takeIf { it.isNotBlank() },
+            accountId = accountId,
+            endpoint = endpoint,
+            remoteId = remoteId,
         )
     }
+
+    private fun validatePushSubscription(subscription: PushSubscription) {
+        if (subscription.accountId != accountId || subscription.endpoint.value.isBlank()) {
+            throw SourceError.AccountMismatch
+        }
+    }
+
+    private fun samePushIdentity(first: PushSubscription, second: PushSubscription): Boolean =
+        first.accountId == second.accountId && first.endpoint == second.endpoint && first.remoteId == second.remoteId
 
     private fun pushCreateFields(spec: PushSubscriptionSpec): List<Pair<String, String>> = buildList {
         add("subscription[endpoint]" to spec.endpoint.value)
         add("subscription[keys][p256dh]" to spec.publicKey)
         add("subscription[keys][auth]" to spec.authSecret)
         add("subscription[standard]" to spec.standardWebPush.toString())
-        addAll(pushAlertFields(spec))
+        addAll(pushAlertFields(spec.alerts))
     }
 
-    private fun pushAlertFields(spec: PushSubscriptionSpec): List<Pair<String, String>> {
-        val all = NotificationCategory.All in spec.alerts
-        fun enabled(category: NotificationCategory): String = (all || category in spec.alerts).toString()
+    private fun pushAlertFields(alerts: Set<NotificationCategory>): List<Pair<String, String>> {
+        val all = NotificationCategory.All in alerts
+        fun enabled(category: NotificationCategory): String = (all || category in alerts).toString()
         return listOf(
             "data[alerts][mention]" to enabled(NotificationCategory.Mentions),
             "data[alerts][quote]" to enabled(NotificationCategory.Quotes),
