@@ -52,8 +52,21 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
         endpoint: String,
         fields: List<Pair<String, String>>,
         bearerToken: String? = null,
+    ): HttpResponse = postForm(endpointUrl = "$origin/$endpoint", fields = fields, bearerToken = bearerToken)
+
+    /** Uses a fully built URL so callers can keep opaque path/query values encoded safely. */
+    suspend fun postForm(
+        endpointUrl: HttpUrl,
+        fields: List<Pair<String, String>>,
+        bearerToken: String? = null,
+    ): HttpResponse = postForm(endpointUrl.toString(), fields, bearerToken)
+
+    private suspend fun postForm(
+        endpointUrl: String,
+        fields: List<Pair<String, String>>,
+        bearerToken: String?,
     ): HttpResponse =
-        execute(Request.Builder().url("$origin/$endpoint")
+        execute(Request.Builder().url(endpointUrl)
             .header("Accept", "application/json")
             .header("User-Agent", "Palustris/0.1 (Android)")
             .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }

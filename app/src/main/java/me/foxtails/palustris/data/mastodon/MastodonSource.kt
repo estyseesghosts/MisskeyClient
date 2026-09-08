@@ -36,6 +36,8 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.ProfileRelationship
+import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PushSubscription
 import me.foxtails.palustris.domain.PushSubscriptionSpec
@@ -65,6 +67,7 @@ class MastodonSource(
             initialCapabilities
         },
     )
+    private val profileService = MastodonProfileService(origin, token, api, accountId)
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request {
@@ -88,9 +91,25 @@ class MastodonSource(
         MastodonMapper.post(api.get(origin, "v1/statuses/${id.value}", token).body.toJson(), origin)
     }
 
-    override suspend fun profile(id: AccountId): Account = request {
-        MastodonMapper.account(api.get(origin, "v1/accounts/${id.localId}", token).body.toJson(), origin)
+    override suspend fun profile(id: AccountId): Account = request { profileService.profile(id) }
+
+    override suspend fun profileTimeline(query: ProfileTimelineQuery, cursor: String?): Page<Post> = request {
+        profileService.timeline(query, cursor)
     }
+
+    override suspend fun profileRelationship(id: AccountId): ProfileRelationship = request {
+        profileService.relationship(id)
+    }
+
+    override suspend fun followProfile(id: AccountId): ProfileRelationship = request {
+        profileService.follow(id)
+    }
+
+    override suspend fun unfollowProfile(id: AccountId): ProfileRelationship = request {
+        profileService.unfollow(id)
+    }
+
+    override suspend fun pinnedPosts(id: AccountId): List<Post> = request { profileService.pinnedPosts(id) }
 
     override suspend fun create(post: CreatePostRequest): Post = request {
         if (post.quoteOf != null) throw SourceError.Unsupported("quote")

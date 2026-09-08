@@ -12,6 +12,8 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.ProfileTimelineQuery
+import me.foxtails.palustris.domain.ProfileTimelineTab
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.UpdateProfileRequest
 import okhttp3.mockwebserver.MockResponse
@@ -263,6 +265,116 @@ class MastodonIntegrationTest {
     }
 
     @Test
+    fun profileTimelineUsesSafeAccountPathAndFiltersMixedStatusesLocally() = runBlocking {
+        val target = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user")
+        val other = account("other-user", "other", "Other")
+        val media = status("media").put("media_attachments", JSONArray().put(JSONObject()
+            .put("type", "image").put("url", "https://example.org/photo.jpg")))
+        val reply = status("reply").put("in_reply_to_id", "parent").put("in_reply_to_account_id", "other-user")
+        val selfReply = status("self-reply").put("in_reply_to_id", "parent").put("in_reply_to_account_id", "local-user")
+        val boost = status("boost").put("account", localAccount).put("reblog", status("original").put("account", other))
+        val quote = status("quote").put("quoted_status", status("quoted").put("account", other))
+        server.enqueue(MockResponse().setBody(JSONArray().put(status("root")).put(media).put(reply).put(selfReply).put(boost).put(quote).toString()))
+
+        val page = source().profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Posts))
+
+        assertEquals(setOf("root", "media", "quote"), page.items.map { it.id.value }.toSet())
+        assertEquals(0, page.items.count { it.id.value == "boost" })
+        assertEquals("/api/v1/accounts/local-user/statuses", server.takeRequest().requestUrl?.encodedPath)
+    }
+
+    @Test
+    fun profileTimelineSendsCategoryHintsAndLimit() = runBlocking {
+        val target = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user")
+        ProfileTimelineTab.entries.forEach { tab ->
+            server.enqueue(MockResponse().setBody("[${status("${tab.name}-row")} ]"))
+        }
+        val source = source()
+
+        ProfileTimelineTab.entries.forEach { tab ->
+            source.profileTimeline(ProfileTimelineQuery(target, tab))
+        }
+
+        val expected = mapOf(
+            ProfileTimelineTab.Posts to mapOf("exclude_replies" to "true", "exclude_reblogs" to "true"),
+            ProfileTimelineTab.Media to mapOf("only_media" to "true", "exclude_reblogs" to "true"),
+            ProfileTimelineTab.Reposts to mapOf("exclude_replies" to "true", "exclude_reblogs" to "false"),
+            ProfileTimelineTab.Replies to mapOf("exclude_replies" to "false", "exclude_reblogs" to "true"),
+        )
+        ProfileTimelineTab.entries.forEach { tab ->
+            val request = server.takeRequest()
+            val url = request.requestUrl ?: error("Missing request URL")
+            assertEquals("40", url.queryParameter("limit"))
+            expected.getValue(tab).forEach { (name, value) -> assertEquals(value, url.queryParameter(name)) }
+        }
+    }
+
+    @Test
+    fun profileTimelineReusesValidatedLinkCursorAndRejectsForeignCursor() = runBlocking {
+        val target = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user")
+        server.enqueue(MockResponse().setBody("[${status("newest")}] ").addHeader(
+            "Link", "<$origin/api/v1/accounts/local-user/statuses?limit=40&max_id=newest>; rel=\"next\"",
+        ))
+        server.enqueue(MockResponse().setBody("[${status("older")}]"))
+        val source = source()
+
+        val first = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Posts))
+        val second = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Posts), first.nextCursor)
+
+        assertEquals("newest", first.items.single().id.value)
+        assertEquals("older", second.items.single().id.value)
+        val initialRequest = server.takeRequest()
+        val continuationRequest = server.takeRequest()
+        assertEquals("/api/v1/accounts/local-user/statuses?limit=40&exclude_replies=true&exclude_reblogs=true", initialRequest.path)
+        assertEquals("/api/v1/accounts/local-user/statuses?limit=40&max_id=newest", continuationRequest.path)
+        assertEquals("Bearer token", continuationRequest.getHeader("Authorization"))
+
+        MockWebServer().use { foreign ->
+            val foreignCursor = foreign.url("/api/v1/accounts/local-user/statuses?max_id=foreign").toString()
+            assertThrows(SourceError.Unsupported::class.java) {
+                runBlocking {
+                    source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Posts), foreignCursor)
+                }
+            }
+            assertEquals(2, server.requestCount)
+        }
+    }
+
+    @Test
+    fun profileRelationshipFollowUnfollowAndPinnedPostsUseTargetBoundEndpoints() = runBlocking {
+        val target = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user")
+        server.enqueue(MockResponse().setBody("[{\"id\":\"local-user\",\"following\":false,\"followed_by\":true,\"requested\":false}]"))
+        server.enqueue(MockResponse().setBody("{\"following\":true,\"followed_by\":true,\"requested\":false}"))
+        server.enqueue(MockResponse().setBody("{\"following\":false,\"followed_by\":true,\"requested\":false}"))
+        server.enqueue(MockResponse().setBody("[${status("pinned")},${status("foreign-pinned").put("account", account("other-user", "other", "Other"))}]"))
+        server.enqueue(MockResponse().setResponseCode(404).setBody("{\"error\":\"unsupported\"}"))
+        val source = source()
+
+        assertTrue(source.profileRelationship(target).followedBy)
+        assertTrue(source.followProfile(target).following)
+        assertFalse(source.unfollowProfile(target).following)
+        assertEquals(listOf("pinned"), source.pinnedPosts(target).map { it.id.value })
+        assertTrue(source.pinnedPosts(target).isEmpty())
+
+        assertEquals("/api/v1/accounts/relationships?id%5B%5D=local-user", server.takeRequest().path)
+        assertEquals("/api/v1/accounts/local-user/follow", server.takeRequest().path)
+        assertEquals("/api/v1/accounts/local-user/unfollow", server.takeRequest().path)
+        assertEquals("/api/v1/accounts/local-user/statuses?pinned=true&limit=40", server.takeRequest().path)
+        assertEquals("/api/v1/accounts/local-user/statuses?pinned=true&limit=40", server.takeRequest().path)
+    }
+
+    @Test
+    fun profileDetailsEscapesOpaqueAccountIdPathSegment() = runBlocking {
+        val id = "segment/with?query"
+        val accountId = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), id)
+        server.enqueue(MockResponse().setBody(JSONObject(localAccount.toString()).put("id", id).toString()))
+
+        source().profile(accountId)
+
+        assertEquals("/api/v1/accounts/segment%2Fwith%3Fquery", server.takeRequest().path)
+    }
+
+    @Test
     fun sourceRejectsUnsupportedCreateFieldsBeforeNetworkRequests() = runBlocking {
         val requestOrigin = server.url("/").toString().removeSuffix("/")
         val unsupported = listOf(
@@ -345,6 +457,13 @@ class MastodonIntegrationTest {
         .put("account", localAccount)
         .put("content", "<p>Original</p>")
         .put("visibility", "public")
+
+    private fun account(id: String, username: String, displayName: String) =
+        JSONObject(localAccount.toString())
+            .put("id", id)
+            .put("username", username)
+            .put("acct", username)
+            .put("display_name", displayName)
 
     private fun notification(id: String) = JSONObject()
         .put("id", id)
