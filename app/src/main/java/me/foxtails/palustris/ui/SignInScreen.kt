@@ -30,6 +30,8 @@ import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
 import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
 import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
+import me.foxtails.palustris.ui.profile.ProfileUiState
+import me.foxtails.palustris.ui.profile.ProfileViewModel
 
 @Composable
 fun ConnectedApp(
@@ -99,8 +101,21 @@ fun ConnectedApp(
     else remember { mutableStateOf(NotificationsUiState()) }
     val notificationSettingsState by if (notificationSettingsModel != null) notificationSettingsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationSettingsUiState()) }
-    LaunchedEffect(feed.profile, state.account) {
-        feed.profile?.takeIf { it != state.account }?.let(accountManager::updateAccount)
+    val profileModel = activeSession?.let { session ->
+        hiltViewModel<ProfileViewModel, ProfileViewModel.Factory>(
+            key = "profile-${session.accountId}-${state.sessionGeneration}",
+            creationCallback = { factory -> factory.create(session.accountId, sharedSource!!) },
+        )
+    }
+    DisposableEffect(state.sessionGeneration, profileModel) {
+        onDispose { profileModel?.stop() }
+    }
+    val profileState by if (profileModel != null) profileModel.state.collectAsStateWithLifecycle()
+    else remember { mutableStateOf(ProfileUiState()) }
+    LaunchedEffect(profileState.account, state.account) {
+        profileState.account
+            ?.takeIf { it.id == state.account?.id && it != state.account }
+            ?.let(accountManager::updateAccount)
     }
     val context = LocalContext.current
     LaunchedEffect(state.browserUrl) {
@@ -168,6 +183,19 @@ fun ConnectedApp(
                 },
                 onNotificationLocalTest = { notificationSettingsModel?.runLocalPresentationTest() },
                 onNotificationPermissionChanged = { notificationSettingsModel?.refreshPermission() },
+                profileState = profileState,
+                onProfileShown = { seed -> profileModel?.open(seed) },
+                onProfileCategorySelected = { category -> profileModel?.selectCategory(category) },
+                onRefreshProfile = { profileModel?.refresh() },
+                onLoadMoreProfile = { profileModel?.loadMoreSelected() },
+                onFollowProfile = { profileModel?.follow() },
+                onUnfollowProfile = { profileModel?.unfollow() },
+                onUpdateProfile = { request, onSuccess ->
+                    profileModel?.updateSelf(request) { updated ->
+                        accountManager.updateAccount(updated)
+                        onSuccess()
+                    }
+                },
             )
         }
     }
