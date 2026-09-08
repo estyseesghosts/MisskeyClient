@@ -240,6 +240,7 @@ fun PalustrisApp(
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
     val currentProfile = profile ?: account
     val displayedProfile = viewedProfile ?: currentProfile
+    val notificationAccountIdentity = account?.id?.let { "${it.connection.origin}\u0000${it.localId}" } ?: "preview"
     val hasDraftChanges = draft != savedDraft || (if (warningEnabled) warning else "") != savedWarning
     val profileDirty = account != null && (profileName != account.displayName || profileBiography != account.biography)
 
@@ -334,7 +335,7 @@ fun PalustrisApp(
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
                                 Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                                 Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill, compactLayout = !wide, compactNavigationVisible = !wide)
-                                Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(connected = account != null) else MessagesScreen()
+                                Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(connected = account != null, compactLayout = !wide, accountIdentity = notificationAccountIdentity) else MessagesScreen()
                                 Destination.Profile -> ProfileScreen(displayedProfile, compactLayout = !wide)
                             } }
                         }

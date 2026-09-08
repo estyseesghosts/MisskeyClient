@@ -184,7 +184,7 @@ private fun SearchField(query: String, onSubmit: () -> Unit, onQueryChange: (Str
 @Composable
 private fun CategoryChips(
     titles: List<String>,
-    selected: Int,
+    selected: Int?,
     rowContentDescription: String,
     onSelect: (Int) -> Unit,
 ) {
@@ -271,13 +271,92 @@ private fun AccountSearchResults(
     }
 }
 
+private enum class NotificationFilter(
+    val label: String,
+    val title: String,
+    val subtitle: String,
+) {
+    Replies("Replies", "Replies coming soon", "Replies to you will appear here."),
+    Reposts("Reposts", "Reposts coming soon", "Reposts of your posts will appear here."),
+    Likes("Likes", "Likes coming soon", "Likes on your posts will appear here."),
+}
+
+private const val NotificationFilterDescription = "Notification filters; swipe horizontally for more"
+private val notificationFilters = NotificationFilter.entries
+private val notificationDockHeight = CompactSearchChipRowHeight + 8.dp
+
 @Composable
-fun NotificationsScreen(connected: Boolean = false) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    Column(Modifier.fillMaxSize()) {
-        SectionTabs(listOf("All", "Mentions"), tab) { tab = it }
-        EmptyState(AppIcons.Notifications, if (connected) "Notifications coming soon" else if (tab == 0) "All caught up" else "No mentions yet",
-            if (tab == 0) "Replies, reactions, and new followers will appear here." else "Conversations that mention you will appear here.")
+@OptIn(ExperimentalLayoutApi::class)
+fun NotificationsScreen(
+    connected: Boolean = false,
+    compactLayout: Boolean = true,
+    accountIdentity: String = "preview",
+) {
+    var selectedFilterName by rememberSaveable(accountIdentity) { mutableStateOf<String?>(null) }
+    val selectedFilter = selectedFilterName?.let { name -> notificationFilters.firstOrNull { it.name == name } }
+    val selectedIndex = selectedFilter?.ordinal
+
+    fun toggleFilter(index: Int) {
+        val filterName = notificationFilters[index].name
+        selectedFilterName = if (selectedFilterName == filterName) null else filterName
+    }
+
+    val (title, subtitle) = selectedFilter?.let { it.title to it.subtitle }
+        ?: ((if (connected) "Notifications coming soon" else "All caught up") to
+            "Activity from people you follow will appear here.")
+    val dockInsets = compactDockInsets(
+        WindowInsets.navigationBarsIgnoringVisibility,
+        WindowInsets(bottom = 0.dp),
+        navigationVisible = compactLayout,
+    )
+
+    if (compactLayout) {
+        Box(Modifier.fillMaxSize()) {
+            NotificationPlaceholder(
+                title = title,
+                subtitle = subtitle,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(dockInsets)
+                    .padding(bottom = notificationDockHeight)
+                    .verticalScroll(rememberScrollState()),
+            )
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = CompactOverlayHorizontalPadding)
+                    .windowInsetsPadding(dockInsets),
+            ) {
+                CategoryChips(
+                    notificationFilters.map(NotificationFilter::label),
+                    selectedIndex,
+                    NotificationFilterDescription,
+                    ::toggleFilter,
+                )
+            }
+        }
+    } else {
+        Column(Modifier.fillMaxSize()) {
+            CategoryChips(
+                notificationFilters.map(NotificationFilter::label),
+                selectedIndex,
+                NotificationFilterDescription,
+                ::toggleFilter,
+            )
+            NotificationPlaceholder(
+                title = title,
+                subtitle = subtitle,
+                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            )
+        }
+    }
+}
+
+@Composable
+private fun NotificationPlaceholder(title: String, subtitle: String, modifier: Modifier = Modifier) {
+    Box(modifier) {
+        EmptyState(AppIcons.Notifications, title, subtitle)
     }
 }
 

@@ -8,7 +8,7 @@ The core design is that notifications belong to the receiving account. The inbox
 
 1. **Define the finished experience and the current gaps.**
 
-   Keep the existing Notifications destination, All/Mentions tabs, compact navigation, and Material 3 visual language. All shows activity for the selected account. Mentions includes direct mentions and replies addressed to that account; quotes remain a separately selectable category unless they also satisfy the mention filter. Additional type filters belong in a compact filter control rather than an ever-growing tab strip. Switching accounts restores that account's filters and reading position. Account-switcher badges identify activity on other accounts; a combined all-account inbox is a future product option, not necessary for reliable multi-account delivery.
+   Keep the existing Notifications destination, compact navigation, and Material 3 visual language. The UI represents all notifications with no selected filter; `Replies`, `Reposts`, and `Likes` are toggleable chips in that order, and tapping the selected chip clears the filter back to all notifications. Later work must attach typed protocol-neutral queries, persistence, read state, account switching, and mapping for each category without restoring an `All`/`Mentions` tab bar. Account-switcher badges identify activity on other accounts; a combined all-account inbox is a future product option, not necessary for reliable multi-account delivery.
 
    A notification row shows the actor or appropriate system identity, activity description, time, unread/seen indication where supported, and a safe post or event preview. Tapping the actor opens the profile. Tapping post activity opens the correct note or status and conversation under the receiving account. Follow requests expose accept/reject. Other ordinary post actions reuse shared action handling and are shown only when actually supported. Deleted/private targets remain understandable rows with an unavailable-target state.
 
@@ -112,7 +112,7 @@ The core design is that notifications belong to the receiving account. The inbox
 
    Add `NotificationsViewModel`, `NotificationsState`, a dedicated screen and reusable row components. Inject the repository and receiving account; do not put notification lists into FeedViewModel. Connect the screen in `PalustrisApp`, preserving existing navigation and the separate Direct messages toggle.
 
-   Implement All/Mentions and type filters, pull-to-refresh, paged history, stable list keys, new-arrival positioning, grouped actor expansion, account badges, cached content and useful retries. Keep unread totals distinct from filtered result counts. Restore scroll/filter state per account and query across navigation and process recreation.
+   Implement the null/all view and typed Replies, Reposts, and Likes queries behind the existing chip state, then add pull-to-refresh, paged history, stable list keys, new-arrival positioning, grouped actor expansion, account badges, cached content and useful retries. Keep unread totals distinct from filtered result counts. Restore scroll/filter state per account and query across navigation and process recreation.
 
    Reuse existing post text, content-warning and sensitive-media presentation, with compact previews. Allow actorless/system rows and custom-emoji reactions. Accessibility includes descriptive activity text, localized/pluralized actor counts, readable dates, large fonts, TalkBack, adequate touch targets, and read-state cues beyond color. Verify light/dark themes and phone/wide layouts against rendered screens.
 
@@ -164,7 +164,7 @@ The core design is that notifications belong to the receiving account. The inbox
    |---|---|
    | Adapter contracts | Request methods/permissions, non-mutating fetches, kind mapping, cursors, marker semantics, grouping, policy and subscription lifecycle |
    | Persistence and concurrency | Atomic ingestion/checkpoints, migration, duplicate sources, late callbacks, initial-sync race, read/new-arrival races, account removal and crash recovery |
-   | Compose/navigation | All/Mentions/filter states, badge precision, account switch, grouped rows, target actions, TalkBack/large fonts, light/dark and wide layouts |
+   | Compose/navigation | Null/all plus Replies/Reposts/Likes filter states, badge precision, account switch, grouped rows, target actions, TalkBack/large fonts, light/dark and wide layouts |
    | Android presentation | Channels, denied permission, lock-screen privacy, quiet hours, stable IDs, grouping, cold-start pending intents and removed-account taps |
    | Real protocol delivery | Misskey plus Mastodon, multiple accounts on the same server, multiple origins, two maintained UnifiedPush distributors, endpoint replacement and server read reconciliation |
    | Device resilience | Device without Play Services, process death, reboot/unlock, Doze, offline recovery, distributor removal and token revocation |

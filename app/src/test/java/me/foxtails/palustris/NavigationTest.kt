@@ -111,8 +111,7 @@ class NavigationTest {
         screenshot("search")
         compose.onNode(hasSetTextAction()).performTextInput("photography")
         compose.onNodeWithContentDescription("Notifications").performClick()
-        compose.onNodeWithText("Mentions").performClick()
-        compose.onNodeWithText("No mentions yet").assertIsDisplayed()
+        compose.onNodeWithText("All caught up").assertIsDisplayed()
         screenshot("notifications")
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onNodeWithText("photography").assertIsDisplayed()
@@ -120,6 +119,24 @@ class NavigationTest {
         compose.onNodeWithContentDescription("Profile").performClick()
         compose.onNodeWithText("No account selected").assertIsDisplayed()
         screenshot("profile")
+    }
+
+    @Test fun compactNotificationsDockSitsAboveNavigation() {
+        compose.onNodeWithContentDescription("Notifications").performClick()
+        compose.waitForIdle()
+
+        val chips = bounds("Notification filters; swipe horizontally for more")
+        val action = bounds("Direct messages")
+        val navigation = bounds("Home")
+        val content = bounds("All caught up")
+        val density = compose.activity.resources.displayMetrics.density
+
+        assertTrue("notification chips should be above the contextual action", chips.bottom < action.top)
+        assertTrue("notification chips should be above the navigation pill", chips.bottom < navigation.top)
+        assertTrue("notification chips should keep compact side margins", chips.left / density >= 16f)
+        assertTrue("notification chips should keep compact side margins", chips.right / density <= 411f - 16f)
+        assertTrue("notification placeholder should remain above the dock", content.bottom <= chips.top)
+        compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more").assert(hasScrollAction())
     }
 
     @Test fun compactHomeSelectorTrailsNavigationAndLeavesNoDestinationSlot() {

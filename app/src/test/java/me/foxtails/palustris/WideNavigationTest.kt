@@ -11,7 +11,10 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.hasScrollAction
 import me.foxtails.palustris.ui.PalustrisApp
+import org.junit.Assert.assertTrue
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -44,6 +47,21 @@ class WideNavigationTest {
     @Config(qualifiers = "w800dp-h1000dp-night-420dpi")
     fun wideDarkLayoutShowsNavigationRail() {
         assertRailAndComposer()
+    }
+
+    @Test fun wideNotificationsUseNormalChipFlow() {
+        compose.onNodeWithText("Notifications").performClick()
+        compose.waitForIdle()
+
+        val row = compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more")
+        row.assert(hasScrollAction())
+        val rowBounds = row.fetchSemanticsNode().boundsInRoot
+        val placeholderBounds = compose.onNodeWithText("All caught up").fetchSemanticsNode().boundsInRoot
+        assertTrue("wide notification chips should precede the placeholder in page flow", rowBounds.bottom < placeholderBounds.top)
+        listOf("Replies", "Reposts", "Likes").forEach { label ->
+            compose.onNodeWithText(label).assertIsDisplayed().assertIsNotSelected()
+        }
+        compose.onNodeWithText("All caught up").assertIsDisplayed()
     }
 
     private fun assertRailAndComposer() {
