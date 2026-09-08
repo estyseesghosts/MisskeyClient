@@ -484,7 +484,7 @@ class SessionViewModelTest {
             assertEquals(existingSession, store.sessions[existingSession.accountId])
             assertEquals(newLogin.token, store.sessions[newLogin.account.id]?.token)
             assertEquals(setOf(existingLogin.account.id, newLogin.account.id), store.index.accounts.map { it.accountId }.toSet())
-            assertEquals(listOf(existingSession.accountId), store.readAccountIds)
+            assertEquals(listOf(existingSession.accountId, newLogin.account.id), store.readAccountIds)
             assertEquals(listOf(newLogin.account.id), store.writtenAccountIds)
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
