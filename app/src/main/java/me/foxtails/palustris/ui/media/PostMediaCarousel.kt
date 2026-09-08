@@ -145,7 +145,7 @@ private fun MediaPreviewTile(
                     contentScale = ContentScale.Fit,
                 )
             }
-            else -> MissingPreviewTile()
+            else -> MissingPreviewTile(attachment.description)
         }
     }
 }
@@ -168,8 +168,14 @@ private fun UnsupportedMediaTile(attachment: Attachment) {
 }
 
 @Composable
-private fun MissingPreviewTile() {
-    Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+private fun MissingPreviewTile(description: String?) {
+    Column(
+        Modifier.fillMaxWidth().padding(16.dp).semantics {
+            contentDescription = description ?: "Post attachment"
+        },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
         CircularProgressIndicator(Modifier.padding(8.dp).height(24.dp))
         Text("Preview unavailable", style = MaterialTheme.typography.bodySmall)
     }
