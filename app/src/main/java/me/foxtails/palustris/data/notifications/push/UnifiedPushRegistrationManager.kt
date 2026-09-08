@@ -20,6 +20,7 @@ import me.foxtails.palustris.data.notifications.work.NotificationWorkScheduler
 import me.foxtails.palustris.domain.AccessScope
 import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.PushRegistration
 import me.foxtails.palustris.domain.PushRegistrationFailureReason
@@ -348,6 +349,9 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 failureReason = null,
                 nextRetryAtEpochMillis = 0,
             ))
+            sessionStore.updateCapabilities(owner.accountId) {
+                it.copy(notifications = it.notifications.copy(webPush = CapabilityStatus.Supported))
+            }
             sessionStore.clearPushEndpointPending(owner.accountId, owner.registration.instanceName)
             scheduler.enqueueCatchUp(owner.accountId)
             PushRegistrationWorkResult.Success
@@ -364,6 +368,18 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 failureReason = errorReason(error),
                 nextRetryAtEpochMillis = nextRetryAt(received.retryCount + 1),
             ))
+            when (error) {
+                SourceError.Unauthorized -> sessionStore.updateCapabilities(owner.accountId) {
+                    it.copy(notifications = it.notifications.copy(webPush = CapabilityStatus.Denied))
+                }
+                is SourceError.Unsupported,
+                is SourceError.UnsupportedCredential,
+                is SourceError.ServerUnsupported,
+                -> sessionStore.updateCapabilities(owner.accountId) {
+                    it.copy(notifications = it.notifications.copy(webPush = CapabilityStatus.Unsupported))
+                }
+                else -> Unit
+            }
             if (error == SourceError.Unauthorized ||
                 error is SourceError.Unsupported ||
                 error is SourceError.UnsupportedCredential ||

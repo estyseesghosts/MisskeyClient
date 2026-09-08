@@ -101,6 +101,15 @@ interface SessionStore {
         it.copy(messageHintPending = false)
     }
 
+    fun updateCapabilities(
+        accountId: AccountId,
+        update: (ServerCapabilities) -> ServerCapabilities,
+    ): Boolean {
+        val session = read(accountId) ?: return false
+        write(accountId, session.copy(capabilities = update(session.capabilities)))
+        return true
+    }
+
     fun updatePushState(
         accountId: AccountId,
         instanceName: String,
@@ -230,6 +239,14 @@ class EncryptedSessionStore private constructor(
     ): Boolean {
         migrateFromLegacy()
         return accountFiles.updatePushState(accountId, instanceName, update)
+    }
+
+    override fun updateCapabilities(
+        accountId: AccountId,
+        update: (ServerCapabilities) -> ServerCapabilities,
+    ): Boolean {
+        migrateFromLegacy()
+        return accountFiles.updateCapabilities(accountId, update)
     }
 
     private fun readIndexInternal(): AccountIndex {

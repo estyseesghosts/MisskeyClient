@@ -96,6 +96,17 @@ class AccountFileStore internal constructor(
         return true
     }
 
+    fun updateCapabilities(
+        accountId: AccountId,
+        update: (ServerCapabilities) -> ServerCapabilities,
+    ): Boolean {
+        val file = fileFor(accountId)
+        val current = read(accountId) ?: return false
+        val json = readJson(file)
+        write(accountId, current.copy(capabilities = update(current.capabilities)), json.optJSONObject("profile") ?: JSONObject())
+        return true
+    }
+
     fun writeProfile(accountId: AccountId, profile: JSONObject) {
         val file = fileFor(accountId)
         val json = readJson(file)

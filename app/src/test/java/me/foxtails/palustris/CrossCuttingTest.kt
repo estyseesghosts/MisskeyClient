@@ -24,13 +24,16 @@ import me.foxtails.palustris.domain.AccessGrant
 import me.foxtails.palustris.domain.AccessScope
 import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.CapabilityProbe
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ProfileCapabilities
+import me.foxtails.palustris.domain.PushSessionState
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.ValidatedUrl
 import me.foxtails.palustris.ui.requiresSignIn
 import me.foxtails.palustris.ui.sourceErrorMessage
 import okhttp3.mockwebserver.MockResponse
@@ -135,13 +138,34 @@ class CrossCuttingTest {
                 unreadCountPrecision = me.foxtails.palustris.domain.NotificationUnreadPrecision.Exact,
             ),
         )
-        val session = Session(accountId, "session-token", capabilities, access)
+        val session = Session(
+            accountId,
+            "session-token",
+            capabilities,
+            access,
+            pushInstanceName = "push-instance",
+            sessionRevision = 4L,
+            pushState = PushSessionState(
+                endpoint = ValidatedUrl.https("https://push.example/endpoint"),
+                publicKey = "public-key",
+                authSecret = "auth-secret",
+                endpointGeneration = 2L,
+                endpointCallbackPending = true,
+                messageHintPending = true,
+            ),
+        )
 
         store.write(accountId, session)
         val restored = store.read(accountId) ?: error("Session was not restored")
 
         assertEquals(session.capabilities, restored.capabilities)
         assertEquals(session.access, restored.access)
+        assertEquals(session.sessionRevision, restored.sessionRevision)
+        assertEquals(session.pushState, restored.pushState)
+        assertTrue(store.updateCapabilities(accountId) {
+            it.copy(notifications = it.notifications.copy(webPush = CapabilityStatus.Unsupported))
+        })
+        assertEquals(CapabilityStatus.Unsupported, store.read(accountId)?.capabilities?.notifications?.webPush)
     }
 
     @Test
