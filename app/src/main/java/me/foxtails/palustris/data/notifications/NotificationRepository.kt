@@ -7,6 +7,7 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.security.MessageDigest
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -560,16 +561,29 @@ class NotificationRepository @Inject constructor(
         return true
     }
 
-    suspend fun claimDelivery(token: NotificationSyncToken, id: EntityId): NotificationDeliveryRecord? {
+    suspend fun claimDelivery(
+        token: NotificationSyncToken,
+        id: EntityId,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    ): NotificationDeliveryRecord? {
         val result = synchronized(this) {
             if (!isCurrentLocked(token)) return null
             val current = stateForLocked(token.accountId).value
             val record = current.deliveries[id] ?: return null
-            if (record.state != NotificationDeliveryState.Pending && record.state != NotificationDeliveryState.Failed) return null
+            val claimable = when (record.state) {
+                NotificationDeliveryState.Pending,
+                NotificationDeliveryState.Failed,
+                -> true
+                NotificationDeliveryState.Posting -> record.claimExpiresAtEpochMillis <= nowEpochMillis
+                else -> false
+            }
+            if (!claimable) return null
             val claimed = record.copy(
                 state = NotificationDeliveryState.Posting,
                 attemptCount = record.attemptCount + 1,
-                lastAttemptAtEpochMillis = System.currentTimeMillis(),
+                lastAttemptAtEpochMillis = nowEpochMillis,
+                claimId = UUID.randomUUID().toString(),
+                claimExpiresAtEpochMillis = nowEpochMillis + DELIVERY_CLAIM_LEASE_MILLIS,
             )
             stateForLocked(token.accountId).value = current.copy(deliveries = current.deliveries + (id to claimed))
             claimed
@@ -583,23 +597,31 @@ class NotificationRepository @Inject constructor(
         id: EntityId,
         state: NotificationDeliveryState,
         errorCategory: String? = null,
+        claimId: String? = null,
     ): Boolean {
         val next = synchronized(this) {
             if (!isCurrentLocked(token)) return false
             val current = stateForLocked(token.accountId).value
             val existing = current.deliveries[id] ?: return false
+            if (claimId != null && existing.claimId != claimId) return false
             current.copy(deliveries = current.deliveries + (id to existing.copy(
                 state = state,
                 lastErrorCategory = errorCategory,
+                claimId = null,
+                claimExpiresAtEpochMillis = 0,
             ))).also { stateForLocked(token.accountId).value = it }
         }
         persistIfCurrent(token, next)
         return true
     }
 
-    fun pendingDeliveries(accountId: AccountId): List<NotificationDeliveryRecord> =
+    fun pendingDeliveries(
+        accountId: AccountId,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+    ): List<NotificationDeliveryRecord> =
         observe(accountId).value.deliveries.values.filter {
-            it.state == NotificationDeliveryState.Pending || it.state == NotificationDeliveryState.Failed
+            it.state == NotificationDeliveryState.Pending || it.state == NotificationDeliveryState.Failed ||
+                (it.state == NotificationDeliveryState.Posting && it.claimExpiresAtEpochMillis <= nowEpochMillis)
         }
 
     @Synchronized
@@ -677,6 +699,7 @@ class NotificationRepository @Inject constructor(
 
     private companion object {
         const val MAX_ITEMS = 500
+        const val DELIVERY_CLAIM_LEASE_MILLIS = 2 * 60 * 1000L
     }
 }
 
@@ -787,6 +810,8 @@ private fun encodeDelivery(record: NotificationDeliveryRecord): JSONObject = JSO
     put("attemptCount", record.attemptCount)
     put("lastAttemptAt", record.lastAttemptAtEpochMillis)
     record.lastErrorCategory?.let { put("lastErrorCategory", it) }
+    record.claimId?.let { put("claimId", it) }
+    put("claimExpiresAt", record.claimExpiresAtEpochMillis)
 }
 
 private fun decodeDelivery(json: JSONObject): NotificationDeliveryRecord = NotificationDeliveryRecord(
@@ -799,6 +824,8 @@ private fun decodeDelivery(json: JSONObject): NotificationDeliveryRecord = Notif
     attemptCount = json.optInt("attemptCount"),
     lastAttemptAtEpochMillis = json.optLong("lastAttemptAt"),
     lastErrorCategory = json.optString("lastErrorCategory").takeIf { it.isNotBlank() },
+    claimId = json.optString("claimId").takeIf { it.isNotBlank() },
+    claimExpiresAtEpochMillis = json.optLong("claimExpiresAt"),
 )
 
 private fun encodeNotification(notification: Notification): JSONObject = JSONObject().apply {

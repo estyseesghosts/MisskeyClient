@@ -4,7 +4,7 @@ Updated 2026-09-08 while implementing the plan in `docs/roadmaps/notifications.m
 
 ## Current conclusion
 
-The notification foundation and an account-scoped inbox are implemented without changing the recent Replies/Reposts/Likes chip or compact navigation-dock behavior. The app can retrieve, persist, merge, filter, page, locally mark, explicitly acknowledge, and dismiss notifications for the active account. Mastodon multi-page newer and older traversal now follows the server's moving continuations and records terminal history. Older-history and overlapping retained rows are excluded from new audible delivery eligibility. Newer catch-up refreshes adapter unread knowledge even when page payloads are unknown. Category switches now honor the requested state, including All-minus-one and empty selections. Misskey notification streams now send the account bearer token during the WebSocket upgrade, while readiness and reconnect recovery remain open. Stored accounts are supervised independently of `FeedViewModel`.
+The notification foundation and an account-scoped inbox are implemented without changing the recent Replies/Reposts/Likes chip or compact navigation-dock behavior. The app can retrieve, persist, merge, filter, page, locally mark, explicitly acknowledge, and dismiss notifications for the active account. Mastodon multi-page newer and older traversal now follows the server's moving continuations and records terminal history. Older-history and overlapping retained rows are excluded from new audible delivery eligibility. Newer catch-up refreshes adapter unread knowledge even when page payloads are unknown. Category switches now honor the requested state, including All-minus-one and empty selections. Delivery claims are now lease-based and claim-safe across worker recovery. Misskey notification streams now send the account bearer token during the WebSocket upgrade, while readiness and reconnect recovery remain open. Stored accounts are supervised independently of `FeedViewModel`.
 
 The implementation is ready for the user-provided live Samsung/Sunup verification. This is not a claim that the live round trip has already succeeded: distributor callbacks, authenticated server registration, background delivery, process death, and device presentation still require that test.
 
@@ -78,6 +78,12 @@ The implementation is ready for the user-provided live Samsung/Sunup verificatio
 - Settings now pass each switch's requested checked value through to the ViewModel.
 - Selecting an individual category expands All into explicit categories; disabling the last one leaves an intentional empty selection.
 - Empty category selections survive the repository's JSON-backed restart path.
+
+### 2026-09-08 — Delivery claim recovery
+
+- Delivery records now persist an expiring claim identity so a worker killed during `Posting` can be recovered.
+- Completion accepts the current claim identity, preventing a stale worker from finalizing a later attempt.
+- Presentation failure returns `Result.retry()` and keeps the record eligible for a later drain.
 
 ## Implemented changes
 

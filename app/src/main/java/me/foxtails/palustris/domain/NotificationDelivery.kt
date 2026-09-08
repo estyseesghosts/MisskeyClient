@@ -25,6 +25,8 @@ data class NotificationDeliveryRecord(
     val attemptCount: Int = 0,
     val lastAttemptAtEpochMillis: Long = 0,
     val lastErrorCategory: String? = null,
+    val claimId: String? = null,
+    val claimExpiresAtEpochMillis: Long = 0,
 )
 
 data class NotificationSettings(

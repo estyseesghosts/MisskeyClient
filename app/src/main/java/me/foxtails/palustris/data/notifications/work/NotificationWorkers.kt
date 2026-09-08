@@ -110,6 +110,7 @@ class NotificationDeliveryWorker(
         val repository = dependencies.repository()
         val settings = repository.settings(accountId)
         val permissionGranted = dependencies.permissionController().isGranted()
+        var retryRequested = false
         repository.pendingDeliveries(accountId).forEach { record ->
             val notification = repository.observe(accountId).value.items.firstOrNull { it.id == record.notificationId } ?: return@forEach
             val claimed = repository.claimDelivery(token, record.notificationId) ?: return@forEach
@@ -119,18 +120,41 @@ class NotificationDeliveryWorker(
                         val presentation = dependencies.presentationFactory().prepare(notification, plan.showPreview, plan.channel)
                         if (dependencies.presenter().present(presentation)) {
                             repository.markPresented(token, claimed.notificationId)
-                            repository.finishDelivery(token, claimed.notificationId, NotificationDeliveryState.Presented)
+                            repository.finishDelivery(
+                                token,
+                                claimed.notificationId,
+                                NotificationDeliveryState.Presented,
+                                claimId = claimed.claimId,
+                            )
                         } else {
-                            repository.finishDelivery(token, claimed.notificationId, NotificationDeliveryState.Failed, "present_failed")
+                            repository.finishDelivery(
+                                token,
+                                claimed.notificationId,
+                                NotificationDeliveryState.Failed,
+                                "present_failed",
+                                claimed.claimId,
+                            )
+                            retryRequested = true
                         }
                     }
-                    NotificationDeliveryDecision.AlreadyPresented -> repository.finishDelivery(token, claimed.notificationId, NotificationDeliveryState.Presented)
+                    NotificationDeliveryDecision.AlreadyPresented -> repository.finishDelivery(
+                        token,
+                        claimed.notificationId,
+                        NotificationDeliveryState.Presented,
+                        claimId = claimed.claimId,
+                    )
                     NotificationDeliveryDecision.SuppressedBySettings,
                     NotificationDeliveryDecision.SuppressedByQuietHours,
                     NotificationDeliveryDecision.PermissionRequired,
-                    -> repository.finishDelivery(token, claimed.notificationId, NotificationDeliveryState.Suppressed, plan.decision.name)
+                    -> repository.finishDelivery(
+                        token,
+                        claimed.notificationId,
+                        NotificationDeliveryState.Suppressed,
+                        plan.decision.name,
+                        claimed.claimId,
+                    )
             }
         }
-        return Result.success()
+        return if (retryRequested) Result.retry() else Result.success()
     }
 }

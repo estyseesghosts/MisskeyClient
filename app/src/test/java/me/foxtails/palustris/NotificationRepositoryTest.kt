@@ -12,6 +12,7 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCheckpoint
+import me.foxtails.palustris.domain.NotificationDeliveryState
 import me.foxtails.palustris.domain.NotificationPage
 import me.foxtails.palustris.domain.NotificationPageDirection
 import me.foxtails.palustris.domain.NotificationQuery
@@ -22,6 +23,7 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.SocialEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -218,6 +220,49 @@ class NotificationRepositoryTest {
         ))
 
         assertEquals(listOf("newer"), repository.pendingDeliveries(account).map { it.notificationId.value })
+    }
+
+    @Test
+    fun expiredDeliveryClaimCanBeRecoveredAndOldClaimCannotFinishIt() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val query = NotificationQuery()
+        val incoming = notification("incoming", NotificationActivity.Mention)
+        repository.activate(token)
+        repository.establishBaseline(token, NotificationPage(
+            items = listOf(notification("baseline", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, query),
+        ))
+        repository.ingestNewerPage(token, NotificationPage(
+            items = listOf(incoming),
+            checkpoint = NotificationCheckpoint(account, query),
+            direction = NotificationPageDirection.Newer,
+        ))
+
+        val first = repository.claimDelivery(token, incoming.id, nowEpochMillis = 100L)
+        assertNotNull(first)
+        assertTrue(repository.pendingDeliveries(account, nowEpochMillis = first!!.claimExpiresAtEpochMillis - 1).isEmpty())
+        assertFalse(repository.finishDelivery(
+            token,
+            incoming.id,
+            NotificationDeliveryState.Presented,
+            claimId = "stale-claim",
+        ))
+
+        val recovered = repository.claimDelivery(
+            token,
+            incoming.id,
+            nowEpochMillis = first.claimExpiresAtEpochMillis,
+        )
+        assertNotNull(recovered)
+        assertNotEquals(first.claimId, recovered!!.claimId)
+        assertTrue(repository.finishDelivery(
+            token,
+            incoming.id,
+            NotificationDeliveryState.Presented,
+            claimId = recovered.claimId,
+        ))
+        assertTrue(repository.pendingDeliveries(account).isEmpty())
     }
 
     @Test
