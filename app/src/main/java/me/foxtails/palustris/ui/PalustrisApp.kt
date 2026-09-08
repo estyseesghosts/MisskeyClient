@@ -46,11 +46,19 @@ import me.foxtails.palustris.data.auth.PreferencesDraftStore
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.CapabilityStatus
+import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
+import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PostDraft
+import me.foxtails.palustris.domain.PostDraftQuotePreview
+import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.UpdateProfileRequest
 import java.util.UUID
@@ -70,6 +78,7 @@ private enum class Destination(val label: String, val icon: ImageVector) {
 }
 
 private enum class NotificationsPanel { Notifications, DirectMessages }
+private enum class LocalPage { SavedPosts, Drafts, About }
 enum class SearchPanel { Search, Alternate }
 private sealed interface Overlay {
     data object Composer : Overlay
@@ -82,6 +91,11 @@ private data class ContextualBottomAction(
     val enabled: Boolean,
     val onClick: () -> Unit,
 )
+
+private fun savedCollectionTitle(kind: SavedPostsKind?): String = when (kind) {
+    SavedPostsKind.Favourites -> "Favourites"
+    SavedPostsKind.Bookmarks, null -> "Bookmarks"
+}
 
 internal val CompactNavigationHeight = 60.dp
 internal val CompactTimelineSelectorWidth = 168.dp
@@ -311,6 +325,11 @@ fun PalustrisApp(
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+    savedPostsState: SavedPostsUiState? = null,
+    onRefreshSavedPosts: () -> Unit = {},
+    onLoadMoreSavedPosts: () -> Unit = {},
+    onUnsaveSavedPost: (OwnedPost) -> Unit = {},
+    onUpgradeSavedPermissions: () -> Unit = {},
     notificationState: NotificationsUiState = NotificationsUiState(),
     onRefreshNotifications: () -> Unit = {},
     onLoadMoreNotifications: () -> Unit = {},
@@ -334,7 +353,7 @@ fun PalustrisApp(
     val scope = rememberCoroutineScope()
     var destination by rememberSaveable { mutableStateOf(Destination.Home) }
     var timeline by rememberSaveable { mutableStateOf(Timeline.Home) }
-    var page by rememberSaveable { mutableStateOf<String?>(null) }
+    var page by rememberSaveable { mutableStateOf<LocalPage?>(null) }
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
     var overlayKey by rememberSaveable { mutableStateOf<String?>(null) }
     var searchPanelName by rememberSaveable { mutableStateOf(SearchPanel.Search.name) }
@@ -351,6 +370,9 @@ fun PalustrisApp(
     var savedWarning by rememberSaveable { mutableStateOf("") }
     var warningEnabled by rememberSaveable { mutableStateOf(false) }
     var draftError by rememberSaveable { mutableStateOf<String?>(null) }
+    var savedQuoteOf by remember { mutableStateOf<String?>(null) }
+    var composerQuoteOf by remember { mutableStateOf<EntityId?>(null) }
+    var composerTarget by remember { mutableStateOf<OwnedPost?>(null) }
     var viewedProfile by remember { mutableStateOf<Account?>(null) }
     var profileName by rememberSaveable { mutableStateOf("") }
     var profileBiography by rememberSaveable { mutableStateOf("") }
@@ -362,11 +384,20 @@ fun PalustrisApp(
     val overlay = when (overlayKey) { "Composer" -> Overlay.Composer; "EditProfile" -> Overlay.EditProfile; else -> null }
     val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
-    val currentProfile = profile ?: account
-    val displayedProfile = viewedProfile ?: currentProfile
+    val profileTargetId = viewedProfile?.id ?: account?.id
+    val refreshedProfile = profileState.account?.takeIf { it.id == profileTargetId }
+    val displayedProfile = refreshedProfile ?: viewedProfile ?: account
+    val savedKind = savedPostsState?.kind ?: feedState?.savedPosts?.kind
+    val savedTitle = savedCollectionTitle(savedKind)
+    val savedShortcutAvailable = displayedProfile?.id == account?.id &&
+        feedState?.savedPosts?.status != CapabilityStatus.Unsupported
     val notificationAccountIdentity = account?.id?.let { "${it.connection.origin}\u0000${it.localId}" } ?: "preview"
-    val hasDraftChanges = draft != savedDraft || (if (warningEnabled) warning else "") != savedWarning
-    val profileDirty = account != null && (profileName != account.displayName || profileBiography != account.biography)
+    val hasDraftChanges = draft != savedDraft ||
+        (if (warningEnabled) warning else "") != savedWarning ||
+        composerQuoteOf?.value != savedQuoteOf
+    val editableProfile = profileState.account?.takeIf { it.id == account?.id } ?: account
+    val profileDirty = editableProfile != null &&
+        (profileName != editableProfile.displayName || profileBiography != editableProfile.biography)
 
     suspend fun reloadDrafts() {
         drafts = runCatching {
@@ -376,37 +407,125 @@ fun PalustrisApp(
     }
 
     LaunchedEffect(account?.id, store) { reloadDrafts() }
-    LaunchedEffect(overlayKey, account?.id) { if (overlay == Overlay.EditProfile && account != null) { profileName = account.displayName; profileBiography = account.biography } }
+    LaunchedEffect(overlayKey, editableProfile?.id, editableProfile?.displayName, editableProfile?.biography) {
+        if (overlay == Overlay.EditProfile && editableProfile != null) {
+            profileName = editableProfile.displayName
+            profileBiography = editableProfile.biography
+        }
+    }
     LaunchedEffect(availableTimelines) { if (timeline !in availableTimelines) timeline = Timeline.Home }
     LaunchedEffect(feedState?.timeline, account?.id) { feedState?.timeline?.let { timeline = it } }
     LaunchedEffect(destination, page, overlayKey) { navigationVisible = true }
-    LaunchedEffect(account?.id) { viewedProfile = null }
+    LaunchedEffect(account?.id) {
+        viewedProfile = null
+        page = null
+        composerTarget = null
+        composerQuoteOf = null
+        savedQuoteOf = null
+    }
     LaunchedEffect(initialNotificationRoute) {
         notificationRoute = initialNotificationRoute
         if (initialNotificationRoute != null) destination = Destination.Notifications
     }
 
-    fun loadDraft(item: PostDraft) {
-        draftId = item.id; draft = item.text; savedDraft = item.text; warning = item.contentWarning.orEmpty(); savedWarning = item.contentWarning.orEmpty(); warningEnabled = !item.contentWarning.isNullOrBlank(); draftError = null; overlayKey = Overlay.Composer::class.simpleName
+    fun draftTarget(item: PostDraft): OwnedPost? {
+        val owner = account ?: return null
+        val targetId = item.quoteOf ?: return null
+        val preview = item.quotePreview ?: return null
+        if (item.accountId != owner.id || targetId.connection != owner.id.connection.origin) return null
+        val author = Account(
+            id = AccountId(Connection(targetId.connection, owner.id.connection.protocol), "draft-quote-author"),
+            displayName = preview.authorDisplayName.ifBlank { preview.authorHandle.ifBlank { "Quoted post" } },
+            handle = preview.authorHandle.ifBlank { "Quoted post" },
+        )
+        return OwnedPost(
+            owner.id,
+            Post(
+                id = targetId,
+                author = author,
+                text = preview.text,
+                publishedAtEpochMillis = 0L,
+                audience = Audience.Public,
+                url = preview.url,
+            ),
+        )
     }
+
+    fun loadDraft(item: PostDraft) {
+        draftId = item.id
+        draft = item.text
+        savedDraft = item.text
+        warning = item.contentWarning.orEmpty()
+        savedWarning = item.contentWarning.orEmpty()
+        warningEnabled = !item.contentWarning.isNullOrBlank()
+        composerQuoteOf = item.quoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
+        composerTarget = draftTarget(item)
+        savedQuoteOf = composerQuoteOf?.value
+        draftError = null
+        overlayKey = Overlay.Composer::class.simpleName
+    }
+
     fun openComposer() {
         if (overlay == Overlay.Composer) return
         val first = drafts.firstOrNull()
         if (draft.isBlank() && savedDraft.isBlank() && first != null) loadDraft(first) else overlayKey = Overlay.Composer::class.simpleName
     }
-    fun draftValue() = PostDraft(id = draftId ?: UUID.randomUUID().toString(), accountId = account?.id, text = draft, contentWarning = warning.takeIf { warningEnabled && it.isNotBlank() })
+
+    fun openQuote(target: OwnedPost) {
+        val owner = account ?: return
+        if (target.fetchedBy != owner.id || feedState?.quoteStatus != CapabilityStatus.Supported) return
+        if (overlay != null || hasDraftChanges) return
+        draftId = null
+        draft = ""
+        savedDraft = ""
+        warning = ""
+        savedWarning = ""
+        warningEnabled = false
+        composerTarget = target
+        composerQuoteOf = target.post.id
+        savedQuoteOf = null
+        draftError = null
+        overlayKey = Overlay.Composer::class.simpleName
+    }
+
+    fun draftValue() = PostDraft(
+        id = draftId ?: UUID.randomUUID().toString(),
+        accountId = account?.id,
+        text = draft,
+        contentWarning = warning.takeIf { warningEnabled && it.isNotBlank() },
+        quoteOf = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin },
+        quotePreview = composerTarget?.let { target ->
+            PostDraftQuotePreview(
+                authorDisplayName = target.post.author.displayName,
+                authorHandle = target.post.author.handle,
+                text = target.post.text,
+                url = target.post.url,
+            )
+        },
+    )
+
     fun saveCurrentDraft(onSaved: () -> Unit = {}) {
-        if (draft.isBlank() && warning.isBlank()) { onSaved(); return }
+        if (draft.isBlank() && warning.isBlank() && composerQuoteOf == null) { onSaved(); return }
         scope.launch {
             closing = true
             runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }
-                .onSuccess { item -> draftId = item.id; savedDraft = item.text; savedWarning = item.contentWarning.orEmpty(); draftError = null; onSaved() }
+                .onSuccess { item ->
+                    draftId = item.id
+                    savedDraft = item.text
+                    savedWarning = item.contentWarning.orEmpty()
+                    savedQuoteOf = item.quoteOf?.value
+                    draftError = null
+                    onSaved()
+                }
                 .onFailure { draftError = "Draft could not be saved. Keep editing and try again." }
             closing = false
         }
     }
     fun closeComposer() { if (feedState?.publishing == true || closing) return; if (hasDraftChanges) saveCurrentDraft { overlayKey = null } else overlayKey = null }
-    fun closeProfile() { if (feedState?.publishing == true) return; if (profileDirty) profileDialog = true else overlayKey = null }
+    fun closeProfile() {
+        if (profileState.savingProfile) return
+        if (profileDirty) profileDialog = true else overlayKey = null
+    }
     fun selectDestination(item: Destination) {
         if (item == Destination.Profile) viewedProfile = null
         destination = item
@@ -458,7 +577,10 @@ fun PalustrisApp(
                     },
                     topBar = {
                     when {
-                        page != null -> TopAppBar(title = { Text(page!!) }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { page = null } })
+                        page != null -> TopAppBar(
+                            title = { Text(if (page == LocalPage.SavedPosts) savedTitle else page!!.name) },
+                            navigationIcon = { ActionIcon(AppIcons.Back, "Back") { page = null } },
+                        )
                         notificationRoute != null -> TopAppBar(title = { Text("Notification") }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { notificationRoute = null } })
                         destination == Destination.Notifications -> TopAppBar(
                             title = { Text(if (notificationsPanel == NotificationsPanel.Notifications) "Notifications" else "Direct messages") },
@@ -471,7 +593,23 @@ fun PalustrisApp(
                                 }
                             },
                         )
-                        destination == Destination.Profile -> TopAppBar(title = { Column { Text(displayedProfile?.displayName ?: "Your profile"); Text(displayedProfile?.handle ?: "0 posts", style = MaterialTheme.typography.bodyMedium, maxLines = 1) } }, actions = { if (displayedProfile?.id == account?.id) { ActionIcon(AppIcons.Bookmark, "Bookmarks") { page = "Bookmarks" }; ActionIcon(AppIcons.Folder, "Drafts") { page = "Drafts" }; ActionIcon(AppIcons.More, "Accounts") { sheet = "Accounts" } } })
+                        destination == Destination.Profile -> TopAppBar(
+                            title = {
+                                Column {
+                                    Text(displayedProfile?.displayName ?: "Your profile")
+                                    Text(displayedProfile?.handle ?: "0 posts", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                                }
+                            },
+                            actions = {
+                                if (displayedProfile?.id == account?.id) {
+                                    if (savedShortcutAvailable) {
+                                        ActionIcon(AppIcons.Bookmark, savedTitle) { page = LocalPage.SavedPosts }
+                                    }
+                                    ActionIcon(AppIcons.Folder, "Drafts") { page = LocalPage.Drafts }
+                                    ActionIcon(AppIcons.More, "Accounts") { sheet = "Accounts" }
+                                }
+                            },
+                        )
                     }
                 }) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
@@ -490,11 +628,27 @@ fun PalustrisApp(
                         } else if (notificationRoute != null) {
                             NotificationDetailScreen(notificationRoute!!, notificationState.items, Modifier.fillMaxSize())
                         } else when (page) {
-                            "Drafts" -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
-                            "Bookmarks" -> EmptyState(AppIcons.Bookmark, if (account != null) "Bookmarks coming soon" else "No bookmarks yet", "Posts you save will appear here.")
-                            "About" -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
+                            LocalPage.SavedPosts -> savedPostsState?.let { savedState ->
+                                SavedPostsScreen(
+                                    state = savedState,
+                                    onRefresh = onRefreshSavedPosts,
+                                    onLoadMore = onLoadMoreSavedPosts,
+                                    onUnsave = onUnsaveSavedPost,
+                                    onSignIn = onUpgradeSavedPermissions,
+                                    onUpgradePermissions = onUpgradeSavedPermissions,
+                                    onReact = onReact,
+                                    onReply = onReply,
+                                    onReshare = onReshare,
+                                    onReaction = onReaction,
+                                    availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
+                                    onOpenProfile = ::openProfile,
+                                    onSearchHashtag = ::openHashtagSearch,
+                                )
+                            } ?: EmptyState(AppIcons.Bookmark, "No saved posts yet", "Posts you save will appear here.")
+                            LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
+                            LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                                Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                                 Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill, compactLayout = !wide, compactNavigationVisible = !wide)
                                 Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(
                                     connected = account != null,
@@ -636,14 +790,24 @@ fun PalustrisApp(
                 Row(verticalAlignment = Alignment.CenterVertically) { ActionIcon(AppIcons.Close, "Close composer", ::closeComposer); Text("New post", style = MaterialTheme.typography.titleLarge) }
                 TextButton(enabled = draft.isNotBlank() && !closing, onClick = { saveCurrentDraft { overlayKey = null } }) { Text("Save draft") }
             }
-            ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, onPublish = {
+            ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, quoteTarget = composerTarget, onRemoveQuote = { composerTarget = null; composerQuoteOf = null }, onPublish = {
                 val submittedText = draft; val submittedWarning = warning.takeIf { warningEnabled && it.isNotBlank() }
+                val submittedQuote = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
                 scope.launch {
                     runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }.onSuccess { saved ->
                         draftId = saved.id; savedDraft = saved.text; savedWarning = saved.contentWarning.orEmpty()
-                        onPublish(CreatePostRequest(submittedText, contentWarning = submittedWarning)) {
+                        onPublish(CreatePostRequest(submittedText, contentWarning = submittedWarning, quoteOf = submittedQuote)) {
                             scope.launch { store.delete(account?.id, saved.id); reloadDrafts() }
-                            draft = ""; savedDraft = ""; warning = ""; savedWarning = ""; warningEnabled = false; draftId = null; overlayKey = null
+                            draft = ""
+                            savedDraft = ""
+                            warning = ""
+                            savedWarning = ""
+                            warningEnabled = false
+                            draftId = null
+                            savedQuoteOf = null
+                            composerQuoteOf = null
+                            composerTarget = null
+                            overlayKey = null
                         }
                     }.onFailure { draftError = "Draft could not be saved. Keep the composer open and try again." }
                 }

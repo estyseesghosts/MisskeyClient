@@ -26,6 +26,7 @@ import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.ProfileCapabilities
 import me.foxtails.palustris.domain.PostActionResult
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.ProfileTimelineQuery
@@ -559,6 +560,7 @@ class MisskeySource(
             _capabilities.value = it.copy(
                 canPublish = it.canPublish || capabilities.canPublish,
                 notifications = it.notifications.takeVerifiedOr(capabilities.notifications),
+                profile = it.profile.takeVerifiedOr(capabilities.profile),
             )
             return
         }
@@ -567,6 +569,7 @@ class MisskeySource(
                 val updated = it.copy(
                     canPublish = it.canPublish || capabilities.canPublish,
                     notifications = it.notifications.takeVerifiedOr(capabilities.notifications),
+                    profile = it.profile.takeVerifiedOr(capabilities.profile),
                 )
                 _capabilities.value = updated
                 capabilityCache.put(cacheKey, updated)
@@ -587,6 +590,9 @@ class MisskeySource(
 
 private fun NotificationCapabilities.takeVerifiedOr(previous: NotificationCapabilities): NotificationCapabilities =
     if (this == NotificationCapabilities()) previous else this
+
+private fun ProfileCapabilities.takeVerifiedOr(previous: ProfileCapabilities): ProfileCapabilities =
+    if (this == ProfileCapabilities()) previous else this
 
 private enum class NotificationCursorDirection { Older, Newer }
 

@@ -86,19 +86,30 @@ fun ConnectedApp(
             },
         )
     }
+    val savedPostsModel = activeSession?.let { session ->
+        hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
+            key = "saved-posts-${session.accountId}-${state.sessionGeneration}",
+            creationCallback = { factory -> factory.create(session.accountId, sharedSource!!) },
+        )
+    }
     val notificationSettingsModel = activeSession?.let { session ->
         hiltViewModel<NotificationSettingsViewModel, NotificationSettingsViewModel.Factory>(
             key = "notification-settings-${session.accountId}-${state.sessionGeneration}",
             creationCallback = { factory -> factory.create(session.accountId) },
         )
     }
-    DisposableEffect(state.sessionGeneration, feedModel) {
-        onDispose { feedModel?.stop() }
+    DisposableEffect(state.sessionGeneration, feedModel, savedPostsModel) {
+        onDispose {
+            feedModel?.stop()
+            savedPostsModel?.stop()
+        }
     }
     val feed by if (feedModel != null) feedModel.feed.collectAsStateWithLifecycle()
     else remember { mutableStateOf(FeedState()) }
     val notificationState by if (notificationsModel != null) notificationsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationsUiState()) }
+    val savedPostsState by if (savedPostsModel != null) savedPostsModel.state.collectAsStateWithLifecycle()
+    else remember { mutableStateOf<SavedPostsUiState?>(null) }
     val notificationSettingsState by if (notificationSettingsModel != null) notificationSettingsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationSettingsUiState()) }
     val profileModel = activeSession?.let { session ->
@@ -161,7 +172,13 @@ fun ConnectedApp(
                 ownedPosts = feed.ownedPosts,
                 onReact = { ownedPost -> feedModel?.favorite(ownedPost) },
                 onReshare = { ownedPost -> feedModel?.reshare(ownedPost) },
+                onBookmark = { ownedPost -> feedModel?.bookmark(ownedPost) },
                 onReaction = { ownedPost, emoji -> feedModel?.react(ownedPost, emoji) },
+                savedPostsState = savedPostsState,
+                onRefreshSavedPosts = { savedPostsModel?.refresh() },
+                onLoadMoreSavedPosts = { savedPostsModel?.loadMore() },
+                onUnsaveSavedPost = { ownedPost -> savedPostsModel?.unsave(ownedPost) },
+                onUpgradeSavedPermissions = { state.account?.id?.let(accountManager::upgradePermissions) },
                 notificationState = notificationState,
                 onRefreshNotifications = { notificationsModel?.refresh() },
                 onLoadMoreNotifications = { notificationsModel?.loadOlder() },
