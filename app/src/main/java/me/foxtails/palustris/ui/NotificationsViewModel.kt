@@ -83,23 +83,23 @@ class NotificationsViewModel @AssistedInject constructor(
                 }
             }
         }
-        refresh()
+        refresh(showIndicator = false)
     }
 
     fun selectQuery(selectedQuery: NotificationQuery) {
         if (query.value == selectedQuery) return
         query.value = selectedQuery
         _state.value = _state.value.copy(query = selectedQuery, checkpoint = null, error = null)
-        refresh()
+        refresh(showIndicator = false)
     }
 
-    fun refresh() {
+    fun refresh(showIndicator: Boolean = true) {
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             val hasCache = _state.value.items.isNotEmpty()
             _state.value = _state.value.copy(
                 loading = !hasCache,
-                refreshing = hasCache,
+                refreshing = showIndicator,
                 error = null,
             )
             try {

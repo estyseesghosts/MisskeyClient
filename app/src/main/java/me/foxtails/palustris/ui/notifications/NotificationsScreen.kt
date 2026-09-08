@@ -175,14 +175,14 @@ private fun NotificationContent(
         }.distinctUntilChanged().collect { shouldLoad -> if (shouldLoad) onLoadMore() }
     }
     PullToRefreshBox(
-        isRefreshing = state.refreshing || (state.loading && items.isNotEmpty()),
+        isRefreshing = state.refreshing,
         onRefresh = onRefresh,
         state = pullState,
         modifier = modifier,
         indicator = {
             PullToRefreshDefaults.Indicator(
                 state = pullState,
-                isRefreshing = state.refreshing || state.loading,
+                isRefreshing = state.refreshing,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         },
@@ -197,7 +197,7 @@ private fun NotificationContent(
                 item {
                     Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
                         when {
-                            state.loading -> CircularProgressIndicator()
+                            state.loading && !state.refreshing -> CircularProgressIndicator()
                             state.error != null -> Column(
                                 Modifier.padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
