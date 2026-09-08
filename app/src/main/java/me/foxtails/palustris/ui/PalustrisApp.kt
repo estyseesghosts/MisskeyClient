@@ -379,6 +379,8 @@ fun PalustrisApp(
     var warningEnabled by rememberSaveable { mutableStateOf(false) }
     var draftError by rememberSaveable { mutableStateOf<String?>(null) }
     var savedQuoteOf by remember { mutableStateOf<String?>(null) }
+    var composerReplyTo by remember { mutableStateOf<EntityId?>(null) }
+    var savedReplyTo by remember { mutableStateOf<String?>(null) }
     var composerQuoteOf by remember { mutableStateOf<EntityId?>(null) }
     var composerTarget by remember { mutableStateOf<OwnedPost?>(null) }
     var viewedProfile by remember { mutableStateOf<Account?>(null) }
@@ -406,7 +408,8 @@ fun PalustrisApp(
     val notificationAccountIdentity = account?.id?.let { "${it.connection.origin}\u0000${it.localId}" } ?: "preview"
     val hasDraftChanges = draft != savedDraft ||
         (if (warningEnabled) warning else "") != savedWarning ||
-        composerQuoteOf?.value != savedQuoteOf
+        composerQuoteOf?.value != savedQuoteOf ||
+        composerReplyTo?.value != savedReplyTo
     val editableProfile = profileState.account?.takeIf { it.id == account?.id } ?: account
     val profileDirty = editableProfile != null &&
         (profileName != editableProfile.displayName || profileBiography != editableProfile.biography)
@@ -434,6 +437,8 @@ fun PalustrisApp(
         composerTarget = null
         composerQuoteOf = null
         savedQuoteOf = null
+        composerReplyTo = null
+        savedReplyTo = null
         mediaRequest = null
     }
     LaunchedEffect(initialNotificationRoute) {
@@ -478,8 +483,10 @@ fun PalustrisApp(
         savedWarning = item.contentWarning.orEmpty()
         warningEnabled = !item.contentWarning.isNullOrBlank()
         composerQuoteOf = item.quoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
+        composerReplyTo = item.replyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
         composerTarget = draftTarget(item)
         savedQuoteOf = composerQuoteOf?.value
+        savedReplyTo = composerReplyTo?.value
         draftError = null
         overlayKey = Overlay.Composer::class.simpleName
     }
@@ -502,9 +509,35 @@ fun PalustrisApp(
         warningEnabled = false
         composerTarget = target
         composerQuoteOf = target.post.id
+        composerReplyTo = null
         savedQuoteOf = null
+        savedReplyTo = null
         draftError = null
         overlayKey = Overlay.Composer::class.simpleName
+    }
+
+    fun openReply(target: OwnedPost) {
+        val owner = account ?: return
+        if (target.fetchedBy != owner.id || PostAction.Reply !in (feedState?.actions ?: emptySet())) return
+        if (overlay != null || hasDraftChanges) return
+        draftId = null
+        draft = ""
+        savedDraft = ""
+        warning = ""
+        savedWarning = ""
+        warningEnabled = false
+        composerTarget = target
+        composerQuoteOf = null
+        composerReplyTo = target.post.actionTargetId ?: target.post.id
+        savedQuoteOf = null
+        savedReplyTo = null
+        draftError = null
+        overlayKey = Overlay.Composer::class.simpleName
+    }
+
+    val handleReply: (OwnedPost) -> Unit = { target ->
+        openReply(target)
+        onReply(target)
     }
 
     fun draftValue() = PostDraft(
@@ -513,6 +546,7 @@ fun PalustrisApp(
         text = draft,
         contentWarning = warning.takeIf { warningEnabled && it.isNotBlank() },
         quoteOf = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin },
+        replyTo = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin },
         quotePreview = composerTarget?.let { target ->
             PostDraftQuotePreview(
                 authorDisplayName = target.post.author.displayName,
@@ -524,7 +558,7 @@ fun PalustrisApp(
     )
 
     fun saveCurrentDraft(onSaved: () -> Unit = {}) {
-        if (draft.isBlank() && warning.isBlank() && composerQuoteOf == null) { onSaved(); return }
+        if (draft.isBlank() && warning.isBlank() && composerQuoteOf == null && composerReplyTo == null) { onSaved(); return }
         scope.launch {
             closing = true
             runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }
@@ -533,6 +567,7 @@ fun PalustrisApp(
                     savedDraft = item.text
                     savedWarning = item.contentWarning.orEmpty()
                     savedQuoteOf = item.quoteOf?.value
+                    savedReplyTo = item.replyTo?.value
                     draftError = null
                     onSaved()
                 }
@@ -646,7 +681,7 @@ fun PalustrisApp(
                                     onSignIn = onUpgradeSavedPermissions,
                                     onUpgradePermissions = onUpgradeSavedPermissions,
                                     onReact = onReact,
-                                    onReply = onReply,
+                                     onReply = handleReply,
                                     onReshare = onReshare,
                                      onReaction = onReaction,
                                      onOpenMedia = ::openMedia,
@@ -658,7 +693,7 @@ fun PalustrisApp(
                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                             LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                                 Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenMedia = ::openMedia) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                 Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenMedia = ::openMedia) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                                  Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill, compactLayout = !wide, compactNavigationVisible = !wide, mediaOwner = account?.id, onOpenMedia = ::openMedia)
                                 Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(
                                     connected = account != null,
@@ -706,7 +741,7 @@ fun PalustrisApp(
                                     onSearchHashtag = ::openHashtagSearch,
                                     availableActions = feedState?.actions ?: emptySet(),
                                     onReact = onReact,
-                                    onReply = onReply,
+                                     onReply = handleReply,
                                     onReshare = onReshare,
                                     onBookmark = onBookmark,
                                      onReaction = onReaction,
@@ -791,7 +826,7 @@ fun PalustrisApp(
             request = request,
             onClose = { mediaRequest = null },
             onReact = onReact,
-            onReply = onReply,
+            onReply = handleReply,
             onReshare = onReshare,
         )
     }
@@ -819,15 +854,16 @@ fun PalustrisApp(
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically) { ActionIcon(AppIcons.Close, "Close composer", ::closeComposer); Text("New post", style = MaterialTheme.typography.titleLarge) }
-                TextButton(enabled = draft.isNotBlank() && !closing, onClick = { saveCurrentDraft { overlayKey = null } }) { Text("Save draft") }
+                TextButton(enabled = (draft.isNotBlank() || composerReplyTo != null) && !closing, onClick = { saveCurrentDraft { overlayKey = null } }) { Text("Save draft") }
             }
-            ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, quoteTarget = composerTarget, onRemoveQuote = { composerTarget = null; composerQuoteOf = null }, onPublish = {
+            ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, quoteTarget = composerTarget, isReply = composerReplyTo != null, onRemoveQuote = { composerTarget = null; composerQuoteOf = null; composerReplyTo = null }, onPublish = {
                 val submittedText = draft; val submittedWarning = warning.takeIf { warningEnabled && it.isNotBlank() }
                 val submittedQuote = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
+                val submittedReply = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
                 scope.launch {
                     runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }.onSuccess { saved ->
                         draftId = saved.id; savedDraft = saved.text; savedWarning = saved.contentWarning.orEmpty()
-                        onPublish(CreatePostRequest(submittedText, contentWarning = submittedWarning, quoteOf = submittedQuote)) {
+                        onPublish(CreatePostRequest(submittedText, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) {
                             scope.launch { store.delete(account?.id, saved.id); reloadDrafts() }
                             draft = ""
                             savedDraft = ""
@@ -836,6 +872,8 @@ fun PalustrisApp(
                             warningEnabled = false
                             draftId = null
                             savedQuoteOf = null
+                            savedReplyTo = null
+                            composerReplyTo = null
                             composerQuoteOf = null
                             composerTarget = null
                             overlayKey = null

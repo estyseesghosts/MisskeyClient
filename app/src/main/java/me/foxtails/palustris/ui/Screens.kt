@@ -272,6 +272,7 @@ fun ComposeScreen(
     publishing: Boolean = false,
     error: String? = null,
     quoteTarget: OwnedPost? = null,
+    isReply: Boolean = false,
     onRemoveQuote: () -> Unit = {},
     onPublish: () -> Unit = {},
 ) {
@@ -288,7 +289,7 @@ fun ComposeScreen(
             OutlinedCard(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
                 Column(Modifier.padding(12.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Quoting ${target.post.author.displayName}", style = MaterialTheme.typography.titleSmall)
+                        Text(if (isReply) "Replying to ${target.post.author.displayName}" else "Quoting ${target.post.author.displayName}", style = MaterialTheme.typography.titleSmall)
                         TextButton(onClick = onRemoveQuote) { Text("Remove") }
                     }
                     Text(target.post.text.ifBlank { "This post has no text." }, maxLines = 4, overflow = TextOverflow.Ellipsis)

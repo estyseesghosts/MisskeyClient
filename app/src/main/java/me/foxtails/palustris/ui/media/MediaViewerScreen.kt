@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.ui.AppIcons
+import me.foxtails.palustris.ui.openExternal
 import me.foxtails.palustris.ui.sharePost
 
 @Composable
@@ -80,7 +81,13 @@ fun MediaViewerScreen(
                     Box {
                         IconButton(onClick = { menuVisible = true }, modifier = Modifier.semantics { contentDescription = "Media options" }) { Icon(AppIcons.More, null, tint = Color.White) }
                         DropdownMenu(expanded = menuVisible, onDismissRequest = { menuVisible = false }) {
-                            DropdownMenuItem(text = { Text("Open media in browser") }, onClick = { menuVisible = false })
+                            DropdownMenuItem(
+                                text = { Text("Open media in browser") },
+                                onClick = {
+                                    menuVisible = false
+                                    openExternal(context, attachments[pagerState.settledPage].url)
+                                },
+                            )
                             request.ownedPost.post.attachments[pagerState.settledPage].description?.let {
                                 DropdownMenuItem(text = { Text("Description") }, onClick = { menuVisible = false })
                             }
