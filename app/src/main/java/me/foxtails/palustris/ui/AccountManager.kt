@@ -222,6 +222,7 @@ class AccountManager @Inject constructor(
                     if (account.id != expected) throw SourceError.AccountMismatch
                 }
                 val session = withContext(ioDispatcher) {
+                    store.transaction {
                     val previous = store.read(account.id)
                     val session = Session(
                         accountId = account.id,
@@ -239,7 +240,8 @@ class AccountManager @Inject constructor(
                     store.writeIndex(updatedIndex)
                     store.clearPending()
                     _accountIndex.value = updatedIndex
-                    session
+                        session
+                    }
                 }
                 pending = null
                 startNotificationSync(session)
@@ -255,10 +257,12 @@ class AccountManager @Inject constructor(
         viewModelScope.launch {
             try {
                 val switched = withContext(ioDispatcher) {
-                    val session = store.read(accountId) ?: return@withContext null
+                    store.transaction {
+                    val session = store.read(accountId) ?: return@transaction null
                     val index = store.readIndex().copy(activeAccountId = accountId)
                     store.writeIndex(index)
-                    index to session
+                        index to session
+                    }
                 }
                 if (switched == null) {
                     _session.value = _session.value.copy(error = "That account is no longer available on this device.")
@@ -281,14 +285,16 @@ class AccountManager @Inject constructor(
                 pushRegistrationManager.disable(accountId)
                 notificationSync.removeAccount(accountId)
                 val replacement = withContext(ioDispatcher) {
-                    store.delete(accountId)
                     postPreferencesRepository.remove(accountId)
+                    store.transaction {
+                        store.delete(accountId)
                     val index = store.readIndex()
                     val accounts = index.accounts.filterNot { it.accountId == accountId }
                     val nextId = if (index.activeAccountId == accountId) accounts.firstOrNull()?.accountId else index.activeAccountId
                     val updated = index.copy(accounts = accounts, activeAccountId = nextId)
                     store.writeIndex(updated)
-                    nextId?.let { store.read(it) }?.let { it to updated } ?: (null to updated)
+                        nextId?.let { store.read(it) }?.let { it to updated } ?: (null to updated)
+                    }
                 }
                 _accountIndex.value = replacement.second
                 if (loginAccountId() == accountId) {

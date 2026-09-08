@@ -29,7 +29,6 @@ import me.foxtails.palustris.domain.Timeline
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.io.FileOutputStream
 import java.security.KeyStore
 import java.util.Base64
 import javax.crypto.Cipher
@@ -46,13 +45,16 @@ class AccountFileStore internal constructor(
 
     private val accountsDirectory = File(context.noBackupFilesDir, "accounts")
 
+    @Synchronized
     fun read(accountId: AccountId): Session? {
         val file = fileFor(accountId)
         if (!file.exists()) return null
         val json = readJson(file)
         val storedConnection = Connection(json.getString("origin"), Protocol.valueOf(json.getString("protocol")))
+        val storedAccountId = AccountId(storedConnection, json.getString("localId"))
+        if (storedAccountId != accountId) return null
         return Session(
-            accountId = AccountId(storedConnection, json.getString("localId")),
+            accountId = storedAccountId,
             token = json.getString("token"),
             capabilities = json.optJSONObject("capabilities")?.toCapabilities() ?: ServerCapabilities(),
             access = json.optJSONObject("access")?.toAccessGrant() ?: AccessGrant(),
@@ -62,6 +64,7 @@ class AccountFileStore internal constructor(
         )
     }
 
+    @Synchronized
     fun write(accountId: AccountId, session: Session, profile: JSONObject = JSONObject()) {
         require(accountId == session.accountId) { "Session account does not match the requested file." }
         writeJson(fileFor(accountId), JSONObject()
@@ -77,6 +80,7 @@ class AccountFileStore internal constructor(
             .put("profile", JSONObject(profile.toString())))
     }
 
+    @Synchronized
     fun writePushInstance(accountId: AccountId, instanceName: String) {
         val file = fileFor(accountId)
         val json = readJson(file)
@@ -84,6 +88,7 @@ class AccountFileStore internal constructor(
         writeJson(file, json)
     }
 
+    @Synchronized
     fun updatePushState(
         accountId: AccountId,
         instanceName: String,
@@ -96,6 +101,7 @@ class AccountFileStore internal constructor(
         return true
     }
 
+    @Synchronized
     fun updateCapabilities(
         accountId: AccountId,
         update: (ServerCapabilities) -> ServerCapabilities,
@@ -107,6 +113,7 @@ class AccountFileStore internal constructor(
         return true
     }
 
+    @Synchronized
     fun writeProfile(accountId: AccountId, profile: JSONObject) {
         val file = fileFor(accountId)
         val json = readJson(file)
@@ -114,14 +121,17 @@ class AccountFileStore internal constructor(
         writeJson(file, json)
     }
 
+    @Synchronized
     fun delete(accountId: AccountId) {
         AtomicFile(fileFor(accountId)).delete()
     }
 
+    @Synchronized
     fun clear() {
         accountsDirectory.deleteRecursively()
     }
 
+    @Synchronized
     internal fun readJson(file: File): JSONObject {
         val bytes = AtomicFile(file).readFully()
         require(bytes.size > 28) { "Encrypted session file is invalid." }
@@ -130,22 +140,22 @@ class AccountFileStore internal constructor(
         return JSONObject(String(cipher.doFinal(bytes.copyOfRange(12, bytes.size)), Charsets.UTF_8))
     }
 
+    @Synchronized
     internal fun writeJson(file: File, json: JSONObject) {
         file.parentFile?.mkdirs()
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val bytes = cipher.iv + cipher.doFinal(json.toString().toByteArray(Charsets.UTF_8))
-        val temporary = File(file.parentFile, "${file.name}.tmp")
-        FileOutputStream(temporary).use { stream ->
+        val atomicFile = AtomicFile(file)
+        val stream = atomicFile.startWrite()
+        try {
             stream.write(bytes)
             stream.fd.sync()
+            atomicFile.finishWrite(stream)
+        } catch (error: Exception) {
+            atomicFile.failWrite(stream)
+            throw error
         }
-        java.nio.file.Files.move(
-            temporary.toPath(),
-            file.toPath(),
-            java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-        )
-        File("${file.path}.bak").delete()
     }
 
     private fun fileFor(accountId: AccountId): File {
@@ -175,6 +185,7 @@ private fun PushSessionState.toJson(): JSONObject = JSONObject()
     .put("endpointGeneration", endpointGeneration)
     .put("endpointCallbackPending", endpointCallbackPending)
     .put("messageHintPending", messageHintPending)
+    .put("messageGeneration", messageGeneration)
     .put("lastCallbackAt", lastCallbackAtEpochMillis)
 
 private fun JSONObject.toPushSessionState(): PushSessionState = PushSessionState(
@@ -184,6 +195,7 @@ private fun JSONObject.toPushSessionState(): PushSessionState = PushSessionState
     endpointGeneration = optLong("endpointGeneration"),
     endpointCallbackPending = optBoolean("endpointCallbackPending"),
     messageHintPending = optBoolean("messageHintPending"),
+    messageGeneration = optLong("messageGeneration"),
     lastCallbackAtEpochMillis = optLong("lastCallbackAt"),
 )
 

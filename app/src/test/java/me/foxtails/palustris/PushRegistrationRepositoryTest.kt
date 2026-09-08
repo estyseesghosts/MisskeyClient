@@ -21,7 +21,9 @@ import me.foxtails.palustris.domain.PushRegistration
 import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -115,6 +117,27 @@ class PushRegistrationRepositoryTest {
         assertEquals(true, store.read(account)!!.pushState.messageHintPending)
         assertEquals(true, store.clearPushEndpointPending(account, "push-instance"))
         assertEquals(false, store.read(account)!!.pushState.endpointCallbackPending)
+    }
+
+    @Test
+    fun olderEndpointAndMessageWorkCannotClearNewerCallback() {
+        val store = MemorySessionStore(session)
+        val firstEndpoint = ValidatedUrl.https("https://push.example/first")!!
+        val secondEndpoint = ValidatedUrl.https("https://push.example/second")!!
+
+        assertTrue(store.recordPushEndpoint(account, "push-instance", firstEndpoint, "public-1", "auth-1"))
+        val firstGeneration = store.read(account)!!.pushState.endpointGeneration
+        assertTrue(store.recordPushEndpoint(account, "push-instance", secondEndpoint, "public-2", "auth-2"))
+        val secondState = store.read(account)!!.pushState
+        assertTrue(secondState.endpointGeneration > firstGeneration)
+        assertFalse(store.clearPushEndpointPending(account, "push-instance", firstGeneration))
+        assertTrue(store.read(account)!!.pushState.endpointCallbackPending)
+
+        assertTrue(store.recordPushMessageHint(account, "push-instance"))
+        val firstMessageGeneration = store.read(account)!!.pushState.messageGeneration
+        assertTrue(store.recordPushMessageHint(account, "push-instance"))
+        assertFalse(store.clearPushMessageHint(account, "push-instance", firstMessageGeneration))
+        assertTrue(store.read(account)!!.pushState.messageHintPending)
     }
 
     @Test

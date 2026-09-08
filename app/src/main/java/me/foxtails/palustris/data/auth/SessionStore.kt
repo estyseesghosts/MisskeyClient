@@ -58,6 +58,10 @@ interface SessionStore {
     fun readIndex(): AccountIndex
     fun writeIndex(index: AccountIndex)
     fun clear()
+
+    /** Serializes storage read/modify/write workflows without spanning network requests. */
+    fun <T> transaction(block: () -> T): T = block()
+
     fun writePushInstance(accountId: AccountId, instanceName: String) = Unit
 
     /** Atomically replaces encrypted callback state only when the instance still owns the account. */
@@ -68,9 +72,9 @@ interface SessionStore {
         publicKey: String,
         authSecret: String,
         callbackAtEpochMillis: Long = System.currentTimeMillis(),
-    ): Boolean {
-        val session = read(accountId) ?: return false
-        if (session.pushInstanceName != instanceName || publicKey.isBlank() || authSecret.isBlank()) return false
+    ): Boolean = transaction {
+        val session = read(accountId) ?: return@transaction false
+        if (session.pushInstanceName != instanceName || publicKey.isBlank() || authSecret.isBlank()) return@transaction false
         val old = session.pushState
         val changed = old.endpoint != endpoint || old.publicKey != publicKey || old.authSecret != authSecret
         write(accountId, session.copy(
@@ -83,42 +87,64 @@ interface SessionStore {
                 lastCallbackAtEpochMillis = callbackAtEpochMillis,
             ),
         ))
-        return true
+        true
     }
 
-    fun recordPushMessageHint(accountId: AccountId, instanceName: String): Boolean {
-        val session = read(accountId) ?: return false
-        if (session.pushInstanceName != instanceName) return false
-        write(accountId, session.copy(pushState = session.pushState.copy(messageHintPending = true)))
-        return true
+    fun recordPushMessageHint(accountId: AccountId, instanceName: String): Boolean = transaction {
+        val session = read(accountId) ?: return@transaction false
+        if (session.pushInstanceName != instanceName) return@transaction false
+        val state = session.pushState
+        write(accountId, session.copy(pushState = state.copy(
+            messageHintPending = true,
+            messageGeneration = state.messageGeneration + 1,
+        )))
+        true
     }
 
-    fun clearPushEndpointPending(accountId: AccountId, instanceName: String): Boolean = updatePushState(accountId, instanceName) {
-        it.copy(endpointCallbackPending = false)
+    fun clearPushEndpointPending(
+        accountId: AccountId,
+        instanceName: String,
+        generation: Long? = null,
+    ): Boolean = transaction {
+        val session = read(accountId) ?: return@transaction false
+        if (session.pushInstanceName != instanceName) return@transaction false
+        val state = session.pushState
+        if (generation != null && state.endpointGeneration != generation) return@transaction false
+        write(accountId, session.copy(pushState = state.copy(endpointCallbackPending = false)))
+        true
     }
 
-    fun clearPushMessageHint(accountId: AccountId, instanceName: String): Boolean = updatePushState(accountId, instanceName) {
-        it.copy(messageHintPending = false)
+    fun clearPushMessageHint(
+        accountId: AccountId,
+        instanceName: String,
+        generation: Long? = null,
+    ): Boolean = transaction {
+        val session = read(accountId) ?: return@transaction false
+        if (session.pushInstanceName != instanceName) return@transaction false
+        val state = session.pushState
+        if (generation != null && state.messageGeneration != generation) return@transaction false
+        write(accountId, session.copy(pushState = state.copy(messageHintPending = false)))
+        true
     }
 
     fun updateCapabilities(
         accountId: AccountId,
         update: (ServerCapabilities) -> ServerCapabilities,
-    ): Boolean {
-        val session = read(accountId) ?: return false
+    ): Boolean = transaction {
+        val session = read(accountId) ?: return@transaction false
         write(accountId, session.copy(capabilities = update(session.capabilities)))
-        return true
+        true
     }
 
     fun updatePushState(
         accountId: AccountId,
         instanceName: String,
         update: (PushSessionState) -> PushSessionState,
-    ): Boolean {
-        val session = read(accountId) ?: return false
-        if (session.pushInstanceName != instanceName) return false
+    ): Boolean = transaction {
+        val session = read(accountId) ?: return@transaction false
+        if (session.pushInstanceName != instanceName) return@transaction false
         write(accountId, session.copy(pushState = update(session.pushState)))
-        return true
+        true
     }
 
     /** Pending authentication is intentionally separate from committed account sessions. */
@@ -172,36 +198,49 @@ class EncryptedSessionStore private constructor(
         }
     }
 
+    @Synchronized
+    override fun <T> transaction(block: () -> T): T {
+        migrateFromLegacy()
+        return block()
+    }
+
+    @Synchronized
     override fun read(accountId: AccountId): Session? {
         migrateFromLegacy()
         return accountFiles.read(accountId)
     }
 
+    @Synchronized
     override fun write(accountId: AccountId, session: Session) {
         migrateFromLegacy()
         accountFiles.write(accountId, session)
     }
 
+    @Synchronized
     override fun writeProfile(accountId: AccountId, profile: JSONObject) {
         migrateFromLegacy()
         accountFiles.writeProfile(accountId, profile)
     }
 
+    @Synchronized
     override fun delete(accountId: AccountId) {
         migrateFromLegacy()
         accountFiles.delete(accountId)
     }
 
+    @Synchronized
     override fun readIndex(): AccountIndex {
         migrateFromLegacy()
         return readIndexInternal()
     }
 
+    @Synchronized
     override fun writeIndex(index: AccountIndex) {
         migrateFromLegacy()
         writeIndexInternal(index)
     }
 
+    @Synchronized
     override fun readPending(): PendingLogin? {
         migrateFromLegacy()
         if (!pendingFile.exists()) return null
@@ -209,16 +248,19 @@ class EncryptedSessionStore private constructor(
         return json.toPendingLogin()
     }
 
+    @Synchronized
     override fun writePending(pending: PendingLogin) {
         migrateFromLegacy()
         writePendingInternal(pending)
     }
 
+    @Synchronized
     override fun clearPending() {
         migrateFromLegacy()
         AtomicFile(pendingFile).delete()
     }
 
+    @Synchronized
     override fun clear() {
         accountFiles.clear()
         AtomicFile(pendingFile).delete()
@@ -227,11 +269,13 @@ class EncryptedSessionStore private constructor(
         migrationComplete = true
     }
 
+    @Synchronized
     override fun writePushInstance(accountId: AccountId, instanceName: String) {
         migrateFromLegacy()
         accountFiles.writePushInstance(accountId, instanceName)
     }
 
+    @Synchronized
     override fun updatePushState(
         accountId: AccountId,
         instanceName: String,
@@ -241,6 +285,7 @@ class EncryptedSessionStore private constructor(
         return accountFiles.updatePushState(accountId, instanceName, update)
     }
 
+    @Synchronized
     override fun updateCapabilities(
         accountId: AccountId,
         update: (ServerCapabilities) -> ServerCapabilities,

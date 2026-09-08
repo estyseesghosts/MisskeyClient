@@ -11,5 +11,7 @@ data class PushSessionState(
     val endpointGeneration: Long = 0,
     val endpointCallbackPending: Boolean = false,
     val messageHintPending: Boolean = false,
+    /** Monotonic receipt generation used to compare-and-clear message hints. */
+    val messageGeneration: Long = 0,
     val lastCallbackAtEpochMillis: Long = 0,
 )
