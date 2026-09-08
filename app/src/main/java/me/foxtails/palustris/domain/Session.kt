@@ -6,4 +6,6 @@ data class Session(
     val token: String,
     val capabilities: ServerCapabilities,
     val access: AccessGrant = AccessGrant(),
+    /** Opaque per-account UnifiedPush instance, kept with the encrypted session. */
+    val pushInstanceName: String? = null,
 )

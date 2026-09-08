@@ -27,6 +27,12 @@ fun NotificationDetailScreen(
 ) {
     val context = LocalContext.current
     when (route) {
+        is AppRoute.NotificationSettings -> EmptyState(
+            me.foxtails.palustris.ui.AppIcons.Notifications,
+            stringResource(R.string.notifications_detail_title),
+            stringResource(R.string.notifications_target_unavailable),
+            modifier,
+        )
         is AppRoute.AccountUnavailable -> EmptyState(
             me.foxtails.palustris.ui.AppIcons.Unavailable,
             stringResource(R.string.notifications_account_unavailable_title),

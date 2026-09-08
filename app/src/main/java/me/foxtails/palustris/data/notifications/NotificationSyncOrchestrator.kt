@@ -14,11 +14,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Event
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.NotificationSyncToken
+import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationUnreadState
+import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.SocialSource
 
 data class NotificationSyncState(
@@ -27,6 +32,8 @@ data class NotificationSyncState(
     val isActive: Boolean = false,
     val delayed: Boolean = false,
     val error: String? = null,
+    val streamConnected: Boolean = false,
+    val streamError: String? = null,
 )
 
 interface NotificationSyncController {
@@ -64,7 +71,7 @@ class NotificationSyncOrchestrator @Inject constructor(
     private val repository: NotificationRepository,
     private val synchronizer: NotificationSynchronizer,
     private val sourceRegistry: AccountSourceRegistry,
-) : NotificationSyncController, AutoCloseable {
+) : NotificationSyncController, NotificationSyncIntents, AutoCloseable {
     private constructor(dependencies: Dependencies) : this(
         dependencies.repository,
         dependencies.synchronizer,
@@ -82,6 +89,7 @@ class NotificationSyncOrchestrator @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val states = mutableMapOf<AccountId, MutableStateFlow<NotificationSyncState>>()
     private val jobs = mutableMapOf<AccountId, Job>()
+    private val accountLocks = mutableMapOf<AccountId, Mutex>()
     private val generations = mutableMapOf<AccountId, Long>()
 
     @Synchronized
@@ -96,6 +104,7 @@ class NotificationSyncOrchestrator @Inject constructor(
         val nextGeneration = (generations[accountId] ?: 0L) + 1L
         generations[accountId] = nextGeneration
         jobs.remove(accountId)?.cancel()
+        accountLocks.remove(accountId)
         sourceRegistry.remove(accountId)
         repository.invalidate(accountId, nextGeneration)
         states[accountId]?.value = states[accountId]?.value?.copy(isActive = false) ?: NotificationSyncState()
@@ -129,11 +138,11 @@ class NotificationSyncOrchestrator @Inject constructor(
         val job = scope.launch {
             while (isActive && isCurrent(token)) {
                 try {
-                    val result = if (repository.checkpoint(accountId, NotificationQuery()) == null) {
-                        synchronizer.establishBaseline(source, token)
-                    } else {
-                        synchronizer.catchUpNewer(source, token)
+                    if (state.value.streamConnected) {
+                        delay(POLL_INTERVAL_MILLIS)
+                        continue
                     }
+                    val result = synchronize(token, source, NotificationQuery())
                     if (!isCurrent(token)) break
                     state.value = state.value.copy(
                         unreadState = result.unreadState.takeUnless { it is NotificationUnreadState.Unknown }
@@ -154,6 +163,54 @@ class NotificationSyncOrchestrator @Inject constructor(
         synchronized(this) {
             if (isCurrent(token)) jobs[accountId] = job else job.cancel()
         }
+    }
+
+    override suspend fun refresh(accountId: AccountId, query: NotificationQuery): NotificationSyncResult {
+        val token = repository.currentToken(accountId) ?: throw SourceError.Unauthorized
+        val source = sourceRegistry.sourceFor(token) ?: throw SourceError.Unsupported("notifications.source")
+        return synchronize(token, source, query)
+    }
+
+    override suspend fun loadOlder(accountId: AccountId, query: NotificationQuery): NotificationSyncResult {
+        val token = repository.currentToken(accountId) ?: throw SourceError.Unauthorized
+        val source = sourceRegistry.sourceFor(token) ?: throw SourceError.Unsupported("notifications.source")
+        return lockFor(accountId).withLock { synchronizer.loadOlder(source, token, query) }
+    }
+
+    override suspend fun acknowledge(accountId: AccountId): NotificationAcknowledgement {
+        val token = repository.currentToken(accountId) ?: throw SourceError.Unauthorized
+        val source = sourceRegistry.sourceFor(token) ?: throw SourceError.Unsupported("notifications.source")
+        return lockFor(accountId).withLock { synchronizer.applyAcknowledgement(source, token) }
+    }
+
+    suspend fun accept(event: Event): Boolean {
+        val token = repository.currentToken(event.accountId) ?: return false
+        return lockFor(event.accountId).withLock { repository.applyStreamEvent(token, event) }
+    }
+
+    fun setStreamConnected(accountId: AccountId, connected: Boolean, error: String? = null) {
+        synchronized(this) {
+            states[accountId]?.value = states[accountId]?.value?.copy(
+                streamConnected = connected,
+                streamError = error,
+            ) ?: return
+        }
+    }
+
+    private suspend fun synchronize(
+        token: NotificationSyncToken,
+        source: SocialSource,
+        query: NotificationQuery,
+    ): NotificationSyncResult = lockFor(token.accountId).withLock {
+        if (repository.checkpoint(token.accountId, query) == null) {
+            synchronizer.establishBaseline(source, token, query)
+        } else {
+            synchronizer.catchUpNewer(source, token, query)
+        }
+    }
+
+    private fun lockFor(accountId: AccountId): Mutex = synchronized(this) {
+        accountLocks.getOrPut(accountId, ::Mutex)
     }
 
     @Synchronized

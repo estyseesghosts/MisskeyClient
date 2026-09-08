@@ -20,6 +20,10 @@ import me.foxtails.palustris.data.auth.PendingLogin
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.data.misskey.HttpClientPool
+import me.foxtails.palustris.data.notifications.push.NoOpPushRegistrationManager
+import me.foxtails.palustris.data.notifications.push.PushRegistrationManager
+import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
+import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -47,6 +51,8 @@ class AccountManager @Inject constructor(
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val sourceFactory: SocialSourceFactory,
     private val notificationSync: AccountNotificationSyncController,
+    private val pushRegistrationManager: PushRegistrationManager,
+    private val notificationStreamController: NotificationStreamController,
 ) : ViewModel() {
     constructor(
         store: SessionStore,
@@ -58,6 +64,8 @@ class AccountManager @Inject constructor(
         ioDispatcher,
         SocialSourceFactory(HttpClientPool()),
         NoOpAccountNotificationSyncController(),
+        NoOpPushRegistrationManager(),
+        NoOpNotificationStreamController(),
     )
     private val _session = MutableStateFlow(SessionUi())
     val session = _session.asStateFlow()
@@ -259,6 +267,8 @@ class AccountManager @Inject constructor(
     fun removeAccount(accountId: me.foxtails.palustris.domain.AccountId) {
         viewModelScope.launch {
             try {
+                notificationStreamController.stop(accountId)
+                pushRegistrationManager.disable(accountId)
                 notificationSync.removeAccount(accountId)
                 val replacement = withContext(ioDispatcher) {
                     store.delete(accountId)
@@ -325,6 +335,7 @@ class AccountManager @Inject constructor(
 
     private fun startNotificationSync(session: Session) {
         notificationSync.register(session.accountId, sourceFactory.create(session))
+        pushRegistrationManager.onSessionAvailable(session.accountId)
     }
 
     private fun loginAccountId(): me.foxtails.palustris.domain.AccountId? = _activeSession.value?.accountId

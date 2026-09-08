@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +36,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import me.foxtails.palustris.R
@@ -67,7 +67,6 @@ fun NotificationsScreen(
     notificationState: me.foxtails.palustris.ui.NotificationsUiState = me.foxtails.palustris.ui.NotificationsUiState(),
     onRefreshNotifications: () -> Unit = {},
     onLoadMoreNotifications: () -> Unit = {},
-    onMarkAllNotificationsRead: () -> Unit = {},
     onMarkNotificationSeen: (Notification?) -> Unit = {},
     onDismissNotification: (Notification) -> Unit = {},
     onFollowRequest: (Notification, Boolean) -> Unit = { _, _ -> },
@@ -109,7 +108,6 @@ fun NotificationsScreen(
                 items = visibleItems,
                 onRefresh = onRefreshNotifications,
                 onLoadMore = onLoadMoreNotifications,
-                onMarkAll = onMarkAllNotificationsRead,
                 onMarkSeen = onMarkNotificationSeen,
                 onDismiss = onDismissNotification,
                 onFollowRequest = onFollowRequest,
@@ -144,7 +142,6 @@ fun NotificationsScreen(
                 items = visibleItems,
                 onRefresh = onRefreshNotifications,
                 onLoadMore = onLoadMoreNotifications,
-                onMarkAll = onMarkAllNotificationsRead,
                 onMarkSeen = onMarkNotificationSeen,
                 onDismiss = onDismissNotification,
                 onFollowRequest = onFollowRequest,
@@ -163,7 +160,6 @@ private fun NotificationContent(
     items: List<Notification>,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
-    onMarkAll: () -> Unit,
     onMarkSeen: (Notification?) -> Unit,
     onDismiss: (Notification) -> Unit,
     onFollowRequest: (Notification, Boolean) -> Unit,
@@ -191,31 +187,30 @@ private fun NotificationContent(
             )
         },
     ) {
-        when {
-            state.loading && items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            items.isEmpty() && state.error != null -> Column(
-                Modifier.fillMaxSize().padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(state.error, color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = onRefresh) { Text(stringResource(R.string.notifications_retry)) }
-            }
-            items.isEmpty() -> EmptyState(AppIcons.Notifications, title, subtitle)
-            else -> LazyColumn(
-                state = list,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+        LazyColumn(
+            state = list,
+            modifier = Modifier.fillMaxSize().testTag("notifications_content"),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (items.isEmpty()) {
                 item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = onRefresh) { Text(stringResource(R.string.notifications_refresh)) }
-                        TextButton(onClick = onMarkAll) { Text(stringResource(R.string.notifications_mark_all_read)) }
+                    Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        when {
+                            state.loading -> CircularProgressIndicator()
+                            state.error != null -> Column(
+                                Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text(state.error, color = MaterialTheme.colorScheme.error)
+                                TextButton(onClick = onRefresh) { Text(stringResource(R.string.notifications_retry)) }
+                            }
+                            else -> EmptyState(AppIcons.Notifications, title, subtitle)
+                        }
                     }
                 }
+            } else {
                 if (state.syncDelayed) item {
                     Text(stringResource(R.string.notifications_sync_delayed), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

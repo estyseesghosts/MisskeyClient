@@ -130,7 +130,7 @@ interface SocialSource {
     suspend fun follow(id: EntityId) = unsupported<Unit>("follow")
     suspend fun mute(id: EntityId) = unsupported<Unit>("mute")
     suspend fun block(id: EntityId) = unsupported<Unit>("block")
-    suspend fun streamEvents(): kotlinx.coroutines.flow.Flow<Event> = unsupported("streamEvents")
+    fun streamEvents(): kotlinx.coroutines.flow.Flow<Event> = kotlinx.coroutines.flow.emptyFlow()
 }
 
 private suspend fun <T> unsupported(feature: String): T = throw SourceError.Unsupported(feature)

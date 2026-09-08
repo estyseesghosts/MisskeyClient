@@ -26,8 +26,17 @@ import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.NotificationStore
 import me.foxtails.palustris.data.notifications.NotificationSyncController
+import me.foxtails.palustris.data.notifications.NotificationSyncIntents
 import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
+import me.foxtails.palustris.data.notifications.ForegroundNotificationStreamController
+import me.foxtails.palustris.data.notifications.NotificationStreamController
+import me.foxtails.palustris.data.notifications.AndroidNotificationPermissionController
+import me.foxtails.palustris.data.notifications.AndroidNotificationPresenter
+import me.foxtails.palustris.data.notifications.NotificationPermissionController
+import me.foxtails.palustris.data.notifications.NotificationPresenter
 import me.foxtails.palustris.data.notifications.RoomNotificationStore
+import me.foxtails.palustris.data.notifications.push.PushRegistrationManager
+import me.foxtails.palustris.data.notifications.push.UnifiedPushRegistrationManager
 import me.foxtails.palustris.data.notifications.db.NotificationDatabase
 import me.foxtails.palustris.data.notifications.db.NOTIFICATION_MIGRATIONS
 import me.foxtails.palustris.domain.Connection
@@ -118,6 +127,38 @@ object SyncModule {
     ): NotificationSyncController = coordinator
 
     @Provides
+    @Singleton
+    fun provideNotificationSyncIntents(
+        coordinator: NotificationSyncOrchestrator,
+    ): NotificationSyncIntents = coordinator
+
+    @Provides
+    @Singleton
+    fun provideNotificationStreamController(
+        controller: ForegroundNotificationStreamController,
+    ): NotificationStreamController = controller
+
+    @Provides
     @IoDispatcher
     fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object NotificationPresentationModule {
+    @Provides
+    @Singleton
+    fun provideNotificationPresenter(presenter: AndroidNotificationPresenter): NotificationPresenter = presenter
+
+    @Provides
+    @Singleton
+    fun provideNotificationPermissionController(
+        controller: AndroidNotificationPermissionController,
+    ): NotificationPermissionController = controller
+
+    @Provides
+    @Singleton
+    fun providePushRegistrationManager(
+        manager: UnifiedPushRegistrationManager,
+    ): PushRegistrationManager = manager
 }

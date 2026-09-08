@@ -56,6 +56,8 @@ import java.util.UUID
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.notifications.NotificationDetailScreen
 import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
+import me.foxtails.palustris.ui.notifications.NotificationSettingsScreen
+import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
 
 private enum class Destination(val label: String, val icon: ImageVector) {
@@ -225,6 +227,14 @@ fun PalustrisApp(
     onFollowRequest: (Notification, Boolean) -> Unit = { _, _ -> },
     onSelectNotificationQuery: (NotificationQuery) -> Unit = {},
     initialNotificationRoute: AppRoute? = null,
+    notificationSettingsState: NotificationSettingsUiState = NotificationSettingsUiState(),
+    onNotificationAlertsEnabled: (Boolean) -> Unit = {},
+    onNotificationShowPreviews: (Boolean) -> Unit = {},
+    onNotificationPeriodicFallback: (Boolean) -> Unit = {},
+    onNotificationQuietHours: (Boolean) -> Unit = {},
+    onNotificationToggleCategory: (me.foxtails.palustris.domain.NotificationCategory) -> Unit = {},
+    onNotificationLocalTest: () -> Unit = {},
+    onNotificationPermissionChanged: () -> Unit = {},
 ) = PalustrisTheme {
     val context = LocalContext.current
     val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
@@ -356,12 +366,35 @@ fun PalustrisApp(
                     topBar = {
                     when {
                         page != null -> TopAppBar(title = { Text(page!!) }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { page = null } })
-                        destination == Destination.Notifications -> TopAppBar(title = { Text(if (notificationsPanel == NotificationsPanel.Notifications) "Notifications" else "Direct messages") })
+                        notificationRoute != null -> TopAppBar(title = { Text("Notification") }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { notificationRoute = null } })
+                        destination == Destination.Notifications -> TopAppBar(
+                            title = { Text(if (notificationsPanel == NotificationsPanel.Notifications) "Notifications" else "Direct messages") },
+                            actions = {
+                                if (notificationsPanel == NotificationsPanel.Notifications && account != null) {
+                                    ActionIcon(AppIcons.Check, "Mark all notifications read", onMarkAllNotificationsRead)
+                                    ActionIcon(AppIcons.More, "Notification settings") {
+                                        notificationRoute = AppRoute.NotificationSettings(account.id)
+                                    }
+                                }
+                            },
+                        )
                         destination == Destination.Profile -> TopAppBar(title = { Column { Text(displayedProfile?.displayName ?: "Your profile"); Text(displayedProfile?.handle ?: "0 posts", style = MaterialTheme.typography.bodyMedium, maxLines = 1) } }, actions = { if (displayedProfile?.id == account?.id) { ActionIcon(AppIcons.Bookmark, "Bookmarks") { page = "Bookmarks" }; ActionIcon(AppIcons.Folder, "Drafts") { page = "Drafts" }; ActionIcon(AppIcons.More, "Accounts") { sheet = "Accounts" } } })
                     }
                 }) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
-                        if (notificationRoute != null) {
+                        if (notificationRoute is AppRoute.NotificationSettings) {
+                            NotificationSettingsScreen(
+                                state = notificationSettingsState,
+                                onAlertsEnabled = onNotificationAlertsEnabled,
+                                onShowPreviews = onNotificationShowPreviews,
+                                onPeriodicFallback = onNotificationPeriodicFallback,
+                                onQuietHours = onNotificationQuietHours,
+                                onToggleCategory = onNotificationToggleCategory,
+                                onRunLocalTest = onNotificationLocalTest,
+                                onPermissionChanged = onNotificationPermissionChanged,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else if (notificationRoute != null) {
                             NotificationDetailScreen(notificationRoute!!, notificationState.items, Modifier.fillMaxSize())
                         } else when (page) {
                             "Drafts" -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
@@ -377,7 +410,6 @@ fun PalustrisApp(
                                     notificationState = notificationState,
                                     onRefreshNotifications = onRefreshNotifications,
                                     onLoadMoreNotifications = onLoadMoreNotifications,
-                                    onMarkAllNotificationsRead = onMarkAllNotificationsRead,
                                     onMarkNotificationSeen = onMarkNotificationSeen,
                                     onDismissNotification = onDismissNotification,
                                     onFollowRequest = onFollowRequest,

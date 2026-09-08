@@ -30,16 +30,26 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.PushSubscription
+import me.foxtails.palustris.domain.PushSubscriptionSpec
 import me.foxtails.palustris.domain.Reaction
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.UpdateProfileRequest
+import me.foxtails.palustris.domain.ValidatedUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
+import me.foxtails.palustris.domain.Event
+import me.foxtails.palustris.domain.SocialEvent
+import me.foxtails.palustris.domain.NotificationReadState
+import me.foxtails.palustris.domain.NotificationReadStatus
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -163,6 +173,51 @@ class MisskeySource(
         Unit
     }
 
+    override fun streamEvents(): Flow<Event> = callbackFlow {
+        val account = requireAccountId()
+        val socket = api.webSocket(origin, "/streaming", listener = object : okhttp3.WebSocketListener() {
+            override fun onOpen(webSocket: okhttp3.WebSocket, response: okhttp3.Response) {
+                webSocket.send(JSONObject()
+                    .put("type", "connect")
+                    .put("body", JSONObject()
+                        .put("channel", "main")
+                        .put("id", "notifications")
+                        .put("params", JSONObject().put("i", token)))
+                    .toString())
+            }
+
+            override fun onMessage(webSocket: okhttp3.WebSocket, text: String) {
+                runCatching {
+                    val message = JSONObject(text)
+                    if (message.optString("type") != "channel") return@runCatching
+                    val body = message.optJSONObject("body") ?: return@runCatching
+                    when (body.optString("type")) {
+                        "notification" -> {
+                            val payload = body.optJSONObject("body") ?: return@runCatching
+                            trySend(Event(account, SocialEvent.NotificationReceived(
+                                MisskeyNotificationMapper.notification(payload, origin, account),
+                            )))
+                        }
+                        "readAllNotifications" -> trySend(Event(account, SocialEvent.NotificationReadChanged(
+                            account,
+                            NotificationReadState(NotificationReadStatus.Read, serverAcknowledged = true),
+                        )))
+                        else -> trySend(Event(account, SocialEvent.Other("notification.refresh")))
+                    }
+                }.onFailure { trySend(Event(account, SocialEvent.Other("notification.refresh"))) }
+            }
+
+            override fun onFailure(webSocket: okhttp3.WebSocket, t: Throwable, response: okhttp3.Response?) {
+                close(t)
+            }
+
+            override fun onClosed(webSocket: okhttp3.WebSocket, code: Int, reason: String) {
+                close()
+            }
+        })
+        awaitClose { socket.cancel() }
+    }
+
     override suspend fun notifications(cursor: String?): Page<Notification> {
         val page = notifications(NotificationQuery(), cursor?.let(::NotificationCursor))
         return Page(page.items, page.olderCursor?.value)
@@ -210,6 +265,42 @@ class MisskeySource(
         NotificationAcknowledgement(account, NotificationUnreadState.None, clock())
     }
 
+    override suspend fun createPushSubscription(spec: PushSubscriptionSpec): PushSubscription = request {
+        validatePushSpec(spec)
+        val response = JSONObject(api.post(origin, "sw/register", JSONObject()
+            .put("i", token)
+            .put("endpoint", spec.endpoint.value)
+            .put("auth", spec.authSecret)
+            .put("publickey", spec.publicKey)
+            .put("sendReadMessage", false)).body)
+        PushSubscription(
+            accountId = spec.accountId,
+            endpoint = ValidatedUrl.https(response.optString("endpoint")) ?: spec.endpoint,
+            remoteId = response.optString("key").takeIf { it.isNotBlank() },
+        )
+    }
+
+    override suspend fun updatePushSubscription(spec: PushSubscriptionSpec): PushSubscription = request {
+        validatePushSpec(spec)
+        val response = JSONObject(api.post(origin, "sw/update-registration", JSONObject()
+            .put("i", token)
+            .put("endpoint", spec.endpoint.value)
+            .put("sendReadMessage", false)).body)
+        PushSubscription(
+            accountId = spec.accountId,
+            endpoint = ValidatedUrl.https(response.optString("endpoint")) ?: spec.endpoint,
+        )
+    }
+
+    override suspend fun removePushSubscription() = request {
+        val endpoint = JSONObject(api.post(origin, "sw/show-registration", JSONObject().put("i", token)).body)
+            .optString("endpoint")
+        if (endpoint.isNotBlank()) {
+            api.post(origin, "sw/unregister", JSONObject().put("i", token).put("endpoint", endpoint))
+        }
+        Unit
+    }
+
     override suspend fun respondToFollowRequest(targetAccountId: AccountId, accept: Boolean) = request {
         validateFollowRequestTarget(targetAccountId)
         val endpoint = if (accept) "following/requests/accept" else "following/requests/reject"
@@ -220,6 +311,12 @@ class MisskeySource(
     private fun validateFollowRequestTarget(targetAccountId: AccountId) {
         if (targetAccountId.connection != Connection(origin, Protocol.MISSKEY) || targetAccountId.localId.isBlank()) {
             throw SourceError.Unsupported("notifications.followRequest")
+        }
+    }
+
+    private fun validatePushSpec(spec: PushSubscriptionSpec) {
+        if (spec.accountId != requireAccountId() || spec.publicKey.isBlank() || spec.authSecret.isBlank()) {
+            throw SourceError.Unsupported("notifications.push.spec")
         }
     }
 

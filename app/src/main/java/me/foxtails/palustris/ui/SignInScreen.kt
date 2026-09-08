@@ -17,12 +17,19 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
+import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
 import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
+import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
+import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 
 @Composable
 fun ConnectedApp(
@@ -31,6 +38,7 @@ fun ConnectedApp(
     sourceRegistry: AccountSourceRegistry,
     draftStore: DraftStore,
     notificationLaunchRouter: NotificationLaunchRouter,
+    notificationStreamController: NotificationStreamController = NoOpNotificationStreamController(),
 ) {
     val state by accountManager.session.collectAsStateWithLifecycle()
     val accountIndex by accountManager.accountIndex.collectAsStateWithLifecycle()
@@ -39,6 +47,26 @@ fun ConnectedApp(
     var initialNotificationRoute by remember { mutableStateOf<AppRoute?>(null) }
     val sharedSource = activeSession?.let { session ->
         sourceRegistry.sourceFor(session.accountId) ?: sourceFactory.create(session)
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(activeSession?.accountId, lifecycleOwner) {
+        val accountId = activeSession?.accountId
+        val observer = LifecycleEventObserver { _, event ->
+            if (accountId == null) return@LifecycleEventObserver
+            when (event) {
+                Lifecycle.Event.ON_START -> notificationStreamController.start(accountId)
+                Lifecycle.Event.ON_STOP -> notificationStreamController.stop(accountId)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (accountId != null && lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            notificationStreamController.start(accountId)
+        }
+        onDispose {
+            if (accountId != null) notificationStreamController.stop(accountId)
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
     val feedModel = activeSession?.let { session ->
         hiltViewModel<FeedViewModel, FeedViewModel.Factory>(
@@ -56,6 +84,12 @@ fun ConnectedApp(
             },
         )
     }
+    val notificationSettingsModel = activeSession?.let { session ->
+        hiltViewModel<NotificationSettingsViewModel, NotificationSettingsViewModel.Factory>(
+            key = "notification-settings-${session.accountId}-${state.sessionGeneration}",
+            creationCallback = { factory -> factory.create(session.accountId) },
+        )
+    }
     DisposableEffect(state.sessionGeneration, feedModel) {
         onDispose { feedModel?.stop() }
     }
@@ -63,6 +97,8 @@ fun ConnectedApp(
     else remember { mutableStateOf(FeedState()) }
     val notificationState by if (notificationsModel != null) notificationsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationsUiState()) }
+    val notificationSettingsState by if (notificationSettingsModel != null) notificationSettingsModel.state.collectAsStateWithLifecycle()
+    else remember { mutableStateOf(NotificationSettingsUiState()) }
     LaunchedEffect(feed.profile, state.account) {
         feed.profile?.takeIf { it != state.account }?.let(accountManager::updateAccount)
     }
@@ -122,6 +158,14 @@ fun ConnectedApp(
                 onFollowRequest = { notification, accept -> notificationsModel?.respondToFollowRequest(notification, accept) },
                 onSelectNotificationQuery = { query -> notificationsModel?.selectQuery(query) },
                 initialNotificationRoute = initialNotificationRoute,
+                notificationSettingsState = notificationSettingsState,
+                onNotificationAlertsEnabled = { enabled -> notificationSettingsModel?.setAlertsEnabled(enabled) },
+                onNotificationShowPreviews = { enabled -> notificationSettingsModel?.setShowPreviews(enabled) },
+                onNotificationPeriodicFallback = { enabled -> notificationSettingsModel?.setPeriodicFallbackEnabled(enabled) },
+                onNotificationQuietHours = { enabled -> notificationSettingsModel?.setQuietHours(enabled) },
+                onNotificationToggleCategory = { category -> notificationSettingsModel?.toggleCategory(category) },
+                onNotificationLocalTest = { notificationSettingsModel?.runLocalPresentationTest() },
+                onNotificationPermissionChanged = { notificationSettingsModel?.refreshPermission() },
             )
         }
     }

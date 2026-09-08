@@ -9,6 +9,9 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
 import me.foxtails.palustris.data.misskey.ApiFailure
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.domain.Audience
@@ -18,6 +21,8 @@ import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.Event
+import me.foxtails.palustris.domain.SocialEvent
 import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationCategory
@@ -32,6 +37,8 @@ import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.PushSubscription
+import me.foxtails.palustris.domain.PushSubscriptionSpec
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
@@ -181,6 +188,101 @@ class MastodonSource(
     override suspend fun dismissNotification(id: EntityId) = request {
         api.postForm(origin, "api/v1/notifications/${id.value.encodePathSegment()}/dismiss", emptyList(), token)
         Unit
+    }
+
+    override suspend fun createPushSubscription(spec: PushSubscriptionSpec): PushSubscription = request {
+        validatePushSpec(spec)
+        pushSubscription(
+            api.postForm(origin, "api/v1/push/subscription", pushCreateFields(spec), token).body,
+            spec,
+        )
+    }
+
+    override suspend fun updatePushSubscription(spec: PushSubscriptionSpec): PushSubscription = request {
+        validatePushSpec(spec)
+        pushSubscription(
+            api.putForm(origin, "api/v1/push/subscription", pushAlertFields(spec), token).body,
+            spec,
+        )
+    }
+
+    override suspend fun removePushSubscription() = request {
+        api.delete(origin, "api/v1/push/subscription", token)
+        Unit
+    }
+
+    private fun validatePushSpec(spec: PushSubscriptionSpec) {
+        if (spec.accountId != accountId || spec.publicKey.isBlank() || spec.authSecret.isBlank()) {
+            throw SourceError.Unsupported("notifications.push.spec")
+        }
+    }
+
+    private fun pushSubscription(body: String, spec: PushSubscriptionSpec): PushSubscription {
+        val json = JSONObject(body)
+        return PushSubscription(
+            accountId = spec.accountId,
+            endpoint = me.foxtails.palustris.domain.ValidatedUrl.https(json.optString("endpoint")) ?: spec.endpoint,
+            remoteId = json.optString("id").takeIf { it.isNotBlank() },
+        )
+    }
+
+    private fun pushCreateFields(spec: PushSubscriptionSpec): List<Pair<String, String>> = buildList {
+        add("subscription[endpoint]" to spec.endpoint.value)
+        add("subscription[keys][p256dh]" to spec.publicKey)
+        add("subscription[keys][auth]" to spec.authSecret)
+        add("subscription[standard]" to spec.standardWebPush.toString())
+        addAll(pushAlertFields(spec))
+    }
+
+    private fun pushAlertFields(spec: PushSubscriptionSpec): List<Pair<String, String>> {
+        val all = NotificationCategory.All in spec.alerts
+        fun enabled(category: NotificationCategory): String = (all || category in spec.alerts).toString()
+        return listOf(
+            "data[alerts][mention]" to enabled(NotificationCategory.Mentions),
+            "data[alerts][quote]" to enabled(NotificationCategory.Quotes),
+            "data[alerts][reblog]" to enabled(NotificationCategory.Social),
+            "data[alerts][follow]" to enabled(NotificationCategory.Social),
+            "data[alerts][follow_request]" to enabled(NotificationCategory.Social),
+            "data[alerts][favourite]" to enabled(NotificationCategory.Social),
+            "data[alerts][poll]" to enabled(NotificationCategory.Polls),
+            "data[alerts][status]" to enabled(NotificationCategory.Social),
+            "data[alerts][update]" to enabled(NotificationCategory.Social),
+            "data[alerts][quoted_update]" to enabled(NotificationCategory.Quotes),
+        )
+    }
+
+    override fun streamEvents(): Flow<Event> = callbackFlow {
+        val socket = api.webSocket(
+            origin,
+            "/api/v1/streaming/user",
+            headers = mapOf("Authorization" to "Bearer $token"),
+            listener = object : okhttp3.WebSocketListener() {
+                override fun onMessage(webSocket: okhttp3.WebSocket, text: String) {
+                    runCatching {
+                        val message = JSONObject(text)
+                        when (message.optString("event")) {
+                            "notification" -> {
+                                val payload = message.optString("payload").takeIf { it.isNotBlank() }
+                                    ?.let(::JSONObject) ?: return@runCatching
+                                trySend(Event(accountId, SocialEvent.NotificationReceived(
+                                    MastodonNotificationMapper.notification(payload, origin, accountId),
+                                )))
+                            }
+                            "delete", "filters_changed" -> trySend(Event(accountId, SocialEvent.Other("notification.refresh")))
+                        }
+                    }.onFailure { trySend(Event(accountId, SocialEvent.Other("notification.refresh"))) }
+                }
+
+                override fun onFailure(webSocket: okhttp3.WebSocket, t: Throwable, response: okhttp3.Response?) {
+                    close(t)
+                }
+
+                override fun onClosed(webSocket: okhttp3.WebSocket, code: Int, reason: String) {
+                    close()
+                }
+            },
+        )
+        awaitClose { socket.cancel() }
     }
 
     private suspend fun loadNotifications(

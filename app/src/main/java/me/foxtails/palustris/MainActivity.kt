@@ -11,6 +11,7 @@ import javax.inject.Inject
 import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.notifications.ForegroundNotificationStreamController
 import me.foxtails.palustris.ui.AccountManager
 import me.foxtails.palustris.ui.ConnectedApp
 import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
@@ -22,12 +23,22 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var sourceRegistry: AccountSourceRegistry
     @Inject lateinit var draftStore: DraftStore
     @Inject lateinit var notificationLaunchRouter: NotificationLaunchRouter
+    @Inject lateinit var notificationStreamController: ForegroundNotificationStreamController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) handleIntent(intent)
-        setContent { ConnectedApp(accountManager, sourceFactory, sourceRegistry, draftStore, notificationLaunchRouter) }
+        setContent {
+            ConnectedApp(
+                accountManager,
+                sourceFactory,
+                sourceRegistry,
+                draftStore,
+                notificationLaunchRouter,
+                notificationStreamController,
+            )
+        }
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

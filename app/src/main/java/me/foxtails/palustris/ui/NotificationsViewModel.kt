@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.NotificationSynchronizer
+import me.foxtails.palustris.data.notifications.NotificationSyncIntents
+import me.foxtails.palustris.data.notifications.SourceBackedNotificationSyncIntents
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
@@ -46,13 +48,18 @@ class NotificationsViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted private val source: SocialSource,
     private val repository: NotificationRepository,
-    private val synchronizer: NotificationSynchronizer,
+    private val syncIntents: NotificationSyncIntents,
 ) : ViewModel() {
     constructor(
         accountId: AccountId,
         source: SocialSource,
         repository: NotificationRepository,
-    ) : this(accountId, source, repository, NotificationSynchronizer(repository))
+    ) : this(
+        accountId,
+        source,
+        repository,
+        SourceBackedNotificationSyncIntents(accountId, source, repository, NotificationSynchronizer(repository)),
+    )
 
     private val _state = MutableStateFlow(NotificationsUiState())
     val state = _state.asStateFlow()
@@ -96,13 +103,8 @@ class NotificationsViewModel @AssistedInject constructor(
                 error = null,
             )
             try {
-                val token = currentToken()
                 val selectedQuery = query.value
-                val result = if (repository.checkpoint(accountId, selectedQuery) == null) {
-                    synchronizer.establishBaseline(source, token, selectedQuery)
-                } else {
-                    synchronizer.catchUpNewer(source, token, selectedQuery)
-                }
+                val result = syncIntents.refresh(accountId, selectedQuery)
                 _state.value = _state.value.copy(
                     loading = false,
                     refreshing = false,
@@ -127,7 +129,7 @@ class NotificationsViewModel @AssistedInject constructor(
         olderJob = viewModelScope.launch {
             _state.value = _state.value.copy(loadingMore = true, error = null)
             try {
-                val result = synchronizer.loadOlder(source, currentToken(), query.value)
+                val result = syncIntents.loadOlder(accountId, query.value)
                 _state.value = _state.value.copy(loadingMore = false, syncDelayed = result.delayed)
             } catch (error: CancellationException) {
                 throw error
@@ -141,7 +143,7 @@ class NotificationsViewModel @AssistedInject constructor(
         acknowledgementJob?.cancel()
         acknowledgementJob = viewModelScope.launch {
             try {
-                synchronizer.applyAcknowledgement(source, currentToken())
+                syncIntents.acknowledge(accountId)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

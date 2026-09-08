@@ -84,6 +84,17 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
         .put(FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build())
         .build())
 
+    suspend fun delete(
+        origin: String,
+        endpoint: String,
+        bearerToken: String? = null,
+    ): HttpResponse = execute(Request.Builder().url("$origin/$endpoint")
+        .header("Accept", "application/json")
+        .header("User-Agent", "Palustris/0.1 (Android)")
+        .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
+        .delete()
+        .build())
+
     suspend fun postMultipart(
         origin: String,
         endpoint: String,
@@ -113,6 +124,24 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
             .header("User-Agent", "Palustris/0.1 (Android)")
             .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
             .get().build())
+
+    fun webSocket(origin: String, path: String, headers: Map<String, String> = emptyMap(), listener: WebSocketListener): WebSocket {
+        val base = origin.toHttpUrlOrNull()
+            ?: throw IllegalArgumentException("Invalid stream origin")
+        require(base.scheme == "https" && base.username.isEmpty() && base.password.isEmpty() && base.host.isNotBlank()) {
+            "Stream origin must be HTTPS without credentials"
+        }
+        val url = base.newBuilder()
+            .scheme("wss")
+            .encodedPath(path)
+            .query(null)
+            .fragment(null)
+            .build()
+        val request = Request.Builder().url(url).apply {
+            headers.forEach { (name, value) -> header(name, value) }
+        }.build()
+        return client.newWebSocket(request, listener)
+    }
 
     private suspend fun execute(request: Request): HttpResponse = withContext(Dispatchers.IO) {
         suspendCancellableCoroutine { continuation ->

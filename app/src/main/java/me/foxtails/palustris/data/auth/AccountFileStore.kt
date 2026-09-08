@@ -49,6 +49,7 @@ class AccountFileStore internal constructor(
             json.getString("token"),
             json.optJSONObject("capabilities")?.toCapabilities() ?: ServerCapabilities(),
             json.optJSONObject("access")?.toAccessGrant() ?: AccessGrant(),
+            json.optString("pushInstanceName").takeIf { it.isNotBlank() },
         )
     }
 
@@ -61,7 +62,15 @@ class AccountFileStore internal constructor(
             .put("token", session.token)
             .put("capabilities", session.capabilities.toJson())
             .put("access", session.access.toJson())
+            .put("pushInstanceName", session.pushInstanceName)
             .put("profile", JSONObject(profile.toString())))
+    }
+
+    fun writePushInstance(accountId: AccountId, instanceName: String) {
+        val file = fileFor(accountId)
+        val json = readJson(file)
+        json.put("pushInstanceName", instanceName)
+        writeJson(file, json)
     }
 
     fun writeProfile(accountId: AccountId, profile: JSONObject) {

@@ -1,6 +1,6 @@
 # Notifications compatibility notes
 
-Updated September 7, 2026 for the Milestone 1 contract work. This is a
+Updated September 8, 2026 for the notification implementation work. This is a
 conservative implementation matrix, not a promise that every moving server
 release supports every notification feature.
 
@@ -12,7 +12,7 @@ release supports every notification feature.
 | Read acknowledgement | Account-wide `POST /api/notifications/mark-all-as-read` | Notification timeline marker through `/api/v1/markers` | Modeled as explicit acknowledgement; no fetch implicitly marks the inbox read |
 | Unread knowledge | User-level unread fields vary by server version; individual notification records do not guarantee a read flag | Timeline markers and server-specific support vary | `Exact`, `LowerBound`, `Boolean`, `None`, and `Unknown` are distinct |
 | Grouping | Optional `i/notifications-grouped`, with Misskey-specific paging | Optional `/api/v2/notifications`; older servers use v1 | Group identity is account-scoped and never replaces notification identity |
-| Push | `sw/register`, update, and unregister lifecycle | `/api/v1/push/subscription`; requires the separate `push` OAuth scope | UnifiedPush/Web Push is represented by `PushSubscriptionSpec`; transport wiring is deferred |
+| Push | `sw/register`, update, and unregister lifecycle | `/api/v1/push/subscription`; requires the separate `push` OAuth scope | UnifiedPush connector 3.3.5 delivers Web Push endpoints to an account-scoped manager; both adapters register through `PushSubscriptionSpec` |
 
 The Misskey listing and read-all behavior is based on the endpoint sources linked
 from the roadmap. Mastodon application registration and push scope behavior are
@@ -35,12 +35,12 @@ or distributor credentials are stored in the repository or logs.
 
 ## Open Milestone 0 evidence
 
-The authenticated UnifiedPush round trip is not yet verified. No designated
-Misskey/Mastodon test accounts or distributor credentials were available in this
-workspace, so this matrix does not claim registration, delivery, decryption, or
-unregistration success. The implementation keeps push capability and requested
-access explicit so the connector spike can be added without changing the shared
-domain boundary.
+The authenticated UnifiedPush round trip is still not verified in this
+workspace. The app now includes the official connector, an Android `PushService`,
+encrypted connector key handling, a stable opaque instance per account, endpoint
+rotation, server subscription registration, payload-safe catch-up hints, and
+logout cleanup. Device delivery, distributor behavior, server-version behavior,
+and process-death recovery remain live-test gates.
 
 ## Milestone 2 implementation evidence
 
@@ -63,8 +63,21 @@ The REST adapters now cover the planned notification foundation:
   separate account-scoped group identity.
 
 Live authenticated server delivery and device presentation remain intentionally
-unverified until the user-provided UnifiedPush distributor and test accounts are
-available.
+unverified until the user-provided Sunup distributor and test accounts are used.
+
+## UnifiedPush implementation evidence
+
+- `org.unifiedpush.android:connector:3.3.5` is pinned in the version catalog;
+  no FCM dependency or fallback was added.
+- Sunup is selected when it is installed and available. If no distributor is
+  available, settings expose a visible setup state instead of claiming delivery.
+- The connector callback never presents arbitrary push text. It rejects
+  credential-bearing payload shapes and schedules authenticated REST catch-up;
+  the repository and delivery planner remain the only source of alert content.
+- Foreground WebSocket streams are lifecycle-bound; background delivery uses
+  UnifiedPush and account-unique WorkManager reconciliation.
+- The Mastodon adapter uses v1 push subscription endpoints even when inbox
+  listing uses v2 grouped notifications; these are separate Mastodon APIs.
 
 References: [Mastodon applications](https://docs.joinmastodon.org/methods/apps/),
 [Mastodon push subscriptions](https://docs.joinmastodon.org/methods/push/),

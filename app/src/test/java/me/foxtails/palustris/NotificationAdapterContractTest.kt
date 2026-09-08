@@ -16,7 +16,9 @@ import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.PushSubscriptionSpec
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.domain.ValidatedUrl
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONArray
@@ -289,6 +291,63 @@ class NotificationAdapterContractTest {
         val marker = server.takeRequest()
         assertEquals("/api/v1/markers", marker.path)
         assertTrue(marker.body.readUtf8().contains("notifications%5Blast_read_id%5D=latest"))
+    }
+
+    @Test
+    fun mastodonPushUsesV1SubscriptionContractAndAuthenticatedDelete() = runBlocking {
+        val origin = server.url("/").toString().removeSuffix("/")
+        val account = AccountId(Connection(origin, Protocol.MASTODON), "receiver")
+        val spec = PushSubscriptionSpec(
+            account,
+            ValidatedUrl.https("https://push.example/endpoint")!!,
+            "public-key",
+            "auth-secret",
+            alerts = setOf(NotificationCategory.Mentions),
+        )
+        server.enqueue(MockResponse().setBody(JSONObject().put("id", "push-id").put("endpoint", spec.endpoint.value).toString()))
+        server.enqueue(MockResponse().setBody(JSONObject().put("id", "push-id").put("endpoint", spec.endpoint.value).toString()))
+        server.enqueue(MockResponse())
+        val source = MastodonSource(origin, "token", MisskeyApi(), account)
+
+        source.createPushSubscription(spec)
+        source.updatePushSubscription(spec)
+        source.removePushSubscription()
+
+        val create = server.takeRequest()
+        assertEquals("/api/v1/push/subscription", create.path)
+        assertTrue(create.body.readUtf8().contains("subscription%5Bkeys%5D%5Bp256dh%5D=public-key"))
+        val update = server.takeRequest()
+        assertEquals("/api/v1/push/subscription", update.path)
+        assertTrue(update.body.readUtf8().contains("data%5Balerts%5D%5Bmention%5D=true"))
+        assertEquals("DELETE", server.takeRequest().method)
+    }
+
+    @Test
+    fun misskeyPushUsesWebPushRegistrationFields() = runBlocking {
+        val origin = server.url("/").toString().removeSuffix("/")
+        val account = AccountId(Connection(origin, Protocol.MISSKEY), "receiver")
+        val spec = PushSubscriptionSpec(
+            account,
+            ValidatedUrl.https("https://push.example/endpoint")!!,
+            "public-key",
+            "auth-secret",
+        )
+        server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", spec.endpoint.value).put("key", "registration").toString()))
+        server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", spec.endpoint.value).toString()))
+        server.enqueue(MockResponse().setBody(JSONObject().put("endpoint", spec.endpoint.value).toString()))
+        server.enqueue(MockResponse())
+        val source = MisskeySource(origin, "token", MisskeyApi(), accountId = account)
+
+        source.createPushSubscription(spec)
+        source.updatePushSubscription(spec)
+        source.removePushSubscription()
+
+        val create = server.takeRequest()
+        assertEquals("/api/sw/register", create.path)
+        assertEquals("false", JSONObject(create.body.readUtf8()).getString("sendReadMessage"))
+        assertEquals("/api/sw/update-registration", server.takeRequest().path)
+        assertEquals("/api/sw/show-registration", server.takeRequest().path)
+        assertEquals("/api/sw/unregister", server.takeRequest().path)
     }
 
     private fun mastodonNotification(id: String, type: String) = JSONObject()

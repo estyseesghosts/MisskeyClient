@@ -26,6 +26,8 @@ import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationDeliveryRecord
 import me.foxtails.palustris.domain.NotificationDeliveryState
 import me.foxtails.palustris.domain.NotificationDestination
+import me.foxtails.palustris.domain.Event
+import me.foxtails.palustris.domain.SocialEvent
 import me.foxtails.palustris.domain.NotificationGroup
 import me.foxtails.palustris.domain.NotificationGroupId
 import me.foxtails.palustris.domain.NotificationPage
@@ -34,12 +36,16 @@ import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.NotificationReadState
 import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationReaction
+import me.foxtails.palustris.domain.NotificationSettings
+import me.foxtails.palustris.domain.NotificationPushRegistrationState
+import me.foxtails.palustris.domain.PushRegistration
 import me.foxtails.palustris.domain.NotificationSyncCompleteness
 import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -53,6 +59,8 @@ data class NotificationRepositoryState(
     /** Tombstones make local-only dismissal survive refetch, restart, and older-page ingestion. */
     val dismissedIds: Set<EntityId> = emptySet(),
     val deliveries: Map<EntityId, NotificationDeliveryRecord> = emptyMap(),
+    val settings: NotificationSettings = NotificationSettings(),
+    val pushRegistration: PushRegistration? = null,
 )
 
 data class NotificationInboxSnapshot(
@@ -393,6 +401,53 @@ class NotificationRepository @javax.inject.Inject constructor(
         return true
     }
 
+    suspend fun applyStreamEvent(token: NotificationSyncToken, event: Event): Boolean {
+        if (event.accountId != token.accountId) return false
+        val next = synchronized(this) {
+            if (!isCurrentLocked(token)) return false
+            val current = stateForLocked(token.accountId).value
+            val updated = when (val payload = event.payload) {
+                is SocialEvent.NotificationReceived -> {
+                    val incoming = payload.notification
+                    if (incoming.accountId != token.accountId || incoming.id.connection != token.accountId.connection.origin) {
+                        current
+                    } else {
+                        val previous = current.items.associateBy(Notification::id)[incoming.id]
+                        val merged = (listOf(incoming) + current.items)
+                            .distinctBy(Notification::id)
+                            .map { item -> item.mergeReadState(previous?.readState) }
+                            .filterNot { it.id in current.dismissedIds }
+                            .sortedWith(compareByDescending<Notification> { it.createdAtEpochMillis }.thenByDescending { it.id.value })
+                            .take(MAX_ITEMS)
+                        val deliveries = if (current.checkpoints.values.any { it.baselineEstablished } && incoming.id !in current.deliveries) {
+                            current.deliveries + (incoming.id to NotificationDeliveryRecord(
+                                accountId = incoming.accountId,
+                                notificationId = incoming.id,
+                                androidTag = AndroidNotificationIds.tag(incoming.accountId),
+                                androidId = AndroidNotificationIds.id(incoming.id),
+                            ))
+                        } else current.deliveries
+                        current.copy(items = merged, deliveries = deliveries)
+                    }
+                }
+                is SocialEvent.NotificationReadChanged -> {
+                    current.copy(
+                        items = current.items.map { item -> item.copy(readState = item.readState.copy(
+                            status = payload.state.status,
+                            serverAcknowledged = payload.state.serverAcknowledged || item.readState.serverAcknowledged,
+                        )) },
+                        unreadState = if (payload.state.status == NotificationReadStatus.Read) NotificationUnreadState.None else current.unreadState,
+                    )
+                }
+                else -> current
+            }
+            stateForLocked(token.accountId).value = updated
+            updated
+        }
+        persistIfCurrent(token, next)
+        return true
+    }
+
     suspend fun markLocallySeen(token: NotificationSyncToken, ids: Set<EntityId>): Boolean {
         val next = synchronized(this) {
             if (!isCurrentLocked(token)) return false
@@ -526,6 +581,47 @@ class NotificationRepository @javax.inject.Inject constructor(
         }
 
     @Synchronized
+    fun settings(accountId: AccountId): NotificationSettings = observe(accountId).value.settings
+
+    @Synchronized
+    fun pushRegistration(accountId: AccountId): PushRegistration? = observe(accountId).value.pushRegistration
+
+    suspend fun updateSettings(token: NotificationSyncToken, settings: NotificationSettings): Boolean {
+        val next = synchronized(this) {
+            if (!isCurrentLocked(token)) return false
+            stateForLocked(token.accountId).value.copy(settings = settings).also {
+                stateForLocked(token.accountId).value = it
+            }
+        }
+        persistIfCurrent(token, next)
+        return true
+    }
+
+    suspend fun updatePushRegistration(token: NotificationSyncToken, registration: PushRegistration): Boolean {
+        val next = synchronized(this) {
+            if (!isCurrentLocked(token) || registration.accountId != token.accountId ||
+                registration.generation != token.generation
+            ) return false
+            stateForLocked(token.accountId).value.copy(pushRegistration = registration).also {
+                stateForLocked(token.accountId).value = it
+            }
+        }
+        persistIfCurrent(token, next)
+        return true
+    }
+
+    suspend fun clearPushRegistration(token: NotificationSyncToken): Boolean {
+        val next = synchronized(this) {
+            if (!isCurrentLocked(token)) return false
+            stateForLocked(token.accountId).value.copy(pushRegistration = null).also {
+                stateForLocked(token.accountId).value = it
+            }
+        }
+        persistIfCurrent(token, next)
+        return true
+    }
+
+    @Synchronized
     fun remove(accountId: AccountId) {
         states.remove(accountId)
         generations.remove(accountId)
@@ -578,6 +674,8 @@ private fun encode(state: NotificationRepositoryState): JSONObject = JSONObject(
         state.checkpoints.forEach { (key, checkpoint) -> put(key, encodeCheckpoint(checkpoint)) }
     })
     put("deliveries", JSONArray(state.deliveries.values.map(::encodeDelivery)))
+    put("settings", encodeSettings(state.settings))
+    state.pushRegistration?.let { put("pushRegistration", encodePushRegistration(it)) }
 }
 
 private fun decode(json: JSONObject): NotificationRepositoryState {
@@ -599,6 +697,62 @@ private fun decode(json: JSONObject): NotificationRepositoryState {
         deliveries = json.optJSONArray("deliveries")?.let { values ->
             (0 until values.length()).mapNotNull { index -> runCatching { decodeDelivery(values.getJSONObject(index)) }.getOrNull() }
         }?.associateBy { it.notificationId }.orEmpty(),
+        settings = decodeSettings(json.optJSONObject("settings")),
+        pushRegistration = json.optJSONObject("pushRegistration")?.let(::decodePushRegistration),
+    )
+}
+
+private fun encodePushRegistration(registration: PushRegistration): JSONObject = JSONObject().apply {
+    put("accountId", encodeAccountId(registration.accountId))
+    put("generation", registration.generation)
+    put("instanceName", registration.instanceName)
+    registration.distributorPackage?.let { put("distributorPackage", it) }
+    registration.endpoint?.let { put("endpoint", it.value) }
+    put("state", registration.state.name)
+    put("endpointGeneration", registration.endpointGeneration)
+    put("retryCount", registration.retryCount)
+    registration.lastErrorCategory?.let { put("lastErrorCategory", it) }
+}
+
+private fun decodePushRegistration(json: JSONObject): PushRegistration = PushRegistration(
+    accountId = decodeAccountId(json.getJSONObject("accountId")),
+    generation = json.optLong("generation"),
+    instanceName = json.getString("instanceName"),
+    distributorPackage = json.optString("distributorPackage").takeIf { it.isNotBlank() },
+    endpoint = json.optString("endpoint").takeIf { it.isNotBlank() }?.let { ValidatedUrl.https(it) },
+    state = runCatching { NotificationPushRegistrationState.valueOf(json.optString("state")) }
+        .getOrDefault(NotificationPushRegistrationState.Off),
+    endpointGeneration = json.optLong("endpointGeneration"),
+    retryCount = json.optInt("retryCount"),
+    lastErrorCategory = json.optString("lastErrorCategory").takeIf { it.isNotBlank() },
+)
+
+private fun encodeSettings(settings: NotificationSettings): JSONObject = JSONObject().apply {
+    put("alertsEnabled", settings.alertsEnabled)
+    put("categories", JSONArray(settings.categories.map { it.name }))
+    put("showPreviews", settings.showPreviews)
+    settings.quietHoursStartMinutes?.let { put("quietStart", it) }
+    settings.quietHoursEndMinutes?.let { put("quietEnd", it) }
+    put("periodicFallbackEnabled", settings.periodicFallbackEnabled)
+    settings.selectedDistributor?.let { put("selectedDistributor", it) }
+}
+
+private fun decodeSettings(json: JSONObject?): NotificationSettings {
+    if (json == null) return NotificationSettings()
+    val categories = json.optJSONArray("categories")?.let { values ->
+        (0 until values.length()).mapNotNull { index ->
+            runCatching { me.foxtails.palustris.domain.NotificationCategory.valueOf(values.getString(index)) }.getOrNull()
+        }
+    }?.toSet()?.ifEmpty { setOf(me.foxtails.palustris.domain.NotificationCategory.All) }
+        ?: setOf(me.foxtails.palustris.domain.NotificationCategory.All)
+    return NotificationSettings(
+        alertsEnabled = json.optBoolean("alertsEnabled"),
+        categories = categories,
+        showPreviews = json.optBoolean("showPreviews"),
+        quietHoursStartMinutes = json.optInt("quietStart").takeIf { json.has("quietStart") },
+        quietHoursEndMinutes = json.optInt("quietEnd").takeIf { json.has("quietEnd") },
+        periodicFallbackEnabled = json.optBoolean("periodicFallbackEnabled"),
+        selectedDistributor = json.optString("selectedDistributor").takeIf { it.isNotBlank() },
     )
 }
 

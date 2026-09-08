@@ -56,6 +56,7 @@ interface SessionStore {
     fun readIndex(): AccountIndex
     fun writeIndex(index: AccountIndex)
     fun clear()
+    fun writePushInstance(accountId: AccountId, instanceName: String) = Unit
 
     /** Pending authentication is intentionally separate from committed account sessions. */
     fun readPending(): PendingLogin? = null
@@ -161,6 +162,11 @@ class EncryptedSessionStore private constructor(
         indexFile.delete()
         legacyFile.delete()
         migrationComplete = true
+    }
+
+    override fun writePushInstance(accountId: AccountId, instanceName: String) {
+        migrateFromLegacy()
+        accountFiles.writePushInstance(accountId, instanceName)
     }
 
     private fun readIndexInternal(): AccountIndex {

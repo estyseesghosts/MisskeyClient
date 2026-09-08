@@ -11,6 +11,7 @@ sealed interface AppRoute {
     data class Poll(val accountId: AccountId, val pollId: EntityId) : AppRoute
     data class Conversation(val accountId: AccountId, val conversationId: EntityId) : AppRoute
     data class NotificationDetail(val accountId: AccountId, val notificationId: EntityId) : AppRoute
+    data class NotificationSettings(val accountId: AccountId) : AppRoute
     data class OpenOnServer(
         val accountId: AccountId,
         val notificationId: EntityId,

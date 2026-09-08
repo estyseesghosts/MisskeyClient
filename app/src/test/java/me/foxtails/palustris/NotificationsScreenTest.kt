@@ -32,6 +32,7 @@ class NotificationsScreenTest {
         accountIdentity: String = "preview",
         compactLayout: Boolean = true,
         notificationState: NotificationsUiState = NotificationsUiState(),
+        onRefresh: () -> Unit = {},
     ) {
         compose.activity.runOnUiThread {
             compose.activity.setContent {
@@ -40,6 +41,7 @@ class NotificationsScreenTest {
                     compactLayout = compactLayout,
                     accountIdentity = accountIdentity,
                     notificationState = notificationState,
+                    onRefreshNotifications = onRefresh,
                 )
             }
         }
@@ -157,6 +159,18 @@ class NotificationsScreenTest {
         compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more")
             .assertIsDisplayed()
         compose.onNodeWithText("Notifications").assertIsDisplayed()
+    }
+
+    @Test fun emptyInboxCanTriggerPullToRefresh() {
+        var refreshes = 0
+        showNotifications(onRefresh = { refreshes++ })
+
+        compose.onNodeWithTag("notifications_content").performTouchInput {
+            swipeDown(startY = top + 4f, endY = bottom - 4f)
+        }
+        compose.waitForIdle()
+
+        assertTrue("empty notification inbox should support pull-to-refresh", refreshes > 0)
     }
 
     @Test fun directMessagesDoesNotRenderNotificationFilters() {
