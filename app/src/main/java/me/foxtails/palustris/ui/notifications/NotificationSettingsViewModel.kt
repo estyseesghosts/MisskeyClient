@@ -20,6 +20,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.NotificationSettings
+import me.foxtails.palustris.domain.withCategoryEnabled
 
 data class NotificationSettingsUiState(
     val settings: NotificationSettings = NotificationSettings(),
@@ -77,10 +78,8 @@ class NotificationSettingsViewModel @AssistedInject constructor(
         ),
     )
 
-    fun toggleCategory(category: NotificationCategory) {
-        val current = _state.value.settings.categories
-        val next = if (category in current) current - category else (current - NotificationCategory.All) + category
-        save(_state.value.settings.copy(categories = next.ifEmpty { setOf(NotificationCategory.All) }))
+    fun setCategoryEnabled(category: NotificationCategory, enabled: Boolean) {
+        save(_state.value.settings.withCategoryEnabled(category, enabled))
     }
 
     fun runLocalPresentationTest() {

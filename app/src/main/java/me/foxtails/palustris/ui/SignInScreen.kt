@@ -163,7 +163,9 @@ fun ConnectedApp(
                 onNotificationShowPreviews = { enabled -> notificationSettingsModel?.setShowPreviews(enabled) },
                 onNotificationPeriodicFallback = { enabled -> notificationSettingsModel?.setPeriodicFallbackEnabled(enabled) },
                 onNotificationQuietHours = { enabled -> notificationSettingsModel?.setQuietHours(enabled) },
-                onNotificationToggleCategory = { category -> notificationSettingsModel?.toggleCategory(category) },
+                onNotificationCategoryChanged = { category, enabled ->
+                    notificationSettingsModel?.setCategoryEnabled(category, enabled)
+                },
                 onNotificationLocalTest = { notificationSettingsModel?.runLocalPresentationTest() },
                 onNotificationPermissionChanged = { notificationSettingsModel?.refreshPermission() },
             )

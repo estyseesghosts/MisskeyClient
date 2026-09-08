@@ -42,6 +42,25 @@ data class NotificationSettings(
     }
 }
 
+/** Applies a switch's requested state without treating All as a real category. */
+fun NotificationSettings.withCategoryEnabled(
+    category: NotificationCategory,
+    enabled: Boolean,
+): NotificationSettings {
+    require(category != NotificationCategory.All) { "All is not an individually selectable category." }
+    val current = if (NotificationCategory.All in categories) {
+        selectableNotificationCategories
+    } else {
+        categories - NotificationCategory.All
+    }
+    val next = if (enabled) current + category else current - category
+    return copy(categories = next)
+}
+
+private val selectableNotificationCategories = NotificationCategory.entries
+    .filterNot { it == NotificationCategory.All }
+    .toSet()
+
 data class PushRegistration(
     val accountId: AccountId,
     val generation: Long,
@@ -53,4 +72,3 @@ data class PushRegistration(
     val retryCount: Int = 0,
     val lastErrorCategory: String? = null,
 )
-

@@ -34,7 +34,7 @@ fun NotificationSettingsScreen(
     onShowPreviews: (Boolean) -> Unit = {},
     onPeriodicFallback: (Boolean) -> Unit = {},
     onQuietHours: (Boolean) -> Unit = {},
-    onToggleCategory: (NotificationCategory) -> Unit = {},
+    onCategoryChanged: (NotificationCategory, Boolean) -> Unit = { _, _ -> },
     onRunLocalTest: () -> Unit = {},
     onPermissionChanged: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -89,7 +89,7 @@ fun NotificationSettingsScreen(
                 subtitle = null,
                 checked = NotificationCategory.All in state.settings.categories || category in state.settings.categories,
                 enabled = !state.saving,
-                onCheckedChange = { onToggleCategory(category) },
+                onCheckedChange = { enabled -> onCategoryChanged(category, enabled) },
             )
         }
         HorizontalDivider(Modifier.padding(vertical = 12.dp))

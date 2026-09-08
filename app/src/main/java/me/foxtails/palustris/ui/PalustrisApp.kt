@@ -232,7 +232,7 @@ fun PalustrisApp(
     onNotificationShowPreviews: (Boolean) -> Unit = {},
     onNotificationPeriodicFallback: (Boolean) -> Unit = {},
     onNotificationQuietHours: (Boolean) -> Unit = {},
-    onNotificationToggleCategory: (me.foxtails.palustris.domain.NotificationCategory) -> Unit = {},
+    onNotificationCategoryChanged: (me.foxtails.palustris.domain.NotificationCategory, Boolean) -> Unit = { _, _ -> },
     onNotificationLocalTest: () -> Unit = {},
     onNotificationPermissionChanged: () -> Unit = {},
 ) = PalustrisTheme {
@@ -389,7 +389,7 @@ fun PalustrisApp(
                                 onShowPreviews = onNotificationShowPreviews,
                                 onPeriodicFallback = onNotificationPeriodicFallback,
                                 onQuietHours = onNotificationQuietHours,
-                                onToggleCategory = onNotificationToggleCategory,
+                                onCategoryChanged = onNotificationCategoryChanged,
                                 onRunLocalTest = onNotificationLocalTest,
                                 onPermissionChanged = onNotificationPermissionChanged,
                                 modifier = Modifier.fillMaxSize(),

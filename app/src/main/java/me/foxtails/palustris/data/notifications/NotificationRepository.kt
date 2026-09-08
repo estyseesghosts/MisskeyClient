@@ -765,7 +765,7 @@ private fun decodeSettings(json: JSONObject?): NotificationSettings {
         (0 until values.length()).mapNotNull { index ->
             runCatching { me.foxtails.palustris.domain.NotificationCategory.valueOf(values.getString(index)) }.getOrNull()
         }
-    }?.toSet()?.ifEmpty { setOf(me.foxtails.palustris.domain.NotificationCategory.All) }
+    }?.toSet()
         ?: setOf(me.foxtails.palustris.domain.NotificationCategory.All)
     return NotificationSettings(
         alertsEnabled = json.optBoolean("alertsEnabled"),
