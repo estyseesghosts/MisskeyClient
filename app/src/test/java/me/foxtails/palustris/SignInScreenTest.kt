@@ -196,7 +196,7 @@ class SignInScreenTest {
 
         compose.onNodeWithText("First post").assertIsDisplayed()
         compose.onNodeWithContentDescription("Profile").performClick()
-        compose.onNodeWithContentDescription("Accounts").performClick()
+        compose.onNodeWithContentDescription("Profile").performTouchInput { longClick() }
         compose.onNodeWithText("Second").performClick()
         compose.onNodeWithContentDescription("Home").performClick()
         compose.onNodeWithText("Second post").assertIsDisplayed()
@@ -225,10 +225,10 @@ class SignInScreenTest {
         } }
 
         compose.onNodeWithContentDescription("Profile").performClick()
-        compose.onNodeWithContentDescription("Accounts").performClick()
+        compose.onNodeWithContentDescription("Profile").performTouchInput { longClick() }
         compose.onNodeWithText("Other").performClick()
         assertEquals(other.id, switchedTo)
-        compose.onNodeWithContentDescription("Accounts").performClick()
+        compose.onNodeWithContentDescription("Profile").performTouchInput { longClick() }
         compose.onNodeWithText("Add account").performClick()
         assertEquals(true, addRequested)
     }

@@ -254,8 +254,10 @@ class HomeFeedTest {
         categories.assert(hasScrollAction())
         compose.onNodeWithText("Posts").assertIsSelected()
         listOf("Posts", "Media", "Reposts", "Replies", "Show more...").forEach { label ->
+            categories.performScrollToNode(hasText(label))
             compose.onNodeWithText(label).assertExists()
         }
+        categories.performScrollToNode(hasText("Media"))
         compose.onNodeWithText("Media").performClick()
         compose.onNodeWithText("Media").assertIsSelected()
         categories.performScrollToNode(hasText("Show more..."))

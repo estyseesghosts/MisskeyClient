@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -37,7 +39,13 @@ internal fun FilterChipRow(
     entries: List<FilterChipEntry>,
     rowContentDescription: String,
 ) {
+    val listState = rememberLazyListState()
     LazyRow(
+        state = listState,
+        flingBehavior = rememberSnapFlingBehavior(
+            lazyListState = listState,
+            snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Start,
+        ),
         modifier = Modifier
             .fillMaxWidth()
             .height(CompactSearchChipRowHeight)
