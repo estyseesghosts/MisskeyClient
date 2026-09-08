@@ -24,6 +24,7 @@ import me.foxtails.palustris.data.auth.MisskeyAuth
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
+import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.NotificationStore
 import me.foxtails.palustris.data.notifications.NotificationSyncController
@@ -56,6 +57,11 @@ annotation class IoDispatcher
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+    @Provides
+    @Singleton
+    fun provideMediaImageLoader(@ApplicationContext context: Context): MediaImageLoader =
+        MediaImageLoader.get(context)
+
     @Provides
     @Singleton
     fun provideHttpClientPool(): HttpClientPool = HttpClientPool()
