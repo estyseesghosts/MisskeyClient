@@ -16,6 +16,7 @@ import me.foxtails.palustris.data.auth.AppRegistrationCache
 import me.foxtails.palustris.data.auth.AuthGateway
 import me.foxtails.palustris.data.auth.DetectingAuthGateway
 import me.foxtails.palustris.data.auth.EncryptedSessionStore
+import me.foxtails.palustris.data.preferences.EncryptedPostPreferencesRepository
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.auth.EncryptedDraftStore
 import me.foxtails.palustris.data.auth.MastodonAuth
@@ -41,6 +42,7 @@ import me.foxtails.palustris.data.notifications.db.NotificationDatabase
 import me.foxtails.palustris.data.notifications.db.NOTIFICATION_MIGRATIONS
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.PostPreferencesRepository
 import org.json.JSONObject
 
 @Qualifier
@@ -89,6 +91,12 @@ object StorageModule {
     @Provides
     @Singleton
     fun provideDraftStore(@ApplicationContext context: Context): DraftStore = EncryptedDraftStore(context)
+
+    @Provides
+    @Singleton
+    fun providePostPreferencesRepository(
+        @ApplicationContext context: Context,
+    ): PostPreferencesRepository = EncryptedPostPreferencesRepository(context)
 
     @Provides
     @Singleton
