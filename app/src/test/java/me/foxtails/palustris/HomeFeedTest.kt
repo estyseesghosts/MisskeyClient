@@ -1,6 +1,7 @@
 package me.foxtails.palustris
 
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.domain.Account
@@ -18,6 +19,7 @@ import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.SearchScreen
 import me.foxtails.palustris.ui.AccountSearchState
+import me.foxtails.palustris.ui.profile.ProfileUiState
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -224,7 +226,27 @@ class HomeFeedTest {
             biography = "A profile biography",
             profileFields = listOf(ProfileField("Website", "https://example.org"), ProfileField("Matrix", "@author:example.org")),
         )
-        show(Post(postId("profile"), author, "A visible post", 0, Audience.Public))
+        val profileState = mutableStateOf(ProfileUiState())
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(posts = listOf(Post(postId("profile"), author, "A visible post", 0, Audience.Public))),
+                    profileState = profileState.value,
+                    onProfileShown = { seed ->
+                        profileState.value = profileState.value.copy(
+                            targetId = seed.id,
+                            seedAccount = seed,
+                            account = seed,
+                        )
+                    },
+                    onProfileCategorySelected = { category ->
+                        profileState.value = profileState.value.copy(selectedTab = category)
+                    },
+                )
+            }
+        }
+        compose.waitForIdle()
 
         compose.onNodeWithText("Author Profile").performClick()
         compose.onNodeWithText("A profile biography").assertIsDisplayed()
@@ -239,10 +261,10 @@ class HomeFeedTest {
         categories.performScrollToNode(hasText("Show more..."))
         compose.onNodeWithText("Show more...").performClick()
         compose.onNodeWithText("Show more...").assertIsSelected()
-        compose.onNodeWithText("More profile views coming soon").assertIsDisplayed()
-        compose.onNodeWithText("Additional profile information").assertDoesNotExist()
-        compose.onNodeWithText("https://example.org").assertDoesNotExist()
-        compose.onNodeWithText("@author:example.org").assertDoesNotExist()
+        compose.onNodeWithText("Profile details").assertIsDisplayed()
+        compose.onNodeWithText("https://example.org").assertIsDisplayed()
+        compose.onNodeWithText("@author:example.org").assertIsDisplayed()
+        compose.onNodeWithText("More profile views coming soon").assertDoesNotExist()
     }
 
     @Test fun searchSubmitsWebfingerHandleWithKeyboardSearch() {
