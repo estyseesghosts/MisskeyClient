@@ -36,6 +36,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,6 +73,7 @@ fun HomeFeed(
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+    onQuote: (OwnedPost) -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
 ) {
@@ -140,7 +143,19 @@ fun HomeFeed(
             val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
             val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
             items(rows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
-                PostRow(ownedPost, enabledActions, onReact, onReply, onReshare, onBookmark, onReaction, onOpenProfile, onSearchHashtag)
+                PostRow(
+                    ownedPost,
+                    enabledActions,
+                    onReact,
+                    onReply,
+                    onReshare,
+                    onBookmark,
+                    onReaction,
+                    onOpenProfile,
+                    onSearchHashtag,
+                    quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                    onQuote = onQuote,
+                )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
             }
             if (state.loadingMore) item {
@@ -182,6 +197,8 @@ internal fun PostRow(
     onReaction: (OwnedPost, String) -> Unit,
     onOpenProfile: (Account) -> Unit,
     onSearchHashtag: (String) -> Unit,
+    quoteEnabled: Boolean = false,
+    onQuote: (OwnedPost) -> Unit = {},
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
@@ -250,6 +267,8 @@ internal fun PostRow(
             onReshare = onReshare,
             onBookmark = onBookmark,
             onReaction = onReaction,
+            quoteEnabled = quoteEnabled,
+            onQuote = onQuote,
             onShare = { sharePost(context, post) },
         )
     }
@@ -378,9 +397,12 @@ private fun InteractionRow(
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
     onReaction: (OwnedPost, String) -> Unit,
+    quoteEnabled: Boolean,
+    onQuote: (OwnedPost) -> Unit,
     onShare: () -> Unit,
 ) {
     var reactionMenuVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
+    var repostMenuVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
     var customReactionDialogVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
     var customReaction by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf("") }
     val postReactions = ownedPost.post.reactions.map { it.emoji }
@@ -396,16 +418,41 @@ private fun InteractionRow(
             .semantics { contentDescription = "Post actions" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        InteractionButton(Modifier.weight(1f), AppIcons.Reply, "Reply", enabled = PostAction.Reply in availableActions, onClick = { onReply(ownedPost) })
-        InteractionButton(Modifier.weight(1f), AppIcons.Repost, "Repost", enabled = PostAction.Reshare in availableActions, onClick = { onReshare(ownedPost) })
+        InteractionButton(
+            Modifier.weight(1f),
+            AppIcons.Reply,
+            "Reply",
+            enabled = PostAction.Reply in availableActions,
+            onClick = { onReply(ownedPost) },
+        )
         Box(Modifier.weight(1f)) {
             InteractionButton(
                 modifier = Modifier.fillMaxWidth(),
+                icon = AppIcons.Repost,
+                label = if (ownedPost.post.reposted) "Undo repost" else "Repost",
+                enabled = PostAction.Reshare in availableActions,
+                isSelected = ownedPost.post.reposted,
+                onClick = { onReshare(ownedPost) },
+                onLongClick = if (quoteEnabled) ({ repostMenuVisible = true }) else null,
+            )
+            DropdownMenu(expanded = repostMenuVisible, onDismissRequest = { repostMenuVisible = false }) {
+                DropdownMenuItem(
+                    text = { Text("Quote post") },
+                    onClick = { repostMenuVisible = false; onQuote(ownedPost) },
+                )
+            }
+        }
+        Box(Modifier.weight(1f)) {
+            val favouriteEnabled = PostAction.Favorite in availableActions
+            val reactionEnabled = PostAction.React in availableActions
+            InteractionButton(
+                modifier = Modifier.fillMaxWidth(),
                 icon = AppIcons.Heart,
-                label = "Favorite",
-                enabled = PostAction.Favorite in availableActions,
-                onClick = { onReact(ownedPost) },
-                onLongClick = if (PostAction.React in availableActions) ({ reactionMenuVisible = true }) else null,
+                label = if (ownedPost.post.favourited) "Unfavorite" else "Favorite",
+                enabled = favouriteEnabled || reactionEnabled,
+                isSelected = ownedPost.post.favourited,
+                onClick = { if (favouriteEnabled) onReact(ownedPost) },
+                onLongClick = if (reactionEnabled) ({ reactionMenuVisible = true }) else null,
             )
             DropdownMenu(expanded = reactionMenuVisible, onDismissRequest = { reactionMenuVisible = false }) {
                 Text("Add reaction", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
@@ -427,7 +474,14 @@ private fun InteractionRow(
                 )
             }
         }
-        InteractionButton(Modifier.weight(1f), AppIcons.Bookmark, "Bookmark", enabled = PostAction.Bookmark in availableActions, onClick = { onBookmark(ownedPost) })
+        InteractionButton(
+            Modifier.weight(1f),
+            AppIcons.Bookmark,
+            if (ownedPost.post.saved) "Remove bookmark" else "Bookmark",
+            enabled = PostAction.Bookmark in availableActions,
+            isSelected = ownedPost.post.saved,
+            onClick = { onBookmark(ownedPost) },
+        )
         InteractionButton(Modifier.weight(1f), AppIcons.Share, "Share", onClick = onShare)
     }
 
@@ -462,19 +516,25 @@ private fun InteractionButton(
     icon: ImageVector,
     label: String,
     enabled: Boolean = true,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
     Box(
         modifier = modifier.height(PostInteractionRowHeight).combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
-            .semantics { contentDescription = label; role = Role.Button },
+            .semantics {
+                contentDescription = label
+                role = Role.Button
+                this.selected = isSelected
+                stateDescription = if (isSelected) "Selected" else "Not selected"
+            },
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             icon,
             label,
             Modifier.size(PostInteractionIconSize),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f),
+            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f),
         )
     }
 }

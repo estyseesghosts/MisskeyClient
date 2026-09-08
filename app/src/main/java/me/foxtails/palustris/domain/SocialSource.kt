@@ -20,7 +20,30 @@ interface SocialSource {
     suspend fun edit(id: EntityId, text: String): Post = unsupported("edit")
     suspend fun react(id: EntityId, emoji: String) = unsupported<Unit>("react")
     suspend fun favorite(id: EntityId) = unsupported<Unit>("favorite")
+    suspend fun favorite(id: EntityId, favouriteEmoji: String): Unit = favorite(id)
+    suspend fun unfavorite(id: EntityId, favouriteEmoji: String? = null) = unsupported<Unit>("favorite")
     suspend fun renote(id: EntityId) = unsupported<Unit>("renote")
+    suspend fun unrenote(id: EntityId, ownRepostId: EntityId? = null) = unsupported<Unit>("renote")
+    suspend fun removeReaction(id: EntityId, emoji: String) = unsupported<Unit>("react")
+    suspend fun save(id: EntityId) = unsupported<Unit>("save")
+    suspend fun unsave(id: EntityId) = unsupported<Unit>("save")
+    suspend fun savedPosts(cursor: String? = null): Page<Post> = unsupported("savedPosts")
+    suspend fun setPrimaryFavourite(
+        id: EntityId,
+        favouriteEmoji: String,
+        selected: Boolean,
+    ): PostActionResult {
+        if (selected) favorite(id, favouriteEmoji) else unfavorite(id, favouriteEmoji)
+        return PostActionResult(selected = selected)
+    }
+    suspend fun setReshared(id: EntityId, selected: Boolean, ownRepostId: EntityId? = null): PostActionResult {
+        if (selected) renote(id) else unrenote(id, ownRepostId)
+        return PostActionResult(selected = selected, createdRepostId = ownRepostId)
+    }
+    suspend fun setSaved(id: EntityId, selected: Boolean): PostActionResult {
+        if (selected) save(id) else unsave(id)
+        return PostActionResult(selected = selected)
+    }
     suspend fun quote(id: EntityId, text: String) = unsupported<Unit>("quote")
     suspend fun votePoll(id: EntityId, optionIndex: Int) = unsupported<Unit>("votePoll")
     suspend fun uploadMedia(file: java.io.InputStream, mimeType: String): Attachment = unsupported("uploadMedia")

@@ -1,8 +1,14 @@
 package me.foxtails.palustris.data.misskey
 
 import me.foxtails.palustris.domain.CapabilityProbe
+import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PrimaryFavouriteCapability
+import me.foxtails.palustris.domain.PrimaryFavouriteMode
+import me.foxtails.palustris.domain.SavedPostsCapability
+import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Timeline
 import org.json.JSONObject
@@ -22,7 +28,11 @@ class MisskeyCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
         }
         return ServerCapabilities(
             timelines = timelines,
-            actions = setOf(PostAction.React),
+            audiences = setOf(Audience.Public, Audience.Unlisted, Audience.Followers, Audience.Direct),
+            actions = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.React, PostAction.Bookmark),
+            quotes = CapabilityStatus.Supported,
+            primaryFavourite = PrimaryFavouriteCapability(CapabilityStatus.Supported, PrimaryFavouriteMode.Reaction),
+            savedPosts = SavedPostsCapability(CapabilityStatus.Supported, SavedPostsKind.Favourites),
             capabilitiesLastUpdated = System.currentTimeMillis(),
         )
     }

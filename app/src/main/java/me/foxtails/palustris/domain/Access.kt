@@ -6,6 +6,9 @@ enum class AccessScope {
     NotificationsWrite,
     FollowRequests,
     Push,
+    PrimaryFavouriteWrite,
+    SavedPostsRead,
+    SavedPostsWrite,
 }
 
 enum class AccessStatus { Granted, Denied, Unknown }

@@ -26,6 +26,7 @@ import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PostActionResult
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.Protocol
@@ -37,6 +38,7 @@ import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.UpdateProfileRequest
 import me.foxtails.palustris.domain.ValidatedUrl
+import me.foxtails.palustris.domain.normalizeFavouriteEmoji
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -165,7 +167,10 @@ class MisskeySource(
             .put("visibility", post.audience.toMisskeyVisibility())
         post.contentWarning?.let { body.put("cw", it) }
         post.replyTo?.let { body.put("replyId", it.value) }
-        post.quoteOf?.let { body.put("renoteId", it.value) }
+        post.quoteOf?.let {
+            if (it.connection != origin) throw SourceError.Unsupported("create.quote-origin")
+            body.put("renoteId", it.value)
+        }
         post.poll?.let { poll ->
             body.put("poll", JSONObject()
                 .put("choices", JSONArray(poll.choices))
@@ -174,6 +179,107 @@ class MisskeySource(
         }
         val response = JSONObject(api.post(origin, "notes/create", body).body)
         MisskeyMapper.post(response.getJSONObject("createdNote"), origin)
+    }
+
+    override suspend fun react(id: EntityId, emoji: String) = request {
+        validatePostId(id, "react")
+        val reaction = emoji.trim().takeIf { it.isNotBlank() }
+            ?: throw SourceError.Unsupported("react.emoji")
+        api.post(origin, "notes/reactions/create", JSONObject()
+            .put("i", token)
+            .put("noteId", id.value)
+            .put("reaction", reaction))
+        Unit
+    }
+
+    override suspend fun removeReaction(id: EntityId, emoji: String) = request {
+        validatePostId(id, "react")
+        api.post(origin, "notes/reactions/delete", JSONObject().put("i", token).put("noteId", id.value))
+        Unit
+    }
+
+    override suspend fun favorite(id: EntityId) = favorite(id, me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI)
+
+    override suspend fun favorite(id: EntityId, favouriteEmoji: String) = request {
+        validatePostId(id, "favorite")
+        react(id, normalizeFavouriteEmoji(favouriteEmoji))
+    }
+
+    override suspend fun unfavorite(id: EntityId, favouriteEmoji: String?) = request {
+        validatePostId(id, "favorite")
+        removeReaction(id, favouriteEmoji.orEmpty())
+    }
+
+    override suspend fun setPrimaryFavourite(
+        id: EntityId,
+        favouriteEmoji: String,
+        selected: Boolean,
+    ): PostActionResult {
+        if (selected) favorite(id, favouriteEmoji) else unfavorite(id, favouriteEmoji)
+        return PostActionResult(selected = selected)
+    }
+
+    override suspend fun renote(id: EntityId) = request {
+        validatePostId(id, "renote")
+        api.post(origin, "notes/create", JSONObject().put("i", token).put("renoteId", id.value))
+        Unit
+    }
+
+    override suspend fun unrenote(id: EntityId, ownRepostId: EntityId?) = request {
+        val repostId = ownRepostId ?: throw SourceError.Unsupported("renote.undo")
+        validatePostId(repostId, "renote.undo")
+        api.post(origin, "notes/delete", JSONObject().put("i", token).put("noteId", repostId.value))
+        Unit
+    }
+
+    override suspend fun setReshared(id: EntityId, selected: Boolean, ownRepostId: EntityId?): PostActionResult = request {
+        validatePostId(id, "renote")
+        if (!selected) {
+            unrenote(id, ownRepostId)
+            return@request PostActionResult(selected = false)
+        }
+        val response = JSONObject(api.post(origin, "notes/create", JSONObject()
+            .put("i", token)
+            .put("renoteId", id.value)).body)
+        val created = response.optJSONObject("createdNote")
+            ?: throw SourceError.ServerError("Misskey did not return the created renote")
+        val createdId = created.optString("id").takeIf { it.isNotBlank() }?.let { EntityId(origin, it) }
+        PostActionResult(selected = true, createdRepostId = createdId)
+    }
+
+    override suspend fun save(id: EntityId) = request {
+        validatePostId(id, "save")
+        api.post(origin, "notes/favorites/create", JSONObject().put("i", token).put("noteId", id.value))
+        Unit
+    }
+
+    override suspend fun unsave(id: EntityId) = request {
+        validatePostId(id, "save")
+        api.post(origin, "notes/favorites/delete", JSONObject().put("i", token).put("noteId", id.value))
+        Unit
+    }
+
+    override suspend fun setSaved(id: EntityId, selected: Boolean): PostActionResult {
+        if (selected) save(id) else unsave(id)
+        return PostActionResult(selected = selected)
+    }
+
+    override suspend fun savedPosts(cursor: String?): Page<Post> = request {
+        val body = JSONObject().put("i", token).put("limit", 30)
+        cursor?.takeIf(String::isNotBlank)?.let { body.put("untilId", it) }
+        val values = JSONArray(api.post(origin, "i/favorites", body).body)
+        val items = (0 until values.length()).mapNotNull { index ->
+            val wrapper = values.optJSONObject(index) ?: return@mapNotNull null
+            val note = wrapper.optJSONObject("note") ?: wrapper
+            runCatching { MisskeyMapper.post(note, origin).copy(saved = true) }.getOrNull()
+        }
+        val nextCursor = values.optJSONObject(values.length() - 1)?.optString("id")
+            ?.takeIf { it.isNotBlank() }
+        Page(items, nextCursor)
+    }
+
+    private fun validatePostId(id: EntityId, feature: String) {
+        if (id.connection != origin || id.value.isBlank()) throw SourceError.Unsupported(feature)
     }
 
     override suspend fun updateProfile(profile: UpdateProfileRequest) = request {

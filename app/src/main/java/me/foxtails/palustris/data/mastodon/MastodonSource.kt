@@ -36,6 +36,7 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PostActionResult
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.Protocol
@@ -112,7 +113,13 @@ class MastodonSource(
     override suspend fun pinnedPosts(id: AccountId): List<Post> = request { profileService.pinnedPosts(id) }
 
     override suspend fun create(post: CreatePostRequest): Post = request {
-        if (post.quoteOf != null) throw SourceError.Unsupported("quote")
+        if (post.replyTo != null && post.quoteOf != null) throw SourceError.Unsupported("create.reply.quote")
+        if (post.quoteOf != null && capabilities.quotes != me.foxtails.palustris.domain.CapabilityStatus.Supported) {
+            throw SourceError.Unsupported("quote")
+        }
+        if (post.quoteOf != null && (post.attachments.isNotEmpty() || post.poll != null)) {
+            throw SourceError.Unsupported("quote.attachments-or-poll")
+        }
         if (post.attachments.isNotEmpty()) throw SourceError.Unsupported("create.attachments")
         if (post.poll != null) throw SourceError.Unsupported("create.poll")
         val fields = buildList {
@@ -120,6 +127,7 @@ class MastodonSource(
             add("visibility" to post.audience.toMastodonVisibility())
             post.contentWarning?.let { add("spoiler_text" to it) }
             post.replyTo?.let { add("in_reply_to_id" to it.value) }
+            post.quoteOf?.let { add("quoted_status_id" to it.value) }
         }
         MastodonMapper.post(api.postForm(origin, "api/v1/statuses", fields, token).body.toJson(), origin)
     }
@@ -137,12 +145,77 @@ class MastodonSource(
         Unit
     }
 
+    override suspend fun favorite(id: EntityId, favouriteEmoji: String) = favorite(id)
+
+    override suspend fun unfavorite(id: EntityId, favouriteEmoji: String?) = request {
+        api.postForm(origin, "api/v1/statuses/${id.value}/unfavourite", emptyList(), token)
+        Unit
+    }
+
+    override suspend fun setPrimaryFavourite(
+        id: EntityId,
+        favouriteEmoji: String,
+        selected: Boolean,
+    ): PostActionResult = request {
+        val endpoint = if (selected) "favourite" else "unfavourite"
+        val response = api.postForm(origin, "api/v1/statuses/${id.value}/$endpoint", emptyList(), token)
+        PostActionResult(
+            post = response.body.takeIf { it.trim().startsWith("{") }?.let { MastodonMapper.post(JSONObject(it), origin) },
+            selected = selected,
+        )
+    }
+
     override suspend fun renote(id: EntityId) = request {
         api.postForm(origin, "api/v1/statuses/${id.value}/reblog", emptyList(), token)
         Unit
     }
 
-    override suspend fun quote(id: EntityId, text: String) = throw SourceError.Unsupported("quote")
+    override suspend fun unrenote(id: EntityId, ownRepostId: EntityId?) = request {
+        api.postForm(origin, "api/v1/statuses/${id.value}/unreblog", emptyList(), token)
+        Unit
+    }
+
+    override suspend fun setReshared(id: EntityId, selected: Boolean, ownRepostId: EntityId?): PostActionResult = request {
+        val endpoint = if (selected) "reblog" else "unreblog"
+        val response = api.postForm(origin, "api/v1/statuses/${id.value}/$endpoint", emptyList(), token)
+        val mapped = response.body.takeIf { it.trim().startsWith("{") }?.let { MastodonMapper.post(JSONObject(it), origin) }
+        PostActionResult(
+            post = mapped,
+            selected = selected,
+            createdRepostId = if (selected) mapped?.id else null,
+        )
+    }
+
+    override suspend fun save(id: EntityId) = request {
+        api.postForm(origin, "api/v1/statuses/${id.value}/bookmark", emptyList(), token)
+        Unit
+    }
+
+    override suspend fun unsave(id: EntityId) = request {
+        api.postForm(origin, "api/v1/statuses/${id.value}/unbookmark", emptyList(), token)
+        Unit
+    }
+
+    override suspend fun setSaved(id: EntityId, selected: Boolean): PostActionResult = request {
+        val endpoint = if (selected) "bookmark" else "unbookmark"
+        val response = api.postForm(origin, "api/v1/statuses/${id.value}/$endpoint", emptyList(), token)
+        val mapped = response.body.takeIf { it.trim().startsWith("{") }?.let { MastodonMapper.post(JSONObject(it), origin) }
+        PostActionResult(post = mapped, selected = selected)
+    }
+
+    @Deprecated("Use create(CreatePostRequest(quoteOf = ...))")
+    override suspend fun quote(id: EntityId, text: String) {
+        create(CreatePostRequest(text = text, quoteOf = id))
+    }
+
+    override suspend fun savedPosts(cursor: String?): Page<Post> = request {
+        val response = getPage("v1/bookmarks?limit=40", cursor)
+        val statuses = JSONArray(response.body)
+        Page(
+            items = (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) },
+            nextCursor = response.linkHeaderCursor(),
+        )
+    }
 
     override suspend fun notifications(cursor: String?): Page<me.foxtails.palustris.domain.Notification> {
         val page = notifications(NotificationQuery(), cursor?.let(::NotificationCursor))
@@ -548,7 +621,7 @@ class MastodonSource(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            throw if (e is SourceError) e else MastodonErrorMapper.map(e)
+            _capabilities.value = capabilities.copy(capabilitiesLastUpdated = 0)
         }
     }
 
@@ -573,6 +646,14 @@ class MastodonSource(
             timelines = setOf(Timeline.Home, Timeline.Local, Timeline.Federated),
             audiences = setOf(Audience.Public, Audience.Unlisted, Audience.Followers, Audience.Direct),
             actions = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.Bookmark),
+            primaryFavourite = me.foxtails.palustris.domain.PrimaryFavouriteCapability(
+                me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                me.foxtails.palustris.domain.PrimaryFavouriteMode.Native,
+            ),
+            savedPosts = me.foxtails.palustris.domain.SavedPostsCapability(
+                me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                me.foxtails.palustris.domain.SavedPostsKind.Bookmarks,
+            ),
         )
     }
 }

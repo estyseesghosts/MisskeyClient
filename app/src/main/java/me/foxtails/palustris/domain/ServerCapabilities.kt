@@ -10,6 +10,9 @@ data class ServerCapabilities(
     val notifications: NotificationCapabilities = NotificationCapabilities(),
     val profile: ProfileCapabilities = ProfileCapabilities(),
     val capabilitiesLastUpdated: Long = 0,
+    val quotes: CapabilityStatus = CapabilityStatus.Unknown,
+    val primaryFavourite: PrimaryFavouriteCapability = PrimaryFavouriteCapability(),
+    val savedPosts: SavedPostsCapability? = null,
 )
 
 enum class CapabilityStatus { Supported, Denied, Unsupported, TemporarilyUnavailable, Unknown }

@@ -16,6 +16,10 @@ import me.foxtails.palustris.domain.NotificationReadSemantics
 import me.foxtails.palustris.domain.NotificationUnreadPrecision
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileCapabilities
+import me.foxtails.palustris.domain.PrimaryFavouriteCapability
+import me.foxtails.palustris.domain.PrimaryFavouriteMode
+import me.foxtails.palustris.domain.SavedPostsCapability
+import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
@@ -143,6 +147,13 @@ private fun ServerCapabilities.toJson(): JSONObject = JSONObject()
     .put("canPublish", canPublish)
     .put("notifications", notifications.toJson())
     .put("profile", profile.toJson())
+    .put("quotes", quotes.name)
+    .put("primaryFavourite", JSONObject()
+        .put("status", primaryFavourite.status.name)
+        .put("mode", primaryFavourite.mode.name))
+    .put("savedPosts", savedPosts?.let {
+        JSONObject().put("status", it.status.name).put("kind", it.kind.name)
+    })
     .put("capabilitiesLastUpdated", capabilitiesLastUpdated)
 
 private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities(
@@ -153,6 +164,19 @@ private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities
     canPublish = optBoolean("canPublish"),
     notifications = optJSONObject("notifications")?.toNotificationCapabilities() ?: NotificationCapabilities(),
     profile = optJSONObject("profile")?.toProfileCapabilities() ?: ProfileCapabilities(),
+    quotes = enumOrDefault("quotes", CapabilityStatus.Unknown),
+    primaryFavourite = optJSONObject("primaryFavourite")?.let {
+        PrimaryFavouriteCapability(
+            status = it.enumOrDefault("status", CapabilityStatus.Unknown),
+            mode = it.enumOrDefault("mode", PrimaryFavouriteMode.Unavailable),
+        )
+    } ?: PrimaryFavouriteCapability(),
+    savedPosts = optJSONObject("savedPosts")?.let {
+        SavedPostsCapability(
+            status = it.enumOrDefault("status", CapabilityStatus.Unknown),
+            kind = it.enumOrDefault("kind", SavedPostsKind.Bookmarks),
+        )
+    },
     capabilitiesLastUpdated = optLong("capabilitiesLastUpdated"),
 )
 

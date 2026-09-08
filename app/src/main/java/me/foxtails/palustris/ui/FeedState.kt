@@ -1,9 +1,11 @@
 package me.foxtails.palustris.ui
 
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.SavedPostsCapability
 import me.foxtails.palustris.domain.Timeline
 
 data class FeedState(
@@ -15,6 +17,9 @@ data class FeedState(
     val timelines: Set<Timeline> = setOf(Timeline.Home),
     val canPublish: Boolean = false,
     val actions: Set<PostAction> = emptySet(),
+    val quoteStatus: CapabilityStatus = CapabilityStatus.Unknown,
+    val savedPosts: SavedPostsCapability? = null,
+    val favouriteEmoji: String = me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI,
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
     val publishing: Boolean = false,
@@ -34,5 +39,11 @@ data class AccountSearchState(
     val error: String? = null,
 )
 
-/** Actions that currently have a protocol-neutral application boundary and a real UI callback. */
-internal val ClientReadyPostActions = setOf(PostAction.Reshare, PostAction.Favorite)
+/** Actions with protocol-neutral callbacks in the feed UI. */
+internal val ClientReadyPostActions = setOf(
+    PostAction.Reply,
+    PostAction.Reshare,
+    PostAction.Favorite,
+    PostAction.React,
+    PostAction.Bookmark,
+)

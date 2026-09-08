@@ -7,6 +7,20 @@ enum class Timeline { Home, Local, Social, Federated }
 enum class Audience { Public, Unlisted, Followers, Direct }
 enum class PostAction { Reply, Reshare, Favorite, React, Bookmark }
 
+enum class PrimaryFavouriteMode { Native, Reaction, Unavailable }
+
+enum class SavedPostsKind { Bookmarks, Favourites }
+
+data class PrimaryFavouriteCapability(
+    val status: CapabilityStatus = CapabilityStatus.Unknown,
+    val mode: PrimaryFavouriteMode = PrimaryFavouriteMode.Unavailable,
+)
+
+data class SavedPostsCapability(
+    val status: CapabilityStatus = CapabilityStatus.Unknown,
+    val kind: SavedPostsKind,
+)
+
 data class Attachment(val url: String, val mimeType: String, val description: String?, val previewUrl: String? = null, val sensitive: Boolean = false)
 data class Reaction(val emoji: String, val count: Int, val selected: Boolean, val imageUrl: String? = null)
 data class PollOption(val text: String, val votes: Int)
@@ -28,6 +42,18 @@ data class Post(
     val reshareCount: Int = 0,
     val quote: Post? = null,
     val pollOptions: List<PollOption> = emptyList(),
+    val reposted: Boolean = false,
+    val favourited: Boolean = false,
+    val saved: Boolean = false,
+    val myReaction: String? = null,
+    val ownRepostId: EntityId? = null,
+)
+
+data class PostActionResult(
+    val post: Post? = null,
+    val selected: Boolean? = null,
+    val count: Int? = null,
+    val createdRepostId: EntityId? = null,
 )
 
 /** Cursor semantics belong to the adapter: Mastodon and Misskey paginate differently. */

@@ -9,6 +9,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.Protocol
@@ -63,10 +64,16 @@ object MisskeyMapper {
         val pureReshare = renote != null && !textPresent && files.length() == 0 &&
             json.optJSONObject("poll") == null && json.nullableString("cw") == null
         if (pureReshare && depth < MAX_NESTING_DEPTH) return post(renote!!, origin, depth + 1).copy(
-            id = EntityId(origin, json.getString("id")), resharedBy = account(json.getJSONObject("user"), origin))
+            id = EntityId(origin, json.getString("id")),
+            resharedBy = account(json.getJSONObject("user"), origin),
+            reposted = json.optString("myRenoteId").takeIf { it.isNotBlank() } != null,
+            ownRepostId = json.optString("myRenoteId").takeIf { it.isNotBlank() }
+                ?.let { EntityId(origin, it) },
+        )
         val id = EntityId(origin, json.getString("id"))
         val reactionJson = json.optJSONObject("reactions") ?: JSONObject()
         val reactionImages = json.optJSONObject("reactionEmojis") ?: JSONObject()
+        val myReaction = json.nullableString("myReaction")
         val poll = json.optJSONObject("poll")?.optJSONArray("choices")
         val replyToAuthorId = json.nullableString("replyUserId")
             ?: json.optJSONObject("reply")?.nullableString("userId")
@@ -85,17 +92,24 @@ object MisskeyMapper {
             replyTo = json.nullableString("replyId")?.let { EntityId(origin, it) },
             replyToAuthorId = replyToAuthorId?.let { AccountId(Connection(origin, Protocol.MISSKEY), it) },
             reactions = reactionJson.keys().asSequence().map { emoji -> Reaction(emoji, reactionJson.optInt(emoji),
-                json.nullableString("myReaction") == emoji, reactionImages.nullableString(emoji.trim(':'))) }.toList(),
+                myReaction == emoji, reactionImages.nullableString(emoji.trim(':'))) }.toList(),
             url = json.nullableString("url") ?: json.nullableString("uri") ?: "$origin/notes/${id.value}",
             replyCount = json.optInt("repliesCount"), reshareCount = json.optInt("renoteCount"),
             quote = if (renote != null && depth < MAX_NESTING_DEPTH) post(renote, origin, depth + 1) else null,
             pollOptions = if (poll == null) emptyList() else (0 until poll.length()).map { poll.getJSONObject(it).let { option ->
                 PollOption(option.getString("text"), option.optInt("votes"))
             } },
+            availableActions = MISSKEY_ACTIONS,
+            myReaction = myReaction,
+            saved = json.optBoolean("isFavorited", json.optBoolean("isBookmarked")),
+            reposted = json.optString("myRenoteId").takeIf { it.isNotBlank() } != null,
+            ownRepostId = json.optString("myRenoteId").takeIf { it.isNotBlank() }
+                ?.let { EntityId(origin, it) },
         )
     }
 
     private const val MAX_NESTING_DEPTH = 3
+    private val MISSKEY_ACTIONS = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.React, PostAction.Bookmark)
 }
 
 private fun JSONObject.optionalNonNegativeLong(key: String): Long? {

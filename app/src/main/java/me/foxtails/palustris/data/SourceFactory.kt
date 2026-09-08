@@ -5,6 +5,7 @@ import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.misskey.MisskeySource
 import me.foxtails.palustris.data.mastodon.MastodonSource
+import me.foxtails.palustris.data.mastodon.MastodonCapabilityProbe
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.SocialSource
@@ -18,12 +19,16 @@ class SocialSourceFactory @Inject constructor(private val clientPool: HttpClient
             accountId = session.accountId,
             initialCapabilities = session.capabilities,
         )
-        Protocol.MASTODON -> MastodonSource(
-            origin = session.accountId.connection.origin,
-            token = session.token,
-            api = MisskeyApi(clientPool.clientFor(session.accountId.connection)),
-            accountId = session.accountId,
-            initialCapabilities = session.capabilities,
-        )
+        Protocol.MASTODON -> {
+            val api = MisskeyApi(clientPool.clientFor(session.accountId.connection))
+            MastodonSource(
+                origin = session.accountId.connection.origin,
+                token = session.token,
+                api = api,
+                accountId = session.accountId,
+                initialCapabilities = session.capabilities,
+                capabilityProbe = MastodonCapabilityProbe(api),
+            )
+        }
     }
 }

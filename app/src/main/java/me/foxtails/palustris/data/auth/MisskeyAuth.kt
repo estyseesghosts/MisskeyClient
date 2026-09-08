@@ -71,11 +71,14 @@ class MisskeyAuth(private val apiFor: (String) -> MisskeyApi) : AuthGateway {
     }
 
     private companion object {
-        const val MISSKEY_PERMISSIONS = "read:account,write:account,write:notes,read:notifications,write:notifications,write:following"
+        const val MISSKEY_PERMISSIONS = "read:account,write:account,write:notes,read:notifications,write:notifications,write:following,write:reactions,read:favorites,write:favorites"
         val REQUESTED_ACCESS = setOf(
             AccessScope.NotificationsRead,
             AccessScope.NotificationsWrite,
             AccessScope.FollowRequests,
+            AccessScope.PrimaryFavouriteWrite,
+            AccessScope.SavedPostsRead,
+            AccessScope.SavedPostsWrite,
         )
     }
 }

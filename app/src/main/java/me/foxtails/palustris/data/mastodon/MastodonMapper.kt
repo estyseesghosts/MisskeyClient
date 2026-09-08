@@ -68,6 +68,9 @@ object MastodonMapper {
                 id = id,
                 resharedBy = account(json.getJSONObject("account"), origin),
                 url = json.optString("url").takeIf { it.isNotBlank() } ?: resharedPost.url,
+                reposted = json.optBoolean("reblogged", resharedPost.reposted),
+                favourited = json.optBoolean("favourited", resharedPost.favourited),
+                saved = json.optBoolean("bookmarked", resharedPost.saved),
             )
         }
 
@@ -105,6 +108,9 @@ object MastodonMapper {
                     }
                 }
             }.orEmpty(),
+            reposted = json.optBoolean("reblogged"),
+            favourited = json.optBoolean("favourited"),
+            saved = json.optBoolean("bookmarked"),
         )
     }
 
