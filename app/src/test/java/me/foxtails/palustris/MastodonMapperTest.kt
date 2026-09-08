@@ -48,7 +48,7 @@ class MastodonMapperTest {
                 .put("url", "https://cdn.example/clip.mp4")
                 .put("preview_url", "https://cdn.example/clip.jpg"),
         )
-        assertEquals(MediaKind.AnimatedImage, attachment.kind)
+        assertEquals(MediaKind.Video, attachment.kind)
         assertEquals("video/*", attachment.mimeType)
     }
 }

@@ -175,7 +175,7 @@ private fun String.toMastodonMimeType(): String = when (this) {
 
 private fun String.toMastodonMediaKind(mimeType: String): MediaKind = when (this) {
     "image" -> MediaKind.Image
-    "gifv" -> MediaKind.AnimatedImage
+    "gifv" -> MediaKind.Video
     "video" -> MediaKind.Video
     "audio" -> MediaKind.Audio
     else -> me.foxtails.palustris.domain.mediaKindForMimeType(mimeType)

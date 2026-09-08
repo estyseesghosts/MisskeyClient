@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.DropdownMenu
@@ -57,7 +59,8 @@ fun MediaViewerScreen(
     }
     var menuVisible by rememberSaveable { mutableStateOf(false) }
     var chromeVisible by rememberSaveable { mutableStateOf(true) }
-    BackHandler(onBack = onClose)
+    var descriptionVisible by rememberSaveable { mutableStateOf(false) }
+    BackHandler { if (descriptionVisible) descriptionVisible = false else onClose() }
     Surface(Modifier.fillMaxSize(), color = Color.Black) {
         Box(Modifier.fillMaxSize().semantics { contentDescription = "Media viewer" }) {
             HorizontalPager(
@@ -85,12 +88,39 @@ fun MediaViewerScreen(
                     onMenuVisibilityChanged = { menuVisible = it },
                     onClose = onClose,
                     onOpenBrowser = { openExternal(context, attachments[pagerState.settledPage].url) },
-                    onShowDescription = {},
+                    onShowDescription = { descriptionVisible = true },
                     onReact = { onReact(request.ownedPost) },
                     onReply = { onReply(request.ownedPost) },
                     onReshare = { onReshare(request.ownedPost) },
                     onShare = { sharePost(context, request.ownedPost.post) },
                 )
+            }
+            if (descriptionVisible) {
+                Surface(
+                    Modifier.fillMaxSize().padding(top = 72.dp, bottom = 72.dp),
+                    color = Color.Black.copy(alpha = .96f),
+                ) {
+                    androidx.compose.foundation.layout.Column(
+                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("Description", color = Color.White, style = MaterialTheme.typography.titleLarge)
+                            IconButton(
+                                onClick = { descriptionVisible = false },
+                                modifier = Modifier.semantics { contentDescription = "Close description" },
+                            ) { Icon(AppIcons.Close, null, tint = Color.White) }
+                        }
+                        Text(
+                            attachments[pagerState.settledPage].description.orEmpty(),
+                            Modifier.padding(top = 16.dp),
+                            color = Color.White,
+                        )
+                    }
+                }
             }
         }
     }
