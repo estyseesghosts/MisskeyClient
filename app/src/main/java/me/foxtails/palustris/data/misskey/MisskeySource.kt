@@ -658,7 +658,14 @@ class MisskeySource(
 
     private companion object {
         const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
-        val SECURE_CREDENTIAL_FAILURE_CODES = setOf("AUTHENTICATION_FAILED", "SECURE_CREDENTIAL_REQUIRED")
+        // Misskey's secure push endpoints return ACCESS_DENIED for MiAuth/app
+        // credentials. Those tokens can authenticate ordinary API calls, but
+        // cannot satisfy an endpoint declared secure:true (native user token).
+        val SECURE_CREDENTIAL_FAILURE_CODES = setOf(
+            "ACCESS_DENIED",
+            "AUTHENTICATION_FAILED",
+            "SECURE_CREDENTIAL_REQUIRED",
+        )
         val MISSING_PUSH_REGISTRATION_CODES = setOf("NOT_FOUND", "NO_SUCH_REGISTRATION", "REGISTRATION_NOT_FOUND")
     }
 }

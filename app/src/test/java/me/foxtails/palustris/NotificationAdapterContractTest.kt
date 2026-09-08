@@ -376,6 +376,29 @@ class NotificationAdapterContractTest {
     }
 
     @Test
+    fun misskeySecurePushFailureIsReportedAsUnsupportedCredential() = runBlocking {
+        val origin = server.url("/").toString().removeSuffix("/")
+        val account = AccountId(Connection(origin, Protocol.MISSKEY), "receiver")
+        val spec = PushSubscriptionSpec(
+            account,
+            ValidatedUrl.https("https://push.example/endpoint")!!,
+            "public-key",
+            "auth-secret",
+        )
+        server.enqueue(MockResponse()
+            .setResponseCode(403)
+            .setBody(JSONObject().put("error", JSONObject().put("code", "ACCESS_DENIED")).toString()))
+
+        assertThrows(SourceError.UnsupportedCredential::class.java) {
+            runBlocking {
+                MisskeySource(origin, "miauth-token", MisskeyApi(), accountId = account)
+                    .createOrReplacePushSubscription(spec)
+            }
+        }
+        Unit
+    }
+
+    @Test
     fun pushAdaptersRejectMalformedConfirmationInsteadOfUsingRequestedEndpoint() = runBlocking {
         val origin = server.url("/").toString().removeSuffix("/")
         val mastodonAccount = AccountId(Connection(origin, Protocol.MASTODON), "mastodon")
