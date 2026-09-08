@@ -19,6 +19,7 @@ import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Protocol
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -158,6 +159,11 @@ class NotificationRepositoryTest {
         ))
         assertEquals("newest-2", repository.checkpoint(account, query)?.newest?.value)
         assertEquals("oldest-2", repository.checkpoint(account, query)?.oldest?.value)
+    }
+
+    @Test
+    fun notificationRepositoryIsApplicationSingleton() {
+        assertNotNull(NotificationRepository::class.java.getAnnotation(javax.inject.Singleton::class.java))
     }
 
     private fun notification(id: String, activity: NotificationActivity) = Notification(

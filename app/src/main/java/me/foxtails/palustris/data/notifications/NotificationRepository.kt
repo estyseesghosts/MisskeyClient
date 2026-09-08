@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.AtomicFile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -174,7 +176,8 @@ class RoomNotificationStore @javax.inject.Inject constructor(
  * One account-scoped merge point for REST pages, cache state, local visibility, and unread knowledge.
  * Writes require the source generation that produced them, so late requests cannot recreate removed state.
  */
-class NotificationRepository @javax.inject.Inject constructor(
+@Singleton
+class NotificationRepository @Inject constructor(
     private val store: NotificationStore,
 ) {
     constructor() : this(InMemoryNotificationStore())

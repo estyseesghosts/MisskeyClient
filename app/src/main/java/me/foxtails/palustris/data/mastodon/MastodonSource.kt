@@ -163,7 +163,7 @@ class MastodonSource(
             JSONArray(response.body).optJSONObject(0)?.optString("id").orEmpty()
         }.getOrElse { throw it }
         if (latest.isBlank()) return@request NotificationAcknowledgement(accountId, NotificationUnreadState.None, clock())
-        api.putForm(
+        api.postForm(
             origin,
             "api/v1/markers",
             listOf("notifications[last_read_id]" to latest),

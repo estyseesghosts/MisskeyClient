@@ -290,6 +290,7 @@ class NotificationAdapterContractTest {
         assertEquals("/api/v1/notifications?limit=1", server.takeRequest().path)
         val marker = server.takeRequest()
         assertEquals("/api/v1/markers", marker.path)
+        assertEquals("POST", marker.method)
         assertTrue(marker.body.readUtf8().contains("notifications%5Blast_read_id%5D=latest"))
     }
 
