@@ -217,9 +217,12 @@ class NotificationSettingsViewModel @AssistedInject constructor(
                     if (settings.periodicFallbackEnabled) workScheduler.schedulePeriodicFallback(accountId)
                     else workScheduler.cancelPeriodicFallback(accountId)
                     when {
+                        settings.alertsEnabled && settings.selectedDistributor != previousSettings.selectedDistributor -> {
+                            pushRegistrationManager.disable(accountId)
+                            pushRegistrationManager.enable(accountId)
+                        }
                         settings.alertsEnabled && (
-                            !previousSettings.alertsEnabled || settings.categories != previousSettings.categories ||
-                                settings.selectedDistributor != previousSettings.selectedDistributor
+                            !previousSettings.alertsEnabled || settings.categories != previousSettings.categories
                             ) -> pushRegistrationManager.enable(accountId)
                         !settings.alertsEnabled && previousSettings.alertsEnabled -> pushRegistrationManager.disable(accountId)
                     }

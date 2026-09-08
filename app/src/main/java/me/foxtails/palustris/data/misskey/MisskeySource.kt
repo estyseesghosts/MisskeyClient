@@ -22,6 +22,8 @@ import me.foxtails.palustris.domain.NotificationPage
 import me.foxtails.palustris.domain.NotificationPageDirection
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.NotificationReaction
+import me.foxtails.palustris.domain.NotificationReadSemantics
+import me.foxtails.palustris.domain.NotificationUnreadPrecision
 import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Page
@@ -661,7 +663,7 @@ class MisskeySource(
             capabilityProbe.probeCapabilities(Connection(origin, Protocol.MISSKEY)).also {
                 val updated = it.copy(
                     canPublish = it.canPublish || capabilities.canPublish,
-                    notifications = it.notifications.takeVerifiedOr(capabilities.notifications),
+                    notifications = it.notifications.mergeNotificationCapabilities(capabilities.notifications),
                     profile = it.profile.takeVerifiedOr(capabilities.profile),
                 )
                 _capabilities.value = updated
@@ -692,6 +694,31 @@ class MisskeySource(
 
 private fun NotificationCapabilities.takeVerifiedOr(previous: NotificationCapabilities): NotificationCapabilities =
     if (this == NotificationCapabilities()) previous else this
+
+private fun NotificationCapabilities.mergeNotificationCapabilities(
+    previous: NotificationCapabilities,
+): NotificationCapabilities = copy(
+    listing = listing.takeKnown(previous.listing),
+    supportedCategories = supportedCategories.ifEmpty { previous.supportedCategories },
+    readSemantics = readSemantics.takeKnown(previous.readSemantics),
+    unreadCountPrecision = unreadCountPrecision.takeKnown(previous.unreadCountPrecision),
+    grouping = grouping.takeKnown(previous.grouping),
+    dismissal = dismissal.takeKnown(previous.dismissal),
+    policyManagement = policyManagement.takeKnown(previous.policyManagement),
+    followRequestActions = followRequestActions.takeKnown(previous.followRequestActions),
+    streaming = streaming.takeKnown(previous.streaming),
+)
+
+private fun CapabilityStatus.takeKnown(previous: CapabilityStatus): CapabilityStatus =
+    if (this == CapabilityStatus.Unknown) previous else this
+
+private fun NotificationReadSemantics.takeKnown(
+    previous: NotificationReadSemantics,
+) = if (this == NotificationReadSemantics.Unknown) previous else this
+
+private fun NotificationUnreadPrecision.takeKnown(
+    previous: NotificationUnreadPrecision,
+) = if (this == NotificationUnreadPrecision.Unknown) previous else this
 
 private fun ProfileCapabilities.takeVerifiedOr(previous: ProfileCapabilities): ProfileCapabilities =
     if (this == ProfileCapabilities()) previous else this

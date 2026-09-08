@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -559,7 +560,13 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 failureReason = failureReason,
                 retryCount = owner.registration.retryCount + 1,
                 nextRetryAtEpochMillis = nextRetryAt(owner.registration.retryCount + 1),
-            )) }
+             )) }
+            if (state == NotificationPushRegistrationState.TemporarilyUnavailable &&
+                repository.settings(owner.accountId).alertsEnabled
+            ) {
+                delay(RETRY_DELAYS_MILLIS[owner.registration.retryCount.coerceIn(0, RETRY_DELAYS_MILLIS.lastIndex)])
+                enable(owner.accountId)
+            }
         }
     }
 

@@ -76,6 +76,7 @@ object MisskeyNotificationMapper {
         val actor = runCatching { actorJson?.let { MisskeyMapper.account(it, origin) } }.getOrNull()
         val conversationId = json.nullableString("roomId")
             ?: json.nullableString("chatId")
+            ?: json.nullableString("chatRoomId")
             ?: json.optJSONObject("room")?.nullableString("id")
         return Notification(
             id = EntityId(origin, id),

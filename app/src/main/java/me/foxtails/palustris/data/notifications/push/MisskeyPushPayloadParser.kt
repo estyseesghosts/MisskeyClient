@@ -29,7 +29,14 @@ internal object MisskeyPushPayloadParser {
             is String -> runCatching { JSONObject(body) }.getOrNull()
             else -> null
         } ?: return null
-        return normalizeDateTime(normalized)
+        return normalizeDateTime(normalized).apply {
+            if (!has("dateTime")) {
+                when (val dateTime = this@bodyObject.opt("dateTime")) {
+                    is Number -> put("dateTime", dateTime)
+                    is String -> dateTime.toLongOrNull()?.let { put("dateTime", it) }
+                }
+            }
+        }
     }
 
     private fun normalizeDateTime(body: JSONObject): JSONObject = body.apply {
