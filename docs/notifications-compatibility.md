@@ -33,14 +33,60 @@ The shared contract fixture suite currently covers:
 These fixtures intentionally use inline JSON so no access tokens, private posts,
 or distributor credentials are stored in the repository or logs.
 
+## Evidence classification
+
+### Implemented
+
+- UnifiedPush connector registration is account-scoped and durable across callback,
+  process restart, endpoint rotation, and logout fencing.
+- Mastodon and Misskey-family adapters use explicit subscription contracts; the
+  app never treats a distributor endpoint callback as server-registration success.
+- Misskey secure push failures are classified as unsupported credential/server
+  combinations, while inbox REST reconciliation and foreground streams remain
+  available.
+
+### Synthetic test passed
+
+- Focused adapter contracts cover the Mastodon create/update/remove split,
+  endpoint identity confirmation, Misskey endpoint-required show/unregister
+  requests, and secure-credential rejection.
+- Repository, delivery, stream-readiness, presentation privacy, dismissal, and
+  account-bound launch tests pass for the implementation slices recorded in the
+  task log.
+
+### Live test passed (provisional)
+
+- On September 8, 2026, the user reported that Mastodon push notifications were
+  arriving on the connected test device after Sunup registration. This is a
+  useful smoke result, but it is not yet a release-matrix acceptance record:
+  server version, distributor version, endpoint rotation, process death, two
+  accounts, removal, and target-tap behavior were not independently recorded.
+
+### Unsupported
+
+- Current upstream Misskey declares `sw/register`, `sw/show-registration`, and
+  `sw/update-registration` as secure endpoints. The app's MiAuth access token is
+  an application/session credential rather than the native secure credential
+  accepted by those endpoints on affected versions, so the server can return
+  `ACCESS_DENIED` even when notification read/write permissions were granted.
+  The app reports this as unsupported instead of claiming Connected and keeps
+  REST/foreground fallback available.
+
+### Deferred
+
+- Exact connected Misskey/Sharkey version and fork policy, supported-fork success,
+  full Mastodon live matrix, endpoint rotation/removal, process death/reboot,
+  Doze, permission/channel recovery, and multiple-account isolation still need
+  the user-provided live-device run.
+
 ## Open Milestone 0 evidence
 
-The authenticated UnifiedPush round trip is still not verified in this
-workspace. The app now includes the official connector, an Android `PushService`,
-encrypted connector key handling, a stable opaque instance per account, endpoint
-rotation, server subscription registration, payload-safe catch-up hints, and
-logout cleanup. Device delivery, distributor behavior, server-version behavior,
-and process-death recovery remain live-test gates.
+The Mastodon smoke result above is not enough to close the authenticated
+UnifiedPush round trip. The app now includes the official connector, an Android
+`PushService`, encrypted connector key handling, a stable opaque instance per
+account, endpoint rotation, server subscription registration, payload-safe
+catch-up hints, and logout cleanup. Device delivery, distributor behavior,
+server-version behavior, and process-death recovery remain live-test gates.
 
 ## Milestone 2 implementation evidence
 
@@ -62,7 +108,8 @@ The REST adapters now cover the planned notification foundation:
   required notification identity remains diagnosed, and grouped rows retain a
   separate account-scoped group identity.
 
-Live authenticated server delivery and device presentation remain intentionally
+Live authenticated server delivery is partially observed for Mastodon only; the
+full device presentation and account-isolation matrix remains intentionally
 unverified until the user-provided Sunup distributor and test accounts are used.
 
 ## UnifiedPush implementation evidence

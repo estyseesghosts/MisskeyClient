@@ -8,8 +8,8 @@ An early Android client for Misskey-family servers and Mastodon. It currently su
 
 TODO 
 
-- get unifiedpush notifications working for misskey 
-- get unifiedpush notifications working for mastodon
+- verify live UnifiedPush notifications for Mastodon across the release/device matrix
+- verify or explicitly support a compatible Misskey/Sharkey push credential/server combination; current MiAuth secure-endpoint rejection uses REST/foreground fallback
 - verify server-version compatibility and the wider device/theme matrix for profiles
 - get boosts and quote boosts working for mastodon
 - get reposts and quote reposts working for misskey 
