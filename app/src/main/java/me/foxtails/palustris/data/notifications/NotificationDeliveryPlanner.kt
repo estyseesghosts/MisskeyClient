@@ -24,7 +24,7 @@ data class NotificationDeliveryPlan(
     val channel: NotificationChannelKind,
 )
 
-enum class NotificationChannelKind { RepliesAndMentions, Social, Account }
+enum class NotificationChannelKind { RepliesAndMentions, Social, Account, Polls, Conversations }
 
 /** Pure delivery policy: inbox ingestion is never dropped for presentation reasons. */
 class NotificationDeliveryPlanner @Inject constructor() {
@@ -36,9 +36,15 @@ class NotificationDeliveryPlanner @Inject constructor() {
         nowMinutes: Int = LocalTime.now().toSecondOfDay() / 60,
     ): NotificationDeliveryPlan {
         val channel = when (notification.activity) {
+            me.foxtails.palustris.domain.NotificationActivity.DirectMessage -> NotificationChannelKind.Conversations
             me.foxtails.palustris.domain.NotificationActivity.Mention,
             me.foxtails.palustris.domain.NotificationActivity.Reply,
-            -> NotificationChannelKind.RepliesAndMentions
+            -> if (notification.post?.audience == Audience.Direct) {
+                NotificationChannelKind.Conversations
+            } else {
+                NotificationChannelKind.RepliesAndMentions
+            }
+            is me.foxtails.palustris.domain.NotificationActivity.PollResult -> NotificationChannelKind.Polls
             me.foxtails.palustris.domain.NotificationActivity.Follow,
             me.foxtails.palustris.domain.NotificationActivity.FollowRequest,
             me.foxtails.palustris.domain.NotificationActivity.AcceptedRequest,

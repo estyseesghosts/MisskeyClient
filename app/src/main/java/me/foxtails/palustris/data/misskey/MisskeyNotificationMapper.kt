@@ -59,7 +59,7 @@ object MisskeyNotificationMapper {
         return Notification(
             id = EntityId(origin, json.getString("id")),
             accountId = receivingAccountId,
-            createdAtEpochMillis = runCatching { Instant.parse(json.optString("createdAt")).toEpochMilli() }.getOrDefault(0L),
+            createdAtEpochMillis = json.notificationTimeMillis(),
             activity = rawType.toNotificationActivity(json),
             actors = actors,
             target = target,
@@ -70,7 +70,39 @@ object MisskeyNotificationMapper {
         )
     }
 
+    fun chatMessage(json: JSONObject, origin: String, receivingAccountId: AccountId): Notification? {
+        val id = json.nullableString("id") ?: return null
+        val actorJson = json.optJSONObject("user") ?: json.optJSONObject("fromUser")
+        val actor = runCatching { actorJson?.let { MisskeyMapper.account(it, origin) } }.getOrNull()
+        val conversationId = json.nullableString("roomId")
+            ?: json.nullableString("chatId")
+            ?: json.optJSONObject("room")?.nullableString("id")
+        return Notification(
+            id = EntityId(origin, id),
+            accountId = receivingAccountId,
+            createdAtEpochMillis = json.notificationTimeMillis(),
+            activity = NotificationActivity.DirectMessage,
+            actors = listOfNotNull(actor),
+            target = conversationId?.let { NotificationTarget.Conversation(EntityId(origin, it)) },
+            destination = conversationId?.let { NotificationDestination.InApp(NotificationTarget.Conversation(EntityId(origin, it))) },
+            rawType = "newChatMessage",
+        )
+    }
+
     private val PROFILE_TARGET_TYPES = setOf("follow", "receiveFollowRequest", "followRequest")
+}
+
+private fun JSONObject.notificationTimeMillis(): Long {
+    val createdAt = opt("createdAt")
+    return when (createdAt) {
+        is Number -> createdAt.toLong()
+        is String -> createdAt.toLongOrNull() ?: runCatching { Instant.parse(createdAt).toEpochMilli() }.getOrDefault(0L)
+        else -> when (val dateTime = opt("dateTime")) {
+            is Number -> dateTime.toLong()
+            is String -> dateTime.toLongOrNull() ?: 0L
+            else -> 0L
+        }
+    }
 }
 
 private fun String.toNotificationActivity(json: JSONObject): NotificationActivity = when (this) {

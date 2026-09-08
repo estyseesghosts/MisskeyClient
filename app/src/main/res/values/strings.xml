@@ -62,9 +62,12 @@
     <string name="notification_activity_poll_result">Your poll ended</string>
     <string name="notification_activity_post_update">Updated a post</string>
     <string name="notification_activity_quoted_post_update">Updated a quoted post</string>
+    <string name="notification_activity_direct_message">New message</string>
     <string name="notifications_channel_replies">Replies and mentions</string>
     <string name="notifications_channel_social">Social activity</string>
     <string name="notifications_channel_account">Account activity</string>
+    <string name="notifications_channel_polls">Poll results</string>
+    <string name="notifications_channel_messages">Private conversations</string>
     <string name="notifications_settings_alerts">Device alerts</string>
     <string name="notifications_settings_alerts_subtitle">Keep inbox synchronization enabled even when alerts are off.</string>
     <string name="notifications_settings_previews">Show safe previews</string>

@@ -995,6 +995,7 @@ private fun encodeActivity(activity: NotificationActivity): JSONObject = JSONObj
         is NotificationActivity.PollResult -> put("kind", "poll_result").put("option", activity.option)
         NotificationActivity.PostUpdate -> put("kind", "post_update")
         NotificationActivity.QuotedPostUpdate -> put("kind", "quoted_post_update")
+        NotificationActivity.DirectMessage -> put("kind", "direct_message")
         is NotificationActivity.System.Moderation -> put("kind", "system").put("systemKind", "Moderation")
             .put("title", activity.title).put("detail", activity.detail)
         is NotificationActivity.System.RelationshipChange -> put("kind", "system").put("systemKind", "RelationshipChange")
@@ -1025,6 +1026,7 @@ private fun decodeActivity(json: JSONObject): NotificationActivity = when (json.
     "poll_result" -> NotificationActivity.PollResult(json.optString("option").takeIf { it.isNotBlank() })
     "post_update" -> NotificationActivity.PostUpdate
     "quoted_post_update" -> NotificationActivity.QuotedPostUpdate
+    "direct_message" -> NotificationActivity.DirectMessage
     "system" -> when (json.optString("systemKind")) {
         "Moderation" -> NotificationActivity.System.Moderation(json.optString("title"), json.optString("detail").takeIf { it.isNotBlank() })
         "RelationshipChange" -> NotificationActivity.System.RelationshipChange(json.optString("title"), json.optString("detail").takeIf { it.isNotBlank() })

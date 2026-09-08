@@ -20,6 +20,7 @@ import me.foxtails.palustris.data.notifications.NotificationPresenter
 import me.foxtails.palustris.data.notifications.NotificationPermissionController
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.work.NotificationWorkScheduler
+import me.foxtails.palustris.data.misskey.MisskeyNotificationMapper
 import me.foxtails.palustris.domain.AccessScope
 import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.AccountId
@@ -30,6 +31,10 @@ import me.foxtails.palustris.domain.PushRegistrationFailureReason
 import me.foxtails.palustris.domain.PushRegistrationFailureStage
 import me.foxtails.palustris.domain.PushSubscriptionSpec
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.Event
+import me.foxtails.palustris.domain.NotificationReadState
+import me.foxtails.palustris.domain.NotificationReadStatus
+import me.foxtails.palustris.domain.SocialEvent
 import me.foxtails.palustris.domain.SourceError
 import org.unifiedpush.android.connector.FailedReason
 import org.unifiedpush.android.connector.data.PushEndpoint
@@ -68,6 +73,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
     private val connector: UnifiedPushConnector,
     private val permissionController: NotificationPermissionController,
     @param:ApplicationContext private val context: Context,
+    private val pushMessageDecoder: PushMessageDecoder,
 ) : PushRegistrationManager, AutoCloseable {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lock = Mutex()
@@ -251,16 +257,75 @@ class UnifiedPushRegistrationManager @Inject constructor(
 
     fun onMessage(message: PushMessage, instanceName: String) {
         val owner = registrationRepository.find(instanceName) ?: return
-        val shouldCatchUp = !message.decrypted || when (PushPayloadParser.classify(message.content)) {
-            PushPayloadHint.Ignored -> false
-            PushPayloadHint.Notification,
-            PushPayloadHint.ReadInvalidation,
-            PushPayloadHint.RegistrationInvalidation,
-            PushPayloadHint.Refresh,
-            PushPayloadHint.RejectedSensitive,
-            -> true
+        scope.launch {
+            val content = pushMessageDecoder.decode(instanceName, message)
+            if (content == null) {
+                scheduleCatchUp(owner)
+                return@launch
+            }
+            when (owner.accountId.connection.protocol) {
+                Protocol.MISSKEY -> handleMisskeyPush(owner, content)
+                Protocol.MASTODON -> scheduleCatchUp(owner)
+            }
         }
-        if (shouldCatchUp && sessionStore.recordPushMessageHint(owner.accountId, instanceName)) {
+    }
+
+    private suspend fun handleMisskeyPush(owner: PushRegistrationOwner, content: ByteArray) {
+        when (val push = MisskeyPushPayloadParser.parse(content)) {
+            is MisskeyPushPayload.Notification -> try {
+                val notification = MisskeyNotificationMapper.notification(
+                    push.body,
+                    owner.accountId.connection.origin,
+                    owner.accountId,
+                )
+                val accepted = repository.applyStreamEvent(
+                    owner.token,
+                    Event(owner.accountId, SocialEvent.NotificationReceived(notification)),
+                )
+                if (accepted) scheduler.enqueueDelivery(owner.accountId)
+                scheduleCatchUp(owner)
+            } catch (_: Exception) {
+                scheduleCatchUp(owner)
+            }
+            MisskeyPushPayload.ReadAllNotifications -> {
+                val accepted = repository.applyStreamEvent(
+                    owner.token,
+                    Event(
+                        owner.accountId,
+                        SocialEvent.NotificationReadChanged(
+                            owner.accountId,
+                            NotificationReadState(NotificationReadStatus.Read, serverAcknowledged = true),
+                        ),
+                    ),
+                )
+                if (accepted) {
+                    repository.observe(owner.accountId).value.items.forEach { item ->
+                        presenter.dismiss(owner.accountId, item.id)
+                    }
+                }
+                scheduleCatchUp(owner)
+            }
+            is MisskeyPushPayload.NewChatMessage -> try {
+                val notification = MisskeyNotificationMapper.chatMessage(
+                    push.body,
+                    owner.accountId.connection.origin,
+                    owner.accountId,
+                ) ?: error("chat message id missing")
+                val accepted = repository.applyStreamEvent(
+                    owner.token,
+                    Event(owner.accountId, SocialEvent.NotificationReceived(notification)),
+                )
+                if (accepted) scheduler.enqueueDelivery(owner.accountId)
+                scheduleCatchUp(owner)
+            } catch (_: Exception) {
+                scheduleCatchUp(owner)
+            }
+            MisskeyPushPayload.Refresh -> scheduleCatchUp(owner)
+        }
+    }
+
+    private fun scheduleCatchUp(owner: PushRegistrationOwner) {
+        if (sessionStore.recordPushMessageHint(owner.accountId, owner.registration.instanceName)) {
             scheduler.enqueueCatchUp(owner.accountId)
         }
     }

@@ -23,6 +23,7 @@ fun NotificationActivity.categories(): Set<NotificationCategory> = when (this) {
     NotificationActivity.AcceptedRequest,
     NotificationActivity.SubscribedPost,
     NotificationActivity.PostUpdate,
+    NotificationActivity.DirectMessage,
     -> setOf(NotificationCategory.Social)
 }
 

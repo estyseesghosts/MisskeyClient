@@ -98,6 +98,7 @@ class NotificationPresentationFactory @Inject constructor(
         is NotificationActivity.PollResult -> context.getString(R.string.notification_activity_poll_result)
         NotificationActivity.PostUpdate -> context.getString(R.string.notification_activity_post_update)
         NotificationActivity.QuotedPostUpdate -> context.getString(R.string.notification_activity_quoted_post_update)
+        NotificationActivity.DirectMessage -> context.getString(R.string.notification_activity_direct_message)
         is NotificationActivity.System -> context.getString(R.string.notifications_detail_title)
         is NotificationActivity.Unknown -> context.getString(R.string.notifications_detail_title)
     }
@@ -182,6 +183,8 @@ class AndroidNotificationPresenter @Inject constructor(
             NotificationChannel(CHANNEL_REPLIES, context.getString(R.string.notifications_channel_replies), NotificationManager.IMPORTANCE_DEFAULT),
             NotificationChannel(CHANNEL_SOCIAL, context.getString(R.string.notifications_channel_social), NotificationManager.IMPORTANCE_DEFAULT),
             NotificationChannel(CHANNEL_ACCOUNT, context.getString(R.string.notifications_channel_account), NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(CHANNEL_POLLS, context.getString(R.string.notifications_channel_polls), NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(CHANNEL_MESSAGES, context.getString(R.string.notifications_channel_messages), NotificationManager.IMPORTANCE_DEFAULT),
         )
         context.getSystemService(NotificationManager::class.java).createNotificationChannels(channels)
     }
@@ -190,11 +193,15 @@ class AndroidNotificationPresenter @Inject constructor(
         const val CHANNEL_REPLIES = "notifications.replies"
         const val CHANNEL_SOCIAL = "notifications.social"
         const val CHANNEL_ACCOUNT = "notifications.account"
+        const val CHANNEL_POLLS = "notifications.polls"
+        const val CHANNEL_MESSAGES = "notifications.messages"
 
         fun channelId(channel: NotificationChannelKind): String = when (channel) {
             NotificationChannelKind.RepliesAndMentions -> CHANNEL_REPLIES
             NotificationChannelKind.Social -> CHANNEL_SOCIAL
             NotificationChannelKind.Account -> CHANNEL_ACCOUNT
+            NotificationChannelKind.Polls -> CHANNEL_POLLS
+            NotificationChannelKind.Conversations -> CHANNEL_MESSAGES
         }
     }
 }

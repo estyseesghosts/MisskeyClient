@@ -157,6 +157,7 @@ private fun NotificationActivity.label(): String = when (this) {
     is NotificationActivity.PollResult -> stringResource(R.string.notification_activity_poll_result)
     NotificationActivity.PostUpdate -> stringResource(R.string.notification_activity_post_update)
     NotificationActivity.QuotedPostUpdate -> stringResource(R.string.notification_activity_quoted_post_update)
+    NotificationActivity.DirectMessage -> stringResource(R.string.notification_activity_direct_message)
     is NotificationActivity.System.Moderation -> title
     is NotificationActivity.System.RelationshipChange -> title
     is NotificationActivity.System.RoleOrAchievement -> title

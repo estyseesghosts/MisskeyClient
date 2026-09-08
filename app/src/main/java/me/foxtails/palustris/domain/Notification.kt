@@ -41,6 +41,7 @@ sealed interface NotificationActivity {
     data object PostUpdate : NotificationActivity
     /** A Mastodon quoted status changed; its notification target is the user's quote. */
     data object QuotedPostUpdate : NotificationActivity
+    data object DirectMessage : NotificationActivity
 
     sealed interface System : NotificationActivity {
         data class Moderation(val title: String, val detail: String? = null) : System

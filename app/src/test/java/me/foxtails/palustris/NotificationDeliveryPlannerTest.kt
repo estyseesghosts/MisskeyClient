@@ -2,6 +2,7 @@ package me.foxtails.palustris
 
 import me.foxtails.palustris.data.notifications.NotificationDeliveryDecision
 import me.foxtails.palustris.data.notifications.NotificationDeliveryPlanner
+import me.foxtails.palustris.data.notifications.NotificationChannelKind
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
@@ -82,5 +83,18 @@ class NotificationDeliveryPlannerTest {
 
         assertTrue(plan.showPreview.not())
         assertFalse(plan.decision == NotificationDeliveryDecision.SuppressedBySettings)
+        assertEquals(NotificationChannelKind.Conversations, plan.channel)
+    }
+
+    @Test
+    fun directMessagesUseConversationChannel() {
+        val plan = planner.plan(
+            notification.copy(activity = NotificationActivity.DirectMessage, post = null),
+            NotificationSettings(alertsEnabled = true),
+            permissionGranted = true,
+            foreground = false,
+        )
+
+        assertEquals(NotificationChannelKind.Conversations, plan.channel)
     }
 }
