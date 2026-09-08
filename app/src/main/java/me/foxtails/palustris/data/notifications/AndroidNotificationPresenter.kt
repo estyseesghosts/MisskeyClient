@@ -34,9 +34,18 @@ data class NotificationPresentation(
     val androidId: Int,
 )
 
+enum class NotificationPresentationAvailability {
+    Available,
+    PermissionRequired,
+    AppDisabled,
+    ChannelDisabled,
+}
+
 interface NotificationPresenter {
     fun present(presentation: NotificationPresentation): Boolean
     fun dismiss(accountId: AccountId, notificationId: EntityId)
+    fun availability(channel: NotificationChannelKind): NotificationPresentationAvailability =
+        NotificationPresentationAvailability.Available
 }
 
 @Singleton
@@ -100,18 +109,23 @@ class AndroidNotificationPresenter @Inject constructor(
 ) : NotificationPresenter {
     private val manager = NotificationManagerCompat.from(context)
 
-    override fun present(presentation: NotificationPresentation): Boolean {
+    override fun availability(channel: NotificationChannelKind): NotificationPresentationAvailability {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
-        ) return false
-        if (!manager.areNotificationsEnabled()) return false
+        ) return NotificationPresentationAvailability.PermissionRequired
+        if (!manager.areNotificationsEnabled()) return NotificationPresentationAvailability.AppDisabled
         ensureChannels()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             context.getSystemService(NotificationManager::class.java)
-                .getNotificationChannel(channelId(presentation.channel))?.importance == NotificationManager.IMPORTANCE_NONE
-        ) return false
+                .getNotificationChannel(channelId(channel))?.importance == NotificationManager.IMPORTANCE_NONE
+        ) return NotificationPresentationAvailability.ChannelDisabled
+        return NotificationPresentationAvailability.Available
+    }
+
+    override fun present(presentation: NotificationPresentation): Boolean {
+        if (availability(presentation.channel) != NotificationPresentationAvailability.Available) return false
         val launch = NotificationLaunch(
             presentation.accountId,
             presentation.notificationId,

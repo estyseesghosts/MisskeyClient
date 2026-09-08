@@ -15,6 +15,7 @@ import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.notifications.NotificationDeliveryPlanner
 import me.foxtails.palustris.data.notifications.NotificationPermissionController
 import me.foxtails.palustris.data.notifications.NotificationPresentationFactory
+import me.foxtails.palustris.data.notifications.NotificationPresentationAvailability
 import me.foxtails.palustris.data.notifications.NotificationPresenter
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.NotificationSynchronizer
@@ -121,8 +122,10 @@ class NotificationDeliveryWorker(
             val plan = dependencies.planner().plan(notification, settings, permissionGranted, foreground = false)
             when (plan.decision) {
                     NotificationDeliveryDecision.Present -> {
+                        val presenter = dependencies.presenter()
                         val presentation = dependencies.presentationFactory().prepare(notification, plan.showPreview, plan.channel)
-                        if (dependencies.presenter().present(presentation)) {
+                        val availability = presenter.availability(plan.channel)
+                        if (availability == NotificationPresentationAvailability.Available && presenter.present(presentation)) {
                             repository.markPresented(token, claimed.notificationId)
                             repository.finishDelivery(
                                 token,
@@ -131,14 +134,20 @@ class NotificationDeliveryWorker(
                                 claimId = claimed.claimId,
                             )
                         } else {
+                            val errorCategory = when (availability) {
+                                NotificationPresentationAvailability.PermissionRequired -> "permission_required"
+                                NotificationPresentationAvailability.AppDisabled -> "notifications_disabled"
+                                NotificationPresentationAvailability.ChannelDisabled -> "channel_disabled"
+                                NotificationPresentationAvailability.Available -> "present_failed"
+                            }
                             repository.finishDelivery(
                                 token,
                                 claimed.notificationId,
                                 NotificationDeliveryState.Failed,
-                                "present_failed",
+                                errorCategory,
                                 claimed.claimId,
                             )
-                            retryRequested = true
+                            retryRequested = availability == NotificationPresentationAvailability.Available
                         }
                     }
                     NotificationDeliveryDecision.AlreadyPresented -> repository.finishDelivery(
@@ -153,8 +162,12 @@ class NotificationDeliveryWorker(
                     -> repository.finishDelivery(
                         token,
                         claimed.notificationId,
-                        NotificationDeliveryState.Suppressed,
-                        plan.decision.name,
+                        NotificationDeliveryState.Failed,
+                        if (plan.decision == NotificationDeliveryDecision.PermissionRequired) {
+                            "permission_required"
+                        } else {
+                            plan.decision.name
+                        },
                         claimed.claimId,
                     )
             }

@@ -83,6 +83,7 @@ class NotificationSettingsViewModel @AssistedInject constructor(
 
     fun refreshPermission() {
         _state.value = _state.value.copy(permissionGranted = permissionController.isGranted())
+        if (_state.value.settings.alertsEnabled) workScheduler.enqueueDelivery(accountId)
     }
 
     fun setShowPreviews(enabled: Boolean) = save(_state.value.settings.copy(showPreviews = enabled))
