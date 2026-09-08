@@ -44,6 +44,12 @@ class MastodonIntegrationTest {
         .put("display_name", "Alice")
         .put("avatar", "https://example.org/avatar.png")
         .put("note", "<p>Bio &amp; details</p>")
+        .put("header", "https://example.org/banner.png")
+        .put("followers_count", 42)
+        .put("following_count", 17)
+        .put("statuses_count", 99)
+        .put("locked", true)
+        .put("bot", false)
         .put("fields", JSONArray()
             .put(JSONObject().put("name", "Website").put("value", "<a href=\"https://example.org\">example.org</a>"))
             .put(JSONObject().put("name", "Matrix").put("value", "@alice:example.org")))
@@ -88,6 +94,11 @@ class MastodonIntegrationTest {
         assertEquals("Bio & details", MastodonMapper.account(localAccount, origin).biography)
         assertEquals(listOf("Website", "Matrix"), MastodonMapper.account(localAccount, origin).profileFields.map { it.name })
         assertEquals("example.org", MastodonMapper.account(localAccount, origin).profileFields.first().value)
+        assertEquals("https://example.org/banner.png", MastodonMapper.account(localAccount, origin).bannerUrl)
+        assertEquals(42L, MastodonMapper.account(localAccount, origin).followersCount)
+        assertEquals(17L, MastodonMapper.account(localAccount, origin).followingCount)
+        assertEquals(99L, MastodonMapper.account(localAccount, origin).postsCount)
+        assertTrue(MastodonMapper.account(localAccount, origin).locked)
     }
 
     @Test
@@ -111,6 +122,18 @@ class MastodonIntegrationTest {
         assertEquals("local-user", post.author.id.localId)
         assertEquals("Bob", post.resharedBy?.displayName)
         assertEquals("Original", post.text)
+    }
+
+    @Test
+    fun mapperMapsReplyParentAccountAndKeepsQuoteAsAuthoredPost() {
+        val status = status("reply").put("in_reply_to_id", "parent").put("in_reply_to_account_id", "parent-user")
+            .put("quoted_status", status("quoted").put("account", localAccount))
+
+        val post = MastodonMapper.post(status, origin)
+
+        assertEquals("parent-user", post.replyToAuthorId?.localId)
+        assertEquals("quoted", post.quote?.id?.value)
+        assertEquals(null, post.resharedBy)
     }
 
     @Test

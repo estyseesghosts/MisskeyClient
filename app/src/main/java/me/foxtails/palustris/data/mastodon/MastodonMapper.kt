@@ -16,6 +16,7 @@ import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileField
+import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.Protocol
 import org.json.JSONObject
 import java.time.Instant
@@ -40,8 +41,23 @@ object MastodonMapper {
             avatarUrl = json.optString("avatar").takeIf { it.isNotBlank() },
             biography = json.optString("note").stripHtml(),
             profileFields = fields,
+            bannerUrl = json.optString("header").takeIf { it.isNotBlank() },
+            followersCount = json.optionalNonNegativeLong("followers_count"),
+            followingCount = json.optionalNonNegativeLong("following_count"),
+            postsCount = json.optionalNonNegativeLong("statuses_count"),
+            locked = json.optBoolean("locked"),
+            bot = json.optBoolean("bot"),
         )
     }
+
+    fun relationship(json: JSONObject, profileId: AccountId): ProfileRelationship = ProfileRelationship(
+        profileId = profileId,
+        following = json.optBoolean("following"),
+        followedBy = json.optBoolean("followed_by"),
+        requested = json.optBoolean("requested"),
+        muting = json.optBoolean("muting"),
+        blocking = json.optBoolean("blocking"),
+    )
 
     fun post(json: JSONObject, origin: String, depth: Int = 0): Post {
         val id = EntityId(origin, json.getString("id"))
@@ -74,6 +90,8 @@ object MastodonMapper {
             }.orEmpty(),
             contentWarning = json.optString("spoiler_text").takeIf { it.isNotBlank() },
             replyTo = json.optString("in_reply_to_id").takeIf { it.isNotBlank() }?.let { EntityId(origin, it) },
+            replyToAuthorId = json.optString("in_reply_to_account_id").takeIf { it.isNotBlank() }
+                ?.let { AccountId(Connection(origin, Protocol.MASTODON), it) },
             availableActions = MASTODON_ACTIONS,
             url = json.optString("url").takeIf { it.isNotBlank() }
                 ?: json.optString("uri").takeIf { it.isNotBlank() },
@@ -112,6 +130,17 @@ object MastodonMapper {
 
     private const val MAX_NESTING_DEPTH = 3
     private val MASTODON_ACTIONS = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.Bookmark)
+}
+
+private fun JSONObject.optionalNonNegativeLong(key: String): Long? {
+    if (!has(key) || isNull(key)) return null
+    val value = opt(key) ?: return null
+    val parsed = when (value) {
+        is Number -> value.toLong()
+        is String -> value.toLongOrNull()
+        else -> null
+    }
+    return parsed?.takeIf { it >= 0L }
 }
 
 private fun String.toMastodonMimeType(): String = when (this) {

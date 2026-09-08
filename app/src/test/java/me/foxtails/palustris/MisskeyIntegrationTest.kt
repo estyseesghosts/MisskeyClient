@@ -47,6 +47,46 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         assertFalse(Connection("https://user:pass@example.org", Protocol.MISSKEY).isValid())
     }
 
+    @Test fun misskeyMapperMapsRichProfileMetadataAndReplyParent() {
+        val profile = JSONObject(user)
+            .put("bannerUrl", "https://example.org/banner.png")
+            .put("followersCount", 42)
+            .put("followingCount", 17)
+            .put("notesCount", 99)
+            .put("isLocked", true)
+            .put("isBot", false)
+        val reply = JSONObject(note("reply"))
+            .put("user", profile)
+            .put("replyId", "parent-note")
+            .put("replyUserId", "parent-user")
+
+        val account = MisskeyMapper.account(profile, "https://example.org")
+        val post = MisskeyMapper.post(reply, "https://example.org")
+
+        assertEquals("https://example.org/banner.png", account.bannerUrl)
+        assertEquals(42L, account.followersCount)
+        assertEquals(17L, account.followingCount)
+        assertEquals(99L, account.postsCount)
+        assertTrue(account.locked)
+        assertEquals("parent-user", post.replyToAuthorId?.localId)
+    }
+
+    @Test fun misskeyMapperDistinguishesExplicitEmptyQuoteRenoteFromPureRenote() {
+        val quoted = JSONObject(note("quoted"))
+        val quote = JSONObject(note("quote")).put("text", "").put("renote", quoted)
+        val pure = JSONObject(note("pure"))
+        pure.remove("text")
+        pure.put("renote", quoted)
+
+        val quotePost = MisskeyMapper.post(quote, "https://example.org")
+        val purePost = MisskeyMapper.post(pure, "https://example.org")
+
+        assertEquals("", quotePost.text)
+        assertEquals(null, quotePost.resharedBy)
+        assertEquals("quoted", quotePost.quote?.id?.value)
+        assertEquals("user-a", purePost.resharedBy?.id?.localId)
+    }
+
     @Test fun accountIdentityUsesOriginAndLocalIdNotProtocol() {
         val misskey = AccountId(Connection("https://example.org", Protocol.MISSKEY), "same-id")
         val mastodon = AccountId(Connection("https://example.org", Protocol.MASTODON), "same-id")

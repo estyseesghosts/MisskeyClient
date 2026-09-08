@@ -362,7 +362,10 @@ private data class RestoredAccounts(
 
 private fun AccountIndex.withAccount(account: Account): AccountIndex {
     val ref = AccountRef(account.id, account.handle, account.avatarUrl, account.displayName,
-        biography = account.biography, profileFields = account.profileFields)
+        biography = account.biography, profileFields = account.profileFields,
+        bannerUrl = account.bannerUrl, followersCount = account.followersCount,
+        followingCount = account.followingCount, postsCount = account.postsCount,
+        locked = account.locked, bot = account.bot)
     return copy(accounts = accounts.filterNot { it.accountId == account.id } + ref)
 }
 
@@ -374,6 +377,13 @@ private fun Account.toProfileJson(): JSONObject = JSONObject().apply {
     put("display_name", displayName)
     put("description", biography)
     put("note", biography)
+    put("bannerUrl", bannerUrl)
+    put("followersCount", followersCount)
+    put("followingCount", followingCount)
+    put("notesCount", postsCount)
+    put("statuses_count", postsCount)
+    put("isLocked", locked)
+    put("isBot", bot)
     put("fields", org.json.JSONArray(profileFields.map { field ->
         JSONObject().put("name", field.name).put("value", field.value)
     }))

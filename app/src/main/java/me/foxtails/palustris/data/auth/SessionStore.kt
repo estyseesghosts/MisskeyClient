@@ -177,7 +177,10 @@ class EncryptedSessionStore private constructor(
                 entries.getJSONObject(index).let {
                     AccountRef(it.getJSONObject("accountId").toAccountId(), it.getString("handle"),
                         it.nullableString("avatarUrl"), it.getString("displayName"), it.getString("protocol").let(Protocol::valueOf),
-                        it.nullableString("biography").orEmpty(), it.profileFields())
+                            it.nullableString("biography").orEmpty(), it.profileFields(),
+                            it.nullableString("bannerUrl"), it.nullableNonNegativeLong("followersCount"),
+                            it.nullableNonNegativeLong("followingCount"), it.nullableNonNegativeLong("postsCount"),
+                            it.optBoolean("locked"), it.optBoolean("bot"))
                 }
             }
         }.orEmpty()
@@ -202,6 +205,12 @@ class EncryptedSessionStore private constructor(
                     .put("profileFields", JSONArray(ref.profileFields.map { field ->
                         JSONObject().put("name", field.name).put("value", field.value)
                     }))
+                    .put("bannerUrl", ref.bannerUrl)
+                    .put("followersCount", ref.followersCount)
+                    .put("followingCount", ref.followingCount)
+                    .put("postsCount", ref.postsCount)
+                    .put("locked", ref.locked)
+                    .put("bot", ref.bot)
             }))
             .put("activeAccountId", index.activeAccountId?.toIndexJson())
         val stream = indexFile.startWrite()
@@ -232,11 +241,25 @@ class EncryptedSessionStore private constructor(
 
 private fun AccountIndex.withAccount(account: Account): AccountIndex {
     val ref = AccountRef(account.id, account.handle, account.avatarUrl, account.displayName,
-        biography = account.biography, profileFields = account.profileFields)
+        biography = account.biography, profileFields = account.profileFields,
+        bannerUrl = account.bannerUrl, followersCount = account.followersCount,
+        followingCount = account.followingCount, postsCount = account.postsCount,
+        locked = account.locked, bot = account.bot)
     return copy(accounts = accounts.filterNot { it.accountId == account.id } + ref)
 }
 
 private fun JSONObject.nullableString(key: String): String? = if (isNull(key)) null else optString(key).takeIf { it.isNotEmpty() }
+
+private fun JSONObject.nullableNonNegativeLong(key: String): Long? {
+    if (!has(key) || isNull(key)) return null
+    val value = opt(key) ?: return null
+    val parsed = when (value) {
+        is Number -> value.toLong()
+        is String -> value.toLongOrNull()
+        else -> null
+    }
+    return parsed?.takeIf { it >= 0L }
+}
 
 private fun JSONObject.profileFields(): List<ProfileField> = optJSONArray("profileFields")?.let { fields ->
     (0 until fields.length()).mapNotNull { index ->

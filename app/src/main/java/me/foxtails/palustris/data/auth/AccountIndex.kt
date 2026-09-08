@@ -16,6 +16,12 @@ data class AccountRef(
     val protocol: Protocol = accountId.connection.protocol,
     val biography: String = "",
     val profileFields: List<ProfileField> = emptyList(),
+    val bannerUrl: String? = null,
+    val followersCount: Long? = null,
+    val followingCount: Long? = null,
+    val postsCount: Long? = null,
+    val locked: Boolean = false,
+    val bot: Boolean = false,
 )
 
 data class AccountIndex(
@@ -25,7 +31,20 @@ data class AccountIndex(
     val schemaVersion: Int = version,
 )
 
-fun AccountRef.toAccount(): Account = Account(accountId, displayName, handle, avatarUrl, biography, profileFields)
+fun AccountRef.toAccount(): Account = Account(
+    id = accountId,
+    displayName = displayName,
+    handle = handle,
+    avatarUrl = avatarUrl,
+    biography = biography,
+    profileFields = profileFields,
+    bannerUrl = bannerUrl,
+    followersCount = followersCount,
+    followingCount = followingCount,
+    postsCount = postsCount,
+    locked = locked,
+    bot = bot,
+)
 
 internal fun AccountId.toIndexJson(): JSONObject = JSONObject()
     .put("origin", connection.origin)

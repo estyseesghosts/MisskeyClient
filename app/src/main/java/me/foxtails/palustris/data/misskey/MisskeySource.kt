@@ -29,6 +29,7 @@ import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileField
+import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PushSubscription
 import me.foxtails.palustris.domain.PushSubscriptionSpec
@@ -555,20 +556,49 @@ object MisskeyMapper {
                     }?.takeIf { it.name.isNotBlank() || it.value.isNotBlank() }
                 }.take(4)
             }.orEmpty()
-        return Account(AccountId(Connection(origin, Protocol.MISSKEY), json.getString("id")), json.nullableString("name") ?: username,
-            "@$username@$host", json.nullableString("avatarUrl"), json.nullableString("description").orEmpty(), fields)
+        return Account(
+            id = AccountId(Connection(origin, Protocol.MISSKEY), json.getString("id")),
+            displayName = json.nullableString("name") ?: username,
+            handle = "@$username@$host",
+            avatarUrl = json.nullableString("avatarUrl"),
+            biography = json.nullableString("description").orEmpty(),
+            profileFields = fields,
+            bannerUrl = json.nullableString("bannerUrl"),
+            followersCount = json.optionalNonNegativeLong("followersCount"),
+            followingCount = json.optionalNonNegativeLong("followingCount"),
+            postsCount = json.optionalNonNegativeLong("notesCount"),
+            locked = json.optBoolean("isLocked"),
+            bot = json.optBoolean("isBot"),
+        )
     }
+
+    fun relationship(json: JSONObject, profileId: AccountId): ProfileRelationship = ProfileRelationship(
+        profileId = profileId,
+        following = json.optBoolean("isFollowing", json.optBoolean("following")),
+        followedBy = json.optBoolean("isFollowed", json.optBoolean("followedBy")),
+        requested = json.optBoolean(
+            "hasPendingRequestFromYou",
+            json.optBoolean("hasPendingFollowRequest", json.optBoolean("requested")),
+        ),
+        muting = json.optBoolean("isMuted", json.optBoolean("muting")),
+        blocking = json.optBoolean("isBlocking", json.optBoolean("blocking")),
+    )
 
     fun post(json: JSONObject, origin: String, depth: Int = 0): Post {
         val renote = json.optJSONObject("renote")
         val files = json.optJSONArray("files") ?: JSONArray()
-        val pureReshare = renote != null && json.nullableString("text") == null && files.length() == 0 && json.optJSONObject("poll") == null && json.nullableString("cw") == null
+        val textPresent = json.has("text") && !json.isNull("text")
+        val pureReshare = renote != null && !textPresent && files.length() == 0 &&
+            json.optJSONObject("poll") == null && json.nullableString("cw") == null
         if (pureReshare && depth < 3) return post(renote!!, origin, depth + 1).copy(
             id = EntityId(origin, json.getString("id")), resharedBy = account(json.getJSONObject("user"), origin))
         val id = EntityId(origin, json.getString("id"))
         val reactionJson = json.optJSONObject("reactions") ?: JSONObject()
         val reactionImages = json.optJSONObject("reactionEmojis") ?: JSONObject()
         val poll = json.optJSONObject("poll")?.optJSONArray("choices")
+        val replyToAuthorId = json.nullableString("replyUserId")
+            ?: json.optJSONObject("reply")?.nullableString("userId")
+            ?: json.optJSONObject("reply")?.optJSONObject("user")?.nullableString("id")
         return Post(
             id = id,
             author = account(json.getJSONObject("user"), origin),
@@ -581,6 +611,7 @@ object MisskeyMapper {
             } },
             contentWarning = if (json.isNull("cw")) null else json.optString("cw"),
             replyTo = json.nullableString("replyId")?.let { EntityId(origin, it) },
+            replyToAuthorId = replyToAuthorId?.let { AccountId(Connection(origin, Protocol.MISSKEY), it) },
             reactions = reactionJson.keys().asSequence().map { emoji -> Reaction(emoji, reactionJson.optInt(emoji),
                 json.nullableString("myReaction") == emoji, reactionImages.nullableString(emoji.trim(':'))) }.toList(),
             url = json.nullableString("url") ?: json.nullableString("uri") ?: "$origin/notes/${id.value}",
@@ -592,4 +623,15 @@ object MisskeyMapper {
         )
     }
 
+}
+
+private fun JSONObject.optionalNonNegativeLong(key: String): Long? {
+    if (!has(key) || isNull(key)) return null
+    val value = opt(key) ?: return null
+    val parsed = when (value) {
+        is Number -> value.toLong()
+        is String -> value.toLongOrNull()
+        else -> null
+    }
+    return parsed?.takeIf { it >= 0L }
 }

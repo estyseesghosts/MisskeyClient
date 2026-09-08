@@ -7,21 +7,26 @@ import androidx.test.core.app.ApplicationProvider
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.auth.AccountFileStore
+import me.foxtails.palustris.data.auth.AccountIndex
+import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.data.auth.AppRegistration
 import me.foxtails.palustris.data.auth.AppRegistrationCache
 import me.foxtails.palustris.data.auth.EncryptedSessionStore
 import me.foxtails.palustris.data.auth.PendingLogin
+import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.data.misskey.CapabilityCache
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.misskey.MisskeySource
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccessGrant
 import me.foxtails.palustris.domain.AccessScope
 import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.Timeline
@@ -129,6 +134,47 @@ class CrossCuttingTest {
 
         assertEquals(session.capabilities, restored.capabilities)
         assertEquals(session.access, restored.access)
+    }
+
+    @Test
+    fun richSelfProfileMetadataSurvivesAccountIndexRoundTrip() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val key = SecretKeySpec(ByteArray(16) { 9 }, "AES")
+        val store = EncryptedSessionStore(context, key)
+        store.clear()
+        val account = Account(
+            id = AccountId(Connection("https://profile.example", Protocol.MASTODON), "self"),
+            displayName = "Self",
+            handle = "@self@profile.example",
+            avatarUrl = "https://profile.example/avatar.png",
+            biography = "Biography",
+            profileFields = listOf(ProfileField("Site", "https://profile.example")),
+            bannerUrl = "https://profile.example/banner.png",
+            followersCount = 12,
+            followingCount = 8,
+            postsCount = 44,
+            locked = true,
+            bot = false,
+        )
+
+        store.writeIndex(AccountIndex(accounts = listOf(
+            AccountRef(
+                accountId = account.id,
+                handle = account.handle,
+                avatarUrl = account.avatarUrl,
+                displayName = account.displayName,
+                biography = account.biography,
+                profileFields = account.profileFields,
+                bannerUrl = account.bannerUrl,
+                followersCount = account.followersCount,
+                followingCount = account.followingCount,
+                postsCount = account.postsCount,
+                locked = account.locked,
+                bot = account.bot,
+            ),
+        ), activeAccountId = account.id))
+
+        assertEquals(account, store.readIndex().accounts.single().toAccount())
     }
 
     @Test
