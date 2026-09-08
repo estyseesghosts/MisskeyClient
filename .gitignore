@@ -13,5 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+/.gradle-user
 /logs/*.txt
 /app/release/
