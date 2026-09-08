@@ -24,6 +24,7 @@ data class ProfileUiState(
     val account: Account? = null,
     val detailLoading: Boolean = false,
     val detailError: String? = null,
+    val detailNeedsSignIn: Boolean = false,
     val staleDetails: Boolean = false,
     val relationship: ProfileRelationship? = null,
     val relationshipSupported: Boolean? = null,
