@@ -78,6 +78,12 @@ data class NotificationCheckpoint(
     val capturedAtEpochMillis: Long = 0,
 )
 
+/** Every repository input is fenced to the account session that produced it. */
+data class NotificationSyncToken(
+    val accountId: AccountId,
+    val generation: Long,
+)
+
 data class NotificationPage(
     val items: List<Notification>,
     val olderCursor: NotificationCursor? = null,
@@ -145,7 +151,7 @@ interface SocialSource {
     suspend fun notificationUnreadState(): NotificationUnreadState = unsupported("notifications.unread")
     suspend fun acknowledgeNotifications(): NotificationAcknowledgement = unsupported("notifications.acknowledge")
     suspend fun dismissNotification(id: EntityId) = unsupported<Unit>("notifications.dismiss")
-    suspend fun respondToFollowRequest(id: EntityId, accept: Boolean) =
+    suspend fun respondToFollowRequest(targetAccountId: AccountId, accept: Boolean) =
         unsupported<Unit>("notifications.followRequest")
     suspend fun createPushSubscription(spec: PushSubscriptionSpec): PushSubscription =
         unsupported("notifications.push.create")

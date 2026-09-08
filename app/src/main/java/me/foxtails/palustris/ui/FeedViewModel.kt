@@ -40,7 +40,6 @@ class FeedViewModel @AssistedInject constructor(
 
     init {
         setupJob = viewModelScope.launch {
-            syncCoordinator.register(accountId, source)
             if (!stopped) {
                 loadProfile()
                 refresh()
@@ -243,7 +242,6 @@ class FeedViewModel @AssistedInject constructor(
         searchJob?.cancel()
         publishJob?.cancel()
         actionJob?.cancel()
-        syncCoordinator.unregister(accountId)
     }
 
     private fun runAction(ownedPost: OwnedPost, action: PostAction, operation: suspend () -> Unit) {

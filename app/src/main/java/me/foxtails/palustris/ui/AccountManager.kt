@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.AccountIndex
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.data.auth.AuthCallback
@@ -18,6 +19,7 @@ import me.foxtails.palustris.data.auth.AuthGateway
 import me.foxtails.palustris.data.auth.PendingLogin
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.auth.toAccount
+import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -43,7 +45,20 @@ class AccountManager @Inject constructor(
     private val store: SessionStore,
     private val auth: AuthGateway,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val sourceFactory: SocialSourceFactory,
+    private val notificationSync: AccountNotificationSyncController,
 ) : ViewModel() {
+    constructor(
+        store: SessionStore,
+        auth: AuthGateway,
+        ioDispatcher: CoroutineDispatcher,
+    ) : this(
+        store,
+        auth,
+        ioDispatcher,
+        SocialSourceFactory(HttpClientPool()),
+        NoOpAccountNotificationSyncController(),
+    )
     private val _session = MutableStateFlow(SessionUi())
     val session = _session.asStateFlow()
     private val _accountIndex = MutableStateFlow(AccountIndex())
@@ -61,18 +76,21 @@ class AccountManager @Inject constructor(
                 val restored = withContext(ioDispatcher) {
                     val index = store.readIndex()
                     val activeAccountId = index.activeAccountId ?: index.accounts.firstOrNull()?.accountId
-                    _accountIndex.value = index.copy(activeAccountId = activeAccountId)
-                    activeAccountId?.let { accountId ->
+                    val sessions = index.accounts.mapNotNull { ref -> store.read(ref.accountId) }
+                    val active = activeAccountId?.let { accountId ->
                         store.read(accountId)?.let { session ->
                             session to index.accounts.firstOrNull { it.accountId == accountId }?.toAccount()
                         }
                     }
+                    RestoredAccounts(index.copy(activeAccountId = activeAccountId), sessions, active)
                 }
                 pending = withContext(ioDispatcher) {
                     store.readPending()?.takeIf { it.isFresh(System.currentTimeMillis()) }
                 }
-                if (restored != null) {
-                    val (session, account) = restored
+                _accountIndex.value = restored.index
+                restored.sessions.forEach(::startNotificationSync)
+                if (restored.active != null) {
+                    val (session, account) = restored.active
                     connect(session, account ?: fallbackAccount(session))
                     if (pending != null) {
                         _session.value = _session.value.copy(
@@ -206,6 +224,7 @@ class AccountManager @Inject constructor(
                     _accountIndex.value = updatedIndex
                 }
                 pending = null
+                startNotificationSync(session)
                 connect(session, account)
             } catch (e: Exception) {
                 failAuth(e)
@@ -228,6 +247,7 @@ class AccountManager @Inject constructor(
                 } else {
                     val (index, session) = switched
                     _accountIndex.value = index
+                    startNotificationSync(session)
                     connect(session, index.accounts.firstOrNull { it.accountId == accountId }?.toAccount() ?: fallbackAccount(session))
                 }
             } catch (e: Exception) {
@@ -239,6 +259,7 @@ class AccountManager @Inject constructor(
     fun removeAccount(accountId: me.foxtails.palustris.domain.AccountId) {
         viewModelScope.launch {
             try {
+                notificationSync.unregister(accountId)
                 val replacement = withContext(ioDispatcher) {
                     store.delete(accountId)
                     val index = store.readIndex()
@@ -302,6 +323,10 @@ class AccountManager @Inject constructor(
         )
     }
 
+    private fun startNotificationSync(session: Session) {
+        notificationSync.register(session.accountId, sourceFactory.create(session))
+    }
+
     private fun loginAccountId(): me.foxtails.palustris.domain.AccountId? = _activeSession.value?.accountId
 
     private fun fallbackAccount(session: Session): Account = Account(
@@ -317,6 +342,12 @@ class AccountManager @Inject constructor(
 
     private fun message(e: Exception): String = sourceErrorMessage(e)
 }
+
+private data class RestoredAccounts(
+    val index: AccountIndex,
+    val sessions: List<Session>,
+    val active: Pair<Session, Account?>?,
+)
 
 private fun AccountIndex.withAccount(account: Account): AccountIndex {
     val ref = AccountRef(account.id, account.handle, account.avatarUrl, account.displayName,

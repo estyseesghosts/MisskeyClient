@@ -143,8 +143,9 @@ object MastodonMapper {
                 if (rawType in PROFILE_TARGET_TYPES) NotificationTarget.Profile(actor.id) else null
             }
         val notificationId = json.optString("most_recent_notification_id").ifBlank {
-            json.optString("latest_page_notification_id").ifBlank { groupKey }
-        }
+            json.optString("latest_page_notification_id")
+        }.takeIf(String::isNotBlank)
+            ?: throw IllegalArgumentException("Grouped notification did not contain an event identity")
         val count = if (json.has("notifications_count")) json.optInt("notifications_count") else null
         val group = NotificationGroup(
             id = NotificationGroupId(receivingAccountId, groupKey),

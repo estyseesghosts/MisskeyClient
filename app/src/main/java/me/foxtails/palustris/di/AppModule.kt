@@ -22,9 +22,12 @@ import me.foxtails.palustris.data.auth.MisskeyAuth
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
+import me.foxtails.palustris.data.notifications.FileNotificationStore
+import me.foxtails.palustris.data.notifications.NotificationStore
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.AccountSyncCoordinator
+import me.foxtails.palustris.ui.AccountNotificationSyncController
 import org.json.JSONObject
 
 @Qualifier
@@ -73,6 +76,10 @@ object StorageModule {
     @Provides
     @Singleton
     fun provideDraftStore(@ApplicationContext context: Context): DraftStore = EncryptedDraftStore(context)
+
+    @Provides
+    @Singleton
+    fun provideNotificationStore(store: FileNotificationStore): NotificationStore = store
 }
 
 @Module
@@ -89,6 +96,12 @@ object SyncModule {
     @Provides
     @Singleton
     fun provideAccountSyncCoordinator(): AccountSyncCoordinator = AccountSyncCoordinator()
+
+    @Provides
+    @Singleton
+    fun provideAccountNotificationSyncController(
+        coordinator: AccountSyncCoordinator,
+    ): AccountNotificationSyncController = coordinator
 
     @Provides
     @IoDispatcher

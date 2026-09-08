@@ -149,10 +149,32 @@ class MastodonSource(
         if (count < 0) NotificationUnreadState.Unknown else NotificationUnreadState.AtLeast(count)
     }
 
-    override suspend fun respondToFollowRequest(id: EntityId, accept: Boolean) = request {
+    override suspend fun acknowledgeNotifications(): NotificationAcknowledgement = request {
+        val latest = runCatching {
+            val response = api.get(origin, "v1/notifications?limit=1", token)
+            JSONArray(response.body).optJSONObject(0)?.optString("id").orEmpty()
+        }.getOrElse { throw it }
+        if (latest.isBlank()) return@request NotificationAcknowledgement(accountId, NotificationUnreadState.None, clock())
+        api.putForm(
+            origin,
+            "api/v1/markers",
+            listOf("notifications[last_read_id]" to latest),
+            token,
+        )
+        NotificationAcknowledgement(accountId, NotificationUnreadState.None, clock())
+    }
+
+    override suspend fun respondToFollowRequest(targetAccountId: AccountId, accept: Boolean) = request {
+        validateFollowRequestTarget(targetAccountId)
         val action = if (accept) "authorize" else "reject"
-        api.postForm(origin, "api/v1/follow_requests/${id.value.encodePathSegment()}/$action", emptyList(), token)
+        api.postForm(origin, "api/v1/follow_requests/${targetAccountId.localId.encodePathSegment()}/$action", emptyList(), token)
         Unit
+    }
+
+    private fun validateFollowRequestTarget(targetAccountId: AccountId) {
+        if (targetAccountId.connection != Connection(origin, Protocol.MASTODON) || targetAccountId.localId.isBlank()) {
+            throw SourceError.Unsupported("notifications.followRequest")
+        }
     }
 
     override suspend fun dismissNotification(id: EntityId) = request {

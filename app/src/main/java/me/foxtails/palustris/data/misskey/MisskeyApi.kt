@@ -72,6 +72,18 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
         .patch(FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build())
         .build())
 
+    suspend fun putForm(
+        origin: String,
+        endpoint: String,
+        fields: List<Pair<String, String>>,
+        bearerToken: String? = null,
+    ): HttpResponse = execute(Request.Builder().url("$origin/$endpoint")
+        .header("Accept", "application/json")
+        .header("User-Agent", "Palustris/0.1 (Android)")
+        .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
+        .put(FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build())
+        .build())
+
     suspend fun postMultipart(
         origin: String,
         endpoint: String,

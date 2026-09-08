@@ -172,10 +172,17 @@ class MisskeySource(
         NotificationAcknowledgement(account, NotificationUnreadState.None, clock())
     }
 
-    override suspend fun respondToFollowRequest(id: EntityId, accept: Boolean) = request {
+    override suspend fun respondToFollowRequest(targetAccountId: AccountId, accept: Boolean) = request {
+        validateFollowRequestTarget(targetAccountId)
         val endpoint = if (accept) "following/requests/accept" else "following/requests/reject"
-        api.post(origin, endpoint, JSONObject().put("i", token).put("userId", id.value))
+        api.post(origin, endpoint, JSONObject().put("i", token).put("userId", targetAccountId.localId))
         Unit
+    }
+
+    private fun validateFollowRequestTarget(targetAccountId: AccountId) {
+        if (targetAccountId.connection != Connection(origin, Protocol.MISSKEY) || targetAccountId.localId.isBlank()) {
+            throw SourceError.Unsupported("notifications.followRequest")
+        }
     }
 
     private suspend fun loadNotifications(
