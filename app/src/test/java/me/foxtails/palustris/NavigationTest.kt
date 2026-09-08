@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.activity.compose.setContent
@@ -25,11 +26,16 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PollOption
+import me.foxtails.palustris.domain.ProfileTimelineTab
 import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.AccountSearchState
 import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.PalustrisApp
+import me.foxtails.palustris.ui.profile.ProfileCategory
+import me.foxtails.palustris.ui.profile.ProfilePageState
+import me.foxtails.palustris.ui.profile.ProfileUiState
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -384,8 +390,23 @@ class NavigationTest {
     @Test fun compactProfileUnderlapsCategoriesAndFinalSectionCanScrollClear() {
         val biography = longFixtureText("Profile")
         val account = fixtureAccount("profile", biography)
+        val posts = (0..8).map { index ->
+            fixturePost("profile-$index", account, "Profile post $index")
+        }
+        val profileState = ProfileUiState(
+            targetId = account.id,
+            seedAccount = account,
+            account = account,
+            pages = mapOf(
+                ProfileTimelineTab.Posts to ProfilePageState(
+                    posts = posts.map { OwnedPost(account.id, it) },
+                ),
+            ),
+        )
         compose.activity.runOnUiThread {
-            compose.activity.setContent { PalustrisApp(account = account) }
+            compose.activity.setContent {
+                PalustrisApp(account = account, profileState = profileState)
+            }
         }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Profile").performClick()
@@ -395,7 +416,8 @@ class NavigationTest {
         assertUnderlaps("profile_biography", "Profile categories; swipe horizontally for more")
         assertFixtureVisibleThroughGap("profile_biography", "Posts", "Media")
         scrollToEnd("profile_content")
-        val finalBounds = compose.onNodeWithText("Posts coming soon").fetchSemanticsNode().boundsInRoot
+        val finalBounds = compose.onNodeWithTag("post_row_profile-8", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
         val categories = bounds("Profile categories; swipe horizontally for more")
         assertTrue("final Profile section should clear the floating categories", finalBounds.bottom <= categories.top)
     }
@@ -405,9 +427,53 @@ class NavigationTest {
         val alice = Account(AccountId(connection, "alice"), "Alice Profile", "@alice@example.org")
         val bob = Account(AccountId(connection, "bob"), "Bob Profile", "@bob@example.org", biography = "Bob's biography")
         val post = Post(EntityId("https://example.org", "bob-post"), bob, "Bob's post", 0, Audience.Public)
+        val profileState = mutableStateOf(
+            ProfileUiState(
+                targetId = alice.id,
+                seedAccount = alice,
+                account = alice,
+                pages = mapOf(
+                    ProfileTimelineTab.Posts to ProfilePageState(
+                        posts = listOf(
+                            OwnedPost(
+                                alice.id,
+                                Post(
+                                    EntityId("https://example.org", "alice-post"),
+                                    alice,
+                                    "Alice's post",
+                                    0,
+                                    Audience.Public,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(account = alice, feedState = FeedState(posts = listOf(post)))
+                PalustrisApp(
+                    account = alice,
+                    feedState = FeedState(posts = listOf(post)),
+                    profileState = profileState.value,
+                    onProfileShown = { seed ->
+                        val sameTarget = profileState.value.targetId == seed.id
+                        profileState.value = profileState.value.copy(
+                            targetId = seed.id,
+                            seedAccount = seed,
+                            account = seed,
+                            selectedTab = if (sameTarget) {
+                                profileState.value.selectedTab
+                            } else {
+                                ProfileCategory.Posts
+                            },
+                            pages = if (sameTarget) profileState.value.pages else emptyMap(),
+                        )
+                    },
+                    onProfileCategorySelected = { category ->
+                        profileState.value = profileState.value.copy(selectedTab = category)
+                    },
+                )
             }
         }
         compose.waitForIdle()

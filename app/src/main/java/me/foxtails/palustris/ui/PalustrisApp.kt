@@ -653,7 +653,21 @@ fun PalustrisApp(
     }
 
     if (overlay == Overlay.EditProfile && account != null) ModalBottomSheet(onDismissRequest = ::closeProfile, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        EditProfileScreen(account = account, displayName = profileName, biography = profileBiography, saving = feedState?.publishing == true, error = feedState?.error, onDisplayNameChange = { profileName = it }, onBiographyChange = { profileBiography = it }, onSave = { onUpdateProfile(UpdateProfileRequest(profileName.trim(), profileBiography)) { overlayKey = null } }, onClose = ::closeProfile)
+        me.foxtails.palustris.ui.profile.EditProfileScreen(
+            account = profileState.account?.takeIf { it.id == account?.id } ?: account!!,
+            displayName = profileName,
+            biography = profileBiography,
+            saving = profileState.savingProfile,
+            error = profileState.editError,
+            onDisplayNameChange = { profileName = it },
+            onBiographyChange = { profileBiography = it },
+            onSave = {
+                onUpdateProfile(UpdateProfileRequest(profileName.trim(), profileBiography)) {
+                    overlayKey = null
+                }
+            },
+            onClose = ::closeProfile,
+        )
     }
 
     if (profileDialog) AlertDialog(onDismissRequest = { profileDialog = false }, title = { Text("Discard profile changes?") }, text = { Text("Your changes have not been saved.") }, confirmButton = { TextButton(onClick = { profileDialog = false; overlayKey = null }) { Text("Discard") } }, dismissButton = { TextButton(onClick = { profileDialog = false }) { Text("Keep editing") } })
