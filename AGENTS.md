@@ -6,7 +6,7 @@
 - Keep the domain and UI protocol-agnostic. Misskey has first-class support, while Mastodon remains a supported adapter.
 - The package `me.foxtails.palustris` and existing legacy identifiers are internal leftovers; do not rename them casually or add that name to new user-facing strings.
 - Do not add XML layouts, AppCompat, or Material 2 themes.
-- Floating controls must not paint a solid backing slab over the page. Profile and Notifications tab rows and the compact navigation bar should remain transparent over content; only the selected/pressed control affordance may use a filled surface, matching the Home screen's floating treatment.
+- Design guideline — floating surfaces: never place a full-width or row-sized solid/translucent background behind a group of floating controls. The compact navigation pill itself is the one shared group surface and must appear consistently on Home, Search (including placeholder Search), Notifications, and Profile. Other floating controls—the notification/profile chips, search field, and timeline/feed switcher—must each render their own background surface; the row/container behind them must remain transparent. Selected and pressed states may add their own filled affordance.
 
 ## Account and protocol invariants
 

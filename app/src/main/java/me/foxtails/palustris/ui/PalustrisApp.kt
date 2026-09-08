@@ -156,7 +156,13 @@ private fun CompactContextualNavigationBar(
     onDestinationSelected: (Destination) -> Unit,
 ) {
     Row(Modifier.fillMaxWidth().height(CompactNavigationHeight), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.weight(1f).fillMaxHeight().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
+            shadowElevation = 6.dp,
+        ) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 Destination.entries.forEach { item ->
                     val selected = destination == item
                     Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
@@ -177,6 +183,7 @@ private fun CompactContextualNavigationBar(
                         }
                     }
                 }
+            }
         }
         FilledIconButton(onClick = action.onClick, enabled = action.enabled, modifier = Modifier.size(52.dp).semantics { contentDescription = action.contentDescription }, colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer, disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest, disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant)) { Icon(action.icon, null) }
     }
