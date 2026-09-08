@@ -251,8 +251,8 @@ class SignInScreenTest {
 
         compose.onNodeWithText("🎉").assertIsDisplayed()
         compose.onNodeWithContentDescription("Favorite").performTouchInput { longClick() }
-        compose.onNodeWithText("Add reaction").assertDoesNotExist()
+        compose.onNodeWithText("Add reaction").assertIsDisplayed()
         compose.onAllNodesWithText("🎉").onLast().performClick()
-        assertEquals(null, chosenReaction)
+        assertEquals("🎉", chosenReaction)
     }
 }

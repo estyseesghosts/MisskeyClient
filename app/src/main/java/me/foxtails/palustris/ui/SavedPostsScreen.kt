@@ -39,6 +39,7 @@ fun SavedPostsScreen(
     onReply: (OwnedPost) -> Unit = {},
     onReshare: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+    availableActions: Set<PostAction> = setOf(PostAction.Bookmark),
     onOpenProfile: (me.foxtails.palustris.domain.Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
 ) {
@@ -87,7 +88,7 @@ fun SavedPostsScreen(
                 items(state.posts, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
                     PostRow(
                         ownedPost = ownedPost,
-                        availableActions = setOf(PostAction.Bookmark),
+                        availableActions = availableActions,
                         onReact = onReact,
                         onReply = onReply,
                         onReshare = onReshare,

@@ -1,9 +1,10 @@
 package me.foxtails.palustris.data.preferences
 
 import android.content.Context
-import android.util.AtomicFile
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.Base64
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,7 @@ import org.json.JSONObject
 
 /** Stores non-secret per-account post preferences in no-backup storage. */
 class EncryptedPostPreferencesRepository(context: Context) : PostPreferencesRepository {
-    private val file = AtomicFile(File(context.noBackupFilesDir, "post-preferences.json"))
+    private val file = File(context.noBackupFilesDir, "post-preferences.json")
     private val mutex = Mutex()
     private val values = MutableStateFlow(load())
 
@@ -49,8 +50,8 @@ class EncryptedPostPreferencesRepository(context: Context) : PostPreferencesRepo
     }
 
     private fun load(): Map<String, PostPreferences> = runCatching {
-        if (!file.baseFile.exists()) return emptyMap()
-        val root = JSONObject(file.readFully().toString(Charsets.UTF_8))
+        if (!file.exists()) return emptyMap()
+        val root = JSONObject(file.readText(Charsets.UTF_8))
         val accounts = root.optJSONObject("accounts") ?: return emptyMap()
         accounts.keys().asSequence().mapNotNull { key ->
             val value = accounts.optJSONObject(key) ?: return@mapNotNull null
@@ -59,19 +60,35 @@ class EncryptedPostPreferencesRepository(context: Context) : PostPreferencesRepo
     }.getOrDefault(emptyMap())
 
     private fun persist(values: Map<String, PostPreferences>) {
-        file.baseFile.parentFile?.mkdirs()
+        file.parentFile?.mkdirs()
         val accounts = JSONObject()
         values.forEach { (key, preference) ->
             accounts.put(key, JSONObject().put("favouriteEmoji", preference.favouriteEmoji))
         }
         val root = JSONObject().put("version", 1).put("accounts", accounts)
-        val stream: FileOutputStream = file.startWrite()
+        val temporary = File("${file.path}.new")
+        val stream: FileOutputStream = FileOutputStream(temporary)
         try {
             stream.write(root.toString().toByteArray(Charsets.UTF_8))
             stream.fd.sync()
-            file.finishWrite(stream)
+            stream.close()
+            runCatching {
+                Files.move(
+                    temporary.toPath(),
+                    file.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            }.getOrElse {
+                Files.move(
+                    temporary.toPath(),
+                    file.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            }
         } catch (error: Exception) {
-            file.failWrite(stream)
+            runCatching { stream.close() }
+            temporary.delete()
             throw error
         }
     }
@@ -82,8 +99,6 @@ class EncryptedPostPreferencesRepository(context: Context) : PostPreferencesRepo
     private fun keyFor(accountId: AccountId): String {
         val identity = buildString {
             append(accountId.connection.origin)
-            append('\u0000')
-            append(accountId.connection.protocol.name)
             append('\u0000')
             append(accountId.localId)
         }

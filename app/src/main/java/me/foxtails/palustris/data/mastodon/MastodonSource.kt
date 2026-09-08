@@ -13,11 +13,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.channels.awaitClose
 import me.foxtails.palustris.data.misskey.ApiFailure
+import me.foxtails.palustris.data.misskey.HttpResponse
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CapabilityProbe
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EntityId
@@ -37,6 +39,7 @@ import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PostActionResult
+import me.foxtails.palustris.domain.ProfileCapabilities
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.Protocol
@@ -114,7 +117,7 @@ class MastodonSource(
 
     override suspend fun create(post: CreatePostRequest): Post = request {
         if (post.replyTo != null && post.quoteOf != null) throw SourceError.Unsupported("create.reply.quote")
-        if (post.quoteOf != null && capabilities.quotes != me.foxtails.palustris.domain.CapabilityStatus.Supported) {
+        if (post.quoteOf != null && capabilities.quotes != CapabilityStatus.Supported) {
             throw SourceError.Unsupported("quote")
         }
         if (post.quoteOf != null && (post.attachments.isNotEmpty() || post.poll != null)) {
@@ -141,13 +144,15 @@ class MastodonSource(
     }
 
     override suspend fun favorite(id: EntityId) = request {
-        api.postForm(origin, "api/v1/statuses/${id.value}/favourite", emptyList(), token)
+        validatePostId(id, "favorite")
+        api.postForm(origin, "api/v1/statuses/${id.value.encodePathSegment()}/favourite", emptyList(), token)
         Unit
     }
 
     override suspend fun favorite(id: EntityId, favouriteEmoji: String) = favorite(id)
 
     override suspend fun unfavorite(id: EntityId, favouriteEmoji: String?) = request {
+        validatePostId(id, "favorite")
         api.postForm(origin, "api/v1/statuses/${id.value}/unfavourite", emptyList(), token)
         Unit
     }
@@ -157,28 +162,32 @@ class MastodonSource(
         favouriteEmoji: String,
         selected: Boolean,
     ): PostActionResult = request {
+        validatePostId(id, "favorite")
         val endpoint = if (selected) "favourite" else "unfavourite"
-        val response = api.postForm(origin, "api/v1/statuses/${id.value}/$endpoint", emptyList(), token)
+        val response = api.postForm(origin, "api/v1/statuses/${id.value.encodePathSegment()}/$endpoint", emptyList(), token)
         PostActionResult(
-            post = response.body.takeIf { it.trim().startsWith("{") }?.let { MastodonMapper.post(JSONObject(it), origin) },
+            post = response.optionalPost(origin),
             selected = selected,
         )
     }
 
     override suspend fun renote(id: EntityId) = request {
-        api.postForm(origin, "api/v1/statuses/${id.value}/reblog", emptyList(), token)
+        validatePostId(id, "renote")
+        api.postForm(origin, "api/v1/statuses/${id.value.encodePathSegment()}/reblog", emptyList(), token)
         Unit
     }
 
     override suspend fun unrenote(id: EntityId, ownRepostId: EntityId?) = request {
-        api.postForm(origin, "api/v1/statuses/${id.value}/unreblog", emptyList(), token)
+        validatePostId(id, "renote")
+        api.postForm(origin, "api/v1/statuses/${id.value.encodePathSegment()}/unreblog", emptyList(), token)
         Unit
     }
 
     override suspend fun setReshared(id: EntityId, selected: Boolean, ownRepostId: EntityId?): PostActionResult = request {
+        validatePostId(id, "renote")
         val endpoint = if (selected) "reblog" else "unreblog"
-        val response = api.postForm(origin, "api/v1/statuses/${id.value}/$endpoint", emptyList(), token)
-        val mapped = response.body.takeIf { it.trim().startsWith("{") }?.let { MastodonMapper.post(JSONObject(it), origin) }
+        val response = api.postForm(origin, "api/v1/statuses/${id.value.encodePathSegment()}/$endpoint", emptyList(), token)
+        val mapped = response.optionalPost(origin)
         PostActionResult(
             post = mapped,
             selected = selected,
@@ -187,19 +196,22 @@ class MastodonSource(
     }
 
     override suspend fun save(id: EntityId) = request {
-        api.postForm(origin, "api/v1/statuses/${id.value}/bookmark", emptyList(), token)
+        validatePostId(id, "save")
+        api.postForm(origin, "api/v1/statuses/${id.value.encodePathSegment()}/bookmark", emptyList(), token)
         Unit
     }
 
     override suspend fun unsave(id: EntityId) = request {
-        api.postForm(origin, "api/v1/statuses/${id.value}/unbookmark", emptyList(), token)
+        validatePostId(id, "save")
+        api.postForm(origin, "api/v1/statuses/${id.value.encodePathSegment()}/unbookmark", emptyList(), token)
         Unit
     }
 
     override suspend fun setSaved(id: EntityId, selected: Boolean): PostActionResult = request {
+        validatePostId(id, "save")
         val endpoint = if (selected) "bookmark" else "unbookmark"
-        val response = api.postForm(origin, "api/v1/statuses/${id.value}/$endpoint", emptyList(), token)
-        val mapped = response.body.takeIf { it.trim().startsWith("{") }?.let { MastodonMapper.post(JSONObject(it), origin) }
+        val response = api.postForm(origin, "api/v1/statuses/${id.value.encodePathSegment()}/$endpoint", emptyList(), token)
+        val mapped = response.optionalPost(origin)
         PostActionResult(post = mapped, selected = selected)
     }
 
@@ -280,6 +292,10 @@ class MastodonSource(
         if (targetAccountId.connection != Connection(origin, Protocol.MASTODON) || targetAccountId.localId.isBlank()) {
             throw SourceError.Unsupported("notifications.followRequest")
         }
+    }
+
+    private fun validatePostId(id: EntityId, feature: String) {
+        if (id.connection != origin || id.value.isBlank()) throw SourceError.Unsupported(feature)
     }
 
     override suspend fun dismissNotification(id: EntityId) = request {
@@ -617,10 +633,11 @@ class MastodonSource(
             _capabilities.value = probed.copy(
                 canPublish = probed.canPublish || capabilities.canPublish,
                 notifications = probed.notifications.takeVerifiedOr(capabilities.notifications),
+                profile = probed.profile.takeVerifiedOr(capabilities.profile),
             )
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             _capabilities.value = capabilities.copy(capabilitiesLastUpdated = 0)
         }
     }
@@ -731,8 +748,15 @@ private fun NotificationQuery.mastodonTypes(): List<String> {
     }.distinct().sorted()
 }
 
-private fun String.encodePathSegment(): String = URLEncoder.encode(this, Charsets.UTF_8.name())
-    .replace("+", "%20")
+private fun String.encodePathSegment(): String =
+    URLEncoder.encode(this, Charsets.UTF_8.name()).replace("+", "%20")
+
+private fun HttpResponse.optionalPost(origin: String): Post? = runCatching {
+    JSONObject(body).takeIf { it.optString("id").isNotBlank() }?.let { MastodonMapper.post(it, origin) }
+}.getOrNull()
+
+private fun ProfileCapabilities.takeVerifiedOr(previous: ProfileCapabilities): ProfileCapabilities =
+    if (this == ProfileCapabilities()) previous else this
 
 private fun JSONArray?.toAccounts(origin: String): Map<String, Account> {
     if (this == null) return emptyMap()

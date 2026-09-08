@@ -20,6 +20,7 @@ import me.foxtails.palustris.data.auth.PendingLogin
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.data.misskey.HttpClientPool
+import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
 import me.foxtails.palustris.data.notifications.push.NoOpPushRegistrationManager
 import me.foxtails.palustris.data.notifications.push.PushRegistrationManager
 import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
@@ -27,6 +28,7 @@ import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.SourceError
@@ -53,6 +55,7 @@ class AccountManager @Inject constructor(
     private val notificationSync: AccountNotificationSyncController,
     private val pushRegistrationManager: PushRegistrationManager,
     private val notificationStreamController: NotificationStreamController,
+    private val postPreferencesRepository: PostPreferencesRepository,
 ) : ViewModel() {
     constructor(
         store: SessionStore,
@@ -66,6 +69,7 @@ class AccountManager @Inject constructor(
         NoOpAccountNotificationSyncController(),
         NoOpPushRegistrationManager(),
         NoOpNotificationStreamController(),
+        InMemoryPostPreferencesRepository(),
     )
     private val _session = MutableStateFlow(SessionUi())
     val session = _session.asStateFlow()
@@ -272,6 +276,7 @@ class AccountManager @Inject constructor(
                 notificationSync.removeAccount(accountId)
                 val replacement = withContext(ioDispatcher) {
                     store.delete(accountId)
+                    postPreferencesRepository.remove(accountId)
                     val index = store.readIndex()
                     val accounts = index.accounts.filterNot { it.accountId == accountId }
                     val nextId = if (index.activeAccountId == accountId) accounts.firstOrNull()?.accountId else index.activeAccountId

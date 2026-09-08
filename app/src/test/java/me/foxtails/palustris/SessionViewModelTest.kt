@@ -244,7 +244,7 @@ class SessionViewModelTest {
 
             assertEquals(Timeline.Home, model.feed.value.timeline)
             assertTrue(model.feed.value.canPublish)
-            assertEquals(setOf(PostAction.Favorite), model.feed.value.actions)
+            assertEquals(setOf(PostAction.Favorite, PostAction.Reply), model.feed.value.actions)
 
             source.createGate = CompletableDeferred()
             model.create(CreatePostRequest("In-flight draft"))
@@ -255,7 +255,7 @@ class SessionViewModelTest {
             advanceUntilIdle()
             assertEquals(Timeline.Local, model.feed.value.timeline)
             assertTrue(model.feed.value.canPublish)
-            assertEquals(setOf(PostAction.Favorite), model.feed.value.actions)
+            assertEquals(setOf(PostAction.Favorite, PostAction.Reply), model.feed.value.actions)
             assertTrue(model.feed.value.publishing)
 
             source.createGate?.complete(Unit)
@@ -304,7 +304,7 @@ class SessionViewModelTest {
             owner.put("feed", model)
             advanceUntilIdle()
 
-            assertEquals(setOf(PostAction.Favorite, PostAction.Reshare), model.feed.value.actions)
+            assertEquals(setOf(PostAction.Favorite, PostAction.Reshare, PostAction.React), model.feed.value.actions)
             val ownedPost = model.feed.value.ownedPosts.single()
             model.favorite(ownedPost)
             model.favorite(ownedPost)
@@ -313,7 +313,7 @@ class SessionViewModelTest {
 
             model.react(ownedPost, "🎉")
             advanceUntilIdle()
-            assertTrue(source.reactionIds.isEmpty())
+            assertEquals(listOf(ownedPost.post.id), source.reactionIds)
 
             val otherAccount = AccountId(Connection("https://example.org", Protocol.MISSKEY), "other")
             model.reshare(OwnedPost(otherAccount, ownedPost.post))
