@@ -51,7 +51,16 @@ data class Attachment(
     val blurhash: String? = null,
     val remoteOriginalUrl: String? = null,
 )
-data class Reaction(val emoji: String, val count: Int, val selected: Boolean, val imageUrl: String? = null)
+/**
+ * `emoji` is the opaque identity the server accepts for submission and must not be
+ * rewritten for display; `emojiMetadata` carries optional presentation data.
+ */
+data class Reaction(
+    val emoji: String,
+    val count: Int,
+    val selected: Boolean,
+    val emojiMetadata: CustomEmoji? = null,
+)
 data class PollOption(val text: String, val votes: Int)
 data class Post(
     val id: EntityId,
@@ -75,6 +84,10 @@ data class Post(
     val favourited: Boolean = false,
     val saved: Boolean = false,
     val myReaction: String? = null,
+    /** Every selected reaction, preserving multiple Pleroma/Akkoma selections. */
+    val selectedReactions: List<EmojiChoice> = emptyList(),
+    /** Custom emoji metadata owned by this entity; never shared with nested quotes or reblogs. */
+    val emoji: Map<String, CustomEmoji> = emptyMap(),
     val ownRepostId: EntityId? = null,
     /** ID accepted by post actions when the displayed row wraps another post, such as a renote. */
     val actionTargetId: EntityId? = null,

@@ -60,7 +60,7 @@ sealed interface NotificationActivity {
 data class NotificationReaction(
     val identity: String,
     val fallbackText: String,
-    val imageUrl: String? = null,
+    val emoji: CustomEmoji? = null,
 )
 
 /** The canonical object affected by the activity. Wrapper posts must not replace this identity. */

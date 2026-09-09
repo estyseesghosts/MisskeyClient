@@ -8,6 +8,8 @@ data class PostDraftQuotePreview(
     val authorHandle: String,
     val text: String,
     val url: String? = null,
+    val authorEmoji: Map<String, CustomEmoji> = emptyMap(),
+    val postEmoji: Map<String, CustomEmoji> = emptyMap(),
 )
 
 data class PostDraft(
