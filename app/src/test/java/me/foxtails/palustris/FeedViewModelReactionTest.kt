@@ -17,6 +17,7 @@ import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
@@ -82,6 +83,8 @@ class FeedViewModelReactionTest {
         var reactError: Exception? = null
 
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(listOf(base))
+
+        override suspend fun searchHashtag(tag: String, cursor: String?): Page<Post> = Page(listOf(base))
 
         override suspend fun react(id: EntityId, choice: EmojiChoice) {
             reactGate?.await()
@@ -285,6 +288,28 @@ class FeedViewModelReactionTest {
             model.react(model.feed.value.ownedPosts.single(), EmojiChoice(":blob:", ":blob:", blob))
             val optimistic = current(model)
             assertEquals(blob, optimistic.reactions.first { it.emoji == ":blob:" }.emojiMetadata)
+            advanceUntilIdle()
+        } finally {
+            coordinator.close()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun hashtagSearchReactionMutationUpdatesTheSearchResultRow() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val coordinator = AccountSyncCoordinator()
+        try {
+            val source = ReactionSource(post(), ReactionSelectionMode.Single)
+            val model = FeedViewModel(accountId, source, coordinator)
+            advanceUntilIdle()
+
+            model.search("#cats")
+            advanceUntilIdle()
+            val searchPost = model.feed.value.accountSearch.posts.single()
+            model.react(OwnedPost(accountId, searchPost), EmojiChoice("👍", "👍", null))
+
+            assertEquals("👍", model.feed.value.accountSearch.posts.single().myReaction)
             advanceUntilIdle()
         } finally {
             coordinator.close()

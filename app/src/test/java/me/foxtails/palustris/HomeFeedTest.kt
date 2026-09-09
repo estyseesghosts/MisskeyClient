@@ -474,6 +474,77 @@ private fun show(
         compose.onNodeWithText("A recent #cats post").assertIsDisplayed()
     }
 
+    @Test fun searchResultsExposePostActionCallbacks() {
+        val result = Post(postId("search-actions"), account, "Search actions", 0, Audience.Public)
+        var replied = false
+        var reshared = false
+        var favourited = false
+        var bookmarked = false
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SearchScreen(
+                    accountSearch = AccountSearchState(query = "#cats", tagQuery = "cats", posts = listOf(result)),
+                    initialQuery = "#cats",
+                    mediaOwner = account.id,
+                    availableActions = setOf(
+                        PostAction.Reply,
+                        PostAction.Reshare,
+                        PostAction.Favorite,
+                        PostAction.Bookmark,
+                    ),
+                    onReply = { replied = it.post.id == result.id },
+                    onReshare = { reshared = it.post.id == result.id },
+                    onReact = { favourited = it.post.id == result.id },
+                    onBookmark = { bookmarked = it.post.id == result.id },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Reply").performClick()
+        compose.onNodeWithContentDescription("Repost").performClick()
+        compose.onNodeWithContentDescription("Favorite").performClick()
+        compose.onNodeWithContentDescription("Bookmark").performClick()
+
+        assertTrue(replied)
+        assertTrue(reshared)
+        assertTrue(favourited)
+        assertTrue(bookmarked)
+    }
+
+    @Test fun searchReactionControlsRouteToSharedReactionCallbacks() {
+        val result = Post(
+            postId("search-reaction"),
+            account,
+            "Search reaction",
+            0,
+            Audience.Public,
+            reactions = listOf(Reaction("👍", 1, selected = false)),
+        )
+        var selected: String? = null
+        var bubbleTarget: OwnedPost? = null
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SearchScreen(
+                    accountSearch = AccountSearchState(query = "#cats", tagQuery = "cats", posts = listOf(result)),
+                    initialQuery = "#cats",
+                    mediaOwner = account.id,
+                    availableActions = setOf(PostAction.React),
+                    onReaction = { _, choice -> selected = choice.submissionValue },
+                    onOpenReactionBubble = { ownedPost, _ -> bubbleTarget = ownedPost },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("reaction_chip_👍", useUnmergedTree = true).performClick()
+        compose.onNodeWithContentDescription("Favorite").performTouchInput { longClick() }
+
+        assertEquals("👍", selected)
+        assertEquals(result.id, bubbleTarget?.post?.id)
+        assertEquals(account.id, bubbleTarget?.fetchedBy)
+    }
+
     @Test fun tappingOverflowHashtagInvokesSearchCallback() {
         var searched = ""
         compose.activity.runOnUiThread {

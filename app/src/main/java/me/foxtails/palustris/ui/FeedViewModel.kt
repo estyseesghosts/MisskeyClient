@@ -202,7 +202,7 @@ class FeedViewModel @AssistedInject constructor(
             _feed.value = _feed.value.copy(
                 accountSearch = AccountSearchState(
                     query = normalized,
-                    posts = page.items.distinctBy { it.id },
+                    posts = page.items.distinctBy { it.id }.map(::applyFavouritePreference),
                     tagQuery = normalized.removePrefix("#"),
                     nextCursor = page.nextCursor,
                 ),
@@ -226,7 +226,7 @@ class FeedViewModel @AssistedInject constructor(
                 val page = source.searchHashtag(tag, cursor)
                 val current = _feed.value.accountSearch
                 _feed.value = _feed.value.copy(accountSearch = current.copy(
-                    posts = (current.posts + page.items).distinctBy { it.id },
+                    posts = (current.posts + page.items.map(::applyFavouritePreference)).distinctBy { it.id },
                     loadingMore = false,
                     nextCursor = page.nextCursor?.takeUnless { it == cursor },
                 ))
@@ -417,6 +417,9 @@ class FeedViewModel @AssistedInject constructor(
             ownedPosts = _feed.value.ownedPosts.map { owned ->
                 if (owned.post.id == id && owned.fetchedBy == accountId) owned.copy(post = transform(owned.post)) else owned
             },
+            accountSearch = _feed.value.accountSearch.copy(
+                posts = _feed.value.accountSearch.posts.map { if (it.id == id) transform(it) else it },
+            ),
         )
     }
 
@@ -427,6 +430,9 @@ class FeedViewModel @AssistedInject constructor(
             ownedPosts = _feed.value.ownedPosts.map { owned ->
                 if (owned.fetchedBy == accountId) owned.copy(post = transformed[owned.post.id] ?: owned.post) else owned
             },
+            accountSearch = _feed.value.accountSearch.copy(
+                posts = _feed.value.accountSearch.posts.map(transform),
+            ),
         )
     }
 

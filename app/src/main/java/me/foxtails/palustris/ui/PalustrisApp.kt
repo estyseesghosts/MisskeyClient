@@ -902,13 +902,24 @@ fun PalustrisApp(
                                  Destination.Search -> AnimatedStatePane(
                                      stateKey = searchPanel,
                                      modifier = Modifier.fillMaxSize(),
-                                 ) { panel -> SearchScreen(
-                                       mode = panel,
-                                      accountSearch = feedState?.accountSearch ?: AccountSearchState(),
-                                      onSearchAccounts = onSearchAccounts,
-                                      onAccountClick = ::openProfile,
-                                      onSearchHashtag = ::openHashtagSearch,
-                                      onOpenHashtagBubble = ::openHashtagBubble,
+                                  ) { panel -> SearchScreen(
+                                        mode = panel,
+                                       accountSearch = feedState?.accountSearch ?: AccountSearchState(),
+                                       onSearchAccounts = onSearchAccounts,
+                                       onAccountClick = ::openProfile,
+                                       availableActions = feedState?.actions ?: emptySet(),
+                                       onReact = onReact,
+                                       onReply = handleReply,
+                                       onReshare = onReshare,
+                                       onBookmark = onBookmark,
+                                       onReaction = onReaction,
+                                       onOpenReactionBubble = { ownedPost, bounds ->
+                                           openReactionBubble(ownedPost, bounds, onReaction)
+                                       },
+                                       quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
+                                       onQuote = ::openQuote,
+                                       onSearchHashtag = ::openHashtagSearch,
+                                       onOpenHashtagBubble = ::openHashtagBubble,
                                       onLoadMoreSearch = onLoadMoreSearch,
                                       initialQuery = searchPrefill,
                                       compactLayout = !wide,
