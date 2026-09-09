@@ -9,9 +9,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitVerticalDragOrCancellation
-import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -260,26 +258,33 @@ private fun ReactionBubble(
                 stateDescription = bubbleStateDescription
             }
             .pointerInput(target.postId, target.mode, openedAtMillis) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    if (down.uptimeMillis <= openedAtMillis) {
-                        waitForUpOrCancellation()
-                    } else {
-                        var lastY = down.position.y
-                        var distance = 0f
-                        val drag = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ ->
-                            lastY = change.position.y
-                            change.consume()
-                        }
-                        if (drag != null) {
-                            while (true) {
-                                val change = awaitVerticalDragOrCancellation(drag.id) ?: break
-                                distance += change.position.y - lastY
-                                lastY = change.position.y
-                                change.consume()
-                                if (!expanded && abs(distance) >= ReactionFlickThreshold) {
+                if (!expanded) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = PointerEventPass.Initial,
+                        )
+                        if (down.uptimeMillis > openedAtMillis) {
+                            var expandedFromGesture = false
+                            while (!expandedFromGesture) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                if (change == null || !change.pressed) break
+
+                                val deltaX = change.position.x - down.position.x
+                                val deltaY = change.position.y - down.position.y
+                                if (abs(deltaY) >= ReactionFlickThreshold && abs(deltaY) > abs(deltaX)) {
+                                    change.consume()
+                                    expandedFromGesture = true
                                     onExpanded()
-                                    break
+                                }
+                            }
+                            if (expandedFromGesture) {
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    val change = event.changes.firstOrNull { it.id == down.id }
+                                    if (change == null || !change.pressed) break
+                                    change.consume()
                                 }
                             }
                         }

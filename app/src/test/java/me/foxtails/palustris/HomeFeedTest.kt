@@ -559,6 +559,7 @@ private fun show(
             )
         }
         val post = Post(postId("expanded-reaction"), account, "Reaction bubble", 0, Audience.Public)
+        var selected: String? = null
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 PalustrisApp(
@@ -573,16 +574,46 @@ private fun show(
                         reactionMutation = CapabilityStatus.Supported,
                     ),
                     emojiCatalogState = me.foxtails.palustris.ui.emoji.EmojiCatalogState(items = custom),
+                    onReaction = { _, choice -> selected = choice.submissionValue },
                 )
             }
         }
         compose.waitForIdle()
 
         compose.onNodeWithContentDescription("Favorite").performTouchInput { longClick() }
-        compose.onNodeWithTag("reaction_bubble_compact", useUnmergedTree = true)
+        compose.onNodeWithTag("emoji_picker_cell_👍", useUnmergedTree = true)
             .performTouchInput { swipeUp() }
         compose.onNodeWithTag("reaction_bubble_expanded", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("reaction_bubble_grid", useUnmergedTree = true).assert(hasScrollAction())
+        assertNull(selected)
+    }
+
+    @Test fun downwardFlickOverCompactEmojiCellExpandsReactionBubble() {
+        val post = Post(postId("expanded-reaction-down"), account, "Reaction bubble", 0, Audience.Public)
+        var selected: String? = null
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(
+                        posts = listOf(post),
+                        ownedPosts = listOf(OwnedPost(account.id, post)),
+                        actions = setOf(PostAction.React),
+                    ),
+                    emojiCapabilities = EmojiCapabilities(
+                        reactionMutation = CapabilityStatus.Supported,
+                    ),
+                    onReaction = { _, choice -> selected = choice.submissionValue },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Favorite").performTouchInput { longClick() }
+        compose.onNodeWithTag("emoji_picker_cell_👍", useUnmergedTree = true)
+            .performTouchInput { swipeDown() }
+        compose.onNodeWithTag("reaction_bubble_expanded", useUnmergedTree = true).assertIsDisplayed()
+        assertNull(selected)
     }
 
     @Test fun clearingHashtagSearchRemovesPreviousResults() {
