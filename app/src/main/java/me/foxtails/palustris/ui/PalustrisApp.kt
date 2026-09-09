@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -453,6 +454,8 @@ fun PalustrisApp(
         }
     }
 
+    SystemBars(mediaViewerOpen = mediaRequest != null)
+
     fun draftTarget(item: PostDraft): OwnedPost? {
         val owner = account ?: return null
         val targetId = item.quoteOf ?: return null
@@ -634,7 +637,7 @@ fun PalustrisApp(
         }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val wide = maxWidth >= 600.dp
         Row(Modifier.fillMaxSize()) {
             if (wide) NavigationRail(Modifier.fillMaxHeight(), header = { FloatingActionButton(onClick = ::openComposer, modifier = Modifier.padding(vertical = 16.dp)) { Icon(AppIcons.Edit, "Compose post") } }) {

@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowCompat
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -19,6 +20,7 @@ import org.junit.Assert.assertTrue
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
@@ -28,6 +30,7 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PollOption
+import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.ProfileTimelineTab
 import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.AccountSearchState
@@ -242,6 +245,39 @@ class NavigationTest {
         compose.onNodeWithText("Hashtags").assertIsSelected()
         compose.onNodeWithContentDescription("Profile").performClick()
         compose.onAllNodesWithText("Your profile").onLast().assertIsDisplayed()
+    }
+
+    @Test fun mediaViewerSwitchesNavigationBarModeAndRestoresNormalAppearance() {
+        val account = fixtureAccount("media-owner")
+        val post = fixturePost("media-post", account, "Media fixture").copy(
+            attachments = listOf(
+                Attachment(
+                    id = "image",
+                    url = "https://cdn.example/image.jpg",
+                    mimeType = "image/jpeg",
+                    kind = MediaKind.Image,
+                ),
+            ),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(account = account, feedState = FeedState(posts = listOf(post)))
+            }
+        }
+        compose.waitForIdle()
+
+        val window = compose.activity.window
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        assertTrue(controller.isAppearanceLightNavigationBars)
+        assertTrue(!window.isNavigationBarContrastEnforced)
+
+        compose.onNodeWithContentDescription("Open media 1 of 1").performClick()
+        compose.waitForIdle()
+        assertTrue(!controller.isAppearanceLightNavigationBars)
+
+        compose.onNodeWithContentDescription("Close media viewer").performClick()
+        compose.waitForIdle()
+        assertTrue(controller.isAppearanceLightNavigationBars)
     }
 
     @Test fun compactNotificationsDockSitsAboveNavigation() {
