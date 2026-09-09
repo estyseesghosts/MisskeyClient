@@ -133,10 +133,7 @@ class MisskeyProfileService(
                 )
                 MisskeyMapper.account(JSONObject(response.body), origin, movedTo = null)
             }
-            destination?.takeIf {
-                it.id.localId.isNotBlank() &&
-                    (it.displayName.isNotBlank() || it.handle.trim('@').isNotBlank() || it.avatarUrl != null)
-            }
+            destination?.takeIf { it.hasUsableProfileIdentity() }
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
@@ -175,3 +172,6 @@ class MisskeyProfileService(
         const val MAX_PINNED_NOTES = 20
     }
 }
+
+private fun Account.hasUsableProfileIdentity(): Boolean = id.localId.isNotBlank() &&
+    (displayName.isNotBlank() || handle.removePrefix("@").substringBefore("@").isNotBlank() || avatarUrl != null)

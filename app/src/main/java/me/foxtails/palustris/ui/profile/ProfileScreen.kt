@@ -216,10 +216,7 @@ private fun ProfileHeader(
         WindowInsets.statusBars.getTop(this).toDp()
     }.coerceAtLeast(1.dp)
     Column(Modifier.fillMaxWidth().testTag("profile_header")) {
-        val movedTo = account.movedTo?.takeIf {
-            it.id.localId.isNotBlank() &&
-                (it.displayName.isNotBlank() || it.handle.trim('@').isNotBlank() || it.avatarUrl != null)
-        }
+        val movedTo = account.movedTo?.takeIf { it.hasUsableProfileIdentity() }
         movedTo?.let { destination ->
             ProfileRedirectBanner(
                 account = account,
@@ -560,6 +557,9 @@ private fun formatProfileCount(value: Long): String = when {
     value >= 1_000 -> "%.1fK".format(value / 1_000.0)
     else -> value.toString()
 }
+
+private fun Account.hasUsableProfileIdentity(): Boolean = id.localId.isNotBlank() &&
+    (displayName.isNotBlank() || handle.removePrefix("@").substringBefore("@").isNotBlank() || avatarUrl != null)
 
 private fun String.isWebAddress(): Boolean =
     startsWith("https://") || startsWith("http://")

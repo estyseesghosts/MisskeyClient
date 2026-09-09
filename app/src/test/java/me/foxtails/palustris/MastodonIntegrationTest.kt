@@ -297,6 +297,8 @@ class MastodonIntegrationTest {
         assertNull(MastodonMapper.account(localAccount, origin).movedTo)
         assertNull(MastodonMapper.account(JSONObject(localAccount.toString()).put("moved", JSONObject.NULL), origin).movedTo)
         assertNull(MastodonMapper.account(JSONObject(localAccount.toString()).put("moved", JSONObject().put("username", "broken")), origin).movedTo)
+        assertNull(MastodonMapper.account(JSONObject(localAccount.toString()).put("moved", JSONObject()
+            .put("id", "").put("username", "")), origin).movedTo)
     }
 
     @Test

@@ -306,6 +306,21 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         }
     }
 
+    @Test fun misskeyProfileIgnoresMalformedMovedDestinationIdentity() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            server.enqueue(MockResponse().setBody(JSONObject(user).put("movedTo", "broken-id").toString()))
+            server.enqueue(MockResponse().setBody(JSONObject().put("id", "").put("username", "").toString()))
+
+            val profile = MisskeySource(origin, "test-token", MisskeyApi()).profile(
+                AccountId(Connection(origin, Protocol.MISSKEY), "user-a"),
+            )
+
+            assertNull(profile.movedTo)
+            assertEquals(2, server.requestCount)
+        }
+    }
+
     @Test fun misskeyProfileTimelineUsesFlagsOuterCursorAndSharedClassification() = runBlocking {
         MockWebServer().use { server ->
             val origin = server.url("/").toString().removeSuffix("/")

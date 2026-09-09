@@ -52,7 +52,7 @@ object MastodonMapper {
         if (!includeMovedTo) return account
         val destination = json.optJSONObject("moved")?.let { moved ->
             runCatching { account(moved, origin, includeMovedTo = false) }.getOrNull()
-        }?.takeIf { it.id.localId.isNotBlank() && (it.displayName.isNotBlank() || it.handle.isNotBlank() || it.avatarUrl != null) }
+        }?.takeIf { it.hasUsableProfileIdentity() }
         return account.copy(movedTo = destination)
     }
 
@@ -155,6 +155,9 @@ object MastodonMapper {
     private const val MAX_NESTING_DEPTH = 3
     private val MASTODON_ACTIONS = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.Bookmark)
 }
+
+private fun Account.hasUsableProfileIdentity(): Boolean = id.localId.isNotBlank() &&
+    (displayName.isNotBlank() || handle.removePrefix("@").substringBefore("@").isNotBlank() || avatarUrl != null)
 
 private fun JSONObject.nullableString(key: String): String? =
     if (isNull(key)) null else optString(key).takeIf { it.isNotBlank() }
