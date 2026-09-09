@@ -37,6 +37,9 @@ class MediaImageLoader private constructor(context: Context) {
                 .callTimeout(30, TimeUnit.SECONDS)
                 .build()
         }
+        .components {
+            add(AvifDecoder.Factory())
+        }
         .build()
 
     fun request(

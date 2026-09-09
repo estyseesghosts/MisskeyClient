@@ -1,13 +1,21 @@
 package me.foxtails.palustris
 
+import coil.decode.BitmapFactoryDecoder
 import me.foxtails.palustris.data.media.MediaImageLoader
+import me.foxtails.palustris.data.media.AvifDecoder
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.MediaRequestRole
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class MediaImageLoaderTest {
     private val attachment = Attachment(
         id = "media-1",
@@ -49,5 +57,14 @@ class MediaImageLoaderTest {
             "account-a", "post-b", attachment, 0, MediaRequestRole.Preview, 320, 240,
         )
         assertNotEquals(otherAccount, otherPost)
+    }
+
+    @Test
+    fun sharedLoaderPutsAvifDecoderBeforeBitmapDecoder() {
+        val loader = MediaImageLoader.get(RuntimeEnvironment.getApplication())
+        val factories = loader.imageLoader.components.decoderFactories
+
+        assertTrue(factories.first() is AvifDecoder.Factory)
+        assertTrue(factories.last() is BitmapFactoryDecoder.Factory)
     }
 }
