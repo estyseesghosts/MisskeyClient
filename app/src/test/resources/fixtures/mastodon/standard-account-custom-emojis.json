@@ -1,0 +1,33 @@
+{
+  "id": "111222333444555666",
+  "username": "synthesia",
+  "acct": "synthesia@example.org",
+  "display_name": "Synthesia :blob_cat: fan",
+  "locked": false,
+  "bot": false,
+  "created_at": "2026-01-02T00:00:00.000Z",
+  "note": "<p>bio with <a href=\"https://example.org/tags/cats\">#cats</a> and :blob_cat: :blob_wave:</p>",
+  "url": "https://example.org/@synthesia",
+  "avatar": "https://cdn.example.org/avatars/synthesia.png",
+  "header": "https://cdn.example.org/headers/synthesia.png",
+  "followers_count": 12,
+  "following_count": 3,
+  "statuses_count": 5,
+  "emojis": [
+    {
+      "shortcode": "blob_cat",
+      "url": "https://cdn.example.org/emoji/blob_cat.gif",
+      "static_url": "https://cdn.example.org/emoji/blob_cat.png",
+      "visible_in_picker": true,
+      "category": "blobs",
+      "tags": ["cat", "kitten"]
+    },
+    {
+      "shortcode": "blob_wave",
+      "url": "https://cdn.example.org/emoji/blob_wave.gif",
+      "static_url": "https://cdn.example.org/emoji/blob_wave.png",
+      "visible_in_picker": false,
+      "category": "blobs"
+    }
+  ]
+}

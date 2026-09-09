@@ -1,0 +1,57 @@
+{
+  "id": "AkkomaStatus001",
+  "created_at": "2026-09-01T09:00:00.000Z",
+  "visibility": "public",
+  "uri": "https://social.akkoma.example/objects/status-001",
+  "content": "<p>akkoma body :akkoma_blob:</p>",
+  "account": {
+    "id": "AkkomaActor001",
+    "username": "akkoma",
+    "acct": "akkoma@social.akkoma.example",
+    "display_name": "Akkoma User",
+    "note": "",
+    "avatar": "https://social.akkoma.example/media/avatars/akkoma.png"
+  },
+  "emojis": [
+    {
+      "shortcode": "akkoma_blob",
+      "url": "https://social.akkoma.example/emoji/akkoma_blob.png",
+      "static_url": "https://social.akkoma.example/emoji/akkoma_blob_static.png",
+      "visible_in_picker": true
+    }
+  ],
+  "emoji_reactions": [
+    {
+      "name": ":akkoma_blob:",
+      "count": 2,
+      "me": true,
+      "accounts": [
+        {"id": "AkkomaActor001", "acct": "akkoma@social.akkoma.example", "username": "akkoma"}
+      ],
+      "url": "https://social.akkoma.example/emoji/akkoma_blob.png"
+    },
+    {
+      "name": "👍",
+      "count": 1,
+      "me": true,
+      "accounts": [
+        {"id": "AkkomaActor001", "acct": "akkoma@social.akkoma.example", "username": "akkoma"}
+      ]
+    },
+    {
+      "name": ":bare_name_without_colons:",
+      "count": 1,
+      "me": false,
+      "accounts": []
+    },
+    {
+      "name": "",
+      "count": -4,
+      "me": false,
+      "accounts": []
+    }
+  ],
+  "reblogged": false,
+  "favourited": false,
+  "bookmarked": false
+}

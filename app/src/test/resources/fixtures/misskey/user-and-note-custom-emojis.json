@@ -1,0 +1,28 @@
+{
+  "id": "9a1b2c3d",
+  "createdAt": "2026-09-01T09:00:00.000Z",
+  "text": "user with :local_blob: and :remote_blob@remote.example: emoji",
+  "username": "misskeyuser",
+  "name": "Misskey User :local_blob:",
+  "host": null,
+  "avatarUrl": "https://cdn.example.org/avatars/misskeyuser.png",
+  "bannerUrl": null,
+  "description": "profile bio with :local_blob:",
+  "isLocked": false,
+  "isBot": false,
+  "emojis": {
+    "local_blob": {
+      "name": "local_blob",
+      "url": "https://cdn.example.org/emoji/local_blob.png",
+      "aliases": ["localblob"]
+    },
+    "remote_blob@remote.example": {
+      "name": "remote_blob@remote.example",
+      "url": "https://cdn.remote.example/emoji/remote_blob.png"
+    }
+  },
+  "noteEmojis": {
+    "local_blob": "https://cdn.example.org/emoji/local_blob.png",
+    "remote_blob@remote.example": "https://cdn.remote.example/emoji/remote_blob.png"
+  }
+}

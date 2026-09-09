@@ -1,0 +1,35 @@
+{
+  "id": "9note0001",
+  "createdAt": "2026-09-01T09:00:00.000Z",
+  "text": "note body with :blob_cat: and :blob_wave:",
+  "cw": null,
+  "visibility": "public",
+  "user": {
+    "id": "9user0001",
+    "username": "notewriter",
+    "name": "Note Writer",
+    "host": null,
+    "emojis": {}
+  },
+  "files": [],
+  "reactions": {
+    ":blob_cat:": 3,
+    ":blob_cat@remote.example:": 1,
+    "❤️": 7,
+    ":broken:": 2
+  },
+  "reactionEmojis": {
+    "blob_cat": "https://cdn.example.org/emoji/blob_cat.png",
+    "blob_cat@remote.example": "https://cdn.remote.example/emoji/blob_cat.png",
+    "broken": "https://cdn.example.org/emoji/broken.png"
+  },
+  "emojis": {
+    "blob_wave": {
+      "name": "blob_wave",
+      "url": "https://cdn.example.org/emoji/blob_wave.png"
+    }
+  },
+  "myReaction": ":blob_cat:",
+  "repliesCount": 0,
+  "renoteCount": 0
+}

@@ -1,0 +1,87 @@
+[
+  {
+    "id": "9notif001",
+    "createdAt": "2026-09-01T10:00:00.000Z",
+    "type": "reaction:grouped",
+    "reaction": ":blob_cat:",
+    "user": {
+      "id": "9user0002",
+      "username": "reactor",
+      "name": "Reactor :blob_cat:",
+      "host": null,
+      "emojis": {}
+    },
+    "note": {
+      "id": "9note0001",
+      "createdAt": "2026-09-01T09:00:00.000Z",
+      "text": "note body with :blob_cat: and :blob_wave:",
+      "visibility": "public",
+      "user": {
+        "id": "9user0001",
+        "username": "notewriter",
+        "name": "Note Writer",
+        "host": null
+      },
+      "reactions": {
+        ":blob_cat:": 3,
+        "❤️": 7
+      },
+      "reactionEmojis": {
+        "blob_cat": "https://cdn.example.org/emoji/blob_cat.png"
+      },
+      "emojis": {
+        "blob_wave": {
+          "name": "blob_wave",
+          "url": "https://cdn.example.org/emoji/blob_wave.png"
+        }
+      },
+      "myReaction": null
+    },
+    "reactions": [
+      {
+        "id": "9react001",
+        "createdAt": "2026-09-01T10:00:00.000Z",
+        "user": {
+          "id": "9user0002",
+          "username": "reactor",
+          "name": "Reactor :blob_cat:",
+          "host": null
+        },
+        "type": "reaction",
+        "reaction": ":blob_cat:"
+      }
+    ]
+  },
+  {
+    "id": "9notif002",
+    "createdAt": "2026-09-01T11:00:00.000Z",
+    "type": "reaction",
+    "reaction": ":blob_wave:",
+    "user": {
+      "id": "9user0003",
+      "username": "waver",
+      "name": "Waver",
+      "host": null
+    },
+    "note": {
+      "id": "9note0002",
+      "createdAt": "2026-09-01T11:00:00.000Z",
+      "text": "second note",
+      "visibility": "public",
+      "user": {
+        "id": "9user0001",
+        "username": "notewriter",
+        "name": "Note Writer",
+        "host": null
+      },
+      "reactions": {},
+      "reactionEmojis": {},
+      "emojis": {},
+      "myReaction": null
+    },
+    "customEmoji": {
+      "name": "blob_wave",
+      "url": "https://cdn.example.org/emoji/blob_wave.png"
+    }
+  }
+]

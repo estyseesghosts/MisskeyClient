@@ -1,0 +1,75 @@
+{
+  "id": "outer-reblog-id",
+  "created_at": "2026-09-02T09:00:00.000Z",
+  "visibility": "public",
+  "uri": "https://example.org/users/alice/statuses/outer-reblog-id",
+  "content": "<p>reblog wrapper</p>",
+  "account": {
+    "id": "actor-b",
+    "username": "alice",
+    "acct": "alice@example.org",
+    "display_name": "Alice :alice_spark:",
+    "note": "",
+    "avatar": "https://cdn.example.org/avatars/alice.png",
+    "emojis": [
+      {
+        "shortcode": "alice_spark",
+        "url": "https://cdn.example.org/emoji/alice_spark.gif",
+        "static_url": "https://cdn.example.org/emoji/alice_spark.png",
+        "visible_in_picker": true
+      }
+    ]
+  },
+  "reblog": {
+    "id": "inner-status-id",
+    "created_at": "2026-09-01T09:00:00.000Z",
+    "visibility": "public",
+    "uri": "https://example.org/users/bob/statuses/inner-status-id",
+    "content": "<p>inner body :inner_blob:</p>",
+    "account": {
+      "id": "actor-a",
+      "username": "bob",
+      "acct": "bob@example.org",
+      "display_name": "Bob",
+      "note": "",
+      "avatar": "https://cdn.example.org/avatars/bob.png"
+    },
+    "emojis": [
+      {
+        "shortcode": "inner_blob",
+        "url": "https://cdn.example.org/emoji/inner_blob.gif",
+        "static_url": "https://cdn.example.org/emoji/inner_blob.png",
+        "visible_in_picker": true
+      }
+    ],
+    "quote": {
+      "state": "accepted",
+      "quoted_status": {
+        "id": "quoted-status-id",
+        "created_at": "2026-08-31T09:00:00.000Z",
+        "visibility": "public",
+        "uri": "https://example.org/users/carol/statuses/quoted-status-id",
+        "content": "<p>quoted body :quote_blob:</p>",
+        "account": {
+          "id": "actor-c",
+          "username": "carol",
+          "acct": "carol@example.org",
+          "display_name": "Carol",
+          "note": "",
+          "avatar": "https://cdn.example.org/avatars/carol.png"
+        },
+        "emojis": [
+          {
+            "shortcode": "quote_blob",
+            "url": "https://cdn.example.org/emoji/quote_blob.gif",
+            "static_url": "https://cdn.example.org/emoji/quote_blob.png",
+            "visible_in_picker": true
+          }
+        ]
+      }
+    }
+  },
+  "reblogged": false,
+  "favourited": false,
+  "bookmarked": false
+}

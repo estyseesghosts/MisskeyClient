@@ -1,0 +1,27 @@
+{
+  "uri": "https://social.akkoma.example",
+  "title": "Synthesia Social",
+  "short_description": "A synthetic Akkoma instance for fixture tests.",
+  "version": "3.13.2",
+  "pleroma": {
+    "metadata": {
+      "features": ["pleroma_api", "emoji_reactions", "pleroma_chat_messages"],
+      "federation": {
+        "enabled": true
+      }
+    }
+  },
+  "software": {
+    "name": "akkoma",
+    "version": "3.13.2"
+  },
+  "pleroma_fe": {
+    "reactions": {
+      "enabled": true
+    }
+  },
+  "federation": {
+    "mrf_policies": [],
+    "enabled": true
+  }
+}

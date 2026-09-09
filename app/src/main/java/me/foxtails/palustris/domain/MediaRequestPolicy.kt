@@ -4,6 +4,16 @@ import java.net.URI
 
 enum class MediaRequestRole { Preview, Full }
 
+/**
+ * A validated custom-emoji image target. Emoji requests are credential-free, HTTPS-only,
+ * and resolved against the owning origin before validation; redirects are reviewed by the
+ * shared image loader during decoding.
+ */
+data class EmojiImageRequest(
+    val url: ValidatedUrl,
+    val static: Boolean,
+)
+
 sealed interface MediaRequestDecision {
     data class Request(
         val url: String,
@@ -63,5 +73,35 @@ object MediaRequestPolicy {
             val uri = URI(candidate)
             uri.scheme in setOf("http", "https") && !uri.host.isNullOrBlank()
         }.getOrDefault(false)
+    }
+
+    /** Static images load first; animated URLs are the fallback when no static image exists. */
+    fun emojiImage(emoji: CustomEmoji): EmojiImageRequest? {
+        val static = emoji.staticUrl
+        val animated = emoji.animatedUrl
+        return when {
+            static != null -> EmojiImageRequest(static, static = true)
+            animated != null -> EmojiImageRequest(animated, static = false)
+            else -> null
+        }
+    }
+
+    /**
+     * Normalizes absolute and origin-relative image URLs into credential-free HTTPS
+     * resources. Credential-bearing, malformed, and non-HTTPS URLs are rejected.
+     */
+    fun validatedWebUrl(candidate: String?, origin: String? = null): ValidatedUrl? {
+        val trimmed = candidate?.trim()?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+            ?: return null
+        return runCatching {
+            val resolved = if (origin != null && !trimmed.startsWith("http://", ignoreCase = true) &&
+                !trimmed.startsWith("https://", ignoreCase = true)
+            ) {
+                URI(origin).resolve(trimmed).toString()
+            } else {
+                trimmed
+            }
+            ValidatedUrl.https(resolved)
+        }.getOrNull()
     }
 }

@@ -1,0 +1,38 @@
+{
+  "id": "AkkomaNotification001",
+  "type": "pleroma:emoji_reaction",
+  "created_at": "2026-09-01T10:00:00.000Z",
+  "account": {
+    "id": "AkkomaActor002",
+    "username": "reactor",
+    "acct": "reactor@social.akkoma.example",
+    "display_name": "Reactor",
+    "note": "",
+    "avatar": "https://social.akkoma.example/media/avatars/reactor.png"
+  },
+  "status": {
+    "id": "AkkomaStatus001",
+    "created_at": "2026-09-01T09:00:00.000Z",
+    "visibility": "public",
+    "uri": "https://social.akkoma.example/objects/status-001",
+    "content": "<p>akkoma body :akkoma_blob:</p>",
+    "account": {
+      "id": "AkkomaActor001",
+      "username": "akkoma",
+      "acct": "akkoma@social.akkoma.example",
+      "display_name": "Akkoma User",
+      "note": "",
+      "avatar": "https://social.akkoma.example/media/avatars/akkoma.png"
+    },
+    "emojis": [
+      {
+        "shortcode": "akkoma_blob",
+        "url": "https://social.akkoma.example/emoji/akkoma_blob.png",
+        "static_url": "https://social.akkoma.example/emoji/akkoma_blob_static.png",
+        "visible_in_picker": true
+      }
+    ]
+  },
+  "emoji": ":akkoma_blob:",
+  "emoji_url": "https://social.akkoma.example/emoji/akkoma_blob.png"
+}
