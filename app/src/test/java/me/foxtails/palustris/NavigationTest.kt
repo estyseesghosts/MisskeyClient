@@ -332,6 +332,27 @@ class NavigationTest {
         assertTrue("search field should keep the compact navigation side margins", field.right / density <= 411f - 16f)
     }
 
+    @Test fun selectedNavigationIndicatorStaysCenteredOnSelectedIcon() {
+        fun assertCentered(destination: String) {
+            val icon = bounds(destination)
+            val indicator = compose.onNodeWithTag("selected_navigation_indicator", useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+            assertEquals("indicator should share $destination's horizontal center", icon.center.x, indicator.center.x, 1f)
+            assertEquals("indicator should share $destination's vertical center", icon.center.y, indicator.center.y, 1f)
+        }
+
+        assertCentered("Home")
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.waitForIdle()
+        assertCentered("Search")
+        compose.onNodeWithContentDescription("Notifications").performClick()
+        compose.waitForIdle()
+        assertCentered("Notifications")
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.waitForIdle()
+        assertCentered("Profile")
+    }
+
     @Test fun compactHomeFeedUnderlapsTimelineAndFinalPostCanScrollClear() {
         val account = fixtureAccount()
         val final = fixturePost("home-final", account, "Home final fixture")

@@ -311,25 +311,8 @@ private fun CompactContextualNavigationBar(
             color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
             shadowElevation = 6.dp,
         ) {
-            BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
+            Box(Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
                 val scheme = LocalPalustrisMotionScheme.current
-                val density = androidx.compose.ui.platform.LocalDensity.current
-                val slotWidthPx = with(density) { (maxWidth / Destination.entries.size).toPx() }
-                val selectedSlot by androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = destination.ordinal.toFloat(),
-                    animationSpec = scheme.spatial,
-                    label = "navigationIndicatorSlot",
-                )
-                Surface(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .align(Alignment.CenterStart)
-                        .graphicsLayer {
-                            translationX = (selectedSlot + 0.5f) * slotWidthPx - with(density) { 20.dp.toPx() }
-                        },
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                ) {}
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                     Destination.entries.forEach { item ->
                         val selected = destination == item
@@ -354,6 +337,21 @@ private fun CompactContextualNavigationBar(
                             .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                             .clickable(interactionSource = interactionSource, indication = LocalIndication.current) { onDestinationSelected(item) }
                         Box(itemModifier.semantics { contentDescription = item.label; this.selected = selected; role = Role.Tab }, contentAlignment = Alignment.Center) {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = selected,
+                                enter = if (scheme.reducedMotion) EnterTransition.None
+                                else scaleIn(initialScale = 0.86f, animationSpec = scheme.expressive) + fadeIn(scheme.fastFadeIn),
+                                exit = if (scheme.reducedMotion) ExitTransition.None
+                                else scaleOut(targetScale = 0.86f, animationSpec = scheme.expressive) + fadeOut(scheme.fastFadeOut),
+                            ) {
+                                Surface(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .testTag("selected_navigation_indicator"),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                ) {}
+                            }
                             if (item == Destination.Profile) {
                                 val avatarModifier = Modifier.size(30.dp).graphicsLayer {
                                     scaleX = selectedScale
