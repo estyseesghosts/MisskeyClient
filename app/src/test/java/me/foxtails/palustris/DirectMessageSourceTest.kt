@@ -12,8 +12,11 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
+import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.Page
+import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
 import okhttp3.mockwebserver.MockResponse
@@ -96,8 +99,14 @@ class DirectMessageSourceTest {
                 .put("last_status", mastodonStatus("last", "direct", "Latest"))
             val context = JSONObject()
                 .put("ancestors", org.json.JSONArray().put(mastodonStatus("first", "direct", "First")))
-                .put("descendants", org.json.JSONArray().put(mastodonStatus("reply", "direct", "Reply")))
-            server.enqueue(MockResponse().setBody(org.json.JSONArray().put(conversation).toString()))
+                .put("descendants", org.json.JSONArray()
+                    .put(mastodonStatus("reply", "direct", "Reply"))
+                    .put(mastodonStatus("public-reply", "public", "Do not expose")))
+            val publicConversation = JSONObject()
+                .put("id", "public-conversation")
+                .put("accounts", org.json.JSONArray().put(mastodonAccount("public-user", "public", "public@example.org")))
+                .put("last_status", mastodonStatus("public-last", "public", "Do not expose"))
+            server.enqueue(MockResponse().setBody(org.json.JSONArray().put(conversation).put(publicConversation).toString()))
             server.enqueue(MockResponse().setBody(context.toString()))
             val source = MastodonSource(
                 origin,
@@ -110,6 +119,7 @@ class DirectMessageSourceTest {
             val page = source.conversations()
             val thread = source.conversationThread(ConversationId(origin, "conversation"))
 
+            assertEquals(1, page.items.size)
             assertEquals(true, page.items.single().unread)
             assertEquals(listOf("first", "last", "reply"), thread.map { it.id.value })
             assertEquals("/api/v1/conversations?limit=40", server.takeRequest().path)
@@ -118,11 +128,48 @@ class DirectMessageSourceTest {
     }
 
     @Test
+    fun mastodonRepliesMentionAllSuppliedParticipantsAndMarksServerConversationRead() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            server.enqueue(MockResponse().setBody(mastodonAccount("one", "alice", "alice@example.org").toString()))
+            server.enqueue(MockResponse().setBody(mastodonAccount("two", "bob", "bob@example.org").toString()))
+            server.enqueue(MockResponse().setBody(mastodonStatus("sent", "direct", "Reply").toString()))
+            server.enqueue(MockResponse().setBody("{}"))
+            val source = MastodonSource(
+                origin,
+                "token",
+                MisskeyApi(),
+                AccountId(Connection(origin, Protocol.MASTODON), "owner"),
+                initialCapabilities = ServerCapabilities(),
+            )
+
+            source.sendDirectMessage(
+                DirectMessageRequest(
+                    recipients = listOf(
+                        AccountId(Connection(origin, Protocol.MASTODON), "one"),
+                        AccountId(Connection(origin, Protocol.MASTODON), "two"),
+                    ),
+                    text = "Reply",
+                    replyTo = EntityId(origin, "parent"),
+                ),
+            )
+            server.takeRequest()
+            server.takeRequest()
+            val fields = URLDecoder.decode(server.takeRequest().body.readUtf8(), StandardCharsets.UTF_8.name())
+            source.markConversationRead(ConversationId(origin, "conversation"))
+
+            assertTrue(fields.contains("status=@alice@example.org @bob@example.org Reply"))
+            assertTrue(fields.contains("in_reply_to_id=parent"))
+            assertEquals("/api/v1/conversations/conversation/read", server.takeRequest().path)
+        }
+    }
+
+    @Test
     fun misskeySpecifiedNotesBecomeReplyRootedConversations() = runBlocking {
         MockWebServer().use { server ->
             val origin = server.url("/").toString().removeSuffix("/")
             val owner = AccountId(Connection(origin, Protocol.MISSKEY), "owner")
-            server.enqueue(MockResponse().setBody("[${createdMisskeyNote("root")}]"))
+            server.enqueue(MockResponse().setBody("[${createdMisskeyNote("root")},${createdMisskeyNote("public").replace("specified", "public")}]"))
             server.enqueue(MockResponse().setBody("[${createdMisskeyNote("reply", "root")}]"))
             val source = MisskeySource(origin, "token", MisskeyApi(), accountId = owner)
 
@@ -144,8 +191,8 @@ class DirectMessageSourceTest {
         val store = InMemoryDirectMessageStore()
         val message = Account(first, "First", "@first@example.org")
         val source = object : me.foxtails.palustris.domain.DirectMessageSource {
-            override suspend fun conversations(cursor: String?) = me.foxtails.palustris.domain.Page<me.foxtails.palustris.domain.DirectConversation>(emptyList())
-            override suspend fun conversationThread(id: ConversationId) = emptyList<me.foxtails.palustris.domain.Post>()
+            override suspend fun conversations(cursor: String?) = Page<DirectConversation>(emptyList())
+            override suspend fun conversationThread(id: ConversationId) = emptyList<Post>()
             override suspend fun sendDirectMessage(request: DirectMessageRequest) =
                 post(EntityId(origin, "post"), message)
             override suspend fun markConversationRead(id: ConversationId) = Unit
@@ -156,6 +203,35 @@ class DirectMessageSourceTest {
 
         assertEquals(1, store.conversations(first).size)
         assertTrue(store.conversations(second).isEmpty())
+    }
+
+    @Test
+    fun repositoryPreservesLocalReadStateWhenTheSameRemoteConversationIsRefetched() = runBlocking {
+        val origin = "https://example.org"
+        val account = AccountId(Connection(origin, Protocol.MISSKEY), "owner")
+        val recipient = Account(account.copy(localId = "recipient"), "Recipient", "@recipient@example.org")
+        val lastPost = post(EntityId(origin, "last"), recipient)
+        val conversation = DirectConversation(
+            id = ConversationId(origin, "root"),
+            participants = listOf(recipient),
+            lastPost = lastPost,
+            unread = true,
+            rootPostId = lastPost.id,
+        )
+        val source = object : me.foxtails.palustris.domain.DirectMessageSource {
+            override suspend fun conversations(cursor: String?) = Page(listOf(conversation))
+            override suspend fun conversationThread(id: ConversationId) = listOf(lastPost)
+            override suspend fun sendDirectMessage(request: DirectMessageRequest) = lastPost
+            override suspend fun markConversationRead(id: ConversationId) = Unit
+        }
+        val store = InMemoryDirectMessageStore()
+        val repository = DirectMessageRepository(account, source, store)
+
+        repository.conversations()
+        store.markRead(account, conversation.id)
+        repository.conversations()
+
+        assertFalse(store.conversations(account).single().unread)
     }
 
     private fun createdMisskeyNote(id: String, replyId: String? = null): String = JSONObject()

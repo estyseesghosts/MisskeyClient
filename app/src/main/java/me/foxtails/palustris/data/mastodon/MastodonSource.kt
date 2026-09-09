@@ -156,9 +156,9 @@ class MastodonSource(
         }
         val values = JSONArray(response.body)
         val items = (0 until values.length()).mapNotNull { index ->
-            MastodonMapper.directConversation(values.getJSONObject(index), origin)?.also { conversation ->
-                directLastPosts[conversation.id.value] = conversation.lastPost
-            }
+            MastodonMapper.directConversation(values.getJSONObject(index), origin)
+                ?.takeIf { it.lastPost.audience == Audience.Direct }
+                ?.also { conversation -> directLastPosts[conversation.id.value] = conversation.lastPost }
         }
         Page(items, response.linkHeaderCursor())
     }
@@ -171,6 +171,9 @@ class MastodonSource(
                 origin,
             ) ?: throw SourceError.ServerError("Mastodon conversation had no last status")
             directLastPosts[id.value] = conversation.lastPost
+            if (conversation.lastPost.audience != Audience.Direct) {
+                throw SourceError.Unsupported("direct.thread")
+            }
             conversation.lastPost
         }
         val context = JSONObject(
@@ -178,23 +181,27 @@ class MastodonSource(
         )
         val ancestors = context.optJSONArray("ancestors").toPostList(origin)
         val descendants = context.optJSONArray("descendants").toPostList(origin)
-        (ancestors + listOf(lastStatus) + descendants).distinctBy { it.id }
+        (ancestors + listOf(lastStatus) + descendants)
+            .filter { it.audience == Audience.Direct }
+            .distinctBy { it.id }
     }
 
-    override suspend fun sendDirectMessage(message: DirectMessageRequest): Post = request {
-        validateDirectMessageRequest(message)
-        val mentions = message.recipients.map { recipient ->
+    override suspend fun sendDirectMessage(request: DirectMessageRequest): Post = request {
+        validateDirectMessageRequest(request)
+        val mentions = request.recipients.map { recipient ->
             profile(recipient).handle
         }.distinct().joinToString(" ")
-        val status = listOf(mentions, message.text.trim()).filter(String::isNotBlank).joinToString(" ")
+        val status = listOf(mentions, request.text.trim()).filter(String::isNotBlank).joinToString(" ")
         val fields = buildList {
             add("status" to status)
             add("visibility" to "direct")
-            message.replyTo?.let { reply ->
+            request.replyTo?.let { reply ->
                 add("in_reply_to_id" to reply.value)
             }
         }
-        MastodonMapper.post(api.postForm(origin, "api/v1/statuses", fields, token).body.toJson(), origin)
+        val post = MastodonMapper.post(api.postForm(origin, "api/v1/statuses", fields, token).body.toJson(), origin)
+        directLastPosts[post.id.value] = post
+        post
     }
 
     override suspend fun markConversationRead(id: ConversationId) = request {

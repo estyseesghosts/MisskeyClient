@@ -13,3 +13,11 @@
 - Kept the viewer mounted until close animation completion; added chrome fade/input disabling and full-image load handoff.
 - Commits created: 04e165f, 76a4d0b, 164554e.
 - Verification passed: focused media tests, lintDebug, test, and assembleRelease.
+260909-171233 Direct messages task:
+- Added protocol-neutral direct-message models and adapter contract.
+- Added Mastodon conversations/status-context support and direct-status sending/read acknowledgement.
+- Added Misskey specified-note conversations with reply grouping, privacy filtering, and no native Chat dependency.
+- Added account-scoped Room persistence, repository merge behavior, inbox/thread UI, profile entry point, and composer.
+- Added adapter, privacy, account-isolation, unread-preservation, and Compose UI coverage.
+- Commits created: 347f95c, a9cd856, 9c951e6, 2ccb7fe, b3f7b54.
+- Verification passed: focused DM tests, full testDebugUnitTest, lintDebug, and assembleRelease.
