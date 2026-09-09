@@ -6,8 +6,12 @@ import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.CustomEmoji
+import me.foxtails.palustris.domain.DirectConversation
+import me.foxtails.palustris.domain.DirectMessageRequest
+import me.foxtails.palustris.domain.DirectMessageSource
 import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.EmojiChoice
@@ -72,7 +76,7 @@ class MisskeySource(
     private val capabilityProbe: CapabilityProbe = MisskeyCapabilityProbe(api),
     private val capabilityCache: CapabilityCache = CapabilityCache(),
     private val clock: () -> Long = System::currentTimeMillis,
-) : SocialSource {
+) : SocialSource, DirectMessageSource {
     private val cacheKey = CapabilityCacheKey(origin, accountId ?: AccountId(Connection(origin, Protocol.MISSKEY), "anonymous"))
     private val _capabilities = MutableStateFlow(initialCapabilities)
     val capabilitiesFlow: StateFlow<ServerCapabilities> = _capabilities
@@ -187,6 +191,150 @@ class MisskeySource(
         }
         val response = JSONObject(api.post(origin, "notes/create", body).body)
         MisskeyMapper.post(response.getJSONObject("createdNote"), origin)
+    }
+
+    override suspend fun conversations(cursor: String?): Page<DirectConversation> = request {
+        val account = requireAccountId()
+        val untilId = cursor?.let { decodeDirectCursor(it, account) }
+        val requestBody = JSONObject().put("i", token).put("limit", DIRECT_PAGE_LIMIT)
+            .put("markAsRead", false)
+        untilId?.let { requestBody.put("untilId", it) }
+
+        val mentionedNotes = fetchMentionedNotes(requestBody)
+        val sentNotes = JSONArray(
+            api.post(
+                origin,
+                "users/notes",
+                JSONObject(requestBody.toString()).put("userId", account.localId).put("includeReplies", true),
+            ).body,
+        )
+        val posts = (mentionedNotes + directPosts(sentNotes)).distinctBy { it.id }
+        val byId = posts.associateBy { it.id }
+        val grouped = posts.groupBy { rootFor(it, byId) }
+        val items = grouped.map { (root, thread) ->
+            val latest = thread.maxByOrNull(Post::publishedAtEpochMillis) ?: thread.first()
+            DirectConversation(
+                id = ConversationId(origin, root.value),
+                participants = (thread.map(Post::author) + localAccount(account)).distinctBy { it.id },
+                lastPost = latest,
+                unread = latest.author.id != account,
+                rootPostId = root,
+            )
+        }.sortedByDescending { it.lastPost.publishedAtEpochMillis }
+        Page(
+            items = items,
+            nextCursor = posts.minByOrNull(Post::publishedAtEpochMillis)?.id?.value
+                ?.let { encodeDirectCursor(account, it) },
+        )
+    }
+
+    override suspend fun conversationThread(id: ConversationId): List<Post> = request {
+        validateConversationId(id, "direct.thread")
+        thread(EntityId(origin, id.value)).filter { it.audience == Audience.Direct }
+    }
+
+    override suspend fun sendDirectMessage(message: DirectMessageRequest): Post = request {
+        validateDirectMessageRequest(message)
+        val body = JSONObject()
+            .put("i", token)
+            .put("text", message.text.trim())
+            .put("visibility", "specified")
+            .put("visibleUserIds", JSONArray(message.recipients.map(AccountId::localId)))
+        message.replyTo?.let { body.put("replyId", it.value) }
+        val response = JSONObject(api.post(origin, "notes/create", body).body)
+        MisskeyMapper.post(response.getJSONObject("createdNote"), origin)
+    }
+
+    override suspend fun markConversationRead(id: ConversationId) = request {
+        validateConversationId(id, "direct.read")
+        // Misskey specified notes have no conversation-level read endpoint.
+        Unit
+    }
+
+    private suspend fun fetchMentionedNotes(body: JSONObject): List<Post> {
+        val response = try {
+            api.post(origin, "notes/mentions", body)
+        } catch (error: ApiFailure) {
+            if (error.status != 404) throw error
+            val notificationsBody = JSONObject(body.toString())
+                .put("includeTypes", JSONArray(listOf("mention", "reply")))
+            api.post(origin, "i/notifications", notificationsBody)
+        }
+        val values = JSONArray(response.body)
+        val notes = if (response.body.trimStart().startsWith("[")) {
+            (0 until values.length()).mapNotNull { index ->
+                val value = values.optJSONObject(index) ?: return@mapNotNull null
+                value.optJSONObject("note") ?: value
+            }
+        } else {
+            emptyList()
+        }
+        return notes.mapNotNull { note ->
+            runCatching { MisskeyMapper.post(note, origin) }
+                .getOrNull()
+                ?.takeIf { it.audience == Audience.Direct }
+        }
+    }
+
+    private fun directPosts(values: JSONArray): List<Post> = (0 until values.length()).mapNotNull { index ->
+        val note = values.optJSONObject(index) ?: return@mapNotNull null
+        runCatching { MisskeyMapper.post(note, origin) }.getOrNull()
+            ?.takeIf { it.audience == Audience.Direct }
+    }
+
+    private fun rootFor(post: Post, posts: Map<EntityId, Post>): EntityId {
+        var current = post
+        val visited = mutableSetOf<EntityId>()
+        while (current.replyTo != null && visited.add(current.id)) {
+            current = posts[current.replyTo] ?: break
+        }
+        return current.id
+    }
+
+    private fun localAccount(account: AccountId): Account {
+        val host = java.net.URI(origin).host.orEmpty()
+        return Account(account, account.localId, "@${account.localId}@$host")
+    }
+
+    private fun validateDirectMessageRequest(message: DirectMessageRequest) {
+        if (message.recipients.isEmpty() || message.text.isBlank()) {
+            throw SourceError.Unsupported("direct.send")
+        }
+        if (message.recipients.any { recipient ->
+                recipient.connection != Connection(origin, Protocol.MISSKEY) || recipient.localId.isBlank()
+            }
+        ) {
+            throw SourceError.Unsupported("direct.recipient")
+        }
+        message.replyTo?.let { reply ->
+            if (reply.connection != origin || reply.value.isBlank()) throw SourceError.Unsupported("direct.reply")
+        }
+    }
+
+    private fun validateConversationId(id: ConversationId, feature: String) {
+        if (id.connection != origin || id.value.isBlank()) throw SourceError.Unsupported(feature)
+    }
+
+    private fun encodeDirectCursor(account: AccountId, untilId: String): String = Base64.getUrlEncoder()
+        .withoutPadding()
+        .encodeToString(
+            JSONObject()
+                .put("origin", account.connection.origin)
+                .put("account", account.localId)
+                .put("untilId", untilId)
+                .toString()
+                .toByteArray(Charsets.UTF_8),
+        )
+
+    private fun decodeDirectCursor(cursor: String, account: AccountId): String {
+        val json = runCatching {
+            JSONObject(String(Base64.getUrlDecoder().decode(cursor), Charsets.UTF_8))
+        }.getOrElse { throw SourceError.Unsupported("direct.pagination") }
+        if (json.optString("origin") != account.connection.origin ||
+            json.optString("account") != account.localId
+        ) throw SourceError.Unsupported("direct.pagination")
+        return json.optString("untilId").takeIf(String::isNotBlank)
+            ?: throw SourceError.Unsupported("direct.pagination")
     }
 
     override suspend fun react(id: EntityId, emoji: String) = request {
@@ -728,6 +876,7 @@ class MisskeySource(
     }
 
     private companion object {
+        const val DIRECT_PAGE_LIMIT = 30
         const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
         // Misskey's secure push endpoints return ACCESS_DENIED for MiAuth/app
         // credentials. Those tokens can authenticate ordinary API calls, but

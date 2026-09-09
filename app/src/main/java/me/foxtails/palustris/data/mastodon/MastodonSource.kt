@@ -21,8 +21,12 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.CustomEmoji
+import me.foxtails.palustris.domain.DirectConversation
+import me.foxtails.palustris.domain.DirectMessageRequest
+import me.foxtails.palustris.domain.DirectMessageSource
 import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.EmojiCapabilities
@@ -68,7 +72,7 @@ class MastodonSource(
     initialCapabilities: ServerCapabilities = DEFAULT_CAPABILITIES,
     private val capabilityProbe: CapabilityProbe? = null,
     private val clock: () -> Long = System::currentTimeMillis,
-) : SocialSource {
+) : SocialSource, DirectMessageSource {
     private val _capabilities = kotlinx.coroutines.flow.MutableStateFlow(
         if (initialCapabilities.timelines.isEmpty() && initialCapabilities.actions.isEmpty() &&
             initialCapabilities.audiences.isEmpty() && initialCapabilities.notifications == NotificationCapabilities()
@@ -80,6 +84,7 @@ class MastodonSource(
     )
     private val profileService = MastodonProfileService(origin, token, api, accountId)
     private val selfProfileService = MastodonSelfProfileService(origin, token, api, accountId)
+    private val directLastStatuses = mutableMapOf<String, EntityId>()
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request {
@@ -141,6 +146,97 @@ class MastodonSource(
             post.quoteOf?.let { add("quoted_status_id" to it.value) }
         }
         MastodonMapper.post(api.postForm(origin, "api/v1/statuses", fields, token).body.toJson(), origin)
+    }
+
+    override suspend fun conversations(cursor: String?): Page<DirectConversation> = request {
+        val response = if (cursor == null) {
+            api.getUrl(directConversationsUrl().toString(), token)
+        } else {
+            api.getUrl(validateDirectConversationsUrl(cursor).toString(), token)
+        }
+        val values = JSONArray(response.body)
+        val items = (0 until values.length()).mapNotNull { index ->
+            MastodonMapper.directConversation(values.getJSONObject(index), origin)?.also { conversation ->
+                directLastStatuses[conversation.id.value] = conversation.lastPost.id
+            }
+        }
+        Page(items, response.linkHeaderCursor())
+    }
+
+    override suspend fun conversationThread(id: ConversationId): List<Post> = request {
+        validateConversationId(id, "direct.thread")
+        val lastStatusId = directLastStatuses[id.value] ?: run {
+            val conversation = MastodonMapper.directConversation(
+                api.get(origin, "v1/conversations/${id.value.encodePathSegment()}", token).body.toJson(),
+                origin,
+            ) ?: throw SourceError.ServerError("Mastodon conversation had no last status")
+            directLastStatuses[id.value] = conversation.lastPost.id
+            conversation.lastPost.id
+        }
+        val context = JSONObject(
+            api.get(origin, "v1/statuses/${lastStatusId.value.encodePathSegment()}/context", token).body,
+        )
+        val ancestors = context.optJSONArray("ancestors").toPostList(origin)
+        val descendants = context.optJSONArray("descendants").toPostList(origin)
+        (ancestors + listOf(post(lastStatusId)) + descendants).distinctBy { it.id }
+    }
+
+    override suspend fun sendDirectMessage(message: DirectMessageRequest): Post = request {
+        validateDirectMessageRequest(message)
+        val mentions = message.recipients.map { recipient ->
+            profile(recipient).handle
+        }.distinct().joinToString(" ")
+        val status = listOf(mentions, message.text.trim()).filter(String::isNotBlank).joinToString(" ")
+        val fields = buildList {
+            add("status" to status)
+            add("visibility" to "direct")
+            message.replyTo?.let { reply ->
+                add("in_reply_to_id" to reply.value)
+            }
+        }
+        MastodonMapper.post(api.postForm(origin, "api/v1/statuses", fields, token).body.toJson(), origin)
+    }
+
+    override suspend fun markConversationRead(id: ConversationId) = request {
+        validateConversationId(id, "direct.read")
+        api.postForm(origin, "api/v1/conversations/${id.value.encodePathSegment()}/read", emptyList(), token)
+        Unit
+    }
+
+    private fun validateDirectMessageRequest(request: DirectMessageRequest) {
+        if (request.recipients.isEmpty() || request.text.isBlank()) {
+            throw SourceError.Unsupported("direct.send")
+        }
+        if (request.recipients.any { recipient ->
+                recipient.connection != Connection(origin, Protocol.MASTODON) || recipient.localId.isBlank()
+            }
+        ) {
+            throw SourceError.Unsupported("direct.recipient")
+        }
+        request.replyTo?.let { reply ->
+            if (reply.connection != origin || reply.value.isBlank()) throw SourceError.Unsupported("direct.reply")
+        }
+    }
+
+    private fun validateConversationId(id: ConversationId, feature: String) {
+        if (id.connection != origin || id.value.isBlank()) throw SourceError.Unsupported(feature)
+    }
+
+    private fun directConversationsUrl(): HttpUrl = origin.toHttpUrl().newBuilder()
+        .addPathSegments("api/v1/conversations")
+        .addQueryParameter("limit", DIRECT_CONVERSATION_LIMIT.toString())
+        .build()
+
+    private fun validateDirectConversationsUrl(cursor: String): HttpUrl {
+        val page = cursor.toHttpUrlOrNull() ?: throw SourceError.Unsupported("direct.pagination")
+        val authenticatedOrigin = origin.toHttpUrl()
+        if (page.scheme != authenticatedOrigin.scheme || page.host != authenticatedOrigin.host ||
+            page.port != authenticatedOrigin.port || page.username.isNotEmpty() || page.password.isNotEmpty() ||
+            page.fragment != null || page.encodedPath != "/api/v1/conversations"
+        ) {
+            throw SourceError.Unsupported("direct.pagination")
+        }
+        return page
     }
 
     override suspend fun loadEditableProfile(): EditableProfile = request {
@@ -920,6 +1016,13 @@ private fun JSONArray?.toPosts(origin: String): Map<String, Post> {
     }.associateBy { it.id.value }
 }
 
+private fun JSONArray?.toPostList(origin: String): List<Post> {
+    if (this == null) return emptyList()
+    return (0 until length()).mapNotNull { index ->
+        runCatching { MastodonMapper.post(getJSONObject(index), origin) }.getOrNull()
+    }
+}
+
 private fun NotificationCapabilities.takeVerifiedOr(previous: NotificationCapabilities): NotificationCapabilities =
     if (this == NotificationCapabilities()) previous else this
 
@@ -931,3 +1034,5 @@ private fun Audience.toMastodonVisibility(): String = when (this) {
     Audience.Followers -> "private"
     Audience.Direct -> "direct"
 }
+
+private const val DIRECT_CONVERSATION_LIMIT = 40

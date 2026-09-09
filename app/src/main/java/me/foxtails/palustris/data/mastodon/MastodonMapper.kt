@@ -5,7 +5,9 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.CustomEmoji
+import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EditableProfileField
 import me.foxtails.palustris.domain.EntityId
@@ -26,6 +28,23 @@ import org.json.JSONObject
 import java.time.Instant
 
 object MastodonMapper {
+    fun directConversation(json: JSONObject, origin: String): DirectConversation? {
+        val id = json.nullableString("id") ?: return null
+        val lastStatus = json.optJSONObject("last_status") ?: return null
+        val participants = json.optJSONArray("accounts")?.let { values ->
+            (0 until values.length()).mapNotNull { index ->
+                runCatching { account(values.getJSONObject(index), origin) }.getOrNull()
+            }
+        }.orEmpty()
+        return DirectConversation(
+            id = ConversationId(origin, id),
+            participants = participants,
+            lastPost = post(lastStatus, origin),
+            unread = json.optBoolean("unread"),
+            rootPostId = null,
+        )
+    }
+
     fun account(json: JSONObject, origin: String, includeMovedTo: Boolean = true): Account {
         val username = json.optString("username")
         val host = json.optString("acct").substringAfter('@', "").ifBlank {
