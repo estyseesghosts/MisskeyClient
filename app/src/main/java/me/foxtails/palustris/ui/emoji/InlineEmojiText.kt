@@ -2,8 +2,8 @@ package me.foxtails.palustris.ui.emoji
 
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
@@ -33,13 +33,17 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.rememberTextMeasurer
 import coil.compose.AsyncImage
 import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.domain.Account
@@ -82,11 +86,17 @@ fun InlineEmojiText(
         textDecoration = TextDecoration.Underline,
     )
     val model = remember(text, emoji) { EmojiTextParser.parse(text, emoji) }
+    val bubbleTextStyle = MaterialTheme.typography.labelMedium
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
     val inlineContent = remember(model, style.fontSize, enableInlineEntities, onOpenUrl, onOpenUsername, onSearchHashtag) {
         buildInlineContent(
             model = model,
             emSize = style.fontSize,
             enableInlineEntities = enableInlineEntities,
+            textMeasurer = textMeasurer,
+            density = density,
+            bubbleTextStyle = bubbleTextStyle,
             onOpenUrl = { url -> onOpenUrl?.invoke(url) ?: openExternal(context, url) },
             onOpenUsername = onOpenUsername,
             onSearchHashtag = onSearchHashtag,
@@ -248,11 +258,12 @@ private fun appendSegment(
                 builder.pushStringAnnotation(URL_ANNOTATION, segment.target)
                 builder.appendInlineContent(inlineContentId(segment), alternateText = segment.displayLabel)
                 builder.pop()
+            } else if (segment.plainUrl) {
+                builder.append(source.substring(segment.range))
             } else {
                 builder.pushStringAnnotation(URL_ANNOTATION, segment.target)
                 builder.pushStyle(linkStyle)
-                if (segment.plainUrl) builder.append(source.substring(segment.range))
-                else segment.label.forEach { inner -> appendSegment(builder, source, inner, linkStyle, false) }
+                segment.label.forEach { inner -> appendSegment(builder, source, inner, linkStyle, false) }
                 builder.pop()
                 builder.pop()
             }
@@ -282,6 +293,9 @@ private fun buildInlineContent(
     model: RichTextModel,
     emSize: TextUnit,
     enableInlineEntities: Boolean,
+    textMeasurer: TextMeasurer,
+    density: androidx.compose.ui.unit.Density,
+    bubbleTextStyle: TextStyle,
     onOpenUrl: (String) -> Unit,
     onOpenUsername: ((String) -> Unit)?,
     onSearchHashtag: ((String) -> Unit)?,
@@ -307,6 +321,7 @@ private fun buildInlineContent(
                                 label = segment.displayLabel,
                                 description = "Link ${segment.displayLabel}",
                                 emSize = emSize,
+                                width = entityWidthEm(segment.displayLabel, true, emSize, textMeasurer, density, bubbleTextStyle),
                                 onClick = { onOpenUrl(segment.target) },
                                 isLink = true,
                             ),
@@ -322,6 +337,7 @@ private fun buildInlineContent(
                             label = segment.displayLabel,
                             description = "Username ${segment.displayLabel}",
                             emSize = emSize,
+                            width = entityWidthEm(segment.displayLabel, false, emSize, textMeasurer, density, bubbleTextStyle),
                             onClick = onOpenUsername?.let { callback -> { callback(segment.target) } },
                             isLink = false,
                         ),
@@ -334,6 +350,7 @@ private fun buildInlineContent(
                             label = segment.displayLabel,
                             description = "Hashtag ${segment.displayLabel}",
                             emSize = emSize,
+                            width = entityWidthEm(segment.displayLabel, false, emSize, textMeasurer, density, bubbleTextStyle),
                             onClick = onSearchHashtag?.let { callback -> { callback(segment.target) } },
                             isLink = false,
                         ),
@@ -350,11 +367,12 @@ private fun entityContent(
     label: String,
     description: String,
     emSize: TextUnit,
+    width: TextUnit,
     onClick: (() -> Unit)?,
     isLink: Boolean,
 ): androidx.compose.foundation.text.InlineTextContent = androidx.compose.foundation.text.InlineTextContent(
     placeholder = androidx.compose.ui.text.Placeholder(
-        width = (label.codePointCount(0, label.length) * .62f + if (isLink) 1.45f else .8f).em,
+        width = width,
         height = 1.5.em,
         placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter,
     ),
@@ -378,21 +396,50 @@ private fun entityContent(
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (isLink) Icon(AppIcons.Paperclip, contentDescription = null, modifier = Modifier.size(iconSize))
+        Box(Modifier.fillMaxSize()) {
             androidx.compose.material3.Text(
-                label,
+                text = label,
+                modifier = Modifier.align(Alignment.Center),
                 style = MaterialTheme.typography.labelMedium,
                 maxLines = 1,
                 softWrap = false,
                 overflow = TextOverflow.Clip,
             )
+            if (isLink) {
+                Icon(
+                    AppIcons.Paperclip,
+                    contentDescription = null,
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 6.dp).size(iconSize),
+                )
+            }
         }
     }
+}
+
+private fun entityWidthEm(
+    label: String,
+    isLink: Boolean,
+    emSize: TextUnit,
+    textMeasurer: TextMeasurer,
+    density: androidx.compose.ui.unit.Density,
+    bubbleTextStyle: TextStyle,
+): TextUnit {
+    val labelWidthPx = textMeasurer.measure(
+        text = AnnotatedString(label),
+        style = bubbleTextStyle,
+        maxLines = 1,
+    ).size.width.toFloat()
+    val parentFontSizePx = with(density) {
+        (if (emSize == TextUnit.Unspecified) 16.sp else emSize).toPx()
+    }
+    val horizontalPaddingPx = with(density) { 12.dp.toPx() }
+    val iconWidthPx = if (isLink) {
+        with(density) { (if (emSize == TextUnit.Unspecified) 14.dp else emSize.toDp() * .78f).toPx() } +
+            with(density) { 3.dp.toPx() }
+    } else {
+        0f
+    }
+    return ((labelWidthPx + horizontalPaddingPx + iconWidthPx) / parentFontSizePx).em
 }
 
 private fun inlineContentId(segment: RichTextSegment): String =

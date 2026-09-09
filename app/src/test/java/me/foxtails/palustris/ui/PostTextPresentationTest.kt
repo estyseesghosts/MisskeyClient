@@ -139,7 +139,7 @@ class PostTextPresentationTest {
         val url = "https://example.org/a-very-long-path"
         val text = "x".repeat(340) + " " + url + " tail"
 
-        assertEquals("x".repeat(340) + " " + url + " …", truncatedPostBody(text))
+        assertEquals("x".repeat(340) + " " + url + " t…", truncatedPostBody(text))
     }
 
     @Test fun blankLinesCreatedByRemovedBlocksCollapseWithoutChangingParagraphSpacing() {
