@@ -124,6 +124,8 @@ private fun PostDraft.toJson() = JSONObject()
             .put("authorHandle", it.authorHandle)
             .put("text", it.text)
             .put("url", it.url)
+            .put("authorEmoji", encodeEmojiMap(it.authorEmoji))
+            .put("postEmoji", encodeEmojiMap(it.postEmoji))
     })
     .put("attachments", JSONArray(attachments.map { attachment ->
         JSONObject()
@@ -178,6 +180,8 @@ private fun JSONObject.toDraft(): PostDraft {
             authorHandle = it.optString("authorHandle"),
             text = it.optString("text"),
             url = it.optString("url").takeIf(String::isNotBlank),
+            authorEmoji = decodeEmojiMap(it.optJSONObject("authorEmoji")),
+            postEmoji = decodeEmojiMap(it.optJSONObject("postEmoji")),
         )
     }?.takeIf { it.authorDisplayName.isNotBlank() || it.authorHandle.isNotBlank() || it.text.isNotBlank() }
     return PostDraft(getString("id"), accountId, optString("text"), Audience.valueOf(optString("audience", Audience.Public.name)), optString("contentWarning").takeIf(String::isNotBlank), optString("replyTo").takeIf(String::isNotBlank)?.let { EntityId(origin.orEmpty(), it) }, optString("quoteOf").takeIf(String::isNotBlank)?.let { EntityId(origin.orEmpty(), it) }, attachments, poll, optLong("updatedAt"), quotePreview)
@@ -185,6 +189,45 @@ private fun JSONObject.toDraft(): PostDraft {
 
 private fun JSONObject.nullableString(key: String): String? =
     if (isNull(key)) null else optString(key).takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+
+private fun encodeEmojiMap(emoji: Map<String, me.foxtails.palustris.domain.CustomEmoji>): JSONObject = JSONObject().apply {
+    emoji.forEach { (key, value) ->
+        put(key, JSONObject()
+            .put("shortcode", value.shortcode)
+            .put("animatedUrl", value.animatedUrl?.value)
+            .put("staticUrl", value.staticUrl?.value)
+            .put("category", value.category)
+            .put("aliases", JSONArray(value.aliases))
+            .put("visibleInPicker", value.visibleInPicker)
+            .put("submissionValue", value.submissionValue))
+    }
+}
+
+private fun decodeEmojiMap(json: JSONObject?): Map<String, me.foxtails.palustris.domain.CustomEmoji> {
+    if (json == null) return emptyMap()
+    val result = linkedMapOf<String, me.foxtails.palustris.domain.CustomEmoji>()
+    json.keys().asSequence().forEach { key ->
+        runCatching {
+            val entry = json.getJSONObject(key)
+            val shortcode = entry.optString("shortcode").takeIf { it.isNotBlank() } ?: return@runCatching
+            val submissionValue = entry.optString("submissionValue").takeIf { it.isNotBlank() } ?: ":$shortcode:"
+            me.foxtails.palustris.domain.CustomEmoji(
+                shortcode = shortcode,
+                animatedUrl = entry.optString("animatedUrl").takeIf { it.isNotBlank() }
+                    ?.let(me.foxtails.palustris.domain.ValidatedUrl::https),
+                staticUrl = entry.optString("staticUrl").takeIf { it.isNotBlank() }
+                    ?.let(me.foxtails.palustris.domain.ValidatedUrl::https),
+                category = entry.optString("category").takeIf { it.isNotBlank() },
+                aliases = entry.optJSONArray("aliases")?.let { values ->
+                    (0 until values.length()).mapNotNull { values.optString(it).takeIf(String::isNotBlank) }
+                }.orEmpty(),
+                visibleInPicker = entry.optBoolean("visibleInPicker", true),
+                submissionValue = submissionValue,
+            )
+        }.getOrNull()?.let { result[key] = it }
+    }
+    return result
+}
 
 private fun JSONObject.positiveInt(key: String): Int? = when (val value = opt(key)) {
     is Number -> value.toInt().takeIf { it > 0 }

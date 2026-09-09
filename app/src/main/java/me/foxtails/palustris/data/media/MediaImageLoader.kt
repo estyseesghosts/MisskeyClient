@@ -5,6 +5,8 @@ import coil.ImageLoader
 import coil.request.ImageRequest
 import coil.size.Size
 import me.foxtails.palustris.domain.Attachment
+import me.foxtails.palustris.domain.CustomEmoji
+import me.foxtails.palustris.domain.EmojiImageRequest
 import me.foxtails.palustris.domain.MediaRequestDecision
 import me.foxtails.palustris.domain.MediaRequestRole
 import okhttp3.OkHttpClient
@@ -54,6 +56,26 @@ class MediaImageLoader private constructor(context: Context) {
         .crossfade(false)
         .build()
 
+    /**
+     * Credential-free, constrained custom-emoji requests. Cache keys are scoped to the
+     * account/origin that owns the entity plus the emoji URL and identity, so identical
+     * shortcodes from different servers never share a cached image.
+     */
+    fun emojiRequest(
+        context: Context,
+        emoji: CustomEmoji,
+        request: EmojiImageRequest,
+        accountIdentity: String,
+        emojiIdentity: String,
+        decodeSizePx: Int,
+    ): ImageRequest = ImageRequest.Builder(context)
+        .data(request.url.value)
+        .memoryCacheKey(emojiCacheKey(accountIdentity, emojiIdentity, request.url.value, decodeSizePx))
+        .diskCacheKey(emojiCacheKey(accountIdentity, emojiIdentity, request.url.value, decodeSizePx))
+        .size(decodeSizePx.coerceAtLeast(1), decodeSizePx.coerceAtLeast(1))
+        .crossfade(false)
+        .build()
+
     companion object {
         @Volatile private var instance: MediaImageLoader? = null
 
@@ -78,6 +100,19 @@ class MediaImageLoader private constructor(context: Context) {
             attachment.previewUrl.orEmpty(),
             role.name,
             "${decodeWidthPx.coerceAtLeast(1)}x${decodeHeightPx.coerceAtLeast(1)}",
+        ).joinToString("\u0000")
+
+        fun emojiCacheKey(
+            accountIdentity: String,
+            emojiIdentity: String,
+            url: String,
+            decodeSizePx: Int,
+        ): String = listOf(
+            "emoji-v1",
+            accountIdentity,
+            emojiIdentity,
+            url,
+            decodeSizePx.coerceAtLeast(1).toString(),
         ).joinToString("\u0000")
     }
 }
