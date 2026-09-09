@@ -5,7 +5,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.geometry.Offset
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Attachment
@@ -83,5 +86,68 @@ class MediaViewerScreenTest {
         listOf("Favorite", "Reply", "Repost", "Share").forEach {
             compose.onNodeWithContentDescription(it).assertIsDisplayed()
         }
+    }
+
+    @Test
+    fun shortVerticalDragReturnsWithoutClosingViewer() {
+        var closeCount = 0
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                MediaViewerScreen(
+                    request = MediaOpenRequest(OwnedPost(account.id, post), attachmentIndex = 0, revealed = true),
+                    onClose = { closeCount++ },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Media viewer").performTouchInput {
+            swipe(center, center + Offset(0f, 70f), durationMillis = 180)
+        }
+        compose.waitForIdle()
+
+        assertEquals(0, closeCount)
+        compose.onNodeWithText("1 / 2").assertIsDisplayed()
+    }
+
+    @Test
+    fun closeButtonUsesControlledCloseCallback() {
+        var closeCount = 0
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                MediaViewerScreen(
+                    request = MediaOpenRequest(OwnedPost(account.id, post), attachmentIndex = 0, revealed = true),
+                    onClose = { closeCount++ },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Close media viewer").performClick()
+        compose.waitForIdle()
+
+        assertEquals(1, closeCount)
+    }
+
+    @Test
+    fun horizontalPagerMovementDoesNotInvokeDismissal() {
+        var closeCount = 0
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                MediaViewerScreen(
+                    request = MediaOpenRequest(OwnedPost(account.id, post), attachmentIndex = 0, revealed = true),
+                    onClose = { closeCount++ },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Media viewer").performTouchInput {
+            swipe(center, center + Offset(-1_200f, 0f), durationMillis = 180)
+        }
+        compose.waitForIdle()
+
+        assertEquals(0, closeCount)
+        compose.onNodeWithText("2 / 2").assertIsDisplayed()
     }
 }

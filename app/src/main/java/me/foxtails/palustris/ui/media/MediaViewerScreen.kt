@@ -86,7 +86,7 @@ fun MediaViewerScreen(
 
     DisposableEffect(request.transitionKey) {
         registry.begin(request.transitionKey)
-        onDispose { registry.end(request.transitionKey) }
+        onDispose { registry.endActive() }
     }
 
     BoxWithConstraints(
@@ -104,8 +104,13 @@ fun MediaViewerScreen(
             )
         }
         val selectedAttachment = attachments[pagerState.currentPage]
+        val selectedTransitionKey = MediaTransitionKey.forAttachment(request.ownedPost, pagerState.currentPage)
         val selectedDestination = fitRect(viewport, selectedAttachment.imageWidth(), selectedAttachment.imageHeight())
         transition.updateDestinationBounds(selectedDestination)
+
+        LaunchedEffect(selectedTransitionKey) {
+            registry.begin(selectedTransitionKey)
+        }
 
         fun currentTargetBounds(): Rect? = registry.boundsFor(
             MediaTransitionKey.forAttachment(request.ownedPost, pagerState.currentPage),
@@ -132,63 +137,62 @@ fun MediaViewerScreen(
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = transition.backgroundAlpha)),
+                .background(Color.Black.copy(alpha = transition.backgroundAlpha))
+                .pointerInput(request.transitionKey, transition.phase, selectedZoomScale) {
+                    awaitEachGesture {
+                        if (descriptionVisible || selectedZoomScale > 1.01f || transition.isClosing) return@awaitEachGesture
+                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        val tracker = VelocityTracker()
+                        tracker.addPosition(down.uptimeMillis, down.position)
+                        var previous = down.position
+                        var accepted = false
+                        while (!accepted) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (event.changes.size != 1) return@awaitEachGesture
+                            val change = event.changes[0]
+                            if (change.changedToUpIgnoreConsumed()) return@awaitEachGesture
+                            previous = change.position
+                            tracker.addPosition(change.uptimeMillis, change.position)
+                            val total = change.position - down.position
+                            if (total.getDistance() >= viewConfiguration.touchSlop) {
+                                if (kotlin.math.abs(total.y) > kotlin.math.abs(total.x) * 1.15f) {
+                                    accepted = true
+                                    change.consume()
+                                    transition.beginDrag()
+                                    transition.dragBy(total)
+                                } else {
+                                    return@awaitEachGesture
+                                }
+                            }
+                        }
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (event.changes.size != 1) return@awaitEachGesture
+                            val change = event.changes[0]
+                            tracker.addPosition(change.uptimeMillis, change.position)
+                            if (change.changedToUpIgnoreConsumed()) {
+                                val velocityY = tracker.calculateVelocity().y
+                                if (transition.shouldDismiss(velocityY)) {
+                                    scope.launch {
+                                        transition.updateSourceBounds(currentTargetBounds())
+                                        transition.close(currentTargetBounds(), viewport)
+                                        onClose()
+                                    }
+                                } else {
+                                    scope.launch { transition.returnToOpen() }
+                                }
+                                return@awaitEachGesture
+                            }
+                            transition.dragBy(change.position - previous)
+                            previous = change.position
+                            change.consume()
+                        }
+                    }
+                },
         ) {
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(request.transitionKey, transition.phase, selectedZoomScale) {
-                        awaitEachGesture {
-                            if (descriptionVisible || selectedZoomScale > 1.01f || transition.isClosing) return@awaitEachGesture
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            val tracker = VelocityTracker()
-                            tracker.addPosition(down.uptimeMillis, down.position)
-                            var previous = down.position
-                            var accepted = false
-                            while (!accepted) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                if (event.changes.size != 1) return@awaitEachGesture
-                                val change = event.changes[0]
-                                if (change.changedToUpIgnoreConsumed()) return@awaitEachGesture
-                                val delta = change.position - previous
-                                previous = change.position
-                                tracker.addPosition(change.uptimeMillis, change.position)
-                                val total = change.position - down.position
-                                if (total.getDistance() >= viewConfiguration.touchSlop) {
-                                    if (kotlin.math.abs(total.y) > kotlin.math.abs(total.x) * 1.15f) {
-                                        accepted = true
-                                        change.consume()
-                                        transition.beginDrag()
-                                        transition.dragBy(total)
-                                    } else {
-                                        return@awaitEachGesture
-                                    }
-                                }
-                            }
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                if (event.changes.size != 1) return@awaitEachGesture
-                                val change = event.changes[0]
-                                tracker.addPosition(change.uptimeMillis, change.position)
-                                if (change.changedToUpIgnoreConsumed()) {
-                                    val velocityY = tracker.calculateVelocity().y
-                                    if (transition.shouldDismiss(velocityY)) {
-                                        scope.launch {
-                                            transition.updateSourceBounds(currentTargetBounds())
-                                            transition.close(currentTargetBounds(), viewport)
-                                            onClose()
-                                        }
-                                    } else {
-                                        scope.launch { transition.returnToOpen() }
-                                    }
-                                    return@awaitEachGesture
-                                }
-                                transition.dragBy(change.positionChange())
-                                change.consume()
-                            }
-                        }
-                    },
+                modifier = Modifier.fillMaxSize(),
                 beyondViewportPageCount = 1,
                 userScrollEnabled = selectedZoomScale <= 1.01f && !transition.isDismissGestureActive && !transition.isClosing,
             ) { page ->
@@ -204,6 +208,9 @@ fun MediaViewerScreen(
                     accountIdentity = request.ownedPost.fetchedBy.toString(),
                     postIdentity = "${request.ownedPost.post.id.connection}/${request.ownedPost.post.id.value}",
                     onReveal = { revealedPages[page] = true },
+                    onImageReady = {
+                        if (selected) registry.markSourceReady(selectedTransitionKey)
+                    },
                     zoomState = zoomState,
                     modifier = pageModifier,
                 )

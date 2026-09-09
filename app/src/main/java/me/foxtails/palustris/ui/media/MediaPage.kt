@@ -33,6 +33,7 @@ internal fun MediaPage(
     accountIdentity: String,
     postIdentity: String,
     onReveal: () -> Unit,
+    onImageReady: () -> Unit = {},
     zoomState: ZoomableMediaState = rememberZoomableMediaState(attachment.url),
     modifier: Modifier = Modifier,
     edgeToEdge: Boolean = false,
@@ -69,6 +70,7 @@ internal fun MediaPage(
                 ),
                  contentDescription = attachment.description ?: "Media ${index + 1}",
                  state = zoomState,
+                 onImageReady = onImageReady,
                  modifier = Modifier.fillMaxWidth().then(if (edgeToEdge) Modifier else Modifier.padding(horizontal = 8.dp)),
             )
             is MediaRequestDecision.NoRequest -> Column(horizontalAlignment = Alignment.CenterHorizontally) {

@@ -92,6 +92,8 @@ import me.foxtails.palustris.ui.profile.ProfileScreen as RichProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.MediaViewerScreen
+import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
+import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
@@ -471,6 +473,8 @@ fun PalustrisApp(
     onNotificationSelectDistributor: (String) -> Unit = {},
     onNotificationPushConnectionTest: () -> Unit = {},
 ) = PalustrisTheme {
+    val mediaTransitionRegistry = remember { MediaTransitionRegistry() }
+    CompositionLocalProvider(LocalMediaTransitionRegistry provides mediaTransitionRegistry) {
     val context = LocalContext.current
     val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
     val scope = rememberCoroutineScope()
@@ -569,6 +573,7 @@ fun PalustrisApp(
     LaunchedEffect(feedState?.timeline, account?.id) { feedState?.timeline?.let { timeline = it } }
     LaunchedEffect(destination, page, overlayKey) { navigationVisible = true }
     LaunchedEffect(account?.id) {
+        mediaRequest?.transitionKey?.let(mediaTransitionRegistry::end)
         viewedProfile = null
         page = null
         composerTarget = null
@@ -820,6 +825,7 @@ fun PalustrisApp(
         if (account?.id != null && request.ownedPost.fetchedBy != account.id) return
         if (request.attachmentIndex !in request.ownedPost.post.attachments.indices) return
         clearPostActionBubble()
+        mediaTransitionRegistry.begin(request.transitionKey)
         mediaRequest = request
     }
 
@@ -829,10 +835,9 @@ fun PalustrisApp(
         singlePost = post
     }
 
-    BackHandler(enabled = singlePost != null || mediaRequest != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home) {
+    BackHandler(enabled = mediaRequest == null && (singlePost != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home)) {
         when {
             singlePost != null -> singlePost = null
-            mediaRequest != null -> mediaRequest = null
             overlay == Overlay.NotificationSettings -> closeNotificationSettings()
             overlay == Overlay.Composer -> closeComposer()
             overlay == Overlay.EditProfile -> closeProfile()
@@ -1303,6 +1308,7 @@ fun PalustrisApp(
 
     if (profileDialog) AlertDialog(onDismissRequest = { profileDialog = false }, title = { Text("Discard profile changes?") }, text = { Text("Your changes have not been saved.") }, confirmButton = { TextButton(onClick = { profileDialog = false; discardProfileEditor() }) { Text("Discard") } }, dismissButton = { TextButton(onClick = { profileDialog = false }) { Text("Keep editing") } })
     if (signOutDialog) AlertDialog(onDismissRequest = { signOutDialog = false }, title = { Text("Sign out?") }, text = { Text("Your sign-in will be removed from this device. Local drafts will remain.") }, confirmButton = { TextButton(onClick = { signOutDialog = false; onSignOut() }) { Text("Sign out") } }, dismissButton = { TextButton(onClick = { signOutDialog = false }) { Text("Cancel") } })
+    }
 }
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp,dpi=420")

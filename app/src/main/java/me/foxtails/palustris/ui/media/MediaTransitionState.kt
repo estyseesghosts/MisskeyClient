@@ -27,6 +27,7 @@ data class MediaTransitionKey(
 /** A shared root-coordinate registry used by the feed and media overlay. */
 class MediaTransitionRegistry {
     private val bounds = mutableStateMapOf<MediaTransitionKey, Rect>()
+    private val hiddenSources = mutableStateMapOf<MediaTransitionKey, Boolean>()
     private val activeKey = mutableStateOf<MediaTransitionKey?>(null)
 
     val currentActiveKey: MediaTransitionKey?
@@ -44,13 +45,26 @@ class MediaTransitionRegistry {
 
     fun begin(key: MediaTransitionKey) {
         activeKey.value = key
+        hiddenSources[key] = false
     }
 
     fun end(key: MediaTransitionKey) {
+        hiddenSources.remove(key)
         if (activeKey.value == key) activeKey.value = null
     }
 
+    fun endActive() {
+        activeKey.value?.let(hiddenSources::remove)
+        activeKey.value = null
+    }
+
     fun isActive(key: MediaTransitionKey): Boolean = activeKey.value == key
+
+    fun markSourceReady(key: MediaTransitionKey) {
+        if (activeKey.value == key) hiddenSources[key] = true
+    }
+
+    fun isSourceHidden(key: MediaTransitionKey): Boolean = hiddenSources[key] == true
 }
 
 val LocalMediaTransitionRegistry = androidx.compose.runtime.compositionLocalOf { MediaTransitionRegistry() }

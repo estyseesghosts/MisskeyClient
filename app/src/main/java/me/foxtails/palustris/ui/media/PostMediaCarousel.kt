@@ -136,7 +136,7 @@ private fun MediaPreviewTile(
     val transitionKey = remember(ownedPost.fetchedBy, ownedPost.post.id, attachment.id, index) {
         MediaTransitionKey.forAttachment(ownedPost, index)
     }
-    val active = registry.isActive(transitionKey)
+    val active = registry.isSourceHidden(transitionKey)
     val open = {
         onOpenMedia(
             MediaOpenRequest(
@@ -159,7 +159,6 @@ private fun MediaPreviewTile(
             .onGloballyPositioned { coordinates ->
                 registry.updateIfVisible(transitionKey, coordinates.boundsInRoot())
             }
-            .then(if (active) Modifier.clearAndSetSemantics {} else Modifier)
             .clip(RoundedCornerShape(12.dp))
             .then(if (revealed) {
                 Modifier
@@ -178,7 +177,8 @@ private fun MediaPreviewTile(
                 } else {
                     contentDescription = "Sensitive media ${index + 1}"
                 }
-            },
+            }
+            .then(if (active) Modifier.clearAndSetSemantics {} else Modifier),
         color = if (active) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         AnimatedContent(

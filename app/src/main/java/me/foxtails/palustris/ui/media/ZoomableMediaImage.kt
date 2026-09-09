@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -16,11 +17,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import androidx.compose.foundation.Image
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 
 @androidx.compose.runtime.Stable
@@ -58,9 +59,14 @@ internal fun ZoomableMediaImage(
     contentDescription: String,
     modifier: Modifier = Modifier,
     state: ZoomableMediaState = rememberZoomableMediaState(request.data),
+    onImageReady: () -> Unit = {},
 ) {
     val transformState = rememberTransformableState { zoomChange, panChange, _ ->
         state.applyTransform(zoomChange, panChange)
+    }
+    val painter = rememberAsyncImagePainter(model = request)
+    LaunchedEffect(painter.state) {
+        if (painter.state is AsyncImagePainter.State.Success) onImageReady()
     }
     Box(
         modifier
@@ -81,8 +87,8 @@ internal fun ZoomableMediaImage(
             }
             .semantics { this.contentDescription = contentDescription },
     ) {
-        AsyncImage(
-            model = request,
+        Image(
+            painter = painter,
             contentDescription = contentDescription,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Fit,

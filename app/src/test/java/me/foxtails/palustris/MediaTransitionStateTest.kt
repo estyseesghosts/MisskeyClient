@@ -74,6 +74,20 @@ class MediaTransitionStateTest {
     }
 
     @Test
+    fun longDragUsesTheSameControlledClosePath() = runBlocking {
+        val source = Rect(20f, 40f, 220f, 240f)
+        val destination = Rect(0f, 0f, 1_000f, 1_000f)
+        val state = MediaViewerTransitionState(source, destination, me.foxtails.palustris.ui.motion.PalustrisMotionScheme.standard(true))
+
+        state.beginDrag()
+        state.dragBy(Offset(0f, 250f))
+        assertTrue(state.shouldDismiss(0f))
+        state.close(source, destination)
+        assertEquals(MediaViewerPhase.Closing, state.phase)
+        assertEquals(source, state.visualBounds)
+    }
+
+    @Test
     fun zoomStateExposesWhetherDismissIsAllowed() {
         val state = ZoomableMediaState()
 
