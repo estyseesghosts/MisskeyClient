@@ -2,6 +2,7 @@ package me.foxtails.palustris.di
 
 import android.content.Context
 import androidx.room.Room
+import java.io.File
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -45,6 +46,9 @@ import me.foxtails.palustris.data.notifications.push.UnifiedPushConnector
 import me.foxtails.palustris.data.notifications.push.UnifiedPushRegistrationManager
 import me.foxtails.palustris.data.notifications.db.NotificationDatabase
 import me.foxtails.palustris.data.notifications.db.NOTIFICATION_MIGRATIONS
+import me.foxtails.palustris.data.directmessages.DirectMessageDatabase
+import me.foxtails.palustris.data.directmessages.DirectMessageStore
+import me.foxtails.palustris.data.directmessages.RoomDirectMessageStore
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PostPreferencesRepository
@@ -125,6 +129,19 @@ object StorageModule {
     @Provides
     @Singleton
     fun provideNotificationStore(store: RoomNotificationStore): NotificationStore = store
+
+    @Provides
+    @Singleton
+    fun provideDirectMessageDatabase(@ApplicationContext context: Context): DirectMessageDatabase =
+        Room.databaseBuilder(
+            context,
+            DirectMessageDatabase::class.java,
+            File(context.noBackupFilesDir, "directmessages.db").absolutePath,
+        ).build()
+
+    @Provides
+    @Singleton
+    fun provideDirectMessageStore(store: RoomDirectMessageStore): DirectMessageStore = store
 }
 
 @Module
