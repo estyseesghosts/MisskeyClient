@@ -33,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,10 +42,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -66,6 +72,8 @@ data class MediaOpenRequest(
     val ownedPost: OwnedPost,
     val attachmentIndex: Int,
     val revealed: Boolean,
+    val transitionKey: MediaTransitionKey = MediaTransitionKey.forAttachment(ownedPost, attachmentIndex),
+    val initialSourceBounds: androidx.compose.ui.geometry.Rect = androidx.compose.ui.geometry.Rect.Zero,
 )
 
 @Composable
@@ -118,17 +126,40 @@ private fun MediaPreviewTile(
     modifier: Modifier,
 ) {
     val context = LocalContext.current
+    val registry = LocalMediaTransitionRegistry.current
     var revealed by rememberSaveable(
         ownedPost.fetchedBy,
         ownedPost.post.id.connection,
         ownedPost.post.id.value,
         attachment.id ?: index,
     ) { mutableStateOf(!attachment.sensitive) }
-    val open = { onOpenMedia(MediaOpenRequest(ownedPost, index, revealed)) }
+    val transitionKey = remember(ownedPost.fetchedBy, ownedPost.post.id, attachment.id, index) {
+        MediaTransitionKey.forAttachment(ownedPost, index)
+    }
+    val active = registry.isActive(transitionKey)
+    val open = {
+        onOpenMedia(
+            MediaOpenRequest(
+                ownedPost = ownedPost,
+                attachmentIndex = index,
+                revealed = revealed,
+                transitionKey = transitionKey,
+                initialSourceBounds = registry.boundsFor(transitionKey)
+                    ?: androidx.compose.ui.geometry.Rect.Zero,
+            ),
+        )
+    }
     val scheme = LocalPalustrisMotionScheme.current
     val interactionSource = remember { MutableInteractionSource() }
+    DisposableEffect(transitionKey) {
+        onDispose { registry.remove(transitionKey) }
+    }
     Surface(
         modifier = modifier
+            .onGloballyPositioned { coordinates ->
+                registry.updateIfVisible(transitionKey, coordinates.boundsInRoot())
+            }
+            .then(if (active) Modifier.clearAndSetSemantics {} else Modifier)
             .clip(RoundedCornerShape(12.dp))
             .then(if (revealed) {
                 Modifier
@@ -148,7 +179,7 @@ private fun MediaPreviewTile(
                     contentDescription = "Sensitive media ${index + 1}"
                 }
             },
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = if (active) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         AnimatedContent(
             targetState = revealed,
@@ -157,7 +188,9 @@ private fun MediaPreviewTile(
                 else (fadeIn(scheme.fastFadeIn) + scaleIn(initialScale = 0.98f, animationSpec = scheme.spatial)) togetherWith
                     (fadeOut(scheme.fastFadeOut) + scaleOut(targetScale = 0.98f, animationSpec = scheme.spatial))
             },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(
+                if (active) Modifier.graphicsLayer { alpha = 0f } else Modifier,
+            ),
             label = "sensitiveMediaReveal",
         ) { isRevealed ->
             if (!isRevealed) {
