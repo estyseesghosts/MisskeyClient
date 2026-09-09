@@ -47,6 +47,8 @@ import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.profile.ProfileViewModel
+import me.foxtails.palustris.ui.directmessages.DirectMessageUiState
+import me.foxtails.palustris.ui.directmessages.DirectMessageViewModel
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.motion.palustrisMotionScheme
@@ -105,6 +107,12 @@ fun ConnectedApp(
             },
         )
     }
+    val directMessagesModel = activeSession?.let { session ->
+        hiltViewModel<DirectMessageViewModel, DirectMessageViewModel.Factory>(
+            key = "direct-messages-${session.accountId}-${state.sessionGeneration}",
+            creationCallback = { factory -> factory.create(session.accountId, sharedSource!!) },
+        )
+    }
     val savedPostsModel = activeSession?.let { session ->
         hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
             key = "saved-posts-${session.accountId}-${state.sessionGeneration}",
@@ -127,6 +135,8 @@ fun ConnectedApp(
     else remember { mutableStateOf(FeedState()) }
     val notificationState by if (notificationsModel != null) notificationsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationsUiState()) }
+    val directMessageState by if (directMessagesModel != null) directMessagesModel.state.collectAsStateWithLifecycle()
+    else remember { mutableStateOf(DirectMessageUiState()) }
     val savedPostsState by if (savedPostsModel != null) savedPostsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf<SavedPostsUiState?>(null) }
     val notificationSettingsState by if (notificationSettingsModel != null) notificationSettingsModel.state.collectAsStateWithLifecycle()
@@ -238,9 +248,16 @@ fun ConnectedApp(
                 onLoadMoreNotifications = { notificationsModel?.loadOlder() },
                 onMarkAllNotificationsRead = { notificationsModel?.markAllRead() },
                 onMarkNotificationSeen = { notification -> notificationsModel?.markSeen(notification?.id) },
-                onDismissNotification = { notification -> notificationsModel?.dismiss(notification) },
-                onFollowRequest = { notification, accept -> notificationsModel?.respondToFollowRequest(notification, accept) },
-                onSelectNotificationQuery = { query -> notificationsModel?.selectQuery(query) },
+                 onDismissNotification = { notification -> notificationsModel?.dismiss(notification) },
+                 onFollowRequest = { notification, accept -> notificationsModel?.respondToFollowRequest(notification, accept) },
+                 directMessageState = directMessageState,
+                 onRefreshDirectMessages = { directMessagesModel?.refresh() },
+                 onLoadMoreDirectMessages = { directMessagesModel?.loadMore() },
+                 onOpenDirectConversation = { conversation -> directMessagesModel?.openConversation(conversation) },
+                 onBackDirectConversation = { directMessagesModel?.closeConversation() },
+                 onStartDirectConversation = { profile -> directMessagesModel?.startConversation(profile) },
+                 onSendDirectMessage = { text -> directMessagesModel?.send(text) },
+                 onSelectNotificationQuery = { query -> notificationsModel?.selectQuery(query) },
                 initialNotificationRoute = initialNotificationRoute,
                 notificationSettingsState = notificationSettingsState,
                 onNotificationAlertsEnabled = { enabled -> notificationSettingsModel?.setAlertsEnabled(enabled) },

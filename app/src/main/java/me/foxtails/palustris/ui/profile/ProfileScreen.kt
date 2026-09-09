@@ -82,6 +82,7 @@ fun ProfileScreen(
     onLoadMore: () -> Unit = {},
     onFollow: () -> Unit = {},
     onUnfollow: () -> Unit = {},
+    onMessage: (Account) -> Unit = {},
     onOpenDrafts: () -> Unit = {},
     onOpenBookmarks: () -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
@@ -164,6 +165,7 @@ fun ProfileScreen(
                     onRefresh = onRefresh,
                     onFollow = onFollow,
                     onUnfollow = onUnfollow,
+                    onMessage = { onMessage(displayedAccount) },
                     onOpenProfile = onOpenProfile,
                 )
             },
@@ -222,6 +224,7 @@ private fun ProfileHeader(
     onRefresh: () -> Unit,
     onFollow: () -> Unit,
     onUnfollow: () -> Unit,
+    onMessage: () -> Unit,
     onOpenProfile: (Account) -> Unit,
 ) {
     val statusBarHeight = with(LocalDensity.current) {
@@ -303,24 +306,32 @@ private fun ProfileHeader(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (!isSelf && movedTo == null && state.relationshipSupported == true && state.relationship != null) {
-                    val relationship = state.relationship
-                    val following = relationship.following || relationship.requested
-                    Button(
-                        onClick = if (following) onUnfollow else onFollow,
-                        enabled = !state.relationshipMutation,
-                        modifier = Modifier.testTag("profile_follow_action"),
-                    ) {
-                        if (state.relationshipMutation) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text(
-                                when {
-                                    relationship.following -> "Following"
-                                    relationship.requested -> "Requested"
-                                    else -> "Follow"
-                                },
-                            )
+                if (!isSelf && movedTo == null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = onMessage,
+                            modifier = Modifier.testTag("profile_message_action"),
+                        ) { Text("Message") }
+                        if (state.relationshipSupported == true && state.relationship != null) {
+                            val relationship = state.relationship
+                            val following = relationship.following || relationship.requested
+                            Button(
+                                onClick = if (following) onUnfollow else onFollow,
+                                enabled = !state.relationshipMutation,
+                                modifier = Modifier.testTag("profile_follow_action"),
+                            ) {
+                                if (state.relationshipMutation) {
+                                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Text(
+                                        when {
+                                            relationship.following -> "Following"
+                                            relationship.requested -> "Requested"
+                                            else -> "Follow"
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 }

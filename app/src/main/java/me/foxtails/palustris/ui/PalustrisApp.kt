@@ -95,6 +95,9 @@ import me.foxtails.palustris.ui.media.MediaViewerScreen
 import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.SinglePostScreen
+import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
+import me.foxtails.palustris.ui.directmessages.DirectMessageInboxScreen
+import me.foxtails.palustris.ui.directmessages.DirectMessageUiState
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.motion.SpringAnimatedContent
@@ -458,6 +461,13 @@ fun PalustrisApp(
     onMarkNotificationSeen: (Notification?) -> Unit = {},
     onDismissNotification: (Notification) -> Unit = {},
     onFollowRequest: (Notification, Boolean) -> Unit = { _, _ -> },
+    directMessageState: DirectMessageUiState = DirectMessageUiState(),
+    onRefreshDirectMessages: () -> Unit = {},
+    onLoadMoreDirectMessages: () -> Unit = {},
+    onOpenDirectConversation: (me.foxtails.palustris.domain.DirectConversation) -> Unit = {},
+    onBackDirectConversation: () -> Unit = {},
+    onStartDirectConversation: (Account) -> Unit = {},
+    onSendDirectMessage: (String) -> Unit = {},
     onSelectNotificationQuery: (NotificationQuery) -> Unit = {},
     initialNotificationRoute: AppRoute? = null,
     notificationSettingsState: NotificationSettingsUiState = NotificationSettingsUiState(),
@@ -789,6 +799,20 @@ fun PalustrisApp(
         notificationRoute = null
     }
 
+    fun openDirectMessage(profile: Account) {
+        clearPostActionBubble()
+        onStartDirectConversation(profile)
+        notificationsPanelName = NotificationsPanel.DirectMessages.name
+        destinationTransitionDirection = motionDirection(
+            destination.ordinal,
+            Destination.Notifications.ordinal,
+            motionScheme.reducedMotion,
+        )
+        destination = Destination.Notifications
+        page = null
+        notificationRoute = null
+    }
+
     fun openNotificationTarget(route: AppRoute) {
         if (route !is AppRoute.Profile) {
             notificationRoute = null
@@ -984,7 +1008,28 @@ fun PalustrisApp(
                                               overlayKey = NOTIFICATION_SETTINGS_OVERLAY_KEY
                                          }
                                     },
-                                 ) else MessagesScreen() }
+                                  ) else if (account == null) {
+                                      MessagesScreen()
+                                  } else if (directMessageState.selectedConversationId != null || directMessageState.recipient != null) {
+                                      DirectMessageConversationScreen(
+                                          accountId = account.id,
+                                          state = directMessageState,
+                                          compactLayout = !wide,
+                                          compactNavigationVisible = navigationVisible,
+                                          onBack = onBackDirectConversation,
+                                          onSend = onSendDirectMessage,
+                                      )
+                                  } else {
+                                      DirectMessageInboxScreen(
+                                          accountId = account.id,
+                                          state = directMessageState,
+                                          compactLayout = !wide,
+                                          compactNavigationVisible = navigationVisible,
+                                          onRefresh = onRefreshDirectMessages,
+                                          onLoadMore = onLoadMoreDirectMessages,
+                                          onOpenConversation = onOpenDirectConversation,
+                                      )
+                                  } }
                 Destination.Profile -> RichProfileScreen(
                     account = displayedProfile,
                     profileState = profileState,
@@ -996,7 +1041,8 @@ fun PalustrisApp(
                     onRefresh = onRefreshProfile,
                     onLoadMore = onLoadMoreProfile,
                     onFollow = onFollowProfile,
-                    onUnfollow = onUnfollowProfile,
+                     onUnfollow = onUnfollowProfile,
+                     onMessage = ::openDirectMessage,
                     onOpenDrafts = {
                         if (account != null && displayedProfile?.id == account.id) page = LocalPage.Drafts
                     },

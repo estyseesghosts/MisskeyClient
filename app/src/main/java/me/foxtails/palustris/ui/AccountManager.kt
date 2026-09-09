@@ -18,6 +18,8 @@ import me.foxtails.palustris.data.auth.AuthCallback
 import me.foxtails.palustris.data.auth.AuthGateway
 import me.foxtails.palustris.data.auth.PendingLogin
 import me.foxtails.palustris.data.auth.SessionStore
+import me.foxtails.palustris.data.directmessages.DirectMessageStore
+import me.foxtails.palustris.data.directmessages.InMemoryDirectMessageStore
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
@@ -57,6 +59,7 @@ class AccountManager @Inject constructor(
     private val pushRegistrationManager: PushRegistrationManager,
     private val notificationStreamController: NotificationStreamController,
     private val postPreferencesRepository: PostPreferencesRepository,
+    private val directMessageStore: DirectMessageStore,
 ) : ViewModel() {
     constructor(
         store: SessionStore,
@@ -71,6 +74,7 @@ class AccountManager @Inject constructor(
         NoOpPushRegistrationManager(),
         NoOpNotificationStreamController(),
         InMemoryPostPreferencesRepository(),
+        InMemoryDirectMessageStore(),
     )
     private val _session = MutableStateFlow(SessionUi())
     val session = _session.asStateFlow()
@@ -288,6 +292,7 @@ class AccountManager @Inject constructor(
                 notificationSync.removeAccount(accountId)
                 val replacement = withContext(ioDispatcher) {
                     postPreferencesRepository.remove(accountId)
+                    directMessageStore.delete(accountId)
                     store.transaction {
                         store.delete(accountId)
                     val index = store.readIndex()
