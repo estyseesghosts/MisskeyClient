@@ -498,7 +498,7 @@ private fun show(
                 PalustrisApp(
                     account = account,
                     feedState = FeedState(
-                        posts = listOf(Post(postId("app-tag"), account, "Body #one #two", 0, Audience.Public)),
+                        posts = listOf(Post(postId("app-tag"), account, "Body #one #alongertag", 0, Audience.Public)),
                     ),
                     onSearchAccounts = { searched = it },
                 )
@@ -506,12 +506,18 @@ private fun show(
         }
         compose.waitForIdle()
 
-        compose.onNodeWithContentDescription("2 hashtags: #one and #two").performClick()
-        compose.onNodeWithContentDescription("Hashtag #two").performClick()
+        compose.onNodeWithContentDescription("2 hashtags: #one and #alongertag").performClick()
+        val shortBounds = compose.onNodeWithTag("hashtag_bubble_#one", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val longBounds = compose.onNodeWithTag("hashtag_bubble_#alongertag", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(longBounds.width > shortBounds.width)
+        assertEquals(longBounds.right, shortBounds.right, 1f)
+        compose.onNodeWithContentDescription("Hashtag #alongertag").performClick()
         compose.waitForIdle()
 
-        assertEquals("#two", searched)
-        compose.onNodeWithText("#two", substring = false).assertIsDisplayed()
+        assertEquals("#alongertag", searched)
+        compose.onNodeWithText("#alongertag", substring = false).assertIsDisplayed()
     }
 
     @Test fun longPressingHeartOpensCompactReactionBubbleAndEmojiSelectionUsesChoice() {

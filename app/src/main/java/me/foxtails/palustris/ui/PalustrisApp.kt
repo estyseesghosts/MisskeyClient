@@ -946,6 +946,44 @@ fun PalustrisApp(
                 }
             }
         }
+        val hashtagBottomClearance = if (wide || page != null || notificationRoute != null) {
+            0.dp
+        } else {
+            when (destination) {
+                Destination.Home -> compactHomeScrollEndClearance()
+                Destination.Search -> compactScrollEndClearance(
+                    controlStackHeight = CompactSearchDockHeight,
+                    navigationVisible = navigationVisible,
+                    ime = WindowInsets.ime,
+                )
+                Destination.Notifications, Destination.Profile -> compactScrollEndClearance(
+                    controlStackHeight = CompactFilterDockHeight,
+                    navigationVisible = navigationVisible,
+                )
+            }
+        }
+        PostActionBubbleHost(
+            target = postActionBubbleTarget,
+            emojiCatalog = emojiCatalogState,
+            emojiCapabilities = emojiCapabilities,
+            onLoadEmojiCatalog = onLoadEmojiCatalog,
+            onRetryEmojiCatalog = onRetryEmojiCatalog,
+            onDismiss = ::clearPostActionBubble,
+            onHashtagSelected = { hashtag ->
+                clearPostActionBubble()
+                openHashtagSearch(hashtag)
+            },
+            onReactionSelected = { target, choice ->
+                val owner = account
+                val handler = postReactionHandler
+                if (owner != null && target.fetchedBy == owner.id && emojiCapabilities.reactionMutation == CapabilityStatus.Supported) {
+                    handler?.invoke(target, choice)
+                }
+                clearPostActionBubble()
+            },
+            onReactionModeChanged = { expanded -> postActionBubbleTarget = expanded },
+            hashtagBottomClearance = hashtagBottomClearance,
+        )
     }
 
     mediaRequest?.let { request ->
@@ -1034,28 +1072,6 @@ fun PalustrisApp(
             onClose = ::closeProfile,
         )
     }
-
-    PostActionBubbleHost(
-        target = postActionBubbleTarget,
-        emojiCatalog = emojiCatalogState,
-        emojiCapabilities = emojiCapabilities,
-        onLoadEmojiCatalog = onLoadEmojiCatalog,
-        onRetryEmojiCatalog = onRetryEmojiCatalog,
-        onDismiss = ::clearPostActionBubble,
-        onHashtagSelected = { hashtag ->
-            clearPostActionBubble()
-            openHashtagSearch(hashtag)
-        },
-        onReactionSelected = { target, choice ->
-            val owner = account
-            val handler = postReactionHandler
-            if (owner != null && target.fetchedBy == owner.id && emojiCapabilities.reactionMutation == CapabilityStatus.Supported) {
-                handler?.invoke(target, choice)
-            }
-            clearPostActionBubble()
-        },
-        onReactionModeChanged = { expanded -> postActionBubbleTarget = expanded },
-    )
 
     if (emojiPickerTarget != null) {
         EmojiPickerHost(

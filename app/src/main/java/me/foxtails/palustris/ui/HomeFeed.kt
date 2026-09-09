@@ -204,6 +204,7 @@ fun HomeFeed(
             onDismiss = { fallbackBubbleTarget = null },
             onHashtagSelected = onSearchHashtag,
             onReactionSelected = { _, _ -> },
+            hashtagBottomClearance = if (compactLayout) compactHomeScrollEndClearance() else 0.dp,
         )
     }
 }

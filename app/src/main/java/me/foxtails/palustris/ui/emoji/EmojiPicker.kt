@@ -60,7 +60,42 @@ sealed interface EmojiPickerTarget {
     data class Composer(val field: ComposerField) : EmojiPickerTarget
 }
 
-private val DefaultUnicodeEmojis = listOf("👍", "❤️", "😂", "🎉", "🤔", "😮", "😢", "👀", "💯", "✨", "🔥", "🙏")
+private val DefaultUnicodeEmojis = listOf(
+    "👍", "❤️", "😂", "🎉", "🤔", "😮", "😢", "👀", "💯", "✨", "🔥", "🙏",
+    "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘",
+    "😗", "☺️", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏", "😒",
+    "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡",
+    "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🫣", "🤭", "🫢", "🫡",
+    "🤫", "🫠", "🤥", "😶", "🫥", "😐", "🫤", "😑", "😬", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱",
+    "😴", "🤤", "😪", "😵", "🫨", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", "🤠", "👻",
+    "💀", "☠️", "👽", "👾", "🤖", "🎃", "😈", "👿", "💩", "🤡", "👹", "👺", "🙈", "🙉", "🙊", "😺",
+    "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "✍️", "💅",
+    "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👅",
+    "👄", "💋", "👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤏", "🤌", "🤘", "🤟", "🤞", "✌️", "🤙", "👈",
+    "👉", "👆", "👇", "☝️", "✊", "👊", "🤛", "🤜", "🤚", "👎", "✍️", "💖", "💔", "💕", "💞", "💓",
+    "💗", "💘", "💝", "💟", "❣️", "💌", "💋", "💤", "💢", "💥", "💦", "💨", "🕳️", "💣", "💬", "👁️‍🗨️",
+    "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐽", "🐸", "🐵",
+    "🙈", "🙉", "🙊", "🐒", "🐔", "🐧", "🐦", "🐤", "🐣", "🐥", "🦆", "🦅", "🦉", "🦇", "🐺", "🐗",
+    "🐴", "🦄", "🐝", "🐛", "🦋", "🐌", "🐞", "🐜", "🕷️", "🦂", "🐢", "🐍", "🦎", "🦖", "🦕", "🐙",
+    "🦑", "🦀", "🐠", "🐟", "🐡", "🐬", "🐳", "🐋", "🦈", "🐊", "🐅", "🐆", "🦓", "🦍", "🦧", "🐘",
+    "🦏", "🦛", "🐪", "🐫", "🦒", "🦘", "🦬", "🐃", "🐂", "🐄", "🐎", "🐖", "🐏", "🐑", "🦙", "🐐",
+    "🦌", "🐕", "🐈", "🐓", "🦃", "🕊️", "🐇", "🐁", "🐀", "🐿️", "🦔", "🌸", "🌹", "🌻", "🌞", "🌝",
+    "🌚", "🌛", "🌜", "🌟", "⭐", "🌙", "☀️", "⛅", "☁️", "🌧️", "⛈️", "🌩️", "❄️", "☃️", "🌈", "🔥",
+    "🌊", "🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍",
+    "🥥", "🥝", "🍅", "🍆", "🥑", "🥦", "🥬", "🥒", "🌶️", "🫑", "🌽", "🥕", "🧄", "🧅", "🥔", "🍞",
+    "🥐", "🥨", "🧀", "🥚", "🍳", "🧈", "🥞", "🧇", "🥓", "🥩", "🍗", "🍔", "🍟", "🍕", "🌭", "🌮",
+    "🌯", "🥗", "🍿", "🍜", "🍣", "🍱", "🍚", "🍙", "🍘", "🍥", "🍡", "🥟", "🥠", "🍦", "🍩", "🍪",
+    "🎂", "🍰", "🧁", "🍫", "🍬", "🍭", "☕", "🍵", "🧃", "🥤", "🍺", "🍻", "🍷", "🥂", "🍸", "🍹",
+    "⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉", "🥏", "🎱", "🪀", "🏓", "🏸", "🏒", "🏑", "🥍",
+    "🏏", "⛳", "🏹", "🎣", "🤿", "🥊", "🥋", "🎽", "🛹", "🛷", "⛸️", "🥌", "🎿", "⛷️", "🏂", "🪂",
+    "🏋️", "🤼", "🤸", "⛹️", "🤺", "🤾", "🏌️", "🏇", "🧘", "🏄", "🏊", "🤽", "🚣", "🧗", "🚵", "🚴",
+    "🎮", "🕹️", "🎲", "♟️", "🎯", "🎳", "🎭", "🎨", "🎤", "🎧", "🎼", "🎹", "🥁", "🎷", "🎺", "🎸",
+    "🚗", "🚕", "🚌", "🚓", "🚑", "🚒", "🚚", "🚜", "🏎️", "🏍️", "🛵", "🚲", "✈️", "🚀", "🛸", "🚢",
+    "🏠", "🏢", "🏥", "🏫", "🏰", "🗽", "🗼", "⛺", "🗻", "🌋", "🗺️", "🧭", "⌚", "📱", "💻", "⌨️",
+    "🖨️", "📷", "📺", "☎️", "💡", "📚", "✏️", "📝", "📌", "📎", "🔒", "🔑", "🔨", "🧰", "🎁", "🎈",
+    "✅", "❌", "⚠️", "❗", "❓", "‼️", "⁉️", "💯", "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪",
+    "🟤", "🔺", "🔻", "🔔", "🔕", "🎵", "🎶", "➕", "➖", "✖️", "➗", "♾️", "✔️", "☑️", "©️", "®️",
+)
 
 private data class PickerChoice(
     val choice: EmojiChoice,
@@ -286,6 +321,32 @@ fun EmojiChoiceGrid(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             val sections = filtered.groupBy { it.section }
+            val serverChoices = sections[PickerSection.Server].orEmpty()
+            serverChoices.groupBy { it.category }.forEach { (category, categoryChoices) ->
+                if (category != null) {
+                    item(key = "category-$category", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            category,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                        )
+                    }
+                }
+                categoryChoices.forEach { picker ->
+                    item(key = "server-${picker.choice.submissionValue}") {
+                        PickerCell(
+                            choice = picker.choice,
+                            selected = picker.selected,
+                            onClick = {
+                                recents = (listOf(picker.choice.submissionValue) +
+                                    recents.filterNot { it == picker.choice.submissionValue }).take(RECENT_LIMIT)
+                                onEmojiSelected(picker.choice)
+                            },
+                        )
+                    }
+                }
+            }
             val sectionHeaders = listOf(
                 PickerSection.Recent to recentHeader,
                 PickerSection.Unicode to unicodeHeader,
@@ -313,32 +374,6 @@ fun EmojiChoiceGrid(
                                 },
                             )
                         }
-                    }
-                }
-            }
-            val serverChoices = sections[PickerSection.Server].orEmpty()
-            serverChoices.groupBy { it.category }.forEach { (category, categoryChoices) ->
-                if (category != null) {
-                    item(key = "category-$category", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            category,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-                        )
-                    }
-                }
-                categoryChoices.forEach { picker ->
-                    item(key = "server-${picker.choice.submissionValue}") {
-                        PickerCell(
-                            choice = picker.choice,
-                            selected = picker.selected,
-                            onClick = {
-                                recents = (listOf(picker.choice.submissionValue) +
-                                    recents.filterNot { it == picker.choice.submissionValue }).take(RECENT_LIMIT)
-                                onEmojiSelected(picker.choice)
-                            },
-                        )
                     }
                 }
             }
