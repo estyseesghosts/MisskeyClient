@@ -15,11 +15,13 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.Reaction
 import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.SearchScreen
 import me.foxtails.palustris.ui.AccountSearchState
 import me.foxtails.palustris.ui.profile.ProfileUiState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -43,10 +45,11 @@ class HomeFeedTest {
     private fun show(
         post: Post,
         feedState: FeedState = FeedState(posts = listOf(post)),
+        onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
     ) {
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(account = account, feedState = feedState)
+                PalustrisApp(account = account, feedState = feedState, onReaction = onReaction)
             }
         }
         compose.waitForIdle()
@@ -280,6 +283,50 @@ class HomeFeedTest {
         compose.onNode(hasSetTextAction()).performImeAction()
 
         assertTrue(submitted == "@alice@example.org")
+    }
+
+    @Test fun reactionsShareChipAndEmojiSlotGeometryAcrossUnicodeAndCustomEmoji() {
+        val reactions = listOf(
+            Reaction("❤️", 3, selected = false),
+            Reaction("👨‍👩‍👧‍👦", 3, selected = false),
+            Reaction(":blob:", 3, selected = true, imageUrl = "https://example.org/blob.png"),
+        )
+        val post = Post(
+            postId("reaction-geometry"),
+            account,
+            "Reactions",
+            0,
+            Audience.Public,
+            reactions = reactions,
+        )
+        var clicked = ""
+        show(
+            post,
+            FeedState(
+                posts = listOf(post),
+                ownedPosts = listOf(OwnedPost(account.id, post)),
+                actions = setOf(PostAction.React),
+            ),
+            onReaction = { _, emoji -> clicked = emoji },
+        )
+
+        val chips = reactions.map { reaction ->
+            compose.onNodeWithTag("reaction_chip_${reaction.emoji}", useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+        }
+        val slots = reactions.map { reaction ->
+            compose.onNodeWithTag("reaction_emoji_slot_${reaction.emoji}", useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+        }
+        chips.forEach { bounds -> assertEquals(chips.first().height, bounds.height, 1f) }
+        slots.forEach { bounds ->
+            assertEquals(slots.first().width, bounds.width, 1f)
+            assertEquals(slots.first().height, bounds.height, 1f)
+        }
+        compose.onAllNodesWithText("3").assertCountEquals(reactions.size)
+
+        compose.onNodeWithTag("reaction_chip_${reactions.last().emoji}", useUnmergedTree = true).performClick()
+        assertTrue(clicked == reactions.last().emoji)
     }
 
     @Test fun searchChipsUseCompactSelectionSemanticsAndHorizontalScrolling() {

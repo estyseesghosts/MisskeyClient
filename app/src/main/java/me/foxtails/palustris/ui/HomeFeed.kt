@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -366,6 +367,9 @@ private fun hashtagSummaryDescription(hashtags: List<String>): String {
 }
 
 private val CircleShapeForReaction = RoundedCornerShape(50)
+private val ReactionChipHeight = 32.dp
+private val ReactionEmojiSlotSize = 20.dp
+private val ReactionChipMinWidth = 56.dp
 
 @Composable
 private fun ReactionRow(
@@ -381,14 +385,48 @@ private fun ReactionRow(
     ) {
         reactions.forEach { reaction ->
             Surface(
-                modifier = Modifier.combinedClickable(enabled = enabled, onClick = { onReaction(ownedPost, reaction.emoji) }),
+                modifier = Modifier
+                    .height(ReactionChipHeight)
+                    .widthIn(min = ReactionChipMinWidth)
+                    .combinedClickable(enabled = enabled, onClick = { onReaction(ownedPost, reaction.emoji) })
+                    .testTag("reaction_chip_${reaction.emoji}"),
                 shape = CircleShapeForReaction,
                 color = if (reaction.selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
             ) {
-                Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (reaction.imageUrl != null) AsyncImage(reaction.imageUrl, reaction.emoji, Modifier.size(20.dp))
-                    else Text(reaction.emoji, style = MaterialTheme.typography.labelMedium)
-                    Text(" ${reaction.count}", style = MaterialTheme.typography.labelMedium)
+                Row(
+                    Modifier.fillMaxHeight().padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier.size(ReactionEmojiSlotSize).testTag("reaction_emoji_slot_${reaction.emoji}"),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (reaction.imageUrl != null) {
+                            AsyncImage(
+                                model = reaction.imageUrl,
+                                contentDescription = reaction.emoji,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                            )
+                        } else {
+                            Text(
+                                text = reaction.emoji,
+                                modifier = Modifier.fillMaxWidth(),
+                                fontSize = 16.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Clip,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    Box(
+                        Modifier.widthIn(min = 16.dp).testTag("reaction_count_${reaction.emoji}"),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(reaction.count.toString(), style = MaterialTheme.typography.labelMedium)
+                    }
                 }
             }
         }
