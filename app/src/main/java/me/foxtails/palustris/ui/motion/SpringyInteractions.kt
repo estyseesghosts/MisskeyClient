@@ -41,7 +41,7 @@ fun Modifier.springPress(
     return graphicsLayer {
         scaleX = scale
         scaleY = scale
-    }
+    }.semantics { this[MotionScaleKey] = scale }
 }
 
 @Composable

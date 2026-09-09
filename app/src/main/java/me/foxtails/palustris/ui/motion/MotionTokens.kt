@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.semantics.SemanticsPropertyKey
 import android.animation.ValueAnimator
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -59,6 +60,7 @@ data class PalustrisMotionScheme(
                     gentleOffset = snapOffset,
                     gentleSize = snapSize,
                     reducedMotion = true,
+                    floatingEnterOffsetPx = 0,
                 )
             }
             return PalustrisMotionScheme(
@@ -79,6 +81,15 @@ data class PalustrisMotionScheme(
 }
 
 val LocalPalustrisMotionScheme = compositionLocalOf { PalustrisMotionScheme.standard(reducedMotion = false) }
+
+/** Direction for ordinal/state transitions; reduced motion intentionally has no spatial direction. */
+fun motionDirection(previousOrdinal: Int, targetOrdinal: Int, reducedMotion: Boolean = false): Int = when {
+    reducedMotion || previousOrdinal == targetOrdinal -> 0
+    targetOrdinal > previousOrdinal -> 1
+    else -> -1
+}
+
+val MotionScaleKey = SemanticsPropertyKey<Float>("MotionScale")
 
 @Composable
 fun palustrisMotionScheme(): PalustrisMotionScheme {

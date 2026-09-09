@@ -5,6 +5,8 @@ package me.foxtails.palustris.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -63,6 +65,7 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.emoji.EmojiChoiceGrid
+import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 
 private const val BubbleDismissDurationMillis = 150L
 private const val ReactionFlickThreshold = 36f
@@ -127,6 +130,7 @@ fun PostActionBubbleHost(
         return
     }
     if (renderedTarget == null) return
+    val motionScheme = LocalPalustrisMotionScheme.current
 
     LaunchedEffect(renderedTarget?.let { it::class }, renderedTarget?.postId) {
         if (renderedTarget is PostActionBubbleTarget.Reaction) onLoadEmojiCatalog()
@@ -144,8 +148,16 @@ fun PostActionBubbleHost(
     ) {
         AnimatedVisibility(
             visible = visible,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = if (motionScheme.reducedMotion) {
+                androidx.compose.animation.EnterTransition.None
+            } else {
+                fadeIn(motionScheme.fastFadeIn) + scaleIn(initialScale = motionScheme.floatingEnterScale, animationSpec = motionScheme.expressive)
+            },
+            exit = if (motionScheme.reducedMotion) {
+                androidx.compose.animation.ExitTransition.None
+            } else {
+                fadeOut(motionScheme.fastFadeOut) + scaleOut(targetScale = motionScheme.floatingEnterScale, animationSpec = motionScheme.expressive)
+            },
         ) {
             when (val current = renderedTarget) {
                 is PostActionBubbleTarget.HashtagList -> HashtagBubble(

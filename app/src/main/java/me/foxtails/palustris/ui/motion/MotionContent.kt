@@ -26,7 +26,7 @@ fun <T> SpringAnimatedContent(
     stateKey: T,
     direction: Int,
     modifier: Modifier = Modifier,
-    contentKey: (T) -> Any = { it as Any },
+    contentKey: (T) -> Any? = { it },
     content: @Composable (T) -> Unit,
 ) {
     val scheme = LocalPalustrisMotionScheme.current

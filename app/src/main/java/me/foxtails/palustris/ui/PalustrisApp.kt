@@ -22,6 +22,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +30,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -95,6 +99,7 @@ import me.foxtails.palustris.ui.motion.compactFloatingEnter
 import me.foxtails.palustris.ui.motion.compactFloatingExit
 import me.foxtails.palustris.ui.motion.rememberSelectedColor
 import me.foxtails.palustris.ui.motion.rememberSelectedScale
+import me.foxtails.palustris.ui.motion.motionDirection
 import me.foxtails.palustris.ui.motion.springPress
 
 private enum class Destination(val label: String, val icon: ImageVector) {
@@ -203,6 +208,16 @@ internal fun compactHomeScrollEndClearance(): Dp {
         (CompactOverlayVerticalPadding * 2f)
 }
 
+private fun Modifier.roundPressLayer(pressed: Boolean, color: androidx.compose.ui.graphics.Color): Modifier = clip(CircleShape).drawWithContent {
+    drawContent()
+    if (pressed) {
+        drawRoundRect(
+            color = color,
+            cornerRadius = CornerRadius(minOf(size.width, size.height) / 2f),
+        )
+    }
+}
+
 private fun contextualActionFor(
     destination: Destination,
     searchPanel: SearchPanel,
@@ -257,11 +272,14 @@ private fun TimelineSelector(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val scheme = LocalPalustrisMotionScheme.current
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     Surface(
         modifier = Modifier
             .size(CompactTimelineSelectorWidth, CompactTimelineSelectorHeight)
             .springPress(interactionSource, pressedScale = scheme.pressedScale)
-            .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick)
+            .roundPressLayer(pressed, pressColor)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .semantics { contentDescription = "Choose timeline" },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
@@ -316,13 +334,15 @@ private fun CompactContextualNavigationBar(
                     Destination.entries.forEach { item ->
                         val selected = destination == item
                         val interactionSource = remember(item) { MutableInteractionSource() }
+                        val pressed by interactionSource.collectIsPressedAsState()
                         val selectedTint = rememberSelectedColor(selected, MaterialTheme.colorScheme.onSecondaryContainer, MaterialTheme.colorScheme.onSurfaceVariant)
                         val selectedScale = rememberSelectedScale(selected)
                         val itemModifier = if (item == Destination.Profile) {
-                            Modifier
-                                .size(48.dp)
-                                .springPress(interactionSource, pressedScale = scheme.compactPressedScale)
-                                .combinedClickable(
+                                Modifier
+                                    .size(48.dp)
+                                    .springPress(interactionSource, pressedScale = scheme.compactPressedScale)
+                                    .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                                    .combinedClickable(
                                     interactionSource = interactionSource,
                                     indication = LocalIndication.current,
                                     onClick = { onDestinationSelected(item) },
@@ -331,6 +351,7 @@ private fun CompactContextualNavigationBar(
                         } else Modifier
                             .size(48.dp)
                             .springPress(interactionSource, pressedScale = scheme.compactPressedScale)
+                            .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                             .clickable(interactionSource = interactionSource, indication = LocalIndication.current) { onDestinationSelected(item) }
                         Box(itemModifier.semantics { contentDescription = item.label; this.selected = selected; role = Role.Tab }, contentAlignment = Alignment.Center) {
                             if (item == Destination.Profile) {
@@ -743,7 +764,7 @@ fun PalustrisApp(
     fun selectDestination(item: Destination) {
         clearPostActionBubble()
         if (item == Destination.Profile) viewedProfile = null
-        destinationTransitionDirection = item.ordinal.compareTo(destination.ordinal)
+        destinationTransitionDirection = motionDirection(destination.ordinal, item.ordinal, motionScheme.reducedMotion)
         destination = item
         page = null
         notificationRoute = null
@@ -751,6 +772,7 @@ fun PalustrisApp(
     fun openProfile(profile: Account) {
         clearPostActionBubble()
         viewedProfile = profile
+        destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Profile.ordinal, motionScheme.reducedMotion)
         destination = Destination.Profile
         page = null
         sheet = null
@@ -773,6 +795,7 @@ fun PalustrisApp(
         clearPostActionBubble()
         searchPrefill = hashtag
         searchPanelName = SearchPanel.Search.name
+        destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Search.ordinal, motionScheme.reducedMotion)
         destination = Destination.Search
         page = null
         onSearchAccounts(hashtag)
@@ -831,6 +854,7 @@ fun PalustrisApp(
                             direction = destinationTransitionDirection,
                             modifier = Modifier.fillMaxSize(),
                         ) { animatedDestination ->
+                        screenStates.SaveableStateProvider(animatedDestination.name) {
                         AnimatedStatePane(
                             stateKey = notificationRoute ?: page?.name ?: "${animatedDestination.name}:content",
                             modifier = Modifier.fillMaxSize(),
@@ -871,7 +895,7 @@ fun PalustrisApp(
                             } ?: EmptyState(AppIcons.Bookmark, "No saved posts yet", "Posts you save will appear here.")
                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                             LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
-                             else -> screenStates.SaveableStateProvider(animatedDestination.name) { when (animatedDestination) {
+                              else -> when (animatedDestination) {
                                   Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenReactionBubble = { ownedPost, bounds ->
                                       openReactionBubble(ownedPost, bounds, onReaction)
                                   }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
@@ -951,7 +975,8 @@ fun PalustrisApp(
                       },
                      onOpenMedia = ::openMedia,
                  )
-                             } }
+                              }
+                        }
                         }
                         }
                         }
