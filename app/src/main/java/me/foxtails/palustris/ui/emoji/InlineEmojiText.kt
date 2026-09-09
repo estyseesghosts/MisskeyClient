@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -16,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -62,6 +64,13 @@ fun InlineEmojiText(
     overflow: TextOverflow = TextOverflow.Clip,
 ) {
     val context = LocalContext.current
+    val resolvedStyle = style.copy(
+        color = if (style.color == Color.Unspecified) {
+            LocalContentColor.current
+        } else {
+            style.color
+        },
+    )
     val primary = MaterialTheme.colorScheme.primary
     val linkStyle = SpanStyle(color = primary, textDecoration = TextDecoration.Underline)
     val model = remember(text, emoji) { EmojiTextParser.parse(text, emoji) }
@@ -75,7 +84,7 @@ fun InlineEmojiText(
         ClickableText(
             text = annotated,
             modifier = modifier,
-            style = style,
+            style = resolvedStyle,
             maxLines = maxLines,
             overflow = overflow,
             onClick = { offset ->
@@ -97,7 +106,7 @@ fun InlineEmojiText(
                 }
             }
         },
-        style = style,
+        style = resolvedStyle,
         maxLines = maxLines,
         overflow = overflow,
         inlineContent = inlineContent,

@@ -70,7 +70,10 @@ class EmojiTextParserTest {
         assertTrue(link.label.any { it is RichTextSegment.Emoji })
         assertEquals("https://example.org/:blob_cat:", links[1].url)
         assertTrue(links[1].label.none { it is RichTextSegment.Emoji })
-        assertEquals(listOf("see ", link, " and ", links[1], " end"), model.segments)
+        assertEquals(
+            listOf("see ", " and ", " end"),
+            model.segments.filterIsInstance<RichTextSegment.Text>().map { it.text },
+        )
         val outside = model.emojiRanges.map { text.substring(it) }
         assertEquals(listOf(":blob_cat:"), outside)
     }

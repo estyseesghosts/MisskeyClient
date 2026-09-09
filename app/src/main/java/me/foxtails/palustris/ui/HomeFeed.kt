@@ -365,7 +365,8 @@ private fun FilteredHashtagSummary(hashtags: List<String>, onSearchHashtag: (Str
                     role = Role.Button
                 },
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainer,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         ) {
             Text(
                 label,
@@ -439,7 +440,8 @@ private fun ReactionRow(
                         selectedStateDescription?.let { stateDescription = it }
                     },
                 shape = CircleShapeForReaction,
-                color = if (reaction.selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
                 Row(
                     Modifier.fillMaxHeight().padding(horizontal = 10.dp),
