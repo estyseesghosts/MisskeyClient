@@ -109,6 +109,8 @@ fun HomeFeed(
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
     onOpenPost: (OwnedPost) -> Unit = {},
+    onOpenUrl: ((String) -> Unit)? = null,
+    onOpenUsername: ((String) -> Unit)? = null,
 ) {
     val list = rememberLazyListState()
     val pullToRefreshState = rememberPullToRefreshState()
@@ -214,9 +216,11 @@ fun HomeFeed(
                         quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported,
                         onQuote = onQuote,
                          onOpenReactionBubble = openReactionBubble,
-                         onOpenMedia = onOpenMedia,
-                         onOpenPost = onOpenPost,
-                     )
+                        onOpenMedia = onOpenMedia,
+                        onOpenPost = onOpenPost,
+                        onOpenUrl = onOpenUrl,
+                        onOpenUsername = onOpenUsername,
+                    )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 }
             }
@@ -291,14 +295,16 @@ internal fun PostRow(
     modifier: Modifier = Modifier,
     truncateBody: Boolean = true,
     onOpenPost: (OwnedPost) -> Unit = {},
+    onOpenUrl: ((String) -> Unit)? = null,
+    onOpenUsername: ((String) -> Unit)? = null,
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
     val presentation = remember(post.text, post.emoji) { parseHashtagBlocks(post.text, post.emoji) }
     val contentVisible = post.contentWarning == null || expanded
-    val bodyTruncated = truncateBody && post.text.codePointCount(0, post.text.length) > PostBodyCharacterLimit
-    val bodyText = if (bodyTruncated) truncatedPostBody(presentation.visibleText) else presentation.visibleText
+    val bodyTruncated = truncateBody && postBodyCharacterCount(presentation.visibleText, post.emoji) > PostBodyCharacterLimit
+    val bodyText = if (bodyTruncated) truncatedPostBody(presentation.visibleText, post.emoji) else presentation.visibleText
     Column(modifier.fillMaxWidth().testTag("post_row_${post.id.value}")) {
         post.resharedBy?.let {
             Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp)) {
@@ -333,17 +339,23 @@ internal fun PostRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                InlineEmojiText(
-                                    bodyText,
-                                    post.emoji,
+                                PostBodyText(
+                                    text = bodyText,
+                                    emoji = post.emoji,
+                                    onOpenUrl = onOpenUrl,
+                                    onOpenUsername = onOpenUsername,
+                                    onSearchHashtag = onSearchHashtag,
                                     style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                                 )
                                 ViewFullPostBubble { onOpenPost(ownedPost) }
                             }
                         } else {
-                            InlineEmojiText(
-                                bodyText,
-                                post.emoji,
+                            PostBodyText(
+                                text = bodyText,
+                                emoji = post.emoji,
+                                onOpenUrl = onOpenUrl,
+                                onOpenUsername = onOpenUsername,
+                                onSearchHashtag = onSearchHashtag,
                                 style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                             )
                         }
@@ -405,6 +417,28 @@ internal fun PostRow(
             onShare = { sharePost(context, post) },
         )
     }
+}
+
+@Composable
+internal fun PostBodyText(
+    text: String,
+    emoji: Map<String, CustomEmoji>,
+    modifier: Modifier = Modifier,
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyLarge,
+    onOpenUrl: ((String) -> Unit)? = null,
+    onOpenUsername: ((String) -> Unit)? = null,
+    onSearchHashtag: ((String) -> Unit)? = null,
+) {
+    InlineEmojiText(
+        text = text,
+        emoji = emoji,
+        modifier = modifier,
+        style = style,
+        enableInlineEntities = true,
+        onOpenUrl = onOpenUrl,
+        onOpenUsername = onOpenUsername,
+        onSearchHashtag = onSearchHashtag,
+    )
 }
 
 @Composable

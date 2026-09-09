@@ -97,6 +97,8 @@ fun ProfileScreen(
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
     onOpenPost: (OwnedPost) -> Unit = {},
+    onOpenUrl: ((String) -> Unit)? = null,
+    onOpenUsername: ((String) -> Unit)? = null,
 ) {
     LaunchedEffect(account?.id) {
         account?.let(onProfileShown)
@@ -152,6 +154,8 @@ fun ProfileScreen(
             onOpenHashtagBubble = onOpenHashtagBubble,
             onOpenMedia = onOpenMedia,
             onOpenPost = onOpenPost,
+            onOpenUrl = onOpenUrl,
+            onOpenUsername = onOpenUsername,
             header = {
                 ProfileHeader(
                     account = displayedAccount,

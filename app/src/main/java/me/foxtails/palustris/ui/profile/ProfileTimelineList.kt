@@ -77,6 +77,8 @@ internal fun ProfileTimelineList(
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
     onOpenPost: (OwnedPost) -> Unit,
+    onOpenUrl: ((String) -> Unit)?,
+    onOpenUsername: ((String) -> Unit)?,
     header: @Composable () -> Unit,
     details: @Composable () -> Unit,
 ) {
@@ -86,6 +88,19 @@ internal fun ProfileTimelineList(
     val selectedTab = state.selectedTab.timelineTab
     val page = selectedTab?.let { state.pages[it] }
     val pullToRefreshState = rememberPullToRefreshState()
+    val firstPostId = page?.posts?.firstOrNull()?.post?.id
+
+    LaunchedEffect(state.targetId, selectedTab, firstPostId, state.pinnedPosts.size, compactLayout) {
+        list.scrollToItem(
+            firstTimelineItemIndex(
+                compactLayout = compactLayout,
+                pinnedLoading = state.pinnedLoading,
+                pinnedError = state.pinnedError != null,
+                pinnedPostCount = state.pinnedPosts.size,
+                hasFirstPost = firstPostId != null,
+            ),
+        )
+    }
 
     LaunchedEffect(list, state.targetId, selectedTab) {
         snapshotFlow {
@@ -147,8 +162,10 @@ internal fun ProfileTimelineList(
                 onOpenProfile = onOpenProfile,
                 onSearchHashtag = onSearchHashtag,
                  onOpenHashtagBubble = onOpenHashtagBubble,
-                 onOpenMedia = onOpenMedia,
-                 onOpenPost = onOpenPost,
+                      onOpenMedia = onOpenMedia,
+                      onOpenPost = onOpenPost,
+                      onOpenUrl = onOpenUrl,
+                      onOpenUsername = onOpenUsername,
              )
             if (state.selectedTab == ProfileCategory.ShowMore) {
                 item(key = "profile-details") { details() }
@@ -168,8 +185,10 @@ internal fun ProfileTimelineList(
                     onOpenProfile = onOpenProfile,
                     onSearchHashtag = onSearchHashtag,
                      onOpenHashtagBubble = onOpenHashtagBubble,
-                     onOpenMedia = onOpenMedia,
-                     onOpenPost = onOpenPost,
+                      onOpenMedia = onOpenMedia,
+                      onOpenPost = onOpenPost,
+                      onOpenUrl = onOpenUrl,
+                      onOpenUsername = onOpenUsername,
                  )
             }
         }
@@ -228,6 +247,8 @@ private fun LazyListScope.profilePinnedItems(
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
     onOpenPost: (OwnedPost) -> Unit,
+    onOpenUrl: ((String) -> Unit)?,
+    onOpenUsername: ((String) -> Unit)?,
 ) {
     if (state.pinnedLoading) item(key = "profile-pinned-loading") {
         Text("Featured posts", Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
@@ -261,8 +282,10 @@ private fun LazyListScope.profilePinnedItems(
                 onOpenProfile = onOpenProfile,
                 onSearchHashtag = onSearchHashtag,
                      onOpenHashtagBubble = onOpenHashtagBubble,
-                     onOpenMedia = onOpenMedia,
-                     onOpenPost = onOpenPost,
+                      onOpenMedia = onOpenMedia,
+                      onOpenPost = onOpenPost,
+                      onOpenUrl = onOpenUrl,
+                      onOpenUsername = onOpenUsername,
                 modifier = Modifier.animateItem(
                     fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,
                     fadeOutSpec = LocalPalustrisMotionScheme.current.fastFadeOut,
@@ -291,6 +314,8 @@ private fun LazyListScope.profilePageItems(
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
     onOpenPost: (OwnedPost) -> Unit,
+    onOpenUrl: ((String) -> Unit)?,
+    onOpenUsername: ((String) -> Unit)?,
 ) {
     if (page == null || page.initialLoading && page.posts.isEmpty()) {
         item(key = "profile-timeline-loading") {
@@ -335,8 +360,10 @@ private fun LazyListScope.profilePageItems(
             onOpenProfile = onOpenProfile,
             onSearchHashtag = onSearchHashtag,
                      onOpenHashtagBubble = onOpenHashtagBubble,
-                     onOpenMedia = onOpenMedia,
-                     onOpenPost = onOpenPost,
+                      onOpenMedia = onOpenMedia,
+                      onOpenPost = onOpenPost,
+                      onOpenUrl = onOpenUrl,
+                      onOpenUsername = onOpenUsername,
             modifier = Modifier.animateItem(
                 fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,
                 fadeOutSpec = LocalPalustrisMotionScheme.current.fastFadeOut,
@@ -387,3 +414,19 @@ private fun ProfileMessage(
 
 private const val MAX_AUTOMATIC_EMPTY_PAGES = 3
 private const val PROFILE_CATEGORY_DESCRIPTION = "Profile categories; swipe horizontally for more"
+
+private fun firstTimelineItemIndex(
+    compactLayout: Boolean,
+    pinnedLoading: Boolean,
+    pinnedError: Boolean,
+    pinnedPostCount: Int,
+    hasFirstPost: Boolean,
+): Int {
+    if (!hasFirstPost) return 0
+    var index = 1 // profile header
+    if (!compactLayout) index++
+    if (pinnedLoading) index++
+    if (pinnedError) index++
+    if (pinnedPostCount > 0) index += 1 + pinnedPostCount // title and pinned rows
+    return index
+}

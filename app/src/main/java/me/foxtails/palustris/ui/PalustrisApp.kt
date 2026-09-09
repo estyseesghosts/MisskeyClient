@@ -806,6 +806,16 @@ fun PalustrisApp(
         onSearchAccounts(hashtag)
     }
 
+    fun openAccountSearch(username: String) {
+        clearPostActionBubble()
+        searchPrefill = username
+        searchPanelName = SearchPanel.Search.name
+        destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Search.ordinal, motionScheme.reducedMotion)
+        destination = Destination.Search
+        page = null
+        onSearchAccounts(username)
+    }
+
     fun openMedia(request: MediaOpenRequest) {
         if (account?.id != null && request.ownedPost.fetchedBy != account.id) return
         if (request.attachmentIndex !in request.ownedPost.post.attachments.indices) return
@@ -902,17 +912,18 @@ fun PalustrisApp(
                                       onOpenMedia = ::openMedia,
                                       onOpenPost = ::openSinglePost,
                                       availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
-                                     onOpenProfile = ::openProfile,
-                                     onSearchHashtag = ::openHashtagSearch,
-                                     onOpenHashtagBubble = ::openHashtagBubble,
-                                 )
+                                      onOpenProfile = ::openProfile,
+                                      onSearchHashtag = ::openHashtagSearch,
+                                      onOpenHashtagBubble = ::openHashtagBubble,
+                                      onOpenUsername = ::openAccountSearch,
+                                  )
                             } ?: EmptyState(AppIcons.Bookmark, "No saved posts yet", "Posts you save will appear here.")
                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                             LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                               else -> when (animatedDestination) {
                                   Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenReactionBubble = { ownedPost, bounds ->
                                       openReactionBubble(ownedPost, bounds, onReaction)
-                                   }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia, onOpenPost = ::openSinglePost) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                    }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia, onOpenPost = ::openSinglePost, onOpenUsername = ::openAccountSearch) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                                  Destination.Search -> AnimatedStatePane(
                                      stateKey = searchPanel,
                                      modifier = Modifier.fillMaxSize(),
@@ -938,10 +949,11 @@ fun PalustrisApp(
                                       initialQuery = searchPrefill,
                                       compactLayout = !wide,
                                       compactNavigationVisible = !wide,
-                                       mediaOwner = account?.id,
-                                       onOpenMedia = ::openMedia,
-                                       onOpenPost = ::openSinglePost,
-                                    ) }
+                                        mediaOwner = account?.id,
+                                        onOpenMedia = ::openMedia,
+                                        onOpenPost = ::openSinglePost,
+                                        onOpenUsername = ::openAccountSearch,
+                                     ) }
                                  Destination.Notifications -> AnimatedStatePane(
                                      stateKey = notificationsPanel,
                                      modifier = Modifier.fillMaxSize(),
@@ -998,9 +1010,10 @@ fun PalustrisApp(
                       onOpenReactionBubble = { ownedPost, bounds ->
                           openReactionBubble(ownedPost, bounds, onProfilePostReaction)
                       },
-                      onOpenMedia = ::openMedia,
-                      onOpenPost = ::openSinglePost,
-                  )
+                       onOpenMedia = ::openMedia,
+                       onOpenPost = ::openSinglePost,
+                       onOpenUsername = ::openAccountSearch,
+                   )
                               }
                         }
                         }
@@ -1134,9 +1147,10 @@ fun PalustrisApp(
             onReaction = onReaction,
             onOpenProfile = ::openProfile,
             onSearchHashtag = ::openHashtagSearch,
-            onOpenHashtagBubble = ::openHashtagBubble,
-            onOpenMedia = ::openMedia,
-        )
+             onOpenHashtagBubble = ::openHashtagBubble,
+             onOpenMedia = ::openMedia,
+             onOpenUsername = ::openAccountSearch,
+         )
     }
 
     if (sheet != null) ModalBottomSheet(onDismissRequest = { sheet = null }) {

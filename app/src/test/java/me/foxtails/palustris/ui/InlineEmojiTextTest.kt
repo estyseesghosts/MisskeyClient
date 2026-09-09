@@ -14,6 +14,7 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ValidatedUrl
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -113,5 +114,30 @@ class InlineEmojiTextTest {
 
         compose.onNodeWithText("the :blob_cat: guide", substring = true)
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun postEntityBubblesExposeLabelsAndRouteClicksToTheirEntityCallbacks() {
+        var openedUrl = ""
+        var openedUsername = ""
+        var searchedHashtag = ""
+        show {
+            InlineEmojiText(
+                "read https://example.org/guide from @handle@mastodon.social about #Zurich",
+                emptyMap(),
+                enableInlineEntities = true,
+                onOpenUrl = { openedUrl = it },
+                onOpenUsername = { openedUsername = it },
+                onSearchHashtag = { searchedHashtag = it },
+            )
+        }
+
+        compose.onNodeWithContentDescription("Link url.xyz").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("Username @handle").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("Hashtag #Zurich").assertIsDisplayed().performClick()
+
+        assertEquals("https://example.org/guide", openedUrl)
+        assertEquals("@handle@mastodon.social", openedUsername)
+        assertEquals("#Zurich", searchedHashtag)
     }
 }

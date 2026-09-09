@@ -2,6 +2,9 @@ package me.foxtails.palustris.ui
 
 import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.ui.emoji.EmojiTextParser
+import me.foxtails.palustris.ui.emoji.RichTextSegment
+import me.foxtails.palustris.ui.emoji.isInstanceTagSearchUrl
+import me.foxtails.palustris.ui.emoji.richTextDisplayText
 
 internal data class PostTextPresentation(
     val visibleText: String,
@@ -11,10 +14,40 @@ internal data class PostTextPresentation(
 
 internal const val PostBodyCharacterLimit = 350
 
-internal fun truncatedPostBody(text: String): String {
-    if (text.codePointCount(0, text.length) <= PostBodyCharacterLimit) return text
-    val end = text.offsetByCodePoints(0, PostBodyCharacterLimit)
-    return text.substring(0, end) + "…"
+internal fun postBodyCharacterCount(
+    text: String,
+    emoji: Map<String, CustomEmoji> = emptyMap(),
+): Int {
+    val displayText = richTextDisplayText(EmojiTextParser.parse(text, emoji).segments)
+    return displayText.codePointCount(0, displayText.length)
+}
+
+internal fun truncatedPostBody(
+    text: String,
+    emoji: Map<String, CustomEmoji> = emptyMap(),
+): String {
+    val model = EmojiTextParser.parse(text, emoji)
+    val displayText = richTextDisplayText(model.segments)
+    if (displayText.codePointCount(0, displayText.length) <= PostBodyCharacterLimit) return text
+
+    val result = StringBuilder()
+    var remaining = PostBodyCharacterLimit
+    for (segment in model.segments) {
+        if (remaining == 0) break
+        val displaySegment = richTextDisplayText(segment)
+        val segmentLength = displaySegment.codePointCount(0, displaySegment.length)
+        if (segmentLength <= remaining) {
+            result.append(text.substring(segment.range))
+            remaining -= segmentLength
+            continue
+        }
+        if (segment is RichTextSegment.Text) {
+            val end = displaySegment.offsetByCodePoints(0, remaining)
+            result.append(displaySegment.substring(0, end))
+        }
+        break
+    }
+    return result.append("…").toString()
 }
 
 private data class HashtagToken(
@@ -29,6 +62,14 @@ private data class RemovalRange(
 )
 
 private val hashtagToken = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
+private val markdownHashtagLink = Regex("""\[([^\]\r\n]*)\]\(\s*(?:<)?(https?://[^)\s>]+)(?:>)?\s*\)""")
+
+/** Removes only instance tag-search Markdown wrappers; ordinary links remain Markdown. */
+internal fun normalizeMarkdownHashtagLinks(text: String): String = markdownHashtagLink.replace(text) { match ->
+    val label = match.groupValues[1]
+    val url = match.groupValues[2]
+    if (hashtagToken.matches(label) && isInstanceTagSearchUrl(url)) label else match.value
+}
 
 /**
  * Removes terminal hashtag lists and detached decorative hashtag blocks from post text.
@@ -39,31 +80,32 @@ internal fun parseHashtagBlocks(
     text: String,
     emoji: Map<String, CustomEmoji> = emptyMap(),
 ): PostTextPresentation {
-    if (text.isEmpty()) return PostTextPresentation("", emptyList(), emptyList())
+    val normalizedText = normalizeMarkdownHashtagLinks(text)
+    if (normalizedText.isEmpty()) return PostTextPresentation("", emptyList(), emptyList())
 
-    val emojiRanges = if (emoji.isEmpty()) emptyList() else EmojiTextParser.parse(text, emoji).emojiRanges
-    val tokens = findHashtagTokens(text, emojiRanges)
-    if (tokens.isEmpty()) return PostTextPresentation(text, emptyList(), emptyList())
+    val emojiRanges = if (emoji.isEmpty()) emptyList() else EmojiTextParser.parse(normalizedText, emoji).emojiRanges
+    val tokens = findHashtagTokens(normalizedText, emojiRanges)
+    if (tokens.isEmpty()) return PostTextPresentation(normalizedText, emptyList(), emptyList())
 
     val removals = mutableListOf<RemovalRange>()
-    val semanticEnd = semanticEnd(text)
-    val terminalTokens = findTerminalHashtags(text, tokens, semanticEnd, emojiRanges)
+    val semanticEnd = semanticEnd(normalizedText)
+    val terminalTokens = findTerminalHashtags(normalizedText, tokens, semanticEnd, emojiRanges)
     if (terminalTokens.isNotEmpty()) {
-        val firstStart = includeTerminalWhitespaceBefore(text, terminalTokens.first().range.first)
-        removals += RemovalRange(firstStart, text.length, detachedLine = false)
+        val firstStart = includeTerminalWhitespaceBefore(normalizedText, terminalTokens.first().range.first)
+        removals += RemovalRange(firstStart, normalizedText.length, detachedLine = false)
     }
 
-    findDetachedBlocks(text, tokens, emojiRanges).forEach { block ->
+    findDetachedBlocks(normalizedText, tokens, emojiRanges).forEach { block ->
         removals += block
     }
 
     val mergedRemovals = mergeRemovals(removals)
-    if (mergedRemovals.isEmpty()) return PostTextPresentation(text, emptyList(), emptyList())
+    if (mergedRemovals.isEmpty()) return PostTextPresentation(normalizedText, emptyList(), emptyList())
 
     val filteredHashtags = tokens
         .filter { token -> mergedRemovals.any { it.contains(token.range) } }
         .map(HashtagToken::value)
-    val visibleText = removeRanges(text, mergedRemovals)
+    val visibleText = removeRanges(normalizedText, mergedRemovals)
     val filteredRanges = mergedRemovals.map { it.start until it.endExclusive }
 
     return PostTextPresentation(visibleText, filteredHashtags, filteredRanges)
@@ -78,28 +120,16 @@ private fun findHashtagTokens(text: String, emojiRanges: List<IntRange>): List<H
 
         val match = hashtagToken.matchAt(text, hash)
         if (match != null) {
-            val range = markdownHashtagLinkRange(text, match.range) ?: match.range
-            if (hashtagBoundaryIsValid(text, range, emojiRanges)) {
-                tokens += HashtagToken(range, match.value)
+            if (hashtagBoundaryIsValid(text, match.range, emojiRanges)) {
+                tokens += HashtagToken(match.range, match.value)
             }
-            searchStart = range.last + 1
+            searchStart = match.range.last + 1
         } else {
             searchStart = hash + 1
         }
     }
     return tokens
 }
-
-private val markdownLink = Regex("\\[([^]\\r\\n]*)\\]\\(https?://[^)\\s]+\\)")
-
-/** A linked hashtag is one token for block detection, while linked prose remains visible. */
-private fun markdownHashtagLinkRange(text: String, hashtagRange: IntRange): IntRange? =
-    markdownLink.findAll(text).firstOrNull { link ->
-        val labelStart = link.range.first + 1
-        val labelEndExclusive = labelStart + link.groupValues[1].length
-        hashtagRange.first >= labelStart && hashtagRange.last + 1 <= labelEndExclusive &&
-            text.substring(labelStart, labelEndExclusive).trim() == text.substring(hashtagRange)
-    }?.range
 
 private fun hashtagBoundaryIsValid(text: String, range: IntRange, emojiRanges: List<IntRange>): Boolean {
     val before = codePointBefore(text, range.first)

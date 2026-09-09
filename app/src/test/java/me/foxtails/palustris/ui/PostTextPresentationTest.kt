@@ -122,6 +122,26 @@ class PostTextPresentationTest {
         assertPresentation("Read [the full guide](https://example.org/guide) today.", "Read [the full guide](https://example.org/guide) today.")
     }
 
+    @Test fun instanceTagSearchMarkdownLinkIsNormalizedToAnInlineHashtag() {
+        assertPresentation(
+            "Meet at [#Zurich](<https://pixelfed.social/discover/tags/Zurich?src=hash>) today.",
+            "Meet at #Zurich today.",
+        )
+    }
+
+    @Test fun hiddenEntityTextDoesNotCountTowardPostLimit() {
+        assertEquals(7, postBodyCharacterCount("https://example.org/a-very-long-path"))
+        assertEquals(7, postBodyCharacterCount("@handle@mastodon.social"))
+        assertEquals(9, postBodyCharacterCount("[Read this](https://example.org/a-very-long-path)"))
+    }
+
+    @Test fun truncationKeepsACompleteUrlEntityInsteadOfSplittingItsSourceSyntax() {
+        val url = "https://example.org/a-very-long-path"
+        val text = "x".repeat(340) + " " + url + " tail"
+
+        assertEquals("x".repeat(340) + " " + url + " …", truncatedPostBody(text))
+    }
+
     @Test fun blankLinesCreatedByRemovedBlocksCollapseWithoutChangingParagraphSpacing() {
         val text = "Before\n\n#one ✨ #two\n\nAfter"
         assertPresentation(text, "Before\n\nAfter", "#one", "#two")

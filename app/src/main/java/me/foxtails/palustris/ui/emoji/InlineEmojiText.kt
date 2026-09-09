@@ -2,11 +2,17 @@ package me.foxtails.palustris.ui.emoji
 
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -21,16 +27,19 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.foundation.text.appendInlineContent
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import coil.compose.AsyncImage
 import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.domain.Account
@@ -38,6 +47,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.MediaRequestPolicy
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.openExternal
 
 /** Cache scope for emoji image requests; account-scoped wrappers provide a real identity. */
@@ -47,11 +57,8 @@ internal fun emojiScopeFor(accountId: AccountId): String =
     "${accountId.connection.origin}\u0000${accountId.localId}"
 
 /**
- * One annotated rich-text renderer for emoji-aware text. Custom emoji render through
- * baseline-aligned inline content at `em` size; the shortcode stays visible while the
- * image loads or fails. Link interaction, selection/copy, ellipsis, and text styles are
- * preserved. The original shortcode text remains in the annotated string for copy and
- * accessibility.
+ * One annotated rich-text renderer for emoji-aware text. Post callers can opt into inline
+ * entity bubbles; other text surfaces keep their existing plain/Markdown presentation.
  */
 @Composable
 fun InlineEmojiText(
@@ -61,30 +68,43 @@ fun InlineEmojiText(
     style: TextStyle = MaterialTheme.typography.bodyLarge,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
+    enableInlineEntities: Boolean = false,
+    onOpenUrl: ((String) -> Unit)? = null,
+    onOpenUsername: ((String) -> Unit)? = null,
+    onSearchHashtag: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val resolvedStyle = style.copy(
-        color = if (style.color == Color.Unspecified) {
-            LocalContentColor.current
-        } else {
-            style.color
-        },
+        color = if (style.color == Color.Unspecified) LocalContentColor.current else style.color,
     )
-    val primary = MaterialTheme.colorScheme.primary
-    val linkStyle = SpanStyle(color = primary, textDecoration = TextDecoration.Underline)
+    val linkStyle = SpanStyle(
+        color = MaterialTheme.colorScheme.primary,
+        textDecoration = TextDecoration.Underline,
+    )
     val model = remember(text, emoji) { EmojiTextParser.parse(text, emoji) }
-    val inlineContent = remember(model, style.fontSize) {
-        buildInlineContent(model, style.fontSize)
+    val inlineContent = remember(model, style.fontSize, enableInlineEntities, onOpenUrl, onOpenUsername, onSearchHashtag) {
+        buildInlineContent(
+            model = model,
+            emSize = style.fontSize,
+            enableInlineEntities = enableInlineEntities,
+            onOpenUrl = { url -> onOpenUrl?.invoke(url) ?: openExternal(context, url) },
+            onOpenUsername = onOpenUsername,
+            onSearchHashtag = onSearchHashtag,
+        )
     }
-    val annotated = remember(model, linkStyle) {
-        buildAnnotatedString {
-            model.segments.forEach { segment -> appendSegment(this, segment, linkStyle) }
+    val annotated = remember(model, linkStyle, enableInlineEntities) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            model.segments.forEach { segment ->
+                appendSegment(this, model.source, segment, linkStyle, enableInlineEntities)
+            }
         }
     }
-    val hasLinks = remember(annotated) {
-        annotated.getStringAnnotations(URL_ANNOTATION, 0, annotated.length).isNotEmpty()
+    val hasInteractiveEntities = remember(annotated, enableInlineEntities) {
+        annotated.getStringAnnotations(URL_ANNOTATION, 0, annotated.length).isNotEmpty() ||
+            (enableInlineEntities && annotated.getStringAnnotations(USERNAME_ANNOTATION, 0, annotated.length).isNotEmpty()) ||
+            (enableInlineEntities && annotated.getStringAnnotations(HASHTAG_ANNOTATION, 0, annotated.length).isNotEmpty())
     }
-    if (!hasLinks) {
+    if (!hasInteractiveEntities) {
         BasicText(
             text = annotated,
             modifier = modifier,
@@ -95,15 +115,23 @@ fun InlineEmojiText(
         )
         return
     }
+
     var layoutResult: TextLayoutResult? by remember { mutableStateOf(null) }
     BasicText(
         text = annotated,
-        modifier = modifier.pointerInput(annotated) {
+        modifier = modifier.pointerInput(annotated, enableInlineEntities) {
             detectTapGestures { offset ->
-                layoutResult?.let { layout ->
-                    val position = layout.getOffsetForPosition(offset)
-                    annotated.getStringAnnotations(URL_ANNOTATION, position, position)
-                        .firstOrNull()?.let { openExternal(context, it.item) }
+                val position = layoutResult?.getOffsetForPosition(offset) ?: return@detectTapGestures
+                annotated.getStringAnnotations(URL_ANNOTATION, position, position)
+                    .firstOrNull()?.let { annotation ->
+                        onOpenUrl?.invoke(annotation.item) ?: openExternal(context, annotation.item)
+                        return@detectTapGestures
+                    }
+                if (enableInlineEntities) {
+                    annotated.getStringAnnotations(USERNAME_ANNOTATION, position, position)
+                        .firstOrNull()?.let { onOpenUsername?.invoke(it.item) }
+                    annotated.getStringAnnotations(HASHTAG_ANNOTATION, position, position)
+                        .firstOrNull()?.let { onSearchHashtag?.invoke(it.item) }
                 }
             }
         },
@@ -135,9 +163,23 @@ fun PostText(
     style: TextStyle = MaterialTheme.typography.bodyLarge,
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
+    onOpenUrl: ((String) -> Unit)? = null,
+    onOpenUsername: ((String) -> Unit)? = null,
+    onSearchHashtag: ((String) -> Unit)? = null,
 ) {
     CompositionLocalProvider(LocalEmojiAccountScope provides emojiScopeFor(post.author.id)) {
-        InlineEmojiText(post.text, post.emoji, modifier, style, maxLines, overflow)
+        InlineEmojiText(
+            text = post.text,
+            emoji = post.emoji,
+            modifier = modifier,
+            style = style,
+            maxLines = maxLines,
+            overflow = overflow,
+            enableInlineEntities = true,
+            onOpenUrl = onOpenUrl,
+            onOpenUsername = onOpenUsername,
+            onSearchHashtag = onSearchHashtag,
+        )
     }
 }
 
@@ -157,11 +199,11 @@ fun CustomEmojiImage(
     Box(modifier, contentAlignment = Alignment.Center) {
         androidx.compose.material3.Text(
             fallbackText,
-             style = textStyle,
-             maxLines = 1,
-             softWrap = false,
-             overflow = TextOverflow.Clip,
-         )
+            style = textStyle,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+        )
         if (emoji != null && request != null) {
             val context = LocalContext.current
             val scope = LocalEmojiAccountScope.current
@@ -181,30 +223,57 @@ fun CustomEmojiImage(
                 imageLoader = mediaImageLoader.imageLoader,
                 contentDescription = null,
                 contentScale = contentScale,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clearAndSetSemantics {},
+                modifier = Modifier.fillMaxSize().clearAndSetSemantics {},
             )
         }
     }
 }
 
 private const val URL_ANNOTATION = "URL"
+private const val USERNAME_ANNOTATION = "USERNAME"
+private const val HASHTAG_ANNOTATION = "HASHTAG"
 
 private fun appendSegment(
     builder: androidx.compose.ui.text.AnnotatedString.Builder,
+    source: String,
     segment: RichTextSegment,
     linkStyle: SpanStyle,
+    enableInlineEntities: Boolean,
 ) {
     when (segment) {
         is RichTextSegment.Text -> builder.append(segment.text)
         is RichTextSegment.Emoji -> builder.appendInlineContent(segment.token, alternateText = segment.token)
         is RichTextSegment.Link -> {
-            builder.pushStringAnnotation(URL_ANNOTATION, segment.url)
-            builder.pushStyle(linkStyle)
-            segment.label.forEach { inner -> appendSegment(builder, inner, linkStyle) }
-            builder.pop()
-            builder.pop()
+            if (enableInlineEntities) {
+                builder.pushStringAnnotation(URL_ANNOTATION, segment.target)
+                builder.appendInlineContent(inlineContentId(segment), alternateText = segment.displayLabel)
+                builder.pop()
+            } else {
+                builder.pushStringAnnotation(URL_ANNOTATION, segment.target)
+                builder.pushStyle(linkStyle)
+                if (segment.plainUrl) builder.append(source.substring(segment.range))
+                else segment.label.forEach { inner -> appendSegment(builder, source, inner, linkStyle, false) }
+                builder.pop()
+                builder.pop()
+            }
+        }
+        is RichTextSegment.Username -> {
+            if (enableInlineEntities) {
+                builder.pushStringAnnotation(USERNAME_ANNOTATION, segment.target)
+                builder.appendInlineContent(inlineContentId(segment), alternateText = segment.displayLabel)
+                builder.pop()
+            } else {
+                builder.append(source.substring(segment.range))
+            }
+        }
+        is RichTextSegment.Hashtag -> {
+            if (enableInlineEntities) {
+                builder.pushStringAnnotation(HASHTAG_ANNOTATION, segment.target)
+                builder.appendInlineContent(inlineContentId(segment), alternateText = segment.displayLabel)
+                builder.pop()
+            } else {
+                builder.append(source.substring(segment.range))
+            }
         }
     }
 }
@@ -212,31 +281,122 @@ private fun appendSegment(
 private fun buildInlineContent(
     model: RichTextModel,
     emSize: TextUnit,
-): Map<String, androidx.compose.foundation.text.InlineTextContent> {
-    return buildMap {
-        fun addSegments(segments: List<RichTextSegment>) {
-            segments.forEach { segment ->
-                when (segment) {
-                    is RichTextSegment.Emoji -> put(
-                        segment.token,
-                        androidx.compose.foundation.text.InlineTextContent(
-                            placeholder = androidx.compose.ui.text.Placeholder(
-                                width = emSize,
-                                height = emSize,
-                                placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter,
+    enableInlineEntities: Boolean,
+    onOpenUrl: (String) -> Unit,
+    onOpenUsername: ((String) -> Unit)?,
+    onSearchHashtag: ((String) -> Unit)?,
+): Map<String, androidx.compose.foundation.text.InlineTextContent> = buildMap {
+    fun addSegments(segments: List<RichTextSegment>) {
+        segments.forEach { segment ->
+            when (segment) {
+                is RichTextSegment.Emoji -> put(
+                    segment.token,
+                    androidx.compose.foundation.text.InlineTextContent(
+                        placeholder = androidx.compose.ui.text.Placeholder(
+                            width = emSize,
+                            height = emSize,
+                            placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter,
+                        ),
+                    ) { EmojiInlineContent(segment.token, segment.emoji, emSize) },
+                )
+                is RichTextSegment.Link -> {
+                    if (enableInlineEntities) {
+                        put(
+                            inlineContentId(segment),
+                            entityContent(
+                                label = segment.displayLabel,
+                                description = "Link ${segment.displayLabel}",
+                                emSize = emSize,
+                                onClick = { onOpenUrl(segment.target) },
+                                isLink = true,
                             ),
-                        ) {
-                            EmojiInlineContent(segment.token, segment.emoji, emSize)
-                        },
-                    )
-                    is RichTextSegment.Link -> addSegments(segment.label)
-                    is RichTextSegment.Text -> Unit
+                        )
+                    } else {
+                        addSegments(segment.label)
+                    }
                 }
+                is RichTextSegment.Username -> if (enableInlineEntities) {
+                    put(
+                        inlineContentId(segment),
+                        entityContent(
+                            label = segment.displayLabel,
+                            description = "Username ${segment.displayLabel}",
+                            emSize = emSize,
+                            onClick = onOpenUsername?.let { callback -> { callback(segment.target) } },
+                            isLink = false,
+                        ),
+                    )
+                }
+                is RichTextSegment.Hashtag -> if (enableInlineEntities) {
+                    put(
+                        inlineContentId(segment),
+                        entityContent(
+                            label = segment.displayLabel,
+                            description = "Hashtag ${segment.displayLabel}",
+                            emSize = emSize,
+                            onClick = onSearchHashtag?.let { callback -> { callback(segment.target) } },
+                            isLink = false,
+                        ),
+                    )
+                }
+                is RichTextSegment.Text -> Unit
             }
         }
-        addSegments(model.segments)
+    }
+    addSegments(model.segments)
+}
+
+private fun entityContent(
+    label: String,
+    description: String,
+    emSize: TextUnit,
+    onClick: (() -> Unit)?,
+    isLink: Boolean,
+): androidx.compose.foundation.text.InlineTextContent = androidx.compose.foundation.text.InlineTextContent(
+    placeholder = androidx.compose.ui.text.Placeholder(
+        width = (label.codePointCount(0, label.length) * .62f + if (isLink) 1.45f else .8f).em,
+        height = 1.5.em,
+        placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter,
+    ),
+) {
+    val iconSize = with(LocalDensity.current) {
+        if (emSize == TextUnit.Unspecified) 14.dp else emSize.toDp() * .78f
+    }
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(
+                onClick?.let { callback ->
+                    Modifier.clickable(role = Role.Button, onClick = callback)
+                } ?: Modifier,
+            )
+            .semantics {
+                contentDescription = description
+                role = Role.Button
+            },
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (isLink) Icon(AppIcons.Paperclip, contentDescription = null, modifier = Modifier.size(iconSize))
+            androidx.compose.material3.Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+            )
+        }
     }
 }
+
+private fun inlineContentId(segment: RichTextSegment): String =
+    "entity-${segment.range.first}-${segment.range.last}"
 
 @Composable
 private fun EmojiInlineContent(token: String, emoji: CustomEmoji?, emSize: TextUnit) {

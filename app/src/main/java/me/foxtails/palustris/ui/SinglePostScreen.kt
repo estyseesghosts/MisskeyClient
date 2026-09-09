@@ -62,6 +62,8 @@ internal fun SinglePostScreen(
     onSearchHashtag: (String) -> Unit = {},
     onOpenHashtagBubble: ((OwnedPost, List<String>, androidx.compose.ui.geometry.Rect) -> Unit)? = null,
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
+    onOpenUrl: ((String) -> Unit)? = null,
+    onOpenUsername: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val post = ownedPost.post
@@ -96,6 +98,8 @@ internal fun SinglePostScreen(
                 onOpenHashtagBubble = onOpenHashtagBubble,
                 onOpenMedia = onOpenMedia,
                 truncateBody = false,
+                onOpenUrl = onOpenUrl,
+                onOpenUsername = onOpenUsername,
             )
         } else {
             val presentation = remember(post.text, post.emoji) { parseHashtagBlocks(post.text, post.emoji) }
@@ -127,9 +131,12 @@ internal fun SinglePostScreen(
                 SelectionContainer {
                     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
                         if (presentation.visibleText.isNotBlank()) {
-                            InlineEmojiText(
-                                presentation.visibleText,
-                                post.emoji,
+                            PostBodyText(
+                                text = presentation.visibleText,
+                                emoji = post.emoji,
+                                onOpenUrl = onOpenUrl,
+                                onOpenUsername = onOpenUsername,
+                                onSearchHashtag = onSearchHashtag,
                                 style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                             )
                         }

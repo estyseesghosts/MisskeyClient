@@ -103,4 +103,57 @@ class EmojiTextParserTest {
         assertEquals(text, model.source)
         assertEquals(":blob_cat:", (model.segments[1] as RichTextSegment.Emoji).token)
     }
+
+    @Test
+    fun plainUrlsExposeAShortDisplayLabelAndTheirFullTarget() {
+        val model = EmojiTextParser.parse("read https://example.org/a-very-long-path", emptyMap())
+        val link = model.segments.filterIsInstance<RichTextSegment.Link>().single()
+
+        assertEquals("url.xyz", link.displayLabel)
+        assertEquals("https://example.org/a-very-long-path", link.target)
+        assertTrue(link.plainUrl)
+    }
+
+    @Test
+    fun markdownLinksExposeTheirTitleAndSupportAngleBracketDestinations() {
+        val model = EmojiTextParser.parse(
+            "read [the guide](<https://example.org/guide>)",
+            emptyMap(),
+        )
+        val link = model.segments.filterIsInstance<RichTextSegment.Link>().single()
+
+        assertEquals("the guide", link.displayLabel)
+        assertEquals("https://example.org/guide", link.target)
+        assertTrue(!link.plainUrl)
+    }
+
+    @Test
+    fun webFingerUsernamesHideOnlyTheirRemoteDomain() {
+        val model = EmojiTextParser.parse("hello @handle@mastodon.social", emptyMap())
+        val username = model.segments.filterIsInstance<RichTextSegment.Username>().single()
+
+        assertEquals("@handle", username.displayLabel)
+        assertEquals("@handle@mastodon.social", username.target)
+    }
+
+    @Test
+    fun inlineHashtagsExposeTheirDisplayLabelAndTarget() {
+        val model = EmojiTextParser.parse("hello #Zurich today", emptyMap())
+        val hashtag = model.segments.filterIsInstance<RichTextSegment.Hashtag>().single()
+
+        assertEquals("#Zurich", hashtag.displayLabel)
+        assertEquals("#Zurich", hashtag.target)
+    }
+
+    @Test
+    fun instanceTagSearchMarkdownLinksBecomeHashtagsRatherThanLinks() {
+        val model = EmojiTextParser.parse(
+            "Meet [#Zurich](<https://pixelfed.social/discover/tags/Zurich?src=hash>) today",
+            emptyMap(),
+        )
+
+        assertEquals(1, model.segments.filterIsInstance<RichTextSegment.Hashtag>().size)
+        assertTrue(model.segments.filterIsInstance<RichTextSegment.Link>().isEmpty())
+        assertEquals("#Zurich", model.segments.filterIsInstance<RichTextSegment.Hashtag>().single().displayLabel)
+    }
 }
