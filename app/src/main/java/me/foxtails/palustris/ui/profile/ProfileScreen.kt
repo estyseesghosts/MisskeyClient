@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.R
@@ -64,6 +65,7 @@ import me.foxtails.palustris.ui.CompactFilterDockHeight
 import me.foxtails.palustris.ui.CompactOverlayHorizontalPadding
 import me.foxtails.palustris.ui.components.FilterChipEntry
 import me.foxtails.palustris.ui.components.FilterChipRow
+import me.foxtails.palustris.ui.emoji.InlineEmojiText
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 
 @Composable
@@ -89,7 +91,8 @@ fun ProfileScreen(
     onReply: (OwnedPost) -> Unit = {},
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
-    onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+    onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
     LaunchedEffect(account?.id) {
@@ -141,6 +144,7 @@ fun ProfileScreen(
             onReshare = onReshare,
             onBookmark = onBookmark,
             onReaction = onReaction,
+            onOpenReactionPicker = onOpenReactionPicker,
             onOpenMedia = onOpenMedia,
             header = {
                 ProfileHeader(
@@ -277,10 +281,10 @@ private fun ProfileHeader(
                 verticalAlignment = Alignment.Top,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(
+                    InlineEmojiText(
                         text = account.displayName.ifBlank { account.handle },
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+                        emoji = account.emoji,
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     )
                     Text(
                         text = account.handle,
@@ -312,6 +316,7 @@ private fun ProfileHeader(
                 } else if (isSelf && movedTo == null) {
                     OutlinedButton(
                         onClick = onEditProfile,
+                        enabled = state.editableSupported,
                         modifier = Modifier.testTag("profile_edit_action"),
                     ) {
                         Text("Edit profile")
@@ -329,8 +334,9 @@ private fun ProfileHeader(
                 }
             }
 
-            Text(
+            InlineEmojiText(
                 text = account.biography.ifBlank { "No biography yet." },
+                emoji = account.emoji,
                 modifier = Modifier.padding(top = 16.dp).testTag("profile_biography"),
                 style = MaterialTheme.typography.bodyLarge,
             )
@@ -412,10 +418,9 @@ private fun ProfileRedirectBanner(
                 ) {
                     AccountAvatar(destination, Modifier.size(56.dp), exposeSemantics = false)
                     Column(Modifier.weight(1f)) {
-                        Text(
-                            destinationName,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                        InlineEmojiText(
+                            text = destinationName,
+                            emoji = destination.emoji,
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
@@ -488,16 +493,20 @@ private fun ProfileDetails(account: Account) {
                         .testTag("profile_field_$index"),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        field.name,
+                    InlineEmojiText(
+                        text = field.name,
+                        emoji = account.emoji,
                         modifier = Modifier.width(112.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                     )
-                    Text(
-                        field.value,
+                    InlineEmojiText(
+                        text = field.value,
+                        emoji = account.emoji,
                         modifier = Modifier.weight(1f),
-                        color = if (clickable) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = if (clickable) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface,
+                        ),
                     )
                 }
                 if (index < account.profileFields.lastIndex) {

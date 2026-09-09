@@ -2,6 +2,8 @@ package me.foxtails.palustris.ui.profile
 
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.EditableProfile
+import me.foxtails.palustris.domain.EditableProfileCapabilities
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.ProfileTimelineTab
@@ -38,4 +40,11 @@ data class ProfileUiState(
     val pages: Map<ProfileTimelineTab, ProfilePageState> = emptyMap(),
     val savingProfile: Boolean = false,
     val editError: String? = null,
+    /** Whether basic profile editing has any path on this account's source. */
+    val editableSupported: Boolean = true,
+    val editorOpen: Boolean = false,
+    val editableLoading: Boolean = false,
+    val editable: EditableProfile? = null,
+    val editableError: String? = null,
+    val editorCapabilities: EditableProfileCapabilities = EditableProfileCapabilities(),
 )

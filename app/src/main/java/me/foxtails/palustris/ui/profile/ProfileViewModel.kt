@@ -13,13 +13,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.CapabilityStatus
+import me.foxtails.palustris.domain.EditableProfile
+import me.foxtails.palustris.domain.EditableProfileCapabilities
+import me.foxtails.palustris.domain.EditableProfilePatch
+import me.foxtails.palustris.domain.EmojiChoice
+import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PostReactionReducer
 import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.ProfileTimelineTab
+import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
-import me.foxtails.palustris.domain.UpdateProfileRequest
 import me.foxtails.palustris.ui.requiresSignIn
 import me.foxtails.palustris.ui.sourceErrorMessage
 
@@ -39,6 +47,7 @@ class ProfileViewModel @AssistedInject constructor(
     private var editJob: Job? = null
     private val pageJobs = mutableMapOf<ProfileTimelineTab, Job>()
     private val requestedCursors = mutableMapOf<ProfileTimelineTab, MutableSet<String>>()
+    private val reactionJobs = mutableMapOf<EntityId, Job>()
 
     fun open(seed: Account) {
         if (stopped) return
@@ -64,6 +73,7 @@ class ProfileViewModel @AssistedInject constructor(
             targetId = seed.id,
             seedAccount = seed,
             account = seed,
+            editableSupported = editableSupported(source.capabilities.profile.editable),
         )
         loadDetails(seed.id, targetGeneration)
         loadRelationshipIfNeeded(seed.id, targetGeneration)
@@ -130,22 +140,59 @@ class ProfileViewModel @AssistedInject constructor(
         loadPage(target, tab, cursor, generation, refreshing = false)
     }
 
-    fun updateSelf(request: UpdateProfileRequest, onSuccess: (Account) -> Unit = {}) {
+    fun openEditor() {
+        if (stopped || _state.value.targetId != accountId) return
+        _state.value = _state.value.copy(
+            editorOpen = true,
+            editableLoading = true,
+            editableError = null,
+            editError = null,
+            editorCapabilities = source.capabilities.profile.editable,
+        )
+        loadEditor(generation)
+    }
+
+    fun refreshEditor() {
+        if (stopped || !_state.value.editorOpen) return
+        loadEditor(generation)
+    }
+
+    fun closeEditor() {
+        editJob?.cancel()
+        _state.value = _state.value.copy(
+            editorOpen = false,
+            editableLoading = false,
+            savingProfile = false,
+            editError = null,
+            editableError = null,
+        )
+    }
+
+    fun saveEditor(patch: EditableProfilePatch, onSuccess: (Account) -> Unit = {}) {
         if (stopped || _state.value.savingProfile || _state.value.targetId != accountId) return
+        if (patch.isEmpty) {
+            _state.value = _state.value.copy(editorOpen = false, editError = null)
+            _state.value.account?.let(onSuccess)
+            return
+        }
         val targetGeneration = generation
         _state.value = _state.value.copy(savingProfile = true, editError = null)
         editJob?.cancel()
         editJob = viewModelScope.launch {
             try {
-                val updated = source.updateProfile(request)
+                val updated = source.updateEditableProfile(patch)
                 if (isCurrent(targetGeneration, accountId)) {
+                    val current = _state.value.account ?: _state.value.seedAccount
+                    val merged = current?.let { updated.mergeInto(it) } ?: current
                     _state.value = _state.value.copy(
-                        account = updated,
-                        seedAccount = updated,
+                        account = merged,
+                        seedAccount = merged,
+                        editable = updated,
                         savingProfile = false,
                         editError = null,
+                        editorOpen = false,
                     )
-                    onSuccess(updated)
+                    merged?.let(onSuccess)
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -158,6 +205,49 @@ class ProfileViewModel @AssistedInject constructor(
                 }
             }
         }
+    }
+
+    fun react(ownedPost: OwnedPost, choice: EmojiChoice) {
+        if (stopped || ownedPost.fetchedBy != accountId) return
+        val emojiCapabilities = source.capabilities.emoji
+        if (emojiCapabilities.reactionMutation != CapabilityStatus.Supported ||
+            PostAction.React !in source.capabilities.actions
+        ) {
+            return
+        }
+        val postId = ownedPost.post.id
+        if (reactionJobs[postId]?.isActive == true) return
+        val actionTargetId = ownedPost.post.actionTargetId ?: postId
+        val before = ownedPost.post
+        val selected = before.selectedReactions.any { it.submissionValue == choice.submissionValue }
+        val optimistic = PostReactionReducer.apply(
+            post = before,
+            choice = choice,
+            selected = !selected,
+            selectionMode = emojiCapabilities.selectionMode,
+        )
+        updateOwnedPost(postId) { optimistic }
+        val job = viewModelScope.launch {
+            try {
+                if (selected) {
+                    source.removeReaction(actionTargetId, choice)
+                } else {
+                    if (emojiCapabilities.selectionMode == ReactionSelectionMode.Single) {
+                        before.selectedReactions.firstOrNull { it.submissionValue != choice.submissionValue }
+                            ?.let { source.removeReaction(actionTargetId, it) }
+                    }
+                    source.react(actionTargetId, choice)
+                }
+            } catch (error: CancellationException) {
+                updateOwnedPost(postId) { before }
+                throw error
+            } catch (error: Exception) {
+                updateOwnedPost(postId) { before }
+            } finally {
+                reactionJobs.remove(postId)
+            }
+        }
+        reactionJobs[postId] = job
     }
 
     fun follow() {
@@ -173,6 +263,46 @@ class ProfileViewModel @AssistedInject constructor(
         stopped = true
         generation += 1
         cancelProfileRequests()
+        reactionJobs.values.forEach(Job::cancel)
+        reactionJobs.clear()
+    }
+
+    private fun loadEditor(targetGeneration: Long) {
+        editJob?.cancel()
+        editJob = viewModelScope.launch {
+            try {
+                val editable = source.loadEditableProfile()
+                if (isCurrent(targetGeneration, accountId)) {
+                    _state.value = _state.value.copy(
+                        editable = editable,
+                        editableLoading = false,
+                        editableError = null,
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (isCurrent(targetGeneration, accountId)) {
+                    _state.value = _state.value.copy(
+                        editableLoading = false,
+                        editableError = sourceErrorMessage(error),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun updateOwnedPost(postId: EntityId, transform: (me.foxtails.palustris.domain.Post) -> me.foxtails.palustris.domain.Post) {
+        _state.value = _state.value.copy(
+            pinnedPosts = _state.value.pinnedPosts.map { owned ->
+                if (owned.post.id == postId) owned.copy(post = transform(owned.post)) else owned
+            },
+            pages = _state.value.pages.mapValues { (_, page) ->
+                page.copy(posts = page.posts.map { owned ->
+                    if (owned.post.id == postId) owned.copy(post = transform(owned.post)) else owned
+                })
+            },
+        )
     }
 
     private fun loadDetails(target: AccountId, targetGeneration: Long) {
@@ -439,6 +569,9 @@ class ProfileViewModel @AssistedInject constructor(
         fun create(accountId: AccountId, source: SocialSource): ProfileViewModel
     }
 }
+
+private fun editableSupported(capabilities: EditableProfileCapabilities): Boolean =
+    capabilities.read != CapabilityStatus.Unsupported || capabilities.update != CapabilityStatus.Unsupported
 
 private fun profileDetailsAvailable(capabilities: ServerCapabilities): Boolean =
     capabilities.profile.details != me.foxtails.palustris.domain.CapabilityStatus.Unsupported
