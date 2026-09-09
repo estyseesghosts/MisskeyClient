@@ -39,7 +39,8 @@ fun SavedPostsScreen(
     onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
     onReshare: (OwnedPost) -> Unit = {},
-    onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+    onReaction: (OwnedPost, me.foxtails.palustris.domain.EmojiChoice) -> Unit = { _, _ -> },
+    onOpenReactionPicker: (OwnedPost) -> Unit = {},
     availableActions: Set<PostAction> = setOf(PostAction.Bookmark),
     onOpenProfile: (me.foxtails.palustris.domain.Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
@@ -98,6 +99,7 @@ fun SavedPostsScreen(
                         onReaction = onReaction,
                         onOpenProfile = onOpenProfile,
                         onSearchHashtag = onSearchHashtag,
+                        onOpenReactionPicker = onOpenReactionPicker,
                         onOpenMedia = onOpenMedia,
                     )
                     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))

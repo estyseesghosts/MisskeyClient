@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -245,7 +246,7 @@ private fun AccountSearchResults(
             items(state.accounts, key = { "${it.id.connection.origin}/${it.id.localId}" }) { account ->
                 ListItem(
                     modifier = Modifier.clickable { onAccountClick(account) },
-                    headlineContent = { Text(account.displayName) },
+                    headlineContent = { me.foxtails.palustris.ui.emoji.AccountDisplayName(account, style = MaterialTheme.typography.titleMedium) },
                     supportingContent = { Text(account.handle) },
                     leadingContent = { AccountAvatar(account, Modifier.size(48.dp)) },
                 )
@@ -275,7 +276,42 @@ fun ComposeScreen(
     isReply: Boolean = false,
     onRemoveQuote: () -> Unit = {},
     onPublish: () -> Unit = {},
+    onRequestEmoji: ((me.foxtails.palustris.ui.emoji.ComposerField) -> Unit)? = null,
+    pendingEmojiInsertion: Pair<me.foxtails.palustris.domain.EmojiChoice, me.foxtails.palustris.ui.emoji.ComposerField>? = null,
+    onEmojiInsertionApplied: () -> Unit = {},
 ) {
+    var textSelection by remember { mutableStateOf(androidx.compose.ui.text.TextRange(text.length)) }
+    var warningSelection by remember { mutableStateOf(androidx.compose.ui.text.TextRange(warning.length)) }
+    LaunchedEffect(text) {
+        if (textSelection.min > text.length) textSelection = androidx.compose.ui.text.TextRange(text.length)
+    }
+    LaunchedEffect(warning) {
+        if (warningSelection.min > warning.length) warningSelection = androidx.compose.ui.text.TextRange(warning.length)
+    }
+    LaunchedEffect(pendingEmojiInsertion) {
+        val insertion = pendingEmojiInsertion ?: return@LaunchedEffect
+        when (insertion.second) {
+            me.foxtails.palustris.ui.emoji.ComposerField.Text -> {
+                val selection = textSelection
+                val start = selection.min.coerceIn(0, text.length)
+                val end = selection.max.coerceIn(start, text.length)
+                val inserted = text.replaceRange(start, end, insertion.first.submissionValue)
+                onTextChange(inserted)
+                textSelection = androidx.compose.ui.text.TextRange(start + insertion.first.submissionValue.length)
+            }
+            me.foxtails.palustris.ui.emoji.ComposerField.Warning -> {
+                val selection = warningSelection
+                val start = selection.min.coerceIn(0, warning.length)
+                val end = selection.max.coerceIn(start, warning.length)
+                val inserted = warning.replaceRange(start, end, insertion.first.submissionValue)
+                onWarningChange(inserted)
+                warningSelection = androidx.compose.ui.text.TextRange(start + insertion.first.submissionValue.length)
+            }
+        }
+        onEmojiInsertionApplied()
+    }
+    val textValue = remember(text, textSelection) { androidx.compose.ui.text.input.TextFieldValue(text, textSelection) }
+    val warningValue = remember(warning, warningSelection) { androidx.compose.ui.text.input.TextFieldValue(warning, warningSelection) }
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             if (account != null) AccountAvatar(account, Modifier.size(48.dp)) else Avatar(Modifier.size(48.dp))
@@ -289,20 +325,48 @@ fun ComposeScreen(
             OutlinedCard(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
                 Column(Modifier.padding(12.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (isReply) "Replying to ${target.post.author.displayName}" else "Quoting ${target.post.author.displayName}", style = MaterialTheme.typography.titleSmall)
+                        Row {
+                            Text(if (isReply) "Replying to " else "Quoting ", style = MaterialTheme.typography.titleSmall)
+                            me.foxtails.palustris.ui.emoji.AccountDisplayName(target.post.author, style = MaterialTheme.typography.titleSmall)
+                        }
                         TextButton(onClick = onRemoveQuote) { Text("Remove") }
                     }
-                    Text(target.post.text.ifBlank { "This post has no text." }, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                    if (target.post.text.isBlank()) {
+                        Text("This post has no text.", maxLines = 4, overflow = TextOverflow.Ellipsis)
+                    } else {
+                        me.foxtails.palustris.ui.emoji.PostText(
+                            target.post,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
         }
         if (warningEnabled) OutlinedTextField(
-            value = warning, onValueChange = onWarningChange,
+            value = warningValue,
+            onValueChange = { changed ->
+                onWarningChange(changed.text)
+                warningSelection = changed.selection
+            },
             label = { Text("Content warning") }, modifier = Modifier.fillMaxWidth(),
+            trailingIcon = {
+                if (onRequestEmoji != null) {
+                    TextButton(
+                        onClick = { onRequestEmoji(me.foxtails.palustris.ui.emoji.ComposerField.Warning) },
+                        modifier = Modifier.semantics { contentDescription = stringResource(me.foxtails.palustris.R.string.emoji_open_picker) },
+                    ) { Text(":)") }
+                }
+            },
         )
         BasicTextField(
-            value = text, onValueChange = onTextChange,
+            value = textValue,
+            onValueChange = { changed ->
+                onTextChange(changed.text)
+                textSelection = changed.selection
+            },
             modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp).padding(vertical = 24.dp).semantics { contentDescription = "Post text" },
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -310,7 +374,15 @@ fun ComposeScreen(
         )
         HorizontalDivider()
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            FilterChip(selected = warningEnabled, onClick = { onWarningEnabled(!warningEnabled) }, label = { Text("Content warning") })
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(selected = warningEnabled, onClick = { onWarningEnabled(!warningEnabled) }, label = { Text("Content warning") })
+                if (onRequestEmoji != null) {
+                    TextButton(
+                        onClick = { onRequestEmoji(me.foxtails.palustris.ui.emoji.ComposerField.Text) },
+                        modifier = Modifier.semantics { contentDescription = stringResource(me.foxtails.palustris.R.string.emoji_open_picker) },
+                    ) { Text(stringResource(me.foxtails.palustris.R.string.emoji_picker_title)) }
+                }
+            }
             Text("${text.length} characters", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(if (canPublish) "Posts will be published to your connected account." else "Publishing is disabled for this account.",
@@ -341,7 +413,13 @@ fun DraftsScreen(drafts: List<me.foxtails.palustris.domain.PostDraft>, onEdit: (
                 Column(Modifier.padding(20.dp)) {
                     Text("Draft", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(12.dp))
-                    Text(draft.text.ifBlank { draft.contentWarning.orEmpty() }, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                    me.foxtails.palustris.ui.emoji.InlineEmojiText(
+                        draft.text.ifBlank { draft.contentWarning.orEmpty() },
+                        draft.quotePreview?.postEmoji.orEmpty(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 5,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     Spacer(Modifier.height(12.dp))
                     Text("Tap to continue editing", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     TextButton(onClick = { pendingDelete = draft; confirmDelete = true }, modifier = Modifier.align(Alignment.End)) { Text("Delete draft") }

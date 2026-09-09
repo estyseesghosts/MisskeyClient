@@ -33,20 +33,25 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import kotlinx.coroutines.flow.distinctUntilChanged
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.*
+import me.foxtails.palustris.ui.emoji.AccountDisplayName
+import me.foxtails.palustris.ui.emoji.CustomEmojiImage
+import me.foxtails.palustris.ui.emoji.InlineEmojiText
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.PostMediaCarousel
 
@@ -75,7 +80,8 @@ fun HomeFeed(
     onReply: (OwnedPost) -> Unit = {},
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
-    onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+    onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onQuote: (OwnedPost) -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
@@ -159,6 +165,7 @@ fun HomeFeed(
                     onSearchHashtag,
                     quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported,
                     onQuote = onQuote,
+                    onOpenReactionPicker = onOpenReactionPicker,
                     onOpenMedia = onOpenMedia,
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
@@ -199,22 +206,28 @@ internal fun PostRow(
     onReply: (OwnedPost) -> Unit,
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
-    onReaction: (OwnedPost, String) -> Unit,
+    onReaction: (OwnedPost, EmojiChoice) -> Unit,
     onOpenProfile: ((Account) -> Unit)?,
     onSearchHashtag: ((String) -> Unit)?,
     quoteEnabled: Boolean = false,
     onQuote: (OwnedPost) -> Unit = {},
+    onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
-    val presentation = remember(post.text) { parseHashtagBlocks(post.text) }
+    val presentation = remember(post.text, post.emoji) { parseHashtagBlocks(post.text, post.emoji) }
     val contentVisible = post.contentWarning == null || expanded
     Column(Modifier.fillMaxWidth().testTag("post_row_${post.id.value}")) {
         post.resharedBy?.let {
-            Text("${it.displayName} reshared", Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
-                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp)) {
+                AccountDisplayName(
+                    it,
+                    style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                )
+                Text(" reshared", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         PostMetadataRow(
             post = post,
@@ -224,7 +237,7 @@ internal fun PostRow(
         )
         if (post.replyTo != null) Text("Reply", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         if (post.contentWarning != null) {
-            Text(post.contentWarning.ifBlank { "Content warning" }, Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyLarge)
+            InlineEmojiText(post.contentWarning.ifBlank { "Content warning" }, post.emoji, Modifier.padding(horizontal = 16.dp), MaterialTheme.typography.bodyLarge)
             TextButton(onClick = { expanded = !expanded }, modifier = Modifier.padding(horizontal = 4.dp)) { Text(if (expanded) "Hide content" else "Show content") }
         }
         if (contentVisible) {
@@ -232,7 +245,11 @@ internal fun PostRow(
             if (presentation.visibleText.isNotBlank() || timestamp != null) SelectionContainer {
                 Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
                     if (presentation.visibleText.isNotBlank()) {
-                        MarkdownPostText(presentation.visibleText, style = MaterialTheme.typography.bodyLarge)
+                        InlineEmojiText(
+                            presentation.visibleText,
+                            post.emoji,
+                            style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        )
                     }
                     timestamp?.let {
                         if (presentation.visibleText.isNotBlank()) Spacer(Modifier.height(2.dp))
@@ -248,15 +265,24 @@ internal fun PostRow(
             PostMediaCarousel(ownedPost = ownedPost, onOpenMedia = onOpenMedia)
             post.pollOptions.forEach { option ->
                 Surface(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-                    Row(Modifier.padding(12.dp)) { Text(option.text, Modifier.weight(1f)); Text("${option.votes}", style = MaterialTheme.typography.labelLarge) }
+                    Row(Modifier.padding(12.dp)) {
+                        InlineEmojiText(option.text, post.emoji, Modifier.weight(1f), MaterialTheme.typography.bodyMedium)
+                        Text("${option.votes}", style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
             post.quote?.let { quote ->
                 OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp), onClick = { openExternal(context, quote.url) }) {
                     Column(Modifier.padding(16.dp)) {
-                        Text(quote.author.displayName, style = MaterialTheme.typography.titleSmall)
+                        AccountDisplayName(quote.author, style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.height(8.dp))
-                        Text(quote.contentWarning?.ifBlank { "Content warning" } ?: quote.text, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                        InlineEmojiText(
+                            quote.contentWarning?.ifBlank { "Content warning" } ?: quote.text,
+                            quote.emoji,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 5,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                         Text("View quoted post", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -275,6 +301,7 @@ internal fun PostRow(
             onReaction = onReaction,
             quoteEnabled = quoteEnabled,
             onQuote = onQuote,
+            onOpenReactionPicker = onOpenReactionPicker,
             onShare = { sharePost(context, post) },
         )
     }
@@ -298,8 +325,8 @@ private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenPr
         ) {
             AccountAvatar(post.author, Modifier.size(40.dp))
             Spacer(Modifier.width(8.dp))
-            Text(
-                post.author.displayName,
+            AccountDisplayName(
+                post.author,
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -376,7 +403,7 @@ private fun ReactionRow(
     reactions: List<Reaction>,
     ownedPost: OwnedPost,
     enabled: Boolean,
-    onReaction: (OwnedPost, String) -> Unit,
+    onReaction: (OwnedPost, EmojiChoice) -> Unit,
 ) {
     FlowRow(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -384,12 +411,30 @@ private fun ReactionRow(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         reactions.forEach { reaction ->
+            val countText = pluralStringResource(R.plurals.reaction_count, reaction.count, reaction.count)
             Surface(
                 modifier = Modifier
                     .height(ReactionChipHeight)
                     .widthIn(min = ReactionChipMinWidth)
-                    .combinedClickable(enabled = enabled, onClick = { onReaction(ownedPost, reaction.emoji) })
-                    .testTag("reaction_chip_${reaction.emoji}"),
+                    .combinedClickable(
+                        enabled = enabled,
+                        onClick = {
+                            onReaction(ownedPost, EmojiChoice(reaction.emoji, reaction.emoji, reaction.emojiMetadata))
+                        },
+                    )
+                    .testTag("reaction_chip_${reaction.emoji}")
+                    .semantics {
+                        contentDescription = "${reaction.emoji}, $countText"
+                        role = Role.Button
+                        this.selected = reaction.selected
+                        if (reaction.selected) {
+                            stateDescription = if (enabled) {
+                                stringResource(R.string.emoji_reaction_remove, reaction.emoji)
+                            } else {
+                                stringResource(R.string.emoji_reaction_selected, reaction.emoji)
+                            }
+                        }
+                    },
                 shape = CircleShapeForReaction,
                 color = if (reaction.selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
             ) {
@@ -401,24 +446,12 @@ private fun ReactionRow(
                         Modifier.size(ReactionEmojiSlotSize).testTag("reaction_emoji_slot_${reaction.emoji}"),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (reaction.imageUrl != null) {
-                            AsyncImage(
-                                model = reaction.imageUrl,
-                                contentDescription = reaction.emoji,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit,
-                            )
-                        } else {
-                            Text(
-                                text = reaction.emoji,
-                                modifier = Modifier.fillMaxWidth(),
-                                fontSize = 16.sp,
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Clip,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
+                        CustomEmojiImage(
+                            emoji = reaction.emojiMetadata,
+                            fallbackText = reaction.emoji,
+                            modifier = Modifier.fillMaxSize(),
+                            textStyle = MaterialTheme.typography.labelLarge.copy(fontSize = 16.sp),
+                        )
                     }
                     Spacer(Modifier.width(4.dp))
                     Box(
@@ -441,19 +474,13 @@ private fun InteractionRow(
     onReact: (OwnedPost) -> Unit,
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
-    onReaction: (OwnedPost, String) -> Unit,
+    onReaction: (OwnedPost, EmojiChoice) -> Unit,
     quoteEnabled: Boolean,
     onQuote: (OwnedPost) -> Unit,
+    onOpenReactionPicker: (OwnedPost) -> Unit,
     onShare: () -> Unit,
 ) {
-    var reactionMenuVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
     var repostMenuVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
-    var customReactionDialogVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
-    var customReaction by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf("") }
-    val postReactions = ownedPost.post.reactions.map { it.emoji }
-    val reactionChoices = remember(postReactions) {
-        (postReactions + listOf("👍", "❤️", "😂", "🎉", "🤔")).distinct()
-    }
 
     Row(
         modifier = Modifier
@@ -496,28 +523,14 @@ private fun InteractionRow(
                 label = if (ownedPost.post.favourited) "Unfavorite" else "Favorite",
                 enabled = favouriteEnabled || reactionEnabled,
                 isSelected = ownedPost.post.favourited,
-                onClick = { if (favouriteEnabled) onReact(ownedPost) },
-                onLongClick = if (reactionEnabled) ({ reactionMenuVisible = true }) else null,
+                onClick = {
+                    when {
+                        favouriteEnabled -> onReact(ownedPost)
+                        reactionEnabled -> onOpenReactionPicker(ownedPost)
+                    }
+                },
+                onLongClick = if (reactionEnabled) ({ onOpenReactionPicker(ownedPost) }) else null,
             )
-            DropdownMenu(expanded = reactionMenuVisible, onDismissRequest = { reactionMenuVisible = false }) {
-                Text("Add reaction", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
-                reactionChoices.forEach { emoji ->
-                    DropdownMenuItem(
-                        text = { Text(emoji, fontSize = 24.sp) },
-                        onClick = {
-                            reactionMenuVisible = false
-                            onReaction(ownedPost, emoji)
-                        },
-                    )
-                }
-                DropdownMenuItem(
-                    text = { Text("Add another reaction…") },
-                    onClick = {
-                        reactionMenuVisible = false
-                        customReactionDialogVisible = true
-                    },
-                )
-            }
         }
         InteractionButton(
             Modifier.weight(1f),
@@ -529,30 +542,6 @@ private fun InteractionRow(
         )
         InteractionButton(Modifier.weight(1f), AppIcons.Share, "Share", onClick = onShare)
     }
-
-    if (customReactionDialogVisible) AlertDialog(
-        onDismissRequest = { customReactionDialogVisible = false },
-        title = { Text("Add reaction") },
-        text = {
-            OutlinedTextField(
-                value = customReaction,
-                onValueChange = { customReaction = it },
-                label = { Text("Emoji or custom reaction") },
-                singleLine = true,
-            )
-        },
-        confirmButton = {
-            TextButton(
-                enabled = customReaction.trim().isNotEmpty(),
-                onClick = {
-                    customReactionDialogVisible = false
-                    onReaction(ownedPost, customReaction.trim())
-                    customReaction = ""
-                },
-            ) { Text("Add") }
-        },
-        dismissButton = { TextButton(onClick = { customReactionDialogVisible = false }) { Text("Cancel") } },
-    )
 }
 
 @Composable

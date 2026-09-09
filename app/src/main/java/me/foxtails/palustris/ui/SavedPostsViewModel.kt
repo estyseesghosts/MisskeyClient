@@ -28,6 +28,7 @@ class SavedPostsViewModel @AssistedInject constructor(
     val state = _state.asStateFlow()
     private var requestJob: Job? = null
     private val unsaveJobs = mutableMapOf<String, Job>()
+    private val reactionJobs = mutableMapOf<String, Job>()
     private val requestedCursors = mutableSetOf<String?>()
     private var stopped = false
 
@@ -90,11 +91,62 @@ class SavedPostsViewModel @AssistedInject constructor(
         unsaveJobs[key] = job
     }
 
+    /** Collection-local reaction mutation using the same reducer and source rules as the feed. */
+    fun react(ownedPost: OwnedPost, choice: me.foxtails.palustris.domain.EmojiChoice) {
+        if (stopped || ownedPost.fetchedBy != accountId) return
+        val selectionMode = source.capabilities.emoji.selectionMode
+        val identity = choice.submissionValue
+        val selected = ownedPost.post.selectedReactions.any { it.submissionValue == identity } ||
+            ownedPost.post.myReaction == identity
+        val key = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}"
+        if (reactionJobs[key]?.isActive == true) return
+        val before = ownedPost.post
+        val optimistic = me.foxtails.palustris.domain.PostReactionReducer.apply(
+            before, choice, !selected, selectionMode,
+        )
+        updatePost(before.id) { optimistic }
+        val job = viewModelScope.launch {
+            try {
+                val target = before.actionTargetId ?: before.id
+                val previousSelections = before.selectedReactions.ifEmpty {
+                    before.myReaction?.let { mine ->
+                        listOf(me.foxtails.palustris.domain.EmojiChoice(
+                            mine, mine, before.reactions.firstOrNull { it.emoji == mine }?.emojiMetadata,
+                        ))
+                    }.orEmpty()
+                }
+                if (selected) {
+                    source.removeReaction(target, choice)
+                } else {
+                    if (selectionMode != me.foxtails.palustris.domain.ReactionSelectionMode.Independent) {
+                        previousSelections.filterNot { it.submissionValue == identity }
+                            .forEach { previous -> source.removeReaction(target, previous) }
+                    }
+                    source.react(target, choice)
+                }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                updatePost(before.id) { before }
+                _state.value = _state.value.copy(error = sourceErrorMessage(error), needsSignIn = requiresSignIn(error))
+            } finally {
+                if (reactionJobs[key] === coroutineContext[Job]) reactionJobs.remove(key)
+            }
+        }
+        reactionJobs[key] = job
+    }
+
     fun stop() {
         if (stopped) return
         stopped = true
         requestJob?.cancel()
         unsaveJobs.values.forEach(Job::cancel)
+        reactionJobs.values.forEach(Job::cancel)
+    }
+
+    private fun updatePost(id: me.foxtails.palustris.domain.EntityId, transform: (me.foxtails.palustris.domain.Post) -> me.foxtails.palustris.domain.Post) {
+        _state.value = _state.value.copy(posts = _state.value.posts.map { owned ->
+            if (owned.post.id == id && owned.fetchedBy == accountId) owned.copy(post = transform(owned.post)) else owned
+        })
     }
 
     private suspend fun load(kind: SavedPostsKind, cursor: String?, replace: Boolean) {

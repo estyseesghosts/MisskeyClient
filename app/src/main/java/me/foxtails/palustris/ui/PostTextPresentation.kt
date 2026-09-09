@@ -1,5 +1,8 @@
 package me.foxtails.palustris.ui
 
+import me.foxtails.palustris.domain.CustomEmoji
+import me.foxtails.palustris.ui.emoji.EmojiTextParser
+
 internal data class PostTextPresentation(
     val visibleText: String,
     val filteredHashtags: List<String>,
@@ -19,22 +22,30 @@ private data class RemovalRange(
 
 private val hashtagToken = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
 
-/** Removes terminal hashtag lists and detached decorative hashtag blocks from post text. */
-internal fun parseHashtagBlocks(text: String): PostTextPresentation {
+/**
+ * Removes terminal hashtag lists and detached decorative hashtag blocks from post text.
+ * Metadata-backed custom emoji tokens count as decorative separators; their ranges come
+ * from the shared parser so hashtag positions never shift.
+ */
+internal fun parseHashtagBlocks(
+    text: String,
+    emoji: Map<String, CustomEmoji> = emptyMap(),
+): PostTextPresentation {
     if (text.isEmpty()) return PostTextPresentation("", emptyList(), emptyList())
 
-    val tokens = findHashtagTokens(text)
+    val emojiRanges = if (emoji.isEmpty()) emptyList() else EmojiTextParser.parse(text, emoji).emojiRanges
+    val tokens = findHashtagTokens(text, emojiRanges)
     if (tokens.isEmpty()) return PostTextPresentation(text, emptyList(), emptyList())
 
     val removals = mutableListOf<RemovalRange>()
     val semanticEnd = semanticEnd(text)
-    val terminalTokens = findTerminalHashtags(text, tokens, semanticEnd)
+    val terminalTokens = findTerminalHashtags(text, tokens, semanticEnd, emojiRanges)
     if (terminalTokens.isNotEmpty()) {
         val firstStart = includeTerminalWhitespaceBefore(text, terminalTokens.first().range.first)
         removals += RemovalRange(firstStart, text.length, detachedLine = false)
     }
 
-    findDetachedBlocks(text, tokens).forEach { block ->
+    findDetachedBlocks(text, tokens, emojiRanges).forEach { block ->
         removals += block
     }
 
@@ -50,7 +61,7 @@ internal fun parseHashtagBlocks(text: String): PostTextPresentation {
     return PostTextPresentation(visibleText, filteredHashtags, filteredRanges)
 }
 
-private fun findHashtagTokens(text: String): List<HashtagToken> {
+private fun findHashtagTokens(text: String, emojiRanges: List<IntRange>): List<HashtagToken> {
     val tokens = mutableListOf<HashtagToken>()
     var searchStart = 0
     while (searchStart < text.length) {
@@ -60,7 +71,7 @@ private fun findHashtagTokens(text: String): List<HashtagToken> {
         val match = hashtagToken.matchAt(text, hash)
         if (match != null) {
             val range = markdownHashtagLinkRange(text, match.range) ?: match.range
-            if (hashtagBoundaryIsValid(text, range)) {
+            if (hashtagBoundaryIsValid(text, range, emojiRanges)) {
                 tokens += HashtagToken(range, match.value)
             }
             searchStart = range.last + 1
@@ -82,11 +93,14 @@ private fun markdownHashtagLinkRange(text: String, hashtagRange: IntRange): IntR
             text.substring(labelStart, labelEndExclusive).trim() == text.substring(hashtagRange)
     }?.range
 
-private fun hashtagBoundaryIsValid(text: String, range: IntRange): Boolean {
+private fun hashtagBoundaryIsValid(text: String, range: IntRange, emojiRanges: List<IntRange>): Boolean {
     val before = codePointBefore(text, range.first)
     val after = codePointAtOrNull(text, range.last + 1)
-    return (before == null || isHashtagBoundary(before)) &&
-        (after == null || isHashtagBoundary(after))
+    val beforeInEmoji = before != null &&
+        emojiRanges.any { range.first - Character.charCount(before) in it }
+    val afterInEmoji = emojiRanges.any { range.last + 1 in it }
+    return (before == null || isHashtagBoundary(before) || beforeInEmoji) &&
+        (after == null || isHashtagBoundary(after) || afterInEmoji)
 }
 
 private fun isHashtagBoundary(codePoint: Int): Boolean =
@@ -96,30 +110,35 @@ private fun findTerminalHashtags(
     text: String,
     tokens: List<HashtagToken>,
     semanticEnd: Int,
+    emojiRanges: List<IntRange>,
 ): List<HashtagToken> {
     val terminalCandidates = tokens.filter { it.range.last + 1 <= semanticEnd }
     val last = terminalCandidates.lastOrNull() ?: return emptyList()
-    if (!onlyTerminalSeparators(text, last.range.last + 1, semanticEnd)) return emptyList()
+    if (!onlyTerminalSeparators(text, last.range.last + 1, semanticEnd, emojiRanges)) return emptyList()
 
     val result = mutableListOf(last)
     var index = terminalCandidates.lastIndex - 1
     while (index >= 0) {
         val previous = terminalCandidates[index]
         val following = result.first()
-        if (!onlyTerminalSeparators(text, previous.range.last + 1, following.range.first)) break
+        if (!onlyTerminalSeparators(text, previous.range.last + 1, following.range.first, emojiRanges)) break
         result.add(0, previous)
         index--
     }
     return result
 }
 
-private fun findDetachedBlocks(text: String, tokens: List<HashtagToken>): List<RemovalRange> {
+private fun findDetachedBlocks(
+    text: String,
+    tokens: List<HashtagToken>,
+    emojiRanges: List<IntRange>,
+): List<RemovalRange> {
     val lines = linesOf(text)
     val qualifyingLines = lines.map { line ->
         val lineTokens = tokens.filter { token ->
             token.range.first >= line.start && token.range.last < line.contentEndExclusive
         }
-        line to lineTokens.takeIf { it.isNotEmpty() && lineContainsOnlySeparators(text, line, it) }
+        line to lineTokens.takeIf { it.isNotEmpty() && lineContainsOnlySeparators(text, line, it, emojiRanges) }
     }
 
     val blocks = mutableListOf<RemovalRange>()
@@ -162,13 +181,14 @@ private fun lineContainsOnlySeparators(
     text: String,
     line: TextLine,
     tokens: List<HashtagToken>,
+    emojiRanges: List<IntRange>,
 ): Boolean {
     var cursor = line.start
     tokens.forEach { token ->
-        if (!onlyBlockSeparators(text, cursor, token.range.first)) return false
+        if (!onlyBlockSeparators(text, cursor, token.range.first, emojiRanges)) return false
         cursor = token.range.last + 1
     }
-    return onlyBlockSeparators(text, cursor, line.contentEndExclusive)
+    return onlyBlockSeparators(text, cursor, line.contentEndExclusive, emojiRanges)
 }
 
 private fun mergeRemovals(removals: List<RemovalRange>): List<RemovalRange> {
@@ -234,20 +254,34 @@ private fun trailingLineBreakCount(text: StringBuilder): Int {
     return count
 }
 
-private fun onlyTerminalSeparators(text: String, start: Int, endExclusive: Int): Boolean =
-    onlySeparators(text, start, endExclusive, ::isTerminalSeparator)
+private fun onlyTerminalSeparators(
+    text: String,
+    start: Int,
+    endExclusive: Int,
+    emojiRanges: List<IntRange>,
+): Boolean = onlySeparators(text, start, endExclusive, emojiRanges, ::isTerminalSeparator)
 
-private fun onlyBlockSeparators(text: String, start: Int, endExclusive: Int): Boolean =
-    onlySeparators(text, start, endExclusive, ::isBlockSeparator)
+private fun onlyBlockSeparators(
+    text: String,
+    start: Int,
+    endExclusive: Int,
+    emojiRanges: List<IntRange>,
+): Boolean = onlySeparators(text, start, endExclusive, emojiRanges, ::isBlockSeparator)
 
 private fun onlySeparators(
     text: String,
     start: Int,
     endExclusive: Int,
+    emojiRanges: List<IntRange>,
     predicate: (Int) -> Boolean,
 ): Boolean {
     var index = start
     while (index < endExclusive) {
+        val covering = emojiRanges.firstOrNull { index in it }
+        if (covering != null) {
+            index = covering.last + 1
+            continue
+        }
         val codePoint = text.codePointAt(index)
         if (!predicate(codePoint)) return false
         index += Character.charCount(codePoint)

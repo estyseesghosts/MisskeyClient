@@ -17,13 +17,16 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
+import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PostActionResult
 import me.foxtails.palustris.domain.PostPreferencesRepository
+import me.foxtails.palustris.domain.PostReactionReducer
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
+import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 
@@ -271,22 +274,37 @@ class FeedViewModel @AssistedInject constructor(
         )
     }
 
-    fun react(ownedPost: OwnedPost, emoji: String) {
-        val selected = ownedPost.post.myReaction == emoji
+    fun react(ownedPost: OwnedPost, choice: EmojiChoice) {
+        val selectionMode = source.capabilities.emoji.selectionMode
+        val identity = choice.submissionValue
+        val selected = ownedPost.post.selectedReactions.any { it.submissionValue == identity } ||
+            ownedPost.post.myReaction == identity
+        val primaryEmoji = if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) {
+            favouriteEmoji
+        } else {
+            null
+        }
         val actionTargetId = ownedPost.post.actionTargetId ?: ownedPost.post.id
         runAction(
             ownedPost = ownedPost,
             action = PostAction.React,
-            optimistic = { post -> updateReaction(post, emoji, !selected) },
+            optimistic = { post ->
+                PostReactionReducer.apply(post, choice, !selected, selectionMode, primaryEmoji)
+            },
             operation = {
-                val previousReaction = ownedPost.post.myReaction
+                val previousSelections = ownedPost.post.selectedReactions.ifEmpty {
+                    ownedPost.post.myReaction?.let { mine ->
+                        listOf(EmojiChoice(mine, mine, ownedPost.post.reactions.firstOrNull { it.emoji == mine }?.emojiMetadata))
+                    }.orEmpty()
+                }
                 if (selected) {
-                    source.removeReaction(actionTargetId, emoji)
+                    source.removeReaction(actionTargetId, choice)
                 } else {
-                    if (previousReaction != null && previousReaction != emoji) {
-                        source.removeReaction(actionTargetId, previousReaction)
+                    if (selectionMode != ReactionSelectionMode.Independent) {
+                        previousSelections.filterNot { it.submissionValue == identity }
+                            .forEach { previous -> source.removeReaction(actionTargetId, previous) }
                     }
-                    source.react(actionTargetId, emoji)
+                    source.react(actionTargetId, choice)
                 }
                 PostActionResult(selected = !selected)
             },
@@ -391,42 +409,6 @@ class FeedViewModel @AssistedInject constructor(
             PostAction.React -> base
             PostAction.Reply -> base
         }
-    }
-
-    private fun updateReaction(post: Post, emoji: String, selected: Boolean): Post {
-        val previousEmoji = post.myReaction
-        val nextReactions = post.reactions.toMutableList()
-        if (previousEmoji != null && previousEmoji != emoji) {
-            val index = nextReactions.indexOfFirst { it.emoji == previousEmoji }
-            if (index >= 0) {
-                val previous = nextReactions[index]
-                if (previous.count <= 1) nextReactions.removeAt(index)
-                else nextReactions[index] = previous.copy(count = previous.count - 1, selected = false)
-            }
-        }
-        val index = nextReactions.indexOfFirst { it.emoji == emoji }
-        if (selected) {
-            if (index >= 0) {
-                val reaction = nextReactions[index]
-                nextReactions[index] = reaction.copy(count = reaction.count + 1, selected = true)
-            } else {
-                nextReactions += me.foxtails.palustris.domain.Reaction(emoji, 1, true)
-            }
-        } else if (index >= 0) {
-            val reaction = nextReactions[index]
-            if (reaction.count <= 1) nextReactions.removeAt(index)
-            else nextReactions[index] = reaction.copy(count = reaction.count - 1, selected = false)
-        }
-        val nextReaction = emoji.takeIf { selected }
-        return post.copy(
-            myReaction = nextReaction,
-            favourited = if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) {
-                nextReaction == favouriteEmoji
-            } else {
-                post.favourited
-            },
-            reactions = nextReactions,
-        )
     }
 
     private fun updatePost(id: EntityId, transform: (Post) -> Post) {

@@ -17,6 +17,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -53,6 +54,11 @@ fun NotificationRow(
         else -> ""
     }
     val summary = actorSummary(notification)
+    val summaryEmoji = remember(notification) {
+        (notification.group?.actorPreviews?.takeIf { it.isNotEmpty() } ?: notification.actors)
+            .flatMap { it.emoji.entries }
+            .associate { it.toPair() }
+    }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -74,9 +80,23 @@ fun NotificationRow(
             else Avatar(Modifier.size(44.dp), description = null)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(activityLabel, style = MaterialTheme.typography.titleSmall)
-                Text(
+                if (notification.activity is NotificationActivity.EmojiReaction) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        me.foxtails.palustris.ui.emoji.CustomEmojiImage(
+                            emoji = notification.activity.reaction.emoji,
+                            fallbackText = notification.activity.reaction.fallbackText,
+                            modifier = Modifier.size(20.dp),
+                            textStyle = MaterialTheme.typography.labelLarge,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(activityLabel, style = MaterialTheme.typography.titleSmall)
+                    }
+                } else {
+                    Text(activityLabel, style = MaterialTheme.typography.titleSmall)
+                }
+                me.foxtails.palustris.ui.emoji.InlineEmojiText(
                     summary,
+                    summaryEmoji,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -92,10 +112,19 @@ fun NotificationRow(
                 )
                 notification.post?.let { post ->
                     if (!post.contentWarning.isNullOrBlank()) {
-                        Text(post.contentWarning, style = MaterialTheme.typography.labelMedium)
+                        me.foxtails.palustris.ui.emoji.InlineEmojiText(
+                            post.contentWarning,
+                            post.emoji,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
                     }
                     if (post.text.isNotBlank() && post.contentWarning.isNullOrBlank()) {
-                        Text(post.text, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        me.foxtails.palustris.ui.emoji.PostText(
+                            post,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
                 if (notification.activity is NotificationActivity.FollowRequest) {
