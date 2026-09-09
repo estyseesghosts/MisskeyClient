@@ -68,6 +68,7 @@ import me.foxtails.palustris.ui.components.FilterChipEntry
 import me.foxtails.palustris.ui.components.FilterChipRow
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
 import me.foxtails.palustris.ui.media.MediaOpenRequest
+import me.foxtails.palustris.ui.motion.PopEffect
 
 @Composable
 fun ProfileScreen(
@@ -275,7 +276,9 @@ private fun ProfileHeader(
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 4.dp,
             ) {
-                AccountAvatar(account, Modifier.padding(4.dp))
+                PopEffect(account.id) {
+                    AccountAvatar(account, Modifier.padding(4.dp))
+                }
             }
         }
 

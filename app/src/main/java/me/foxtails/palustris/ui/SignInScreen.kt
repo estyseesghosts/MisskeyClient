@@ -1,7 +1,19 @@
 package me.foxtails.palustris.ui
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -35,6 +47,10 @@ import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.profile.ProfileViewModel
+import me.foxtails.palustris.ui.motion.AnimatedStatePane
+import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
+import me.foxtails.palustris.ui.motion.palustrisMotionScheme
+import me.foxtails.palustris.ui.motion.springPress
 
 @Composable
 fun ConnectedApp(
@@ -161,16 +177,39 @@ fun ConnectedApp(
         }
         notificationLaunchRouter.clear()
     }
-    when {
-        state.starting -> PalustrisTheme { Surface(Modifier.fillMaxSize()) {
-            Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        } }
-        state.account == null || state.addingAccount -> PalustrisTheme {
-            key(state.addingAccount) {
-                SignInScreen(state, accountManager::signIn, accountManager::finishSignIn, accountManager::reopenBrowser, accountManager::cancelSignIn)
+    val motionScheme = palustrisMotionScheme()
+    val topLevelScreen = when {
+        state.starting -> "startup"
+        state.account == null || state.addingAccount -> "signin"
+        else -> "app"
+    }
+    AnimatedContent(
+        targetState = topLevelScreen,
+        transitionSpec = {
+            if (motionScheme.reducedMotion) {
+                EnterTransition.None togetherWith ExitTransition.None
+            } else if (targetState == "app" && initialState != "app") {
+                (fadeIn(motionScheme.fastFadeIn) + slideInVertically(motionScheme.spatialOffset) { it / 8 } + scaleIn(initialScale = 0.98f, animationSpec = motionScheme.spatial)) togetherWith
+                    (fadeOut(motionScheme.fastFadeOut) + scaleOut(targetScale = 0.98f, animationSpec = motionScheme.spatial))
+            } else if (initialState == "app" && targetState != "app") {
+                (fadeIn(motionScheme.fastFadeIn) + scaleIn(initialScale = 0.98f, animationSpec = motionScheme.spatial)) togetherWith
+                    (fadeOut(motionScheme.fastFadeOut) + slideOutVertically(motionScheme.spatialOffset) { it / 8 } + scaleOut(targetScale = 0.98f, animationSpec = motionScheme.spatial))
+            } else {
+                fadeIn(motionScheme.fastFadeIn) togetherWith fadeOut(motionScheme.fastFadeOut)
             }
-        }
-        else -> key(state.account!!.id) {
+        },
+        label = "connectedAppState",
+    ) { screen ->
+        when (screen) {
+            "startup" -> PalustrisTheme { Surface(Modifier.fillMaxSize()) {
+                Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            } }
+            "signin" -> PalustrisTheme {
+                key(state.addingAccount) {
+                    SignInScreen(state, accountManager::signIn, accountManager::finishSignIn, accountManager::reopenBrowser, accountManager::cancelSignIn)
+                }
+            }
+            else -> key(state.account!!.id) {
             PalustrisApp(
                 account = state.account,
                 feedState = feed,
@@ -239,6 +278,7 @@ fun ConnectedApp(
                 onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
                 onProfilePostReaction = { ownedPost, choice -> profileModel?.react(ownedPost, choice) },
             )
+            }
         }
     }
 }
@@ -251,6 +291,7 @@ private val suggestedInstances = listOf(
 @Composable
 fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> Unit, onReopen: () -> Unit, onCancel: () -> Unit) {
     var domain by rememberSaveable { mutableStateOf("") }
+    val scheme = LocalPalustrisMotionScheme.current
     Scaffold(
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
@@ -258,8 +299,17 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
                     Button(onClick = { if (state.pending) onComplete() else onNext(domain) },
                         enabled = !state.busy && (domain.isNotBlank() || state.pending),
                         modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().height(56.dp)) {
-                        if (state.busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else Text(if (state.pending) "I've authorized access" else "Next")
+                        AnimatedContent(
+                            targetState = state.busy to state.pending,
+                            transitionSpec = {
+                                if (scheme.reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+                                else fadeIn(scheme.fastFadeIn) togetherWith fadeOut(scheme.fastFadeOut)
+                            },
+                            label = "signInButtonContent",
+                        ) { (busy, pending) ->
+                            if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            else Text(if (pending) "I've authorized access" else "Next")
+                        }
                     }
                 }
             }
@@ -281,23 +331,25 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
                     }
                 }
                 Spacer(Modifier.height(24.dp))
-                Text(
-                    when {
-                        state.pending -> "One more step"
-                        state.addingAccount -> "Add another account"
-                        else -> "Welcome!"
-                    },
-                    style = MaterialTheme.typography.headlineLarge,
-                )
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    if (state.pending) "Approve Palustris in your browser on ${state.origin?.removePrefix("https://")}. Then return here to open your home feed."
-                    else if (state.addingAccount) "Sign in to another account. Your current account will stay connected."
-                    else "To get started, enter your home instance’s domain name below.",
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                AnimatedStatePane(stateKey = state.pending, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        when {
+                            state.pending -> "One more step"
+                            state.addingAccount -> "Add another account"
+                            else -> "Welcome!"
+                        },
+                        style = MaterialTheme.typography.headlineLarge,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        if (state.pending) "Approve Palustris in your browser on ${state.origin?.removePrefix("https://")}. Then return here to open your home feed."
+                        else if (state.addingAccount) "Sign in to another account. Your current account will stay connected."
+                        else "To get started, enter your home instance’s domain name below.",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
                 Spacer(Modifier.height(24.dp))
-                if (!state.pending) {
+                    if (!state.pending) {
                     OutlinedTextField(value = domain, onValueChange = { domain = it }, enabled = !state.busy,
                         label = { Text("Instance URL") }, placeholder = { Text("example.social") },
                         leadingIcon = { Icon(AppIcons.Globe, null) }, singleLine = true, shape = CircleShape,
@@ -310,26 +362,52 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
                     suggestedInstances.chunked(2).forEach { pair ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             pair.forEach { (host, software) ->
-                                OutlinedButton(onClick = { domain = host }, enabled = !state.busy, modifier = Modifier.weight(1f),
-                                    shape = MaterialTheme.shapes.large, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(host, style = MaterialTheme.typography.labelLarge)
-                                        Text(software, style = MaterialTheme.typography.labelSmall)
+                                val interactionSource = remember(host) { MutableInteractionSource() }
+                                val selected = domain == host
+                                OutlinedButton(
+                                    onClick = { domain = host },
+                                    enabled = !state.busy,
+                                    interactionSource = interactionSource,
+                                    modifier = Modifier.weight(1f).springPress(interactionSource),
+                                    shape = MaterialTheme.shapes.large,
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                                    ),
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        AnimatedContent(
+                                            targetState = selected,
+                                            transitionSpec = {
+                                                if (scheme.reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+                                                else fadeIn(scheme.fastFadeIn) togetherWith fadeOut(scheme.fastFadeOut)
+                                            },
+                                            label = "suggestedInstanceSelection",
+                                        ) { isSelected ->
+                                            if (isSelected) Icon(AppIcons.Check, null, Modifier.size(16.dp))
+                                        }
+                                        Spacer(Modifier.width(if (selected) 4.dp else 0.dp))
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(host, style = MaterialTheme.typography.labelLarge)
+                                            Text(software, style = MaterialTheme.typography.labelSmall)
+                                        }
                                     }
                                 }
                             }
                         }
                         Spacer(Modifier.height(8.dp))
                     }
-                } else {
-                    OutlinedButton(onClick = onReopen, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Open browser again") }
+                    } else {
+                        OutlinedButton(onClick = onReopen, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Open browser again") }
                     TextButton(onClick = onCancel, enabled = !state.busy) {
                         Text(if (state.addingAccount) "Cancel" else "Use a different instance")
                     }
-                }
-                state.error?.let {
-                    Spacer(Modifier.height(16.dp))
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    }
+                AnimatedStatePane(stateKey = state.error != null, modifier = Modifier.fillMaxWidth()) {
+                    state.error?.let {
+                        Spacer(Modifier.height(16.dp))
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
                 Spacer(Modifier.height(24.dp))
             }

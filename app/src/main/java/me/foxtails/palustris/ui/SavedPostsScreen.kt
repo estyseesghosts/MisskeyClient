@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.ui.media.MediaOpenRequest
+import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 
 @Composable
 fun SavedPostsScreen(
@@ -102,13 +103,18 @@ fun SavedPostsScreen(
                         onReaction = onReaction,
                         onOpenProfile = onOpenProfile,
                         onSearchHashtag = onSearchHashtag,
-                        onOpenHashtagBubble = onOpenHashtagBubble,
-                        onOpenReactionBubble = { target, bounds ->
+                         onOpenHashtagBubble = onOpenHashtagBubble,
+                         onOpenReactionBubble = { target, bounds ->
                             onOpenReactionBubble?.invoke(target, bounds)
                         },
                         onOpenReactionPicker = onOpenReactionPicker,
-                        onOpenMedia = onOpenMedia,
-                    )
+                         onOpenMedia = onOpenMedia,
+                         modifier = Modifier.animateItem(
+                             fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,
+                             fadeOutSpec = LocalPalustrisMotionScheme.current.fastFadeOut,
+                             placementSpec = LocalPalustrisMotionScheme.current.gentleOffset,
+                         ),
+                     )
                     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 }
                 item {

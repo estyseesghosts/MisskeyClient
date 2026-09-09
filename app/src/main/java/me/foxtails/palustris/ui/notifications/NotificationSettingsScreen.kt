@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -30,6 +32,8 @@ import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.PushRegistrationFailureReason
+import me.foxtails.palustris.ui.motion.AnimatedStatePane
+import me.foxtails.palustris.ui.motion.springPress
 
 @Composable
 fun NotificationSettingsScreen(
@@ -110,8 +114,15 @@ fun NotificationSettingsScreen(
             state.distributorLoading -> Text(stringResource(R.string.notifications_push_registering_distributor))
             state.availableDistributors.isEmpty() -> Text(stringResource(R.string.notifications_push_no_provider))
             else -> state.availableDistributors.forEach { distributor ->
+                val interactionSource = androidx.compose.runtime.remember(distributor.packageName) { MutableInteractionSource() }
                 Row(
-                    Modifier.fillMaxWidth().clickable { onSelectDistributor(distributor.packageName) },
+                    Modifier
+                        .fillMaxWidth()
+                        .springPress(interactionSource)
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = LocalIndication.current,
+                        ) { onSelectDistributor(distributor.packageName) },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     RadioButton(
@@ -126,20 +137,27 @@ fun NotificationSettingsScreen(
         TextButton(onClick = onRefreshDistributors, enabled = !state.distributorLoading) {
             Text(stringResource(R.string.notifications_push_select_provider))
         }
-        Text(
-            if (state.permissionGranted) stringResource(R.string.notifications_settings_permission_granted)
-            else stringResource(R.string.notifications_settings_permission_missing),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        AnimatedStatePane(stateKey = state.permissionGranted, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                if (state.permissionGranted) stringResource(R.string.notifications_settings_permission_granted)
+                else stringResource(R.string.notifications_settings_permission_missing),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (!state.permissionGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             TextButton(onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }) {
                 Text(stringResource(R.string.notifications_settings_grant_permission))
             }
         }
-        Text(
-            registrationText(state.registrationState, state.failureReason),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        AnimatedStatePane(
+            stateKey = state.registrationState to state.failureReason,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                registrationText(state.registrationState, state.failureReason),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (state.registrationState != NotificationPushRegistrationState.Connected &&
             state.registrationState != NotificationPushRegistrationState.Off
         ) {
@@ -154,8 +172,12 @@ fun NotificationSettingsScreen(
         TextButton(onClick = onRunPushConnectionTest, enabled = !state.saving) {
             Text(stringResource(R.string.notifications_push_connection_test))
         }
-        state.localTestMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        AnimatedStatePane(stateKey = state.localTestMessage != null, modifier = Modifier.fillMaxWidth()) {
+            state.localTestMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        AnimatedStatePane(stateKey = state.error != null, modifier = Modifier.fillMaxWidth()) {
+            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
         Spacer(Modifier.padding(bottom = 16.dp))
     }
 }

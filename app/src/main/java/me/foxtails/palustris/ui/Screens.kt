@@ -1,7 +1,17 @@
 package me.foxtails.palustris.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,6 +42,10 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.ui.components.CategoryChips
 import me.foxtails.palustris.ui.media.MediaOpenRequest
+import me.foxtails.palustris.ui.motion.AnimatedStatePane
+import me.foxtails.palustris.ui.motion.ExpandableContent
+import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
+import me.foxtails.palustris.ui.motion.springPress
 
 private val exactHashtagQuery = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
 
@@ -152,39 +166,55 @@ private fun SearchContent(
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
 ) {
     Box(modifier.testTag("search_content")) {
-        if (tab == 0 || hashtagSearchRequested) {
-             if (hashtagSearchRequested) HashtagSearchResults(
-                 state = accountSearch,
-                 query = query,
-                 onLoadMore = onLoadMoreSearch,
-                 endClearance = endClearance,
-                 mediaOwner = mediaOwner,
-                 onOpenMedia = onOpenMedia,
-                 onSearchHashtag = onSearchHashtag,
-                 onOpenHashtagBubble = onOpenHashtagBubble,
-             )
-            else AccountSearchResults(query, accountSearch, onAccountClick, endClearance)
-        } else {
-            EmptyState(
-                AppIcons.Tag,
-                if (query.isNotBlank()) "Search is ready when you are" else when (tab) {
-                    1 -> "Explore hashtags"
-                    2 -> "News from your network"
-                    else -> "Find your people"
-                },
-                if (query.isNotBlank()) "Account search is available from the Profiles tab."
-                else when (tab) {
-                    1 -> "Trending topics will appear here."
-                    2 -> "Popular links will appear here."
-                    else -> "Suggested accounts will appear here."
-                },
-            )
+        val queryKind = when {
+            hashtagSearchRequested -> "hashtag"
+            query.isBlank() -> "blank"
+            else -> "account"
+        }
+        val resultKind = when {
+            accountSearch.loading -> "loading"
+            accountSearch.error != null -> "error"
+            accountSearch.accounts.isNotEmpty() || accountSearch.posts.isNotEmpty() -> "results"
+            else -> "empty"
+        }
+        AnimatedStatePane(
+            stateKey = "$tab:$queryKind:$resultKind",
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            if (tab == 0 || hashtagSearchRequested) {
+                if (hashtagSearchRequested) HashtagSearchResults(
+                    state = accountSearch,
+                    query = query,
+                    onLoadMore = onLoadMoreSearch,
+                    endClearance = endClearance,
+                    mediaOwner = mediaOwner,
+                    onOpenMedia = onOpenMedia,
+                    onSearchHashtag = onSearchHashtag,
+                    onOpenHashtagBubble = onOpenHashtagBubble,
+                ) else AccountSearchResults(query, accountSearch, onAccountClick, endClearance)
+            } else {
+                EmptyState(
+                    AppIcons.Tag,
+                    if (query.isNotBlank()) "Search is ready when you are" else when (tab) {
+                        1 -> "Explore hashtags"
+                        2 -> "News from your network"
+                        else -> "Find your people"
+                    },
+                    if (query.isNotBlank()) "Account search is available from the Profiles tab."
+                    else when (tab) {
+                        1 -> "Trending topics will appear here."
+                        2 -> "Popular links will appear here."
+                        else -> "Suggested accounts will appear here."
+                    },
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun SearchField(query: String, onSubmit: () -> Unit, onQueryChange: (String) -> Unit) {
+    val scheme = LocalPalustrisMotionScheme.current
     TextField(
         value = query,
         onValueChange = onQueryChange,
@@ -193,7 +223,19 @@ private fun SearchField(query: String, onSubmit: () -> Unit, onQueryChange: (Str
             .semantics { contentDescription = "Search field" },
         placeholder = { Text("Search by @handle@server") },
         leadingIcon = { Icon(AppIcons.Search, null) },
-        trailingIcon = { if (query.isNotEmpty()) ActionIcon(AppIcons.Close, "Clear search", { onQueryChange("") }) },
+        trailingIcon = {
+            AnimatedContent(
+                targetState = query.isNotEmpty(),
+                transitionSpec = {
+                    if (scheme.reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+                    else (fadeIn(scheme.fastFadeIn) + scaleIn(initialScale = 0.86f, animationSpec = scheme.expressive)) togetherWith
+                        (fadeOut(scheme.fastFadeOut) + scaleOut(targetScale = 0.86f, animationSpec = scheme.expressive))
+                },
+                label = "searchClearVisibility",
+            ) { visible ->
+                if (visible) ActionIcon(AppIcons.Close, "Clear search", { onQueryChange("") })
+            }
+        },
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
@@ -218,6 +260,7 @@ private fun HashtagSearchResults(
     onSearchHashtag: (String) -> Unit,
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
 ) {
+    val scheme = LocalPalustrisMotionScheme.current
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         state.error != null -> EmptyState(AppIcons.Search, "Hashtag search failed", state.error)
@@ -226,15 +269,23 @@ private fun HashtagSearchResults(
             contentPadding = PaddingValues(bottom = 24.dp + endClearance),
         ) {
             items(state.posts, key = { "${it.id.connection}/${it.id.value}" }) { post ->
-                PostRow(
-                    ownedPost = OwnedPost(mediaOwner ?: post.author.id, post),
-                    availableActions = emptySet(),
-                    onReact = {}, onReply = {}, onReshare = {}, onBookmark = {}, onReaction = { _, _ -> }, onOpenProfile = {},
-                     onSearchHashtag = onSearchHashtag,
-                    onOpenHashtagBubble = onOpenHashtagBubble,
-                    onOpenMedia = if (mediaOwner != null) onOpenMedia else { _: MediaOpenRequest -> },
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+                Column(
+                    Modifier.animateItem(
+                        fadeInSpec = scheme.fastFadeIn,
+                        fadeOutSpec = scheme.fastFadeOut,
+                        placementSpec = scheme.gentleOffset,
+                    ),
+                ) {
+                    PostRow(
+                        ownedPost = OwnedPost(mediaOwner ?: post.author.id, post),
+                        availableActions = emptySet(),
+                        onReact = {}, onReply = {}, onReshare = {}, onBookmark = {}, onReaction = { _, _ -> }, onOpenProfile = {},
+                        onSearchHashtag = onSearchHashtag,
+                        onOpenHashtagBubble = onOpenHashtagBubble,
+                        onOpenMedia = if (mediaOwner != null) onOpenMedia else { _: MediaOpenRequest -> },
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+                }
             }
             item {
                 Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
@@ -257,6 +308,7 @@ private fun AccountSearchResults(
     onAccountClick: (Account) -> Unit,
     endClearance: Dp,
 ) {
+    val scheme = LocalPalustrisMotionScheme.current
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         state.error != null -> EmptyState(AppIcons.Search, "Account search failed", state.error)
@@ -265,8 +317,19 @@ private fun AccountSearchResults(
             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = endClearance),
         ) {
             items(state.accounts, key = { "${it.id.connection.origin}/${it.id.localId}" }) { account ->
+                val interactionSource = remember(account.id) { MutableInteractionSource() }
                 ListItem(
-                    modifier = Modifier.clickable { onAccountClick(account) },
+                    modifier = Modifier
+                        .springPress(interactionSource)
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = LocalIndication.current,
+                        ) { onAccountClick(account) }
+                        .animateItem(
+                            fadeInSpec = scheme.fastFadeIn,
+                            fadeOutSpec = scheme.fastFadeOut,
+                            placementSpec = scheme.gentleOffset,
+                        ),
                     headlineContent = { me.foxtails.palustris.ui.emoji.AccountDisplayName(account, style = MaterialTheme.typography.titleMedium) },
                     supportingContent = { Text(account.handle) },
                     leadingContent = { AccountAvatar(account, Modifier.size(48.dp)) },
@@ -301,6 +364,7 @@ fun ComposeScreen(
     pendingEmojiInsertion: Pair<me.foxtails.palustris.domain.EmojiChoice, me.foxtails.palustris.ui.emoji.ComposerField>? = null,
     onEmojiInsertionApplied: () -> Unit = {},
 ) {
+    val scheme = LocalPalustrisMotionScheme.current
     val emojiPickerDescription = stringResource(me.foxtails.palustris.R.string.emoji_open_picker)
     var textSelection by remember { mutableStateOf(androidx.compose.ui.text.TextRange(text.length)) }
     var warningSelection by remember { mutableStateOf(androidx.compose.ui.text.TextRange(warning.length)) }
@@ -369,22 +433,24 @@ fun ComposeScreen(
             }
             Spacer(Modifier.height(12.dp))
         }
-        if (warningEnabled) OutlinedTextField(
-            value = warningValue,
-            onValueChange = { changed ->
-                onWarningChange(changed.text)
-                warningSelection = changed.selection
-            },
-            label = { Text("Content warning") }, modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                if (onRequestEmoji != null) {
-                    TextButton(
-                        onClick = { onRequestEmoji(me.foxtails.palustris.ui.emoji.ComposerField.Warning) },
-                        modifier = Modifier.semantics { contentDescription = emojiPickerDescription },
-                    ) { Text(":)") }
-                }
-            },
-        )
+        ExpandableContent(visible = warningEnabled, modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = warningValue,
+                onValueChange = { changed ->
+                    onWarningChange(changed.text)
+                    warningSelection = changed.selection
+                },
+                label = { Text("Content warning") }, modifier = Modifier.fillMaxWidth(),
+                trailingIcon = {
+                    if (onRequestEmoji != null) {
+                        TextButton(
+                            onClick = { onRequestEmoji(me.foxtails.palustris.ui.emoji.ComposerField.Warning) },
+                            modifier = Modifier.semantics { contentDescription = emojiPickerDescription },
+                        ) { Text(":)") }
+                    }
+                },
+            )
+        }
         BasicTextField(
             value = textValue,
             onValueChange = { changed ->
@@ -411,13 +477,25 @@ fun ComposeScreen(
         }
         Text(if (canPublish) "Posts will be published to your connected account." else "Publishing is disabled for this account.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (error != null) {
-            Spacer(Modifier.height(12.dp))
-            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        AnimatedStatePane(
+            stateKey = error != null,
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        ) {
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
         }
         Spacer(Modifier.height(24.dp))
         Button(onClick = onPublish, enabled = canPublish && !publishing && text.isNotBlank(), modifier = Modifier.align(Alignment.End)) {
-            Text(if (publishing) "Publishing…" else "Publish")
+            AnimatedContent(
+                targetState = publishing,
+                transitionSpec = {
+                    if (scheme.reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+                    else fadeIn(scheme.fastFadeIn) togetherWith fadeOut(scheme.fastFadeOut)
+                },
+                label = "publishButtonContent",
+            ) { busy ->
+                if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                else Text("Publish")
+            }
         }
         Spacer(Modifier.height(24.dp))
     }
@@ -425,6 +503,7 @@ fun ComposeScreen(
 
 @Composable
 fun DraftsScreen(drafts: List<me.foxtails.palustris.domain.PostDraft>, onEdit: (me.foxtails.palustris.domain.PostDraft) -> Unit, onDelete: (me.foxtails.palustris.domain.PostDraft) -> Unit) {
+    val scheme = LocalPalustrisMotionScheme.current
     var confirmDelete by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<me.foxtails.palustris.domain.PostDraft?>(null) }
     if (drafts.isEmpty()) EmptyState(AppIcons.Folder, "No drafts yet", "Save a post while composing to finish it later.")
@@ -433,7 +512,20 @@ fun DraftsScreen(drafts: List<me.foxtails.palustris.domain.PostDraft>, onEdit: (
         contentPadding = PaddingValues(vertical = 16.dp),
     ) {
         items(drafts, key = { it.id }) { draft ->
-            ElevatedCard(onClick = { onEdit(draft) }, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+            val interactionSource = remember(draft.id) { MutableInteractionSource() }
+            ElevatedCard(
+                onClick = { onEdit(draft) },
+                interactionSource = interactionSource,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+                    .springPress(interactionSource, pressedScale = scheme.largePressedScale)
+                    .animateItem(
+                        fadeInSpec = scheme.fastFadeIn,
+                        fadeOutSpec = scheme.fastFadeOut,
+                        placementSpec = scheme.gentleOffset,
+                    ),
+            ) {
                 Column(Modifier.padding(20.dp)) {
                     Text("Draft", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(12.dp))

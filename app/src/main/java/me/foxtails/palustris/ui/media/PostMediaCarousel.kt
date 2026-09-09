@@ -2,7 +2,17 @@
 
 package me.foxtails.palustris.ui.media
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -47,6 +58,8 @@ import me.foxtails.palustris.domain.MediaRequestRole
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.data.media.MediaImageLoader
+import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
+import me.foxtails.palustris.ui.motion.springPress
 
 data class MediaOpenRequest(
     val ownedPost: OwnedPost,
@@ -101,45 +114,74 @@ private fun MediaPreviewTile(
         ownedPost.post.id.value,
         attachment.id ?: index,
     ) { mutableStateOf(!attachment.sensitive) }
-    val decision = if (revealed) {
-        MediaRequestPolicy.resolve(attachment, MediaRequestRole.Preview, revealed = true, explicitlyOpened = false)
-    } else {
-        MediaRequestDecision.NoRequest(me.foxtails.palustris.domain.MediaRequestReason.HiddenSensitiveMedia)
-    }
     val open = { onOpenMedia(MediaOpenRequest(ownedPost, index, revealed)) }
+    val scheme = LocalPalustrisMotionScheme.current
+    val interactionSource = remember { MutableInteractionSource() }
     Surface(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = open)
+            .then(if (revealed) {
+                Modifier
+                    .springPress(interactionSource, pressedScale = scheme.largePressedScale)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = open,
+                    )
+            } else Modifier)
             .testTag("post_media_frame_${ownedPost.post.id.value}_$index")
             .semantics {
-                contentDescription = "Open media ${index + 1} of ${ownedPost.post.attachments.size}"
-                role = Role.Button
+                if (revealed) {
+                    contentDescription = "Open media ${index + 1} of ${ownedPost.post.attachments.size}"
+                    role = Role.Button
+                } else {
+                    contentDescription = "Sensitive media ${index + 1}"
+                }
             },
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
-        when {
-            !revealed -> SensitiveMediaTile(onReveal = { revealed = true })
-            attachment.kind !in setOf(MediaKind.Image, MediaKind.AnimatedImage) -> UnsupportedMediaTile(attachment)
-            decision is MediaRequestDecision.Request -> {
-                AsyncImage(
-                    model = MediaImageLoader.get(context).request(
-                        context = context,
-                        decision = decision,
-                        accountIdentity = ownedPost.fetchedBy.toString(),
-                        postIdentity = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}",
-                        attachment = attachment,
-                        attachmentIndex = index,
-                        decodeWidthPx = context.resources.displayMetrics.widthPixels,
-                        decodeHeightPx = (240 * context.resources.displayMetrics.density).toInt(),
-                    ),
-                    imageLoader = MediaImageLoader.get(context).imageLoader,
-                    contentDescription = attachment.description ?: "Post attachment ${index + 1}",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+        AnimatedContent(
+            targetState = revealed,
+            transitionSpec = {
+                if (scheme.reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+                else (fadeIn(scheme.fastFadeIn) + scaleIn(initialScale = 0.98f, animationSpec = scheme.spatial)) togetherWith
+                    (fadeOut(scheme.fastFadeOut) + scaleOut(targetScale = 0.98f, animationSpec = scheme.spatial))
+            },
+            modifier = Modifier.fillMaxSize(),
+            label = "sensitiveMediaReveal",
+        ) { isRevealed ->
+            if (!isRevealed) {
+                SensitiveMediaTile(onReveal = { revealed = true })
+            } else {
+                val visibleDecision = MediaRequestPolicy.resolve(
+                    attachment,
+                    MediaRequestRole.Preview,
+                    revealed = true,
+                    explicitlyOpened = false,
                 )
+                when {
+                    attachment.kind !in setOf(MediaKind.Image, MediaKind.AnimatedImage) -> UnsupportedMediaTile(attachment)
+                    visibleDecision is MediaRequestDecision.Request -> {
+                        AsyncImage(
+                            model = MediaImageLoader.get(context).request(
+                                context = context,
+                                decision = visibleDecision,
+                                accountIdentity = ownedPost.fetchedBy.toString(),
+                                postIdentity = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}",
+                                attachment = attachment,
+                                attachmentIndex = index,
+                                decodeWidthPx = context.resources.displayMetrics.widthPixels,
+                                decodeHeightPx = (240 * context.resources.displayMetrics.density).toInt(),
+                            ),
+                            imageLoader = MediaImageLoader.get(context).imageLoader,
+                            contentDescription = attachment.description ?: "Post attachment ${index + 1}",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+                    else -> MissingPreviewTile(attachment.description)
+                }
             }
-            else -> MissingPreviewTile(attachment.description)
         }
     }
 }

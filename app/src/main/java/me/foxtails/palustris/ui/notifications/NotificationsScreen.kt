@@ -54,6 +54,8 @@ import me.foxtails.palustris.ui.CompactFilterDockHeight
 import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.compactContextualControlsPositioningInsets
 import me.foxtails.palustris.ui.compactScrollEndClearance
+import me.foxtails.palustris.ui.motion.AnimatedStatePane
+import me.foxtails.palustris.ui.motion.ExpandableContent
 
 private enum class NotificationFilter(val labelRes: Int, val query: NotificationQuery) {
     Replies(R.string.notification_filter_replies, NotificationQuery(setOf(NotificationCategory.Replies))),
@@ -169,6 +171,12 @@ fun NotificationsScreen(
                 onOpen = onOpenNotification,
                 modifier = Modifier.fillMaxSize(),
                 endClearance = notificationEndClearance,
+                stateKey = "${selectedFilterName ?: "all"}:${when {
+                    notificationState.loading && notificationState.items.isEmpty() -> "loading"
+                    notificationState.error != null && notificationState.items.isEmpty() -> "error"
+                    visibleItems.isEmpty() -> "empty"
+                    else -> "content"
+                }}",
             )
             Box(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
@@ -194,6 +202,12 @@ fun NotificationsScreen(
                 onOpen = onOpenNotification,
                 modifier = Modifier.weight(1f),
                 endClearance = 0.dp,
+                stateKey = "${selectedFilterName ?: "all"}:${when {
+                    notificationState.loading && notificationState.items.isEmpty() -> "loading"
+                    notificationState.error != null && notificationState.items.isEmpty() -> "error"
+                    visibleItems.isEmpty() -> "empty"
+                    else -> "content"
+                }}",
             )
         }
     }
@@ -213,6 +227,7 @@ private fun NotificationContent(
     onOpen: (Notification) -> Unit,
     modifier: Modifier,
     endClearance: Dp,
+    stateKey: String,
 ) {
     val list = rememberLazyListState()
     val pullState = rememberPullToRefreshState()
@@ -222,19 +237,20 @@ private fun NotificationContent(
                 (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) >= items.size - 3
         }.distinctUntilChanged().collect { shouldLoad -> if (shouldLoad) onLoadMore() }
     }
-    PullToRefreshBox(
-        isRefreshing = state.refreshing,
-        onRefresh = onRefresh,
-        state = pullState,
-        modifier = modifier.testTag("notification_refresh_surface"),
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullState,
-                isRefreshing = state.refreshing,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
-        },
-    ) {
+    AnimatedStatePane(stateKey = stateKey, modifier = modifier) {
+        PullToRefreshBox(
+            isRefreshing = state.refreshing,
+            onRefresh = onRefresh,
+            state = pullState,
+            modifier = Modifier.fillMaxSize().testTag("notification_refresh_surface"),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullState,
+                    isRefreshing = state.refreshing,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            },
+        ) {
         LazyColumn(
             state = list,
             modifier = Modifier.fillMaxSize().testTag("notifications_content"),
@@ -260,7 +276,9 @@ private fun NotificationContent(
                 }
             } else {
                 if (state.syncDelayed) item {
-                    Text(stringResource(R.string.notifications_sync_delayed), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    ExpandableContent(visible = state.syncDelayed) {
+                        Text(stringResource(R.string.notifications_sync_delayed), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 items(items, key = { "${it.id.connection}\u0000${it.id.value}" }) { notification ->
                     NotificationRow(
@@ -270,6 +288,11 @@ private fun NotificationContent(
                         onOpen = { onMarkSeen(notification); onOpen(notification) },
                         onDismiss = { onDismiss(notification) },
                         onFollowRequest = { accept -> onFollowRequest(notification, accept) },
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme.current.fastFadeIn,
+                            fadeOutSpec = me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme.current.fastFadeOut,
+                            placementSpec = me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme.current.gentleOffset,
+                        ),
                     )
                 }
                 item {
@@ -284,6 +307,7 @@ private fun NotificationContent(
                     }
                 }
                 state.error?.let { error -> item { Text(error, color = MaterialTheme.colorScheme.error) } }
+            }
             }
         }
     }

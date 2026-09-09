@@ -1,7 +1,16 @@
 package me.foxtails.palustris.ui.notifications
 
 import android.text.format.DateUtils
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,11 +21,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +46,9 @@ import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.ui.AccountAvatar
 import me.foxtails.palustris.ui.Avatar
+import me.foxtails.palustris.ui.motion.AnimatedStatePane
+import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
+import me.foxtails.palustris.ui.motion.springPress
 
 @Composable
 fun NotificationRow(
@@ -44,7 +58,10 @@ fun NotificationRow(
     onOpen: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
     onFollowRequest: ((Boolean) -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
+    val scheme = LocalPalustrisMotionScheme.current
+    val interactionSource = remember { MutableInteractionSource() }
     val actor = notification.actors.firstOrNull()
     val activityLabel = notification.activity.label()
     val stateLabel = when {
@@ -59,21 +76,34 @@ fun NotificationRow(
             .flatMap { it.emoji.entries }
             .associate { it.toPair() }
     }
+    val containerColor by animateColorAsState(
+        targetValue = if (notification.readState.status == NotificationReadStatus.Unread) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+        animationSpec = scheme.color,
+        label = "notificationReadColor",
+    )
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .testTag("notification_row_${notification.id.value}")
-            .then(onOpen?.let { callback -> Modifier.clickable(onClick = callback) } ?: Modifier)
+            .then(onOpen?.let { callback ->
+                Modifier
+                    .springPress(interactionSource, pressedScale = scheme.largePressedScale)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = callback,
+                    )
+            } ?: Modifier)
             .semantics {
                 contentDescription = "$activityLabel, $summary"
                 if (stateLabel.isNotBlank()) stateDescription = stateLabel
             },
         shape = MaterialTheme.shapes.large,
-        color = if (notification.readState.status == NotificationReadStatus.Unread) {
-            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-        } else {
-            MaterialTheme.colorScheme.surfaceContainer
-        },
+        color = containerColor,
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
             if (actor != null) AccountAvatar(actor, Modifier.size(44.dp))
@@ -94,13 +124,22 @@ fun NotificationRow(
                 } else {
                     Text(activityLabel, style = MaterialTheme.typography.titleSmall)
                 }
-                me.foxtails.palustris.ui.emoji.InlineEmojiText(
-                    summary,
-                    summaryEmoji,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                AnimatedContent(
+                    targetState = summary,
+                    transitionSpec = {
+                        if (scheme.reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+                        else fadeIn(scheme.fastFadeIn) togetherWith fadeOut(scheme.fastFadeOut)
+                    },
+                    label = "notificationSummary",
+                ) { summaryState ->
+                    me.foxtails.palustris.ui.emoji.InlineEmojiText(
+                        summaryState,
+                        summaryEmoji,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Text(
                     DateUtils.getRelativeTimeSpanString(
                         notification.createdAtEpochMillis,
@@ -134,15 +173,35 @@ fun NotificationRow(
                                 onClick = { respond(true) },
                                 enabled = actionState != NotificationActionState.Running,
                                 contentPadding = ButtonDefaults.TextButtonContentPadding,
-                            ) { Text(stringResource(R.string.notifications_follow_accept)) }
+                                modifier = Modifier.width(112.dp),
+                            ) {
+                                AnimatedContent(
+                                    targetState = actionState,
+                                    transitionSpec = {
+                                        if (scheme.reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+                                        else fadeIn(scheme.fastFadeIn) togetherWith fadeOut(scheme.fastFadeOut)
+                                    },
+                                    label = "followAcceptState",
+                                ) { followState ->
+                                    if (followState == NotificationActionState.Running) {
+                                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                    } else Text(stringResource(R.string.notifications_follow_accept))
+                                }
+                            }
                             TextButton(
                                 onClick = { respond(false) },
                                 enabled = actionState != NotificationActionState.Running,
+                                modifier = Modifier.width(112.dp),
                             ) { Text(stringResource(R.string.notifications_follow_reject)) }
                         }
                     }
                 }
-                actionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                AnimatedStatePane(
+                    stateKey = actionError != null,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    actionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
             }
             onDismiss?.let { dismiss ->
                 TextButton(onClick = dismiss, enabled = actionState != NotificationActionState.Running) {

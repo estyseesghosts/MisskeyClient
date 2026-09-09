@@ -7,29 +7,49 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import me.foxtails.palustris.ui.motion.AnimatedStatePane
+import me.foxtails.palustris.ui.motion.SpringyIconButton
+import me.foxtails.palustris.ui.motion.rememberSelectedColor
+import me.foxtails.palustris.ui.motion.rememberSelectedScale
 
 @Composable
 fun ActionIcon(icon: ImageVector, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick) { Icon(icon, contentDescription = label) }
+    SpringyIconButton(
+        onClick = onClick,
+        icon = icon,
+        contentDescription = label,
+    )
 }
 
 @Composable
-fun EmptyState(icon: ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(Modifier.widthIn(max = 340.dp).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
-                Icon(icon, null, Modifier.padding(22.dp).size(36.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+fun EmptyState(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    stateKey: Any? = null,
+) {
+    AnimatedStatePane(
+        stateKey = stateKey ?: title,
+        modifier = modifier.fillMaxSize(),
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(Modifier.widthIn(max = 340.dp).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                    Icon(icon, null, Modifier.padding(22.dp).size(36.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+                Spacer(Modifier.height(24.dp))
+                Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(8.dp))
+                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }
-            Spacer(Modifier.height(24.dp))
-            Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(8.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         }
     }
 }
@@ -52,8 +72,20 @@ fun Avatar(modifier: Modifier = Modifier, description: String? = "Profile avatar
 fun SectionTabs(titles: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     PrimaryTabRow(selectedTabIndex = selected) {
         titles.forEachIndexed { index, title ->
+            val isSelected = selected == index
+            val selectedColor = rememberSelectedColor(isSelected, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onSurfaceVariant)
+            val selectedScale = rememberSelectedScale(isSelected)
             Tab(selected = selected == index, onClick = { onSelect(index) }, text = {
-                Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    title,
+                    modifier = Modifier.graphicsLayer {
+                        scaleX = selectedScale
+                        scaleY = selectedScale
+                    },
+                    color = selectedColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             })
         }
     }

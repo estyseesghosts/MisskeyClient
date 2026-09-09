@@ -49,6 +49,8 @@ import me.foxtails.palustris.ui.PostRow
 import me.foxtails.palustris.ui.components.FilterChipEntry
 import me.foxtails.palustris.ui.components.FilterChipRow
 import me.foxtails.palustris.ui.media.MediaOpenRequest
+import me.foxtails.palustris.ui.motion.AnimatedStatePane
+import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 
 @Composable
 internal fun ProfileTimelineList(
@@ -256,6 +258,11 @@ private fun LazyListScope.profilePinnedItems(
                 onSearchHashtag = onSearchHashtag,
                 onOpenHashtagBubble = onOpenHashtagBubble,
                 onOpenMedia = onOpenMedia,
+                modifier = Modifier.animateItem(
+                    fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,
+                    fadeOutSpec = LocalPalustrisMotionScheme.current.fastFadeOut,
+                    placementSpec = LocalPalustrisMotionScheme.current.gentleOffset,
+                ),
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
         }
@@ -281,25 +288,31 @@ private fun LazyListScope.profilePageItems(
 ) {
     if (page == null || page.initialLoading && page.posts.isEmpty()) {
         item(key = "profile-timeline-loading") {
-            Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+            AnimatedStatePane(stateKey = "loading", modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
         }
         return
     }
     if (page.error != null && page.posts.isEmpty()) {
         item(key = "profile-timeline-error") {
-            ProfileMessage(
-                title = if (page.needsSignIn) "Sign-in required" else "Profile posts unavailable",
-                message = page.error,
-                action = if (page.needsSignIn) "Try again" else "Retry",
-                onAction = onRefresh,
-            )
+            AnimatedStatePane(stateKey = "error", modifier = Modifier.fillMaxWidth()) {
+                ProfileMessage(
+                    title = if (page.needsSignIn) "Sign-in required" else "Profile posts unavailable",
+                    message = page.error,
+                    action = if (page.needsSignIn) "Try again" else "Retry",
+                    onAction = onRefresh,
+                )
+            }
         }
     }
     if (page.posts.isEmpty() && page.error == null && !page.refreshing) {
         item(key = "profile-timeline-empty") {
-            EmptyState(AppIcons.Person, "No posts in this view", "This profile has no matching posts yet.")
+            AnimatedStatePane(stateKey = "empty", modifier = Modifier.fillMaxWidth()) {
+                EmptyState(AppIcons.Person, "No posts in this view", "This profile has no matching posts yet.")
+            }
         }
     }
     items(page.posts, key = { "timeline/${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
@@ -317,6 +330,11 @@ private fun LazyListScope.profilePageItems(
             onSearchHashtag = onSearchHashtag,
             onOpenHashtagBubble = onOpenHashtagBubble,
             onOpenMedia = onOpenMedia,
+            modifier = Modifier.animateItem(
+                fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,
+                fadeOutSpec = LocalPalustrisMotionScheme.current.fastFadeOut,
+                placementSpec = LocalPalustrisMotionScheme.current.gentleOffset,
+            ),
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
     }

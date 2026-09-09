@@ -25,6 +25,7 @@ import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.PostRow
 import me.foxtails.palustris.ui.openExternal
 import me.foxtails.palustris.ui.navigation.AppRoute
+import me.foxtails.palustris.ui.motion.AnimatedStatePane
 
 @Composable
 fun NotificationDetailScreen(
@@ -36,18 +37,28 @@ fun NotificationDetailScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val stateKey = "${route::class.simpleName}:${when (route) {
+        is AppRoute.NotificationDetail -> items.any { it.id == route.notificationId }
+        is AppRoute.OpenOnServer -> items.any { it.id == route.notificationId }
+        is AppRoute.Post -> items.any { it.target == NotificationTarget.Post(route.postId) }
+        is AppRoute.Profile -> items.any { it.target == NotificationTarget.Profile(route.profileId) }
+        is AppRoute.Poll -> items.any { it.target == NotificationTarget.Poll(route.pollId) }
+        is AppRoute.Conversation -> items.any { it.target == NotificationTarget.Conversation(route.conversationId) }
+        is AppRoute.NotificationSettings, is AppRoute.AccountUnavailable -> true
+    }}"
+    AnimatedStatePane(stateKey = stateKey, modifier = modifier) {
     when (route) {
         is AppRoute.NotificationSettings -> EmptyState(
             me.foxtails.palustris.ui.AppIcons.Notifications,
             stringResource(R.string.notifications_detail_title),
             stringResource(R.string.notifications_target_unavailable),
-            modifier,
+            Modifier.fillMaxSize(),
         )
         is AppRoute.AccountUnavailable -> EmptyState(
             me.foxtails.palustris.ui.AppIcons.Unavailable,
             stringResource(R.string.notifications_account_unavailable_title),
             stringResource(R.string.notifications_account_unavailable_subtitle),
-            modifier,
+            Modifier.fillMaxSize(),
         )
         is AppRoute.OpenOnServer -> {
             val notification = items.firstOrNull { it.id == route.notificationId }
@@ -71,7 +82,7 @@ fun NotificationDetailScreen(
                     me.foxtails.palustris.ui.AppIcons.Notifications,
                     stringResource(R.string.notifications_detail_title),
                     stringResource(R.string.notifications_detail_not_cached),
-                    modifier,
+                    Modifier.fillMaxSize(),
                 )
             } else {
                 NotificationRow(notification)
@@ -92,12 +103,12 @@ fun NotificationDetailScreen(
                     me.foxtails.palustris.ui.AppIcons.Notifications,
                     stringResource(R.string.notifications_detail_title),
                     stringResource(R.string.notifications_target_unavailable),
-                    modifier,
+                    Modifier.fillMaxSize(),
                 )
             } else if (route is AppRoute.Post || route is AppRoute.Poll || route is AppRoute.Conversation) {
                 val post = notification.post
                 if (post == null) {
-                    NotificationTargetFallback(notification, onOpenTarget, modifier)
+                    NotificationTargetFallback(notification, onOpenTarget, Modifier.fillMaxSize())
                 } else {
                     val owner = when (route) {
                         is AppRoute.Post -> route.accountId
@@ -129,9 +140,10 @@ fun NotificationDetailScreen(
                     }
                 }
             } else {
-                NotificationTargetFallback(notification, onOpenTarget, modifier)
+                NotificationTargetFallback(notification, onOpenTarget, Modifier.fillMaxSize())
             }
         }
+    }
     }
 }
 

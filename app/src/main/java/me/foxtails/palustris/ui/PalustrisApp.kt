@@ -8,14 +8,20 @@ package me.foxtails.palustris.ui
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,12 +29,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -84,6 +88,14 @@ import me.foxtails.palustris.ui.profile.ProfileScreen as RichProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.MediaViewerScreen
+import me.foxtails.palustris.ui.motion.AnimatedStatePane
+import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
+import me.foxtails.palustris.ui.motion.SpringAnimatedContent
+import me.foxtails.palustris.ui.motion.compactFloatingEnter
+import me.foxtails.palustris.ui.motion.compactFloatingExit
+import me.foxtails.palustris.ui.motion.rememberSelectedColor
+import me.foxtails.palustris.ui.motion.rememberSelectedScale
+import me.foxtails.palustris.ui.motion.springPress
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
@@ -191,16 +203,6 @@ internal fun compactHomeScrollEndClearance(): Dp {
         (CompactOverlayVerticalPadding * 2f)
 }
 
-private fun Modifier.roundPressLayer(pressed: Boolean, color: Color): Modifier = clip(CircleShape).drawWithContent {
-    drawContent()
-    if (pressed) {
-        drawRoundRect(
-            color = color,
-            cornerRadius = CornerRadius(minOf(size.width, size.height) / 2f),
-        )
-    }
-}
-
 private fun contextualActionFor(
     destination: Destination,
     searchPanel: SearchPanel,
@@ -254,12 +256,12 @@ private fun TimelineSelector(
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
+    val scheme = LocalPalustrisMotionScheme.current
     Surface(
         modifier = Modifier
             .size(CompactTimelineSelectorWidth, CompactTimelineSelectorHeight)
-            .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .springPress(interactionSource, pressedScale = scheme.pressedScale)
+            .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick)
             .semantics { contentDescription = "Choose timeline" },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
@@ -283,6 +285,7 @@ private fun CompactContextualNavigationBar(
     onOpenAccounts: () -> Unit,
     onDestinationSelected: (Destination) -> Unit,
 ) {
+    val scheme = LocalPalustrisMotionScheme.current
     Row(Modifier.fillMaxWidth().height(CompactNavigationHeight), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Surface(
             modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -290,24 +293,61 @@ private fun CompactContextualNavigationBar(
             color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
             shadowElevation = 6.dp,
         ) {
-            Row(Modifier.fillMaxSize().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                Destination.entries.forEach { item ->
-                    val selected = destination == item
-                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                        if (selected) Surface(Modifier.size(40.dp), CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {}
+            BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
+                val scheme = LocalPalustrisMotionScheme.current
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val slotWidthPx = with(density) { (maxWidth / Destination.entries.size).toPx() }
+                val selectedSlot by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = destination.ordinal.toFloat(),
+                    animationSpec = scheme.spatial,
+                    label = "navigationIndicatorSlot",
+                )
+                Surface(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .align(Alignment.CenterStart)
+                        .graphicsLayer {
+                            translationX = (selectedSlot + 0.5f) * slotWidthPx - with(density) { 20.dp.toPx() }
+                        },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                ) {}
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                    Destination.entries.forEach { item ->
+                        val selected = destination == item
                         val interactionSource = remember(item) { MutableInteractionSource() }
-                        val pressed by interactionSource.collectIsPressedAsState()
+                        val selectedTint = rememberSelectedColor(selected, MaterialTheme.colorScheme.onSecondaryContainer, MaterialTheme.colorScheme.onSurfaceVariant)
+                        val selectedScale = rememberSelectedScale(selected)
                         val itemModifier = if (item == Destination.Profile) {
-                            Modifier.size(48.dp)
-                                .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                                .combinedClickable(interactionSource = interactionSource, indication = null, onClick = { onDestinationSelected(item) }, onLongClick = onOpenAccounts)
-                        } else Modifier.size(48.dp)
-                            .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                            .clickable(interactionSource = interactionSource, indication = null) { onDestinationSelected(item) }
+                            Modifier
+                                .size(48.dp)
+                                .springPress(interactionSource, pressedScale = scheme.compactPressedScale)
+                                .combinedClickable(
+                                    interactionSource = interactionSource,
+                                    indication = LocalIndication.current,
+                                    onClick = { onDestinationSelected(item) },
+                                    onLongClick = onOpenAccounts,
+                                )
+                        } else Modifier
+                            .size(48.dp)
+                            .springPress(interactionSource, pressedScale = scheme.compactPressedScale)
+                            .clickable(interactionSource = interactionSource, indication = LocalIndication.current) { onDestinationSelected(item) }
                         Box(itemModifier.semantics { contentDescription = item.label; this.selected = selected; role = Role.Tab }, contentAlignment = Alignment.Center) {
                             if (item == Destination.Profile) {
-                                if (account != null) AccountAvatar(account, Modifier.size(30.dp), exposeSemantics = false) else Avatar(Modifier.size(30.dp), description = null)
-                            } else Icon(item.icon, null, tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                                val avatarModifier = Modifier.size(30.dp).graphicsLayer {
+                                    scaleX = selectedScale
+                                    scaleY = selectedScale
+                                }
+                                if (account != null) AccountAvatar(account, avatarModifier, exposeSemantics = false) else Avatar(avatarModifier, description = null)
+                            } else Icon(
+                                item.icon,
+                                null,
+                                Modifier.graphicsLayer {
+                                    scaleX = selectedScale
+                                    scaleY = selectedScale
+                                },
+                                tint = selectedTint,
+                            )
                         }
                     }
                 }
@@ -324,7 +364,22 @@ private fun CompactContextualNavigationBar(
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                     disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
-            ) { Icon(contextualAction.icon, null) }
+            ) {
+                AnimatedContent(
+                    targetState = contextualAction,
+                    contentKey = { it.contentDescription },
+                    transitionSpec = {
+                        if (scheme.reducedMotion) {
+                            EnterTransition.None togetherWith ExitTransition.None
+                        } else {
+                            (fadeIn(scheme.fastFadeIn) + scaleIn(initialScale = 0.86f, animationSpec = scheme.expressive)) togetherWith
+                                (fadeOut(scheme.fastFadeOut) + scaleOut(targetScale = 0.86f, animationSpec = scheme.expressive))
+                        }
+                    },
+                    modifier = Modifier.size(24.dp),
+                    label = "contextualAction",
+                ) { actionState -> Icon(actionState.icon, null) }
+            }
         }
     }
 }
@@ -396,6 +451,7 @@ fun PalustrisApp(
     val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
     val scope = rememberCoroutineScope()
     var destination by rememberSaveable { mutableStateOf(Destination.Home) }
+    var destinationTransitionDirection by rememberSaveable { mutableIntStateOf(0) }
     var timeline by rememberSaveable { mutableStateOf(Timeline.Home) }
     var page by rememberSaveable { mutableStateOf<LocalPage?>(null) }
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
@@ -431,6 +487,7 @@ fun PalustrisApp(
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
     var notificationRoute by remember { mutableStateOf<AppRoute?>(initialNotificationRoute) }
     var closing by remember { mutableStateOf(false) }
+    val motionScheme = LocalPalustrisMotionScheme.current
     val overlay = when (overlayKey) {
         "Composer" -> Overlay.Composer
         "EditProfile" -> Overlay.EditProfile
@@ -686,6 +743,7 @@ fun PalustrisApp(
     fun selectDestination(item: Destination) {
         clearPostActionBubble()
         if (item == Destination.Profile) viewedProfile = null
+        destinationTransitionDirection = item.ordinal.compareTo(destination.ordinal)
         destination = item
         page = null
         notificationRoute = null
@@ -768,6 +826,15 @@ fun PalustrisApp(
                     }
                 }) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
+                        SpringAnimatedContent(
+                            stateKey = destination,
+                            direction = destinationTransitionDirection,
+                            modifier = Modifier.fillMaxSize(),
+                        ) { animatedDestination ->
+                        AnimatedStatePane(
+                            stateKey = notificationRoute ?: page?.name ?: "${animatedDestination.name}:content",
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
                         if (notificationRoute != null) {
                             NotificationDetailScreen(
                                 route = notificationRoute!!,
@@ -804,12 +871,15 @@ fun PalustrisApp(
                             } ?: EmptyState(AppIcons.Bookmark, "No saved posts yet", "Posts you save will appear here.")
                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                             LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
-                            else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
+                             else -> screenStates.SaveableStateProvider(animatedDestination.name) { when (animatedDestination) {
                                   Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenReactionBubble = { ownedPost, bounds ->
                                       openReactionBubble(ownedPost, bounds, onReaction)
                                   }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
-                                  Destination.Search -> SearchScreen(
-                                      mode = searchPanel,
+                                 Destination.Search -> AnimatedStatePane(
+                                     stateKey = searchPanel,
+                                     modifier = Modifier.fillMaxSize(),
+                                 ) { panel -> SearchScreen(
+                                       mode = panel,
                                       accountSearch = feedState?.accountSearch ?: AccountSearchState(),
                                       onSearchAccounts = onSearchAccounts,
                                       onAccountClick = ::openProfile,
@@ -821,8 +891,11 @@ fun PalustrisApp(
                                       compactNavigationVisible = !wide,
                                       mediaOwner = account?.id,
                                       onOpenMedia = ::openMedia,
-                                  )
-                                Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(
+                                   ) }
+                                 Destination.Notifications -> AnimatedStatePane(
+                                     stateKey = notificationsPanel,
+                                     modifier = Modifier.fillMaxSize(),
+                                 ) { panel -> if (panel == NotificationsPanel.Notifications) NotificationsScreen(
                                     connected = account != null,
                                     compactLayout = !wide,
                                     accountIdentity = notificationAccountIdentity,
@@ -844,7 +917,7 @@ fun PalustrisApp(
                                              overlayKey = Overlay.NotificationSettings::class.simpleName
                                          }
                                     },
-                                ) else MessagesScreen()
+                                 ) else MessagesScreen() }
                 Destination.Profile -> RichProfileScreen(
                     account = displayedProfile,
                     profileState = profileState,
@@ -878,20 +951,22 @@ fun PalustrisApp(
                       },
                      onOpenMedia = ::openMedia,
                  )
-                            } }
+                             } }
+                        }
+                        }
                         }
                     }
                 }
                 if (wide && page == null && !modalOverlayOpen && destination == Destination.Home) {
-                    androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp).zIndex(1f)) {
+                    androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = motionScheme.compactFloatingEnter(bottom = false), exit = motionScheme.compactFloatingExit(bottom = false), modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp).zIndex(1f)) {
                          TimelineSelector(timeline) { clearPostActionBubble(); sheet = "Timelines" }
                     }
                 }
                 if (!wide && page == null && !modalOverlayOpen) {
                     androidx.compose.animation.AnimatedVisibility(
                         visible = navigationVisible,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
+                        enter = motionScheme.compactFloatingEnter(bottom = true),
+                        exit = motionScheme.compactFloatingExit(bottom = true),
                         modifier = Modifier
                             .fillMaxWidth()
                             .align(Alignment.BottomCenter)

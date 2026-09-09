@@ -11,8 +11,10 @@ import android.content.Intent
 import android.text.format.DateUtils
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +23,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -49,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.*
@@ -57,6 +68,12 @@ import me.foxtails.palustris.ui.emoji.CustomEmojiImage
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.PostMediaCarousel
+import me.foxtails.palustris.ui.motion.AnimatedStatePane
+import me.foxtails.palustris.ui.motion.ExpandableContent
+import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
+import me.foxtails.palustris.ui.motion.PopEffect
+import me.foxtails.palustris.ui.motion.rememberSelectedColor
+import me.foxtails.palustris.ui.motion.springPress
 
 internal fun openExternal(context: Context, url: String?) {
     val uri = url?.toUri() ?: return
@@ -106,6 +123,13 @@ fun HomeFeed(
     val currentState by rememberUpdatedState(state)
     val loadMore by rememberUpdatedState(onLoadMore)
     val scrollDirectionChanged by rememberUpdatedState(onScrollDirectionChanged)
+    val scheme = LocalPalustrisMotionScheme.current
+    val statePaneKey = when {
+        state.error != null -> "error"
+        state.posts.isEmpty() && state.loading -> "loading"
+        state.posts.isEmpty() -> "empty"
+        else -> "feed"
+    }
     LaunchedEffect(list) {
         snapshotFlow {
             val s = currentState
@@ -127,19 +151,20 @@ fun HomeFeed(
                 previousOffset = offset
             }
     }
-    PullToRefreshBox(
-        isRefreshing = state.loading,
-        onRefresh = onRefresh,
-        state = pullToRefreshState,
-        modifier = Modifier.fillMaxSize().testTag("home_feed_content"),
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullToRefreshState,
-                isRefreshing = state.loading,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 96.dp),
-            )
-        },
-    ) {
+    AnimatedStatePane(statePaneKey, Modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            isRefreshing = state.loading,
+            onRefresh = onRefresh,
+            state = pullToRefreshState,
+            modifier = Modifier.fillMaxSize().testTag("home_feed_content"),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullToRefreshState,
+                    isRefreshing = state.loading,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 96.dp),
+                )
+            },
+        ) {
         LazyColumn(
             state = list,
             modifier = Modifier.fillMaxSize(),
@@ -167,23 +192,31 @@ fun HomeFeed(
             val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
             val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
             items(rows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
-                PostRow(
-                    ownedPost,
-                    enabledActions,
-                    onReact,
-                    onReply,
-                    onReshare,
-                    onBookmark,
-                    onReaction,
-                    onOpenProfile,
-                    onSearchHashtag,
-                    onOpenHashtagBubble = openHashtagBubble,
-                    quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported,
-                    onQuote = onQuote,
-                    onOpenReactionBubble = openReactionBubble,
-                    onOpenMedia = onOpenMedia,
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+                Column(
+                    Modifier.animateItem(
+                        fadeInSpec = scheme.fastFadeIn,
+                        fadeOutSpec = scheme.fastFadeOut,
+                        placementSpec = scheme.gentleOffset,
+                    ),
+                ) {
+                    PostRow(
+                        ownedPost,
+                        enabledActions,
+                        onReact,
+                        onReply,
+                        onReshare,
+                        onBookmark,
+                        onReaction,
+                        onOpenProfile,
+                        onSearchHashtag,
+                        onOpenHashtagBubble = openHashtagBubble,
+                        quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                        onQuote = onQuote,
+                        onOpenReactionBubble = openReactionBubble,
+                        onOpenMedia = onOpenMedia,
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+                }
             }
             if (state.loadingMore) item {
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp)) }
@@ -193,6 +226,7 @@ fun HomeFeed(
                     if (state.nextCursor != null) TextButton(onClick = onLoadMore) { Text("Load older posts") }
                     else Text("You're up to date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
             }
         }
     }
@@ -219,7 +253,13 @@ fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemanti
             } else Modifier),
     ) {
         Avatar(Modifier.fillMaxSize(), description = null)
-        AsyncImage(model = account.avatarUrl, contentDescription = null, contentScale = ContentScale.Crop,
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(account.avatarUrl)
+                .crossfade(true)
+                .build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize())
     }
 }
@@ -241,13 +281,14 @@ internal fun PostRow(
     onOpenReactionBubble: (OwnedPost, Rect) -> Unit = { _, _ -> },
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
     val presentation = remember(post.text, post.emoji) { parseHashtagBlocks(post.text, post.emoji) }
     val contentVisible = post.contentWarning == null || expanded
-    Column(Modifier.fillMaxWidth().testTag("post_row_${post.id.value}")) {
+    Column(modifier.fillMaxWidth().testTag("post_row_${post.id.value}")) {
         post.resharedBy?.let {
             Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp)) {
                 AccountDisplayName(
@@ -270,7 +311,7 @@ internal fun PostRow(
             InlineEmojiText(post.contentWarning.ifBlank { "Content warning" }, post.emoji, Modifier.padding(horizontal = 16.dp), MaterialTheme.typography.bodyLarge)
             TextButton(onClick = { expanded = !expanded }, modifier = Modifier.padding(horizontal = 4.dp)) { Text(if (expanded) "Hide content" else "Show content") }
         }
-        if (contentVisible) {
+        ExpandableContent(visible = contentVisible, modifier = Modifier.fillMaxWidth()) {
             val timestamp = postTimestamp(post)
             if (presentation.visibleText.isNotBlank() || timestamp != null) SelectionContainer {
                 Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
@@ -349,6 +390,7 @@ private fun PostMetadataRow(
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
     postOwned: OwnedPost? = null,
 ) {
+    val profileInteractionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -360,7 +402,15 @@ private fun PostMetadataRow(
         Row(
             modifier = Modifier
                 .weight(1f)
-                .then(onOpenProfile?.let { callback -> Modifier.clickable(onClick = callback) } ?: Modifier),
+                .then(onOpenProfile?.let { callback ->
+                    Modifier
+                        .springPress(profileInteractionSource)
+                        .clickable(
+                            interactionSource = profileInteractionSource,
+                            indication = LocalIndication.current,
+                            onClick = callback,
+                        )
+                } ?: Modifier),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AccountAvatar(post.author, Modifier.size(40.dp))
@@ -403,13 +453,15 @@ private fun postTimestamp(post: Post): String? = if (post.publishedAtEpochMillis
 private fun FilteredHashtagSummary(hashtags: List<String>, onOpen: (Rect) -> Unit) {
     val label = if (hashtags.size == 1) hashtags.first() else "${hashtags.first()} +${hashtags.size - 1}"
     var bounds by remember { mutableStateOf(Rect.Zero) }
+    val interactionSource = remember { MutableInteractionSource() }
     Box {
         Surface(
             modifier = Modifier
                 .widthIn(max = 124.dp)
                 .height(32.dp)
                 .onGloballyPositioned { bounds = it.boundsInWindow() }
-                .clickable { onOpen(bounds) }
+                .springPress(interactionSource, pressedScale = LocalPalustrisMotionScheme.current.compactPressedScale)
+                .clickable(interactionSource = interactionSource, indication = LocalIndication.current) { onOpen(bounds) }
                 .semantics {
                     contentDescription = hashtagSummaryDescription(hashtags)
                     role = Role.Button
@@ -447,12 +499,14 @@ private fun ReactionRow(
     enabled: Boolean,
     onReaction: (OwnedPost, EmojiChoice) -> Unit,
 ) {
+    val scheme = LocalPalustrisMotionScheme.current
     FlowRow(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-    reactions.forEach { reaction ->
+        reactions.forEach { reaction ->
+            val interactionSource = remember(reaction.emoji) { MutableInteractionSource() }
             val countText = pluralStringResource(R.plurals.reaction_count, reaction.count, reaction.count)
             val selectedStateDescription = if (reaction.selected) {
                 if (enabled) {
@@ -463,12 +517,20 @@ private fun ReactionRow(
             } else {
                 null
             }
+            val chipColor = rememberSelectedColor(
+                selected = reaction.selected,
+                selectedColor = MaterialTheme.colorScheme.secondaryContainer,
+                unselectedColor = MaterialTheme.colorScheme.primaryContainer,
+            )
             Surface(
                 modifier = Modifier
                     .height(ReactionChipHeight)
                     .widthIn(min = ReactionChipMinWidth)
+                    .springPress(interactionSource, pressedScale = scheme.compactPressedScale)
                     .combinedClickable(
                         enabled = enabled,
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
                         onClick = {
                             onReaction(ownedPost, EmojiChoice(reaction.emoji, reaction.emoji, reaction.emojiMetadata))
                         },
@@ -479,9 +541,9 @@ private fun ReactionRow(
                         role = Role.Button
                         this.selected = reaction.selected
                         selectedStateDescription?.let { stateDescription = it }
-                    },
+                },
                 shape = CircleShapeForReaction,
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = chipColor,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
                 Row(
@@ -504,7 +566,18 @@ private fun ReactionRow(
                         Modifier.widthIn(min = 16.dp).testTag("reaction_count_${reaction.emoji}"),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(reaction.count.toString(), style = MaterialTheme.typography.labelMedium)
+                        AnimatedContent(
+                            targetState = reaction.count,
+                            transitionSpec = {
+                                if (scheme.reducedMotion) {
+                                    EnterTransition.None togetherWith ExitTransition.None
+                                } else {
+                                    (fadeIn(scheme.fastFadeIn) + scaleIn(initialScale = 0.86f, animationSpec = scheme.expressive)) togetherWith
+                                        (fadeOut(scheme.fastFadeOut) + scaleOut(targetScale = 0.86f, animationSpec = scheme.expressive))
+                                }
+                            },
+                            label = "reactionCount",
+                        ) { count -> Text(count.toString(), style = MaterialTheme.typography.labelMedium) }
                     }
                 }
             }
@@ -605,14 +678,29 @@ private fun InteractionButton(
     onLongClick: ((Rect) -> Unit)? = null,
 ) {
     var bounds by remember { mutableStateOf(Rect.Zero) }
+    var popTrigger by remember { mutableIntStateOf(0) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val scheme = LocalPalustrisMotionScheme.current
     Box(
         modifier = modifier
             .height(PostInteractionRowHeight)
             .onGloballyPositioned { bounds = it.boundsInWindow() }
+            .springPress(interactionSource, enabled, scheme.compactPressedScale)
             .combinedClickable(
                 enabled = enabled,
-                onClick = { onClick(); onClickWithBounds?.invoke(bounds) },
-                onLongClick = onLongClick?.let { callback -> { callback(bounds) } },
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = {
+                    popTrigger++
+                    onClick()
+                    onClickWithBounds?.invoke(bounds)
+                },
+                onLongClick = onLongClick?.let { callback ->
+                    {
+                        popTrigger++
+                        callback(bounds)
+                    }
+                },
             )
             .semantics {
                 contentDescription = label
@@ -622,12 +710,14 @@ private fun InteractionButton(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            icon,
-            label,
-            Modifier.size(PostInteractionIconSize),
-            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f),
-        )
+        PopEffect(popTrigger) {
+            Icon(
+                icon,
+                label,
+                Modifier.size(PostInteractionIconSize),
+                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f),
+            )
+        }
     }
 }
 
