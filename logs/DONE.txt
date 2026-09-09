@@ -6,3 +6,10 @@
 - Commits created: c901406, 5a16701.
 - Focused verification passed: 100 tests.
 - Final verification passed: lintDebug, test, and assembleRelease.
+260909-164033 Media shared transition task:
+- Added account/post/attachment transition identity and root-coordinate thumbnail registry.
+- Added fit geometry, drag thresholds, interactive opening/returning/closing state, source-target fallback, and reduced-motion behavior.
+- Added zoom state ownership and vertical-dismiss gesture arbitration with pager and two-finger/zoom protection.
+- Kept the viewer mounted until close animation completion; added chrome fade/input disabling and full-image load handoff.
+- Commits created: 04e165f, 76a4d0b, 164554e.
+- Verification passed: focused media tests, lintDebug, test, and assembleRelease.

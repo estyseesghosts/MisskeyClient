@@ -20,9 +20,11 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.media.MediaOpenRequest
+import me.foxtails.palustris.ui.media.MediaTransitionKey
 import me.foxtails.palustris.ui.media.MediaViewerScreen
 import me.foxtails.palustris.ui.media.PostMediaCarousel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -67,6 +69,8 @@ class MediaViewerScreenTest {
         compose.waitForIdle()
 
         assertEquals(1, request?.attachmentIndex)
+        assertEquals(MediaTransitionKey.forAttachment(OwnedPost(account.id, post), 1), request?.transitionKey)
+        assertTrue(request?.initialSourceBounds?.width ?: 0f > 0f)
     }
 
     @Test
