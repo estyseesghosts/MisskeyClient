@@ -60,7 +60,10 @@ object MisskeyNotificationMapper {
             id = EntityId(origin, json.getString("id")),
             accountId = receivingAccountId,
             createdAtEpochMillis = json.notificationTimeMillis(),
-            activity = rawType.toNotificationActivity(json),
+            activity = when (rawType) {
+                "reaction", "reaction:grouped" -> reactionActivity(json, mappedPost, origin)
+                else -> rawType.toNotificationActivity(json)
+            },
             actors = actors,
             target = target,
             destination = target?.let(NotificationDestination::InApp),
@@ -91,6 +94,29 @@ object MisskeyNotificationMapper {
     }
 
     private val PROFILE_TARGET_TYPES = setOf("follow", "receiveFollowRequest", "followRequest")
+
+    private fun reactionActivity(
+        json: JSONObject,
+        mappedPost: me.foxtails.palustris.domain.Post?,
+        origin: String,
+    ): NotificationActivity {
+        val firstReaction = json.optJSONArray("reactions")?.optJSONObject(0)
+        val identity = json.nullableString("reaction")
+            ?: json.nullableString("emoji")
+            ?: firstReaction?.nullableString("reaction")
+            ?: "reaction"
+        val emoji = json.optJSONObject("customEmoji")?.let { objectValue ->
+            MisskeyEmojiMapper.parseEmojis(JSONObject().put("value", objectValue), origin).values.firstOrNull()
+        } ?: json.optJSONObject("emoji")?.let { objectValue ->
+            MisskeyEmojiMapper.parseEmojis(JSONObject().put("value", objectValue), origin).values.firstOrNull()
+        } ?: mappedPost?.reactions?.firstOrNull { it.emoji == identity }?.emojiMetadata
+        ?: mappedPost?.emoji?.get(identity) ?: mappedPost?.emoji?.get(identity.trim(':'))
+        return NotificationActivity.EmojiReaction(NotificationReaction(
+            identity = identity,
+            fallbackText = identity.trim(':').ifBlank { "Reaction" },
+            emoji = emoji,
+        ))
+    }
 }
 
 private fun JSONObject.notificationTimeMillis(): Long {
@@ -112,20 +138,6 @@ private fun String.toNotificationActivity(json: JSONObject): NotificationActivit
     "reply" -> NotificationActivity.Reply
     "renote", "renote:grouped" -> NotificationActivity.Reshare
     "quote" -> NotificationActivity.Quote
-    "reaction", "reaction:grouped" -> {
-        val firstReaction = json.optJSONArray("reactions")?.optJSONObject(0)
-        val identity = json.nullableString("reaction")
-            ?: json.nullableString("emoji")
-            ?: firstReaction?.nullableString("reaction")
-            ?: "reaction"
-        val imageUrl = json.optJSONObject("customEmoji")?.nullableString("url")
-            ?: json.optJSONObject("emoji")?.nullableString("url")
-        NotificationActivity.EmojiReaction(NotificationReaction(
-            identity = identity,
-            fallbackText = identity.trim(':').ifBlank { "Reaction" },
-            imageUrl = imageUrl,
-        ))
-    }
     "follow" -> NotificationActivity.Follow
     "receiveFollowRequest", "followRequest" -> NotificationActivity.FollowRequest
     "followRequestAccepted" -> NotificationActivity.AcceptedRequest

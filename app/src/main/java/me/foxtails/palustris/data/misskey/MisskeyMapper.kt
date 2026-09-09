@@ -45,6 +45,7 @@ object MisskeyMapper {
             locked = json.optBoolean("isLocked"),
             bot = json.optBoolean("isBot"),
             movedTo = movedTo,
+            emoji = MisskeyEmojiMapper.parseEmojis(json.optJSONObject("emojis") ?: JSONObject(), origin),
         )
     }
 
@@ -79,12 +80,17 @@ object MisskeyMapper {
         }
         val id = EntityId(origin, json.getString("id"))
         val reactionJson = json.optJSONObject("reactions") ?: JSONObject()
-        val reactionImages = json.optJSONObject("reactionEmojis") ?: JSONObject()
+        val emojiMetadata = MisskeyEmojiMapper.parseEmojis(
+            json.optJSONObject("reactionEmojis") ?: JSONObject(), origin,
+        ) + MisskeyEmojiMapper.parseEmojis(json.optJSONObject("emojis") ?: JSONObject(), origin)
         val myReaction = json.nullableString("myReaction")
         val poll = json.optJSONObject("poll")?.optJSONArray("choices")
         val replyToAuthorId = json.nullableString("replyUserId")
             ?: json.optJSONObject("reply")?.nullableString("userId")
             ?: json.optJSONObject("reply")?.optJSONObject("user")?.nullableString("id")
+        val myChoice = myReaction?.let { identity ->
+            me.foxtails.palustris.domain.EmojiChoice(identity, identity, emojiMetadata[identity])
+        }
         return Post(
             id = id,
             author = account(json.getJSONObject("user"), origin),
@@ -95,8 +101,9 @@ object MisskeyMapper {
             contentWarning = if (json.isNull("cw")) null else json.optString("cw"),
             replyTo = json.nullableString("replyId")?.let { EntityId(origin, it) },
             replyToAuthorId = replyToAuthorId?.let { AccountId(Connection(origin, Protocol.MISSKEY), it) },
-            reactions = reactionJson.keys().asSequence().map { emoji -> Reaction(emoji, reactionJson.optInt(emoji),
-                myReaction == emoji, reactionImages.nullableString(emoji.trim(':'))) }.toList(),
+            reactions = reactionJson.keys().asSequence().map { emoji ->
+                Reaction(emoji, reactionJson.optInt(emoji).coerceAtLeast(0), myReaction == emoji, emojiMetadata[emoji])
+            }.toList(),
             url = json.nullableString("url") ?: json.nullableString("uri") ?: "$origin/notes/${id.value}",
             replyCount = json.optInt("repliesCount"), reshareCount = json.optInt("renoteCount"),
             quote = if (renote != null && depth < MAX_NESTING_DEPTH) post(renote, origin, depth + 1) else null,
@@ -105,6 +112,8 @@ object MisskeyMapper {
             } },
             availableActions = MISSKEY_ACTIONS,
             myReaction = myReaction,
+            selectedReactions = listOfNotNull(myChoice),
+            emoji = MisskeyEmojiMapper.parseEmojis(json.optJSONObject("emojis") ?: JSONObject(), origin),
             saved = json.optBoolean("isFavorited", json.optBoolean("isBookmarked")),
             reposted = json.optString("myRenoteId").takeIf { it.isNotBlank() } != null,
             ownRepostId = json.optString("myRenoteId").takeIf { it.isNotBlank() }

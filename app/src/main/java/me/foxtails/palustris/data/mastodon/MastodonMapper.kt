@@ -5,6 +5,9 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.CustomEmoji
+import me.foxtails.palustris.domain.EditableProfile
+import me.foxtails.palustris.domain.EditableProfileField
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
@@ -28,10 +31,11 @@ object MastodonMapper {
         val host = json.optString("acct").substringAfter('@', "").ifBlank {
             java.net.URI(origin).host.orEmpty()
         }
+        val emoji = MastodonEmojiMapper.parseEmojis(json.optJSONArray("emojis"), origin)
         val fields = json.optJSONArray("fields")?.let { values ->
             (0 until values.length()).mapNotNull { index ->
                 values.optJSONObject(index)?.let { field ->
-                    ProfileField(field.optString("name"), field.optString("value").htmlToText())
+                    ProfileField(field.optString("name"), field.optString("value").htmlToText(emoji))
                 }?.takeIf { it.name.isNotBlank() || it.value.isNotBlank() }
             }.take(4)
         }.orEmpty()
@@ -40,7 +44,7 @@ object MastodonMapper {
             displayName = json.optString("display_name").ifBlank { username },
             handle = "@$username@$host",
             avatarUrl = json.nullableString("avatar"),
-            biography = json.optString("note").stripHtml(),
+            biography = json.optString("note").stripHtml(emoji),
             profileFields = fields,
             bannerUrl = json.nullableString("header"),
             followersCount = json.optionalNonNegativeLong("followers_count"),
@@ -48,12 +52,74 @@ object MastodonMapper {
             postsCount = json.optionalNonNegativeLong("statuses_count"),
             locked = json.optBoolean("locked"),
             bot = json.optBoolean("bot"),
+            emoji = emoji,
         )
         if (!includeMovedTo) return account
         val destination = json.optJSONObject("moved")?.let { moved ->
             runCatching { account(moved, origin, includeMovedTo = false) }.getOrNull()
         }?.takeIf { it.hasUsableProfileIdentity() }
         return account.copy(movedTo = destination)
+    }
+
+    /** API 8 self-profile responses carry raw values; no HTML or Markdown conversion. */
+    fun editableProfile(json: JSONObject, origin: String): EditableProfile = EditableProfile(
+        id = json.optString("id"),
+        displayName = json.optString("display_name"),
+        biography = json.optString("note"),
+        fields = json.optJSONArray("fields")?.let { values ->
+            (0 until values.length()).mapNotNull { index ->
+                values.optJSONObject(index)?.let { field ->
+                    EditableProfileField(field.optString("name"), field.optString("value"))
+                }
+            }
+        }.orEmpty(),
+        avatarUrl = json.nullableString("avatar"),
+        avatarDescription = json.nullableString("avatar_description"),
+        headerUrl = json.nullableString("header"),
+        headerDescription = json.nullableString("header_description"),
+        locked = json.optBoolean("locked"),
+        bot = json.optBoolean("bot"),
+        hideCollections = json.optBoolean("hide_collections"),
+        discoverable = json.optBoolean("discoverable"),
+        indexable = json.optBoolean("indexable"),
+        showMedia = json.optBoolean("show_media"),
+        showMediaReplies = json.optBoolean("show_media_replies"),
+        showFeatured = json.optBoolean("show_featured"),
+        attributionDomains = json.optJSONArray("attribution_domains")?.let { values ->
+            (0 until values.length()).mapNotNull { values.optString(it).takeIf(String::isNotBlank) }
+        }.orEmpty(),
+    )
+
+    /** Legacy verify-credentials responses prefer plaintext source values over rendered ones. */
+    fun legacyEditableProfile(json: JSONObject, origin: String): EditableProfile {
+        val source = json.optJSONObject("source")
+        val renderedFields = json.optJSONArray("fields")?.let { values ->
+            (0 until values.length()).mapNotNull { index ->
+                values.optJSONObject(index)?.let { field ->
+                    EditableProfileField(field.optString("name"), field.optString("value"))
+                }
+            }
+        }.orEmpty()
+        val sourceFields = source?.optJSONArray("fields")?.let { values ->
+            (0 until values.length()).mapNotNull { index ->
+                values.optJSONObject(index)?.let { field ->
+                    EditableProfileField(field.optString("name"), field.optString("value"))
+                }
+            }
+        }
+        return EditableProfile(
+            id = json.optString("id"),
+            displayName = source?.optString("display_name")?.ifBlank { null }
+                ?: json.optString("display_name"),
+            biography = source?.optString("note")?.ifBlank { null } ?: json.optString("note"),
+            fields = sourceFields ?: renderedFields,
+            avatarUrl = json.nullableString("avatar"),
+            avatarDescription = json.nullableString("avatar_description"),
+            headerUrl = json.nullableString("header"),
+            headerDescription = json.nullableString("header_description"),
+            locked = json.optBoolean("locked"),
+            bot = json.optBoolean("bot"),
+        )
     }
 
     fun relationship(json: JSONObject, profileId: AccountId): ProfileRelationship = ProfileRelationship(
@@ -84,10 +150,15 @@ object MastodonMapper {
         val poll = json.optJSONObject("poll")
         val quotedStatus = quotedStatus(json)
         val statusSensitive = json.optBoolean("sensitive")
+        val emoji = MastodonEmojiMapper.parseEmojis(json.optJSONArray("emojis"), origin)
+        val extensionReactions = MastodonReactionExtensionMapper.reactions(json, emoji)
+        val selectedReactions = MastodonReactionExtensionMapper.selectedChoices(
+            json, emoji, independentSelection = true,
+        ).orEmpty()
         return Post(
             id = id,
             author = account(json.getJSONObject("account"), origin),
-            text = json.optString("content").htmlToMarkdown(),
+            text = json.optString("content").htmlToMarkdown(emoji),
             publishedAtEpochMillis = parseInstant(json.optString("created_at")),
             audience = when (json.optString("visibility")) {
                 "unlisted" -> Audience.Unlisted
@@ -117,6 +188,10 @@ object MastodonMapper {
             reposted = json.optBoolean("reblogged"),
             favourited = json.optBoolean("favourited"),
             saved = json.optBoolean("bookmarked"),
+            reactions = extensionReactions.orEmpty(),
+            selectedReactions = selectedReactions,
+            myReaction = selectedReactions.singleOrNull()?.submissionValue,
+            emoji = emoji,
         )
     }
 
@@ -195,18 +270,38 @@ private fun JSONObject.positiveInt(key: String): Int? = when (val value = opt(ke
     else -> null
 }
 
-private fun String.stripHtml(): String = htmlToText()
+private fun String.stripHtml(emoji: Map<String, CustomEmoji> = emptyMap()): String = htmlToText(emoji)
 
 private val htmlAnchor = Regex("<a\\b[^>]*\\bhref\\s*=\\s*[\\\"']([^\\\"']+)[\\\"'][^>]*>(.*?)</a>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
 
-private fun String.htmlToMarkdown(): String {
-    val linked = replace(htmlAnchor) { match ->
+private val emojiImage = Regex("<img\\b[^>]*\\balt\\s*=\\s*[\"']([^\"']+)[\"'][^>]*/?>", setOf(RegexOption.IGNORE_CASE))
+
+/** Replaces known emoji images with their `:shortcode:` alternate token before tag removal. */
+private fun String.preserveEmojiAlts(emoji: Map<String, CustomEmoji>): String {
+    if (emoji.isEmpty()) return replace(emojiImage, "")
+    val known = buildSet {
+        emoji.keys.forEach { key ->
+            add(key)
+            add(":$key:")
+        }
+    }
+    return replace(emojiImage) { match ->
+        val alt = match.groupValues[1].trim()
+        if (alt in known) alt else ""
+    }
+}
+
+private fun String.htmlToMarkdown(emoji: Map<String, CustomEmoji> = emptyMap()): String {
+    val linked = preserveEmojiAlts(emoji).replace(htmlAnchor) { match ->
         val label = match.groupValues[2].htmlToText()
         if (label.trimStart().startsWith("@")) label
         else "[${label}](${match.groupValues[1]})"
     }
     return linked.htmlToText()
 }
+
+private fun String.htmlToText(emoji: Map<String, CustomEmoji>): String =
+    preserveEmojiAlts(emoji).htmlToText()
 
 private fun String.htmlToText(): String = replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
     .replace(Regex("</p\\s*>", RegexOption.IGNORE_CASE), "\n")

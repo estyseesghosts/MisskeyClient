@@ -27,10 +27,14 @@ object MastodonNotificationMapper {
             id = EntityId(origin, json.getString("id")),
             accountId = receivingAccountId,
             createdAtEpochMillis = parseInstant(json.optString("created_at")),
-            activity = rawType.toNotificationActivity(
-                isReplyToReceivingAccount = json.optJSONObject("status")
-                    ?.optString("in_reply_to_account_id") == receivingAccountId.localId,
-            ),
+            activity = if (rawType in EMOJI_REACTION_TYPES) {
+                emojiReactionActivity(json, mappedPost)
+            } else {
+                rawType.toNotificationActivity(
+                    isReplyToReceivingAccount = json.optJSONObject("status")
+                        ?.optString("in_reply_to_account_id") == receivingAccountId.localId,
+                )
+            },
             actors = listOfNotNull(actor),
             target = target,
             destination = target?.let(NotificationDestination::InApp),
@@ -85,6 +89,36 @@ object MastodonNotificationMapper {
 
     private fun parseInstant(value: String): Long = runCatching { Instant.parse(value).toEpochMilli() }.getOrDefault(0)
     private val PROFILE_TARGET_TYPES = setOf("follow", "follow_request")
+    private val EMOJI_REACTION_TYPES = setOf("pleroma:emoji_reaction", "emoji_reaction")
+
+    private fun emojiReactionActivity(
+        json: JSONObject,
+        mappedPost: Post?,
+    ): NotificationActivity {
+        val identity = json.optString("emoji").takeIf { it.isNotBlank() }
+            ?: json.optJSONObject("emoji")?.optString("name").orEmpty().takeIf { it.isNotBlank() }
+            ?: "reaction"
+        val directUrl = me.foxtails.palustris.domain.MediaRequestPolicy.validatedWebUrl(json.optString("emoji_url"))
+        val statusEmoji = mappedPost?.emoji?.get(identity) ?: mappedPost?.emoji?.get(identity.trim(':'))
+        val emoji = when {
+            statusEmoji != null -> statusEmoji
+            directUrl != null -> me.foxtails.palustris.domain.CustomEmoji(
+                shortcode = identity.trim(':'),
+                animatedUrl = directUrl,
+                staticUrl = directUrl,
+                visibleInPicker = false,
+                submissionValue = identity,
+            )
+            else -> null
+        }
+        return NotificationActivity.EmojiReaction(
+            me.foxtails.palustris.domain.NotificationReaction(
+                identity = identity,
+                fallbackText = identity.trim(':').ifBlank { "Reaction" },
+                emoji = emoji,
+            ),
+        )
+    }
 }
 
 private fun String.toNotificationActivity(isReplyToReceivingAccount: Boolean = false): NotificationActivity = when (this) {
