@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import me.foxtails.palustris.domain.Attachment
@@ -61,16 +62,6 @@ fun PostMediaCarousel(
 ) {
     val attachments = ownedPost.post.attachments
     if (attachments.isEmpty()) return
-    if (attachments.size == 1) {
-        MediaPreviewTile(
-            ownedPost = ownedPost,
-            attachment = attachments.single(),
-            index = 0,
-            onOpenMedia = onOpenMedia,
-            modifier = modifier.fillMaxWidth().heightIn(min = 160.dp, max = 360.dp).padding(vertical = 4.dp),
-        )
-        return
-    }
     BoxWithConstraints(modifier.fillMaxWidth()) {
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -86,7 +77,9 @@ fun PostMediaCarousel(
                     attachment = attachment,
                     index = index,
                     onOpenMedia = onOpenMedia,
-                    modifier = Modifier.width(width).height(240.dp),
+                    modifier = Modifier
+                        .width(width)
+                        .height(240.dp),
                 )
             }
         }
@@ -118,6 +111,7 @@ private fun MediaPreviewTile(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = open)
+            .testTag("post_media_frame_${ownedPost.post.id.value}_$index")
             .semantics {
                 contentDescription = "Open media ${index + 1} of ${ownedPost.post.attachments.size}"
                 role = Role.Button
@@ -141,8 +135,8 @@ private fun MediaPreviewTile(
                     ),
                     imageLoader = MediaImageLoader.get(context).imageLoader,
                     contentDescription = attachment.description ?: "Post attachment ${index + 1}",
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 360.dp),
-                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
                 )
             }
             else -> MissingPreviewTile(attachment.description)
@@ -152,7 +146,7 @@ private fun MediaPreviewTile(
 
 @Composable
 private fun SensitiveMediaTile(onReveal: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(AppIcons.Image, null)
         TextButton(onClick = onReveal) { Text("Show sensitive media") }
     }
@@ -160,7 +154,7 @@ private fun SensitiveMediaTile(onReveal: () -> Unit) {
 
 @Composable
 private fun UnsupportedMediaTile(attachment: Attachment) {
-    Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(AppIcons.Image, null)
         Text(attachment.kind.name, style = MaterialTheme.typography.labelLarge)
         Text("This media type is not available in the timeline viewer.", style = MaterialTheme.typography.bodySmall)
@@ -170,7 +164,7 @@ private fun UnsupportedMediaTile(attachment: Attachment) {
 @Composable
 private fun MissingPreviewTile(description: String?) {
     Column(
-        Modifier.fillMaxWidth().padding(16.dp).semantics {
+        Modifier.fillMaxSize().padding(16.dp).semantics {
             contentDescription = description ?: "Post attachment"
         },
         horizontalAlignment = Alignment.CenterHorizontally,
