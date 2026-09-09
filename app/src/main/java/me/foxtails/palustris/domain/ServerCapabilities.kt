@@ -9,11 +9,18 @@ data class ServerCapabilities(
     val canPublish: Boolean = false,
     val notifications: NotificationCapabilities = NotificationCapabilities(),
     val profile: ProfileCapabilities = ProfileCapabilities(),
+    val emoji: EmojiCapabilities = EmojiCapabilities(),
     val capabilitiesLastUpdated: Long = 0,
     val quotes: CapabilityStatus = CapabilityStatus.Unknown,
     val primaryFavourite: PrimaryFavouriteCapability = PrimaryFavouriteCapability(),
     val savedPosts: SavedPostsCapability? = null,
-)
+    /** Bumps when capability shapes change; older snapshots force a fresh probe. */
+    val capabilitySchemaVersion: Int = CURRENT_CAPABILITY_SCHEMA_VERSION,
+) {
+    companion object {
+        const val CURRENT_CAPABILITY_SCHEMA_VERSION = 1
+    }
+}
 
 enum class CapabilityStatus { Supported, Denied, Unsupported, TemporarilyUnavailable, Unknown }
 
@@ -23,6 +30,25 @@ data class ProfileCapabilities(
     val relationships: CapabilityStatus = CapabilityStatus.Unknown,
     val followActions: CapabilityStatus = CapabilityStatus.Unknown,
     val pinnedPosts: CapabilityStatus = CapabilityStatus.Unknown,
+    val editable: EditableProfileCapabilities = EditableProfileCapabilities(),
+)
+
+data class EditableProfileCapabilities(
+    val read: CapabilityStatus = CapabilityStatus.Unknown,
+    val update: CapabilityStatus = CapabilityStatus.Unknown,
+    val advancedSettings: CapabilityStatus = CapabilityStatus.Unknown,
+    val imageDescriptions: CapabilityStatus = CapabilityStatus.Unknown,
+    val imageUpload: CapabilityStatus = CapabilityStatus.Unknown,
+    val imageDeletion: CapabilityStatus = CapabilityStatus.Unknown,
+)
+
+enum class ReactionSelectionMode { Single, Independent, Unknown }
+
+data class EmojiCapabilities(
+    val catalog: CapabilityStatus = CapabilityStatus.Unknown,
+    val reactionListing: CapabilityStatus = CapabilityStatus.Unknown,
+    val reactionMutation: CapabilityStatus = CapabilityStatus.Unknown,
+    val selectionMode: ReactionSelectionMode = ReactionSelectionMode.Unknown,
 )
 
 enum class NotificationReadSemantics { PerNotification, AccountWide, TimelineMarker, Unknown }
