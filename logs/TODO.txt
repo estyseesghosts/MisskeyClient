@@ -1,0 +1,7 @@
+Direct messages implementation:
+- [ ] Inspect current DM-related domain, adapters, storage, UI, navigation, and tests.
+- [ ] Implement protocol-neutral DM contract and adapter operations.
+- [ ] Implement account-isolated conversation state and UI flows.
+- [ ] Add focused DM tests.
+- [ ] Run required verification and resolve failures.
+- [ ] Create focused commits and push.
