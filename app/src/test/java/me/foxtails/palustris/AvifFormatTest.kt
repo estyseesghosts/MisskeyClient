@@ -1,7 +1,13 @@
 package me.foxtails.palustris
 
 import me.foxtails.palustris.data.media.AvifFormat
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import okio.Buffer
+import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -9,6 +15,19 @@ import org.junit.Test
 import java.nio.ByteBuffer
 
 class AvifFormatTest {
+    private val server = MockWebServer()
+    private val client = OkHttpClient()
+
+    @Before
+    fun startServer() {
+        server.start()
+    }
+
+    @After
+    fun stopServer() {
+        server.shutdown()
+    }
+
     @Test
     fun recognizesMajorAvifBrand() {
         assertTrue(AvifFormat.hasAvifBrand(ftyp("avif")))
@@ -54,6 +73,29 @@ class AvifFormatTest {
 
         assertFalse(AvifFormat.hasAvifBrand(truncated))
         assertFalse(AvifFormat.hasAvifBrand(malformed))
+    }
+
+    @Test
+    fun detectsAvifAcrossNetworkUrlAndMimeVariants() {
+        data class Case(val path: String, val mimeType: String, val bytes: ByteArray, val expected: Boolean)
+        val cases = listOf(
+            Case("/image.avif", "image/avif", ftyp("avif"), true),
+            Case("/image.jpg", "image/avif", ftyp("avif"), true),
+            Case("/media/one", "application/octet-stream", ftyp("avif"), true),
+            Case("/image.avif", "image/jpeg", ftyp("mif1"), false),
+            Case("/image.avif", "image/avif", ftyp("avif").copyOf(15), false),
+        )
+        cases.forEach { (path, mimeType, bytes, expected) ->
+            server.enqueue(
+                MockResponse()
+                    .setHeader("Content-Type", mimeType)
+                    .setBody(Buffer().write(bytes)),
+            )
+
+            client.newCall(Request.Builder().url(server.url(path)).build()).execute().use { response ->
+                assertEquals(expected, AvifFormat.isAvif(response.header("Content-Type"), response.body!!.source()))
+            }
+        }
     }
 
     private fun ftyp(majorBrand: String, vararg compatibleBrands: String): ByteArray {
