@@ -33,6 +33,8 @@ internal fun MediaPage(
     accountIdentity: String,
     postIdentity: String,
     onReveal: () -> Unit,
+    zoomState: ZoomableMediaState = rememberZoomableMediaState(attachment.url),
+    modifier: Modifier = Modifier,
     edgeToEdge: Boolean = false,
 ) {
     if (attachment.sensitive && !revealed) {
@@ -52,7 +54,7 @@ internal fun MediaPage(
     val context = LocalContext.current
     val role = if (selected) MediaRequestRole.Full else MediaRequestRole.Preview
     val decision = MediaRequestPolicy.resolve(attachment, role, revealed = true, explicitlyOpened = selected)
-    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when (decision) {
             is MediaRequestDecision.Request -> ZoomableMediaImage(
                 request = MediaImageLoader.get(context).request(
@@ -65,8 +67,9 @@ internal fun MediaPage(
                     decodeWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx().toInt() },
                     decodeHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxHeight.toPx().toInt() },
                 ),
-                contentDescription = attachment.description ?: "Media ${index + 1}",
-                modifier = Modifier.fillMaxWidth().then(if (edgeToEdge) Modifier else Modifier.padding(horizontal = 8.dp)),
+                 contentDescription = attachment.description ?: "Media ${index + 1}",
+                 state = zoomState,
+                 modifier = Modifier.fillMaxWidth().then(if (edgeToEdge) Modifier else Modifier.padding(horizontal = 8.dp)),
             )
             is MediaRequestDecision.NoRequest -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator()

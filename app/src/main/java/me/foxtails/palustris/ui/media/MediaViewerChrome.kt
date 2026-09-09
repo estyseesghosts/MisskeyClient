@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -37,35 +38,40 @@ internal fun BoxScope.MediaViewerChrome(
     onReply: () -> Unit,
     onReshare: () -> Unit,
     onShare: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    alpha: Float = 1f,
 ) {
     Row(
-        Modifier.fillMaxWidth().align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier.fillMaxWidth().align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp)
+            .graphicsLayer { this.alpha = alpha },
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        ChromeButton(AppIcons.Close, "Close media viewer", onClose)
+        ChromeButton(AppIcons.Close, "Close media viewer", enabled, onClose)
         Box {
-            ChromeButton(AppIcons.More, "Media options") { onMenuVisibilityChanged(true) }
-            DropdownMenu(expanded = menuVisible, onDismissRequest = { onMenuVisibilityChanged(false) }) {
+            ChromeButton(AppIcons.More, "Media options", enabled) { onMenuVisibilityChanged(true) }
+            DropdownMenu(expanded = menuVisible && enabled, onDismissRequest = { onMenuVisibilityChanged(false) }) {
                 DropdownMenuItem(text = { Text("Open media in browser") }, onClick = { onMenuVisibilityChanged(false); onOpenBrowser() })
                 if (descriptionAvailable) DropdownMenuItem(text = { Text("Description") }, onClick = { onMenuVisibilityChanged(false); onShowDescription() })
             }
         }
     }
-    Text("${page + 1} / $pageCount", Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 20.dp), color = Color.White)
+    Text("${page + 1} / $pageCount", modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 20.dp).graphicsLayer { this.alpha = alpha }, color = Color.White)
     Row(
-        Modifier.fillMaxWidth().align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier.fillMaxWidth().align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp)
+            .graphicsLayer { this.alpha = alpha },
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        ChromeButton(AppIcons.Heart, "Favorite", onReact)
-        ChromeButton(AppIcons.Reply, "Reply", onReply)
-        ChromeButton(AppIcons.Repost, "Repost", onReshare)
-        ChromeButton(AppIcons.Share, "Share", onShare)
+        ChromeButton(AppIcons.Heart, "Favorite", enabled, onReact)
+        ChromeButton(AppIcons.Reply, "Reply", enabled, onReply)
+        ChromeButton(AppIcons.Repost, "Repost", enabled, onReshare)
+        ChromeButton(AppIcons.Share, "Share", enabled, onShare)
     }
 }
 
 @Composable
-private fun ChromeButton(icon: ImageVector, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.semantics { contentDescription = label }) {
+private fun ChromeButton(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.semantics { contentDescription = label }) {
         Icon(icon, label, tint = Color.White)
     }
 }

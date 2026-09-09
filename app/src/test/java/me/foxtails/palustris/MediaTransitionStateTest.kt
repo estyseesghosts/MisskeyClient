@@ -1,8 +1,12 @@
 package me.foxtails.palustris
 
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
 import me.foxtails.palustris.ui.media.MediaTransitionKey
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
+import me.foxtails.palustris.ui.media.MediaViewerPhase
+import me.foxtails.palustris.ui.media.MediaViewerTransitionState
+import me.foxtails.palustris.ui.media.ZoomableMediaState
 import me.foxtails.palustris.ui.media.dismissProgress
 import me.foxtails.palustris.ui.media.fitRect
 import me.foxtails.palustris.ui.media.lerpRect
@@ -12,6 +16,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 
 class MediaTransitionStateTest {
     @Test
@@ -49,5 +54,34 @@ class MediaTransitionStateTest {
         assertNull(registry.currentActiveKey)
         registry.remove(key)
         assertNull(registry.boundsFor(key))
+    }
+
+    @Test
+    fun reducedMotionTransitionSnapsThroughReturnAndClosePhases() = runBlocking {
+        val source = Rect(20f, 40f, 220f, 240f)
+        val destination = Rect(0f, 0f, 1_000f, 1_000f)
+        val state = MediaViewerTransitionState(source, destination, me.foxtails.palustris.ui.motion.PalustrisMotionScheme.standard(true))
+
+        assertEquals(MediaViewerPhase.Open, state.phase)
+        state.beginDrag()
+        state.dragBy(Offset(0f, 240f))
+        assertEquals(MediaViewerPhase.Dragging, state.phase)
+        state.returnToOpen()
+        assertEquals(MediaViewerPhase.Open, state.phase)
+        state.close(source, destination)
+        assertEquals(MediaViewerPhase.Closing, state.phase)
+        assertEquals(source, state.visualBounds)
+    }
+
+    @Test
+    fun zoomStateExposesWhetherDismissIsAllowed() {
+        val state = ZoomableMediaState()
+
+        assertFalse(state.isZoomed)
+        state.applyTransform(2f, Offset(20f, 10f))
+        assertTrue(state.isZoomed)
+        state.setDoubleTapZoom()
+        assertFalse(state.isZoomed)
+        assertEquals(Offset.Zero, state.offset)
     }
 }
