@@ -1,2 +1,0 @@
-- Run lintDebug and the full test/assembleRelease verification.
-- Record final results, create the final focused commit, and push to GitHub.
