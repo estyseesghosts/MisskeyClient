@@ -71,6 +71,27 @@ class SinglePostScreenTest {
         compose.onNodeWithText("2 / 2").assertIsDisplayed()
     }
 
+    @Test fun photoPostKeepsTheCompleteBodyWithoutFeedTruncation() {
+        val body = "complete ".repeat(45)
+        val post = Post(
+            EntityId("https://example.org", "long-photo-post"),
+            account,
+            body,
+            0,
+            Audience.Public,
+            attachments = listOf(image("long-body")),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SinglePostScreen(OwnedPost(account.id, post), onClose = {})
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText(body, substring = false).assertIsDisplayed()
+        compose.onNodeWithText("View full post").assertDoesNotExist()
+    }
+
     private fun image(id: String) = Attachment(
         id = id,
         url = "https://cdn.example/$id.jpg",

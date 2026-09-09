@@ -1,0 +1,7 @@
+260909-155008 Profile and inline entity task:
+- Added protocol-neutral inline URL, username, hashtag, and Markdown tag parsing.
+- Added display-aware truncation and shared post-body bubble rendering.
+- Added measured, centered accent-colored entity bubbles with click callbacks.
+- Added profile timeline reset behavior and focused feed/profile/saved/single-post coverage.
+- Commits created: c901406, 5a16701.
+- Focused verification passed: 100 tests.

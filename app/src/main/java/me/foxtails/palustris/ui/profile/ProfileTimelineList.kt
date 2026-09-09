@@ -25,7 +25,10 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,17 +92,30 @@ internal fun ProfileTimelineList(
     val page = selectedTab?.let { state.pages[it] }
     val pullToRefreshState = rememberPullToRefreshState()
     val firstPostId = page?.posts?.firstOrNull()?.post?.id
+    var previousTab by remember { mutableStateOf(selectedTab) }
+    var pendingTabReset by remember { mutableStateOf<ProfileTimelineTab?>(null) }
 
-    LaunchedEffect(state.targetId, selectedTab, firstPostId, state.pinnedPosts.size, compactLayout) {
-        list.scrollToItem(
-            firstTimelineItemIndex(
-                compactLayout = compactLayout,
-                pinnedLoading = state.pinnedLoading,
-                pinnedError = state.pinnedError != null,
-                pinnedPostCount = state.pinnedPosts.size,
-                hasFirstPost = firstPostId != null,
-            ),
-        )
+    LaunchedEffect(selectedTab) {
+        if (previousTab != selectedTab) {
+            pendingTabReset = selectedTab
+            list.scrollToItem(0)
+        }
+        previousTab = selectedTab
+    }
+
+    LaunchedEffect(selectedTab, firstPostId, state.pinnedPosts.size, compactLayout, pendingTabReset) {
+        if (pendingTabReset == selectedTab && firstPostId != null && !state.pinnedLoading) {
+            list.scrollToItem(
+                firstTimelineItemIndex(
+                    compactLayout = compactLayout,
+                    pinnedLoading = state.pinnedLoading,
+                    pinnedError = state.pinnedError != null,
+                    pinnedPostCount = state.pinnedPosts.size,
+                    hasFirstPost = true,
+                ),
+            )
+            pendingTabReset = null
+        }
     }
 
     LaunchedEffect(list, state.targetId, selectedTab) {

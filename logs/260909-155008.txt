@@ -1,0 +1,27 @@
+Task: Profile tab navigation and inline post entities
+
+Intended steps:
+- Extend shared post text parsing and presentation for links, usernames, hashtags, and truncation.
+- Render post entities as accent-colored inline bubbles with entity callbacks.
+- Reset profile timeline scroll when the selected timeline changes.
+- Update focused unit and Compose coverage for the shared feed and single-post paths.
+- Run required Gradle verification, create focused commits, and push to GitHub.
+
+Affected production files:
+- app/src/main/java/me/foxtails/palustris/ui/PostTextPresentation.kt
+- app/src/main/java/me/foxtails/palustris/ui/emoji/EmojiTextParser.kt
+- app/src/main/java/me/foxtails/palustris/ui/emoji/InlineEmojiText.kt
+- app/src/main/java/me/foxtails/palustris/ui/HomeFeed.kt
+- app/src/main/java/me/foxtails/palustris/ui/SinglePostScreen.kt
+- app/src/main/java/me/foxtails/palustris/ui/AppIcons.kt
+- app/src/main/java/me/foxtails/palustris/ui/profile/ProfileTimelineList.kt
+
+Affected test files:
+- app/src/test/java/me/foxtails/palustris/ui/PostTextPresentationTest.kt
+- app/src/test/java/me/foxtails/palustris/ui/EmojiTextParserTest.kt
+- app/src/test/java/me/foxtails/palustris/ui/InlineEmojiTextTest.kt
+- app/src/test/java/me/foxtails/palustris/HomeFeedTest.kt
+- app/src/test/java/me/foxtails/palustris/ProfileScreenTest.kt
+- app/src/test/java/me/foxtails/palustris/SinglePostScreenTest.kt
+- app/src/test/java/me/foxtails/palustris/SavedPostsScreenTest.kt
+- app/src/test/java/me/foxtails/palustris/NavigationTest.kt

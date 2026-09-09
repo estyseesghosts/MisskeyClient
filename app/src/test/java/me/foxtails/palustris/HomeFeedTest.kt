@@ -493,6 +493,46 @@ private fun show(
         compose.onNodeWithContentDescription("View full post").assertDoesNotExist()
     }
 
+    @Test fun linkAwareTruncationUsesTheShortLabelAndKeepsTheLinkBubbleIntact() {
+        val url = "https://example.org/a-very-long-path"
+        val text = "x".repeat(340) + " " + url + " tail"
+        show(Post(postId("link-truncation"), account, text, 0, Audience.Public))
+
+        compose.onNodeWithContentDescription("Link url.xyz").assertIsDisplayed()
+        compose.onNodeWithText(url, substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("View full post").assertIsDisplayed()
+    }
+
+    @Test fun markdownHashtagLinksUseHashtagBubblesInsteadOfLinkBubbles() {
+        val text = "Meet at [#Zurich](<https://pixelfed.social/discover/tags/Zurich?src=hash>) today"
+        show(Post(postId("markdown-hashtag"), account, text, 0, Audience.Public))
+
+        compose.onNodeWithContentDescription("Hashtag #Zurich").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Link #Zurich").assertDoesNotExist()
+    }
+
+    @Test fun searchRowsUseTheSameLinkAwareTruncationAsHomeRows() {
+        val url = "https://example.org/a-very-long-path"
+        val text = "x".repeat(340) + " " + url + " tail"
+        val post = Post(postId("search-link-truncation"), account, text, 0, Audience.Public)
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SearchScreen(
+                    accountSearch = AccountSearchState(
+                        query = "#cats",
+                        tagQuery = "cats",
+                        posts = listOf(post),
+                    ),
+                    initialQuery = "#cats",
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Link url.xyz").assertIsDisplayed()
+        compose.onNodeWithText(url, substring = true).assertDoesNotExist()
+    }
+
     @Test fun searchResultsExposePostActionCallbacks() {
         val result = Post(postId("search-actions"), account, "Search actions", 0, Audience.Public)
         var replied = false

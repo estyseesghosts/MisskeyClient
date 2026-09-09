@@ -594,6 +594,46 @@ class ProfileScreenTest {
     }
 
     @Test
+    fun changingProfileTimelineResetsTheListWithTheSelectedFeedFirstPostAtTheTop() {
+        val profile = account("timeline-reset", "Timeline reset")
+        val posts = (0..10).map { index -> post("posts-$index", profile, "Posts $index") }
+        val mediaPosts = (0..10).map { index -> post("media-$index", profile, "Media $index") }
+        val state = mutableStateOf(
+            profileState(profile, posts).copy(
+                pages = mapOf(
+                    ProfileTimelineTab.Posts to ProfilePageState(posts.map { OwnedPost(self.id, it) }),
+                    ProfileTimelineTab.Media to ProfilePageState(mediaPosts.map { OwnedPost(self.id, it) }),
+                ),
+            ),
+        )
+
+        show {
+            ProfileScreen(
+                account = profile,
+                profileState = state.value,
+                compactLayout = false,
+                authenticatedAccountId = self.id,
+                onCategorySelected = { category -> state.value = state.value.copy(selectedTab = category) },
+            )
+        }
+
+        repeat(12) {
+            compose.onNodeWithTag("profile_timeline_list", useUnmergedTree = true).performTouchInput { swipeUp() }
+        }
+        compose.runOnIdle {
+            state.value = state.value.copy(selectedTab = ProfileCategory.Media)
+        }
+        compose.waitForIdle()
+
+        val listTop = compose.onNodeWithTag("profile_timeline_list", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.top
+        val firstMediaTop = compose.onNodeWithTag("post_row_media-0", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.top
+        assertEquals(listTop, firstMediaTop, 1f)
+        compose.onNodeWithText("Media 0").assertIsDisplayed()
+    }
+
+    @Test
     fun unsupportedEditingDoesNotRenderAnInlineEditAction() {
         val state = profileState(self, emptyList()).copy(editableSupported = false)
         show {

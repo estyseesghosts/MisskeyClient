@@ -509,6 +509,20 @@ class NavigationTest {
                             ),
                         ),
                     ),
+                    ProfileTimelineTab.Media to ProfilePageState(
+                        posts = listOf(
+                            OwnedPost(
+                                alice.id,
+                                Post(
+                                    EntityId("https://example.org", "alice-media-post"),
+                                    alice,
+                                    "Alice's media post",
+                                    0,
+                                    Audience.Public,
+                                ),
+                            ),
+                        ),
+                    ),
                 ),
             ),
         )
@@ -552,6 +566,7 @@ class NavigationTest {
         compose.onNodeWithText("Posts").assertIsSelected()
         compose.onNodeWithText("Media").performClick()
         compose.onNodeWithText("Media").assertIsSelected()
+        compose.onNodeWithText("Alice's media post").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("Home").performClick()
         compose.onNodeWithContentDescription("Profile").performClick()
