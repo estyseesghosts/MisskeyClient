@@ -21,3 +21,11 @@
 - Added adapter, privacy, account-isolation, unread-preservation, and Compose UI coverage.
 - Commits created: 347f95c, a9cd856, 9c951e6, 2ccb7fe, b3f7b54.
 - Verification passed: focused DM tests, full testDebugUnitTest, lintDebug, and assembleRelease.
+260909-182531 AVIF image support task:
+- Added app-owned AVIF detection from ISO-BMFF ftyp brands and a Coil 2 decoder around avif-coder.
+- Added sampled decoding, dimension limits, clean decoder errors, and shared loader registration.
+- Routed avatars, profile banners, emoji, post previews, and full-screen media through MediaImageLoader.
+- Added detector, MockWebServer, UI, and instrumented native decode coverage with AVIF, JPEG, HEIC, alpha, high-bit-depth, ICC, large, and corrupt fixtures.
+- Added io.github.awxkee:avif-coder:2.2.1 because the app needs an app-owned decoder that avoids device-specific platform AVIF defects while retaining Coil 2.7.0.
+- Commits created: 3a1adf8, 9ba09a6, 1742b49, 2faa8bb.
+- Verification passed: focused AVIF tests, Android 13 device AVIF tests, lintDebug, test, and assembleRelease.
