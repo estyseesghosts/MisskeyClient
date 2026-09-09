@@ -119,4 +119,51 @@
     <string name="notifications_settings_registration_permission">Android notification permission is required for device alerts.</string>
     <string name="notifications_settings_retry_registration">Retry registration</string>
     <string name="notifications_settings_registration_pending">Delivery registration is pending or retrying.</string>
+
+    <string name="emoji_picker_title">Choose an emoji</string>
+    <string name="emoji_picker_search_hint">Search emoji</string>
+    <string name="emoji_picker_loading">Loading emoji</string>
+    <string name="emoji_picker_retry">Retry</string>
+    <string name="emoji_picker_empty">No emoji matched your search.</string>
+    <string name="emoji_picker_unsupported">This server does not provide a custom emoji catalog.</string>
+    <string name="emoji_unicode_section">Standard emoji</string>
+    <string name="emoji_recent_section">Recent</string>
+    <string name="custom_emoji_image_description">Custom emoji %1$s</string>
+    <string name="emoji_open_picker">Open the emoji picker</string>
+    <plurals name="reaction_count">
+        <item quantity="one">%1$d reaction</item>
+        <item quantity="many">%1$d reactions</item>
+    </plurals>
+    <string name="emoji_reaction_remove">Remove the %1$s reaction</string>
+    <string name="emoji_reaction_selected">%1$s reaction selected</string>
+
+    <string name="profile_editor_title">Edit profile</string>
+    <string name="profile_editor_close">Close</string>
+    <string name="profile_editor_display_name">Display name</string>
+    <string name="profile_editor_biography">Biography</string>
+    <string name="profile_editor_handle">Handle</string>
+    <string name="profile_editor_fields_title">Profile fields</string>
+    <string name="profile_editor_field_name">Field name</string>
+    <string name="profile_editor_field_value">Field value</string>
+    <string name="profile_editor_add_field">Add field</string>
+    <string name="profile_editor_remove_field">Remove field</string>
+    <string name="profile_editor_move_field_up">Move field up</string>
+    <string name="profile_editor_move_field_down">Move field down</string>
+    <string name="profile_editor_visibility_title">Visibility and profile tabs</string>
+    <string name="profile_editor_locked">Lock the account</string>
+    <string name="profile_editor_bot">Bot account</string>
+    <string name="profile_editor_hide_collections">Hide follower collections</string>
+    <string name="profile_editor_discoverable">Allow discovery</string>
+    <string name="profile_editor_indexable">Allow search indexing</string>
+    <string name="profile_editor_media_tab">Show the Media tab</string>
+    <string name="profile_editor_media_replies">Show replies in the Media tab</string>
+    <string name="profile_editor_featured_tab">Show the Featured tab</string>
+    <string name="profile_editor_attribution_domains">Attribution domains</string>
+    <string name="profile_editor_image_descriptions_title">Image descriptions</string>
+    <string name="profile_editor_avatar_description">Profile picture description</string>
+    <string name="profile_editor_header_description">Profile banner description</string>
+    <string name="profile_editor_save">Save</string>
+    <string name="profile_editor_saving">Saving</string>
+    <string name="profile_editor_unsupported">This server does not support advanced profile settings.</string>
+    <string name="profile_editor_load_error">Profile could not load. Try again.</string>
 </resources>

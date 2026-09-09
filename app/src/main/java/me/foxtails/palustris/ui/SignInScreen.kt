@@ -25,6 +25,9 @@ import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
 import me.foxtails.palustris.data.notifications.NotificationStreamController
+import me.foxtails.palustris.domain.EmojiCapabilities
+import me.foxtails.palustris.ui.emoji.EmojiCatalogState
+import me.foxtails.palustris.ui.emoji.EmojiCatalogViewModel
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
 import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
@@ -123,6 +126,14 @@ fun ConnectedApp(
     }
     val profileState by if (profileModel != null) profileModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(ProfileUiState()) }
+    val emojiCatalogModel = activeSession?.let { session ->
+        hiltViewModel<EmojiCatalogViewModel, EmojiCatalogViewModel.Factory>(
+            key = "emoji-catalog-${session.accountId}-${state.sessionGeneration}",
+            creationCallback = { factory -> factory.create(session.accountId, sharedSource!!) },
+        )
+    }
+    val emojiCatalogState by if (emojiCatalogModel != null) emojiCatalogModel.state.collectAsStateWithLifecycle()
+    else remember { mutableStateOf(EmojiCatalogState()) }
     LaunchedEffect(profileState.account, state.account) {
         profileState.account
             ?.takeIf { it.id == state.account?.id && it != state.account }
@@ -213,12 +224,20 @@ fun ConnectedApp(
                 onLoadMoreProfile = { profileModel?.loadMoreSelected() },
                 onFollowProfile = { profileModel?.follow() },
                 onUnfollowProfile = { profileModel?.unfollow() },
-                onUpdateProfile = { request, onSuccess ->
-                    profileModel?.updateSelf(request) { updated ->
+                onUpdateProfile = { patch, onSuccess ->
+                    profileModel?.saveEditor(patch) { updated ->
                         accountManager.updateAccount(updated)
                         onSuccess()
                     }
                 },
+                onOpenProfileEditor = { profileModel?.openEditor() },
+                onCloseEditor = { profileModel?.closeEditor() },
+                emojiCatalogState = emojiCatalogState,
+                emojiCapabilities = sharedSource?.capabilities?.emoji ?: EmojiCapabilities(),
+                onLoadEmojiCatalog = { emojiCatalogModel?.loadCatalog() },
+                onRetryEmojiCatalog = { emojiCatalogModel?.retryCatalog() },
+                onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
+                onProfilePostReaction = { ownedPost, choice -> profileModel?.react(ownedPost, choice) },
             )
         }
     }

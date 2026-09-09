@@ -52,6 +52,11 @@ import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
+import me.foxtails.palustris.domain.EditableProfile
+import me.foxtails.palustris.domain.EditableProfileField
+import me.foxtails.palustris.domain.EditableProfilePatch
+import me.foxtails.palustris.domain.EmojiCapabilities
+import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationQuery
@@ -62,8 +67,11 @@ import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.PostDraftQuotePreview
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.domain.UpdateProfileRequest
 import java.util.UUID
+import me.foxtails.palustris.ui.emoji.ComposerField
+import me.foxtails.palustris.ui.emoji.EmojiCatalogState
+import me.foxtails.palustris.ui.emoji.EmojiPickerHost
+import me.foxtails.palustris.ui.emoji.EmojiPickerTarget
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.notifications.NotificationDetailScreen
 import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
@@ -101,6 +109,23 @@ private fun savedCollectionTitle(kind: SavedPostsKind?): String = when (kind) {
     SavedPostsKind.Favourites -> "Favourites"
     SavedPostsKind.Bookmarks, null -> "Bookmarks"
 }
+
+private fun editableProfilePatch(base: EditableProfile, edited: EditableProfile): EditableProfilePatch = EditableProfilePatch(
+    displayName = edited.displayName.takeIf { it != base.displayName },
+    biography = edited.biography.takeIf { it != base.biography },
+    fields = edited.fields.takeIf { it != base.fields },
+    avatarDescription = edited.avatarDescription.takeIf { it != base.avatarDescription },
+    headerDescription = edited.headerDescription.takeIf { it != base.headerDescription },
+    locked = edited.locked.takeIf { it != base.locked },
+    bot = edited.bot.takeIf { it != base.bot },
+    hideCollections = edited.hideCollections.takeIf { it != base.hideCollections },
+    discoverable = edited.discoverable.takeIf { it != base.discoverable },
+    indexable = edited.indexable.takeIf { it != base.indexable },
+    showMedia = edited.showMedia.takeIf { it != base.showMedia },
+    showMediaReplies = edited.showMediaReplies.takeIf { it != base.showMediaReplies },
+    showFeatured = edited.showFeatured.takeIf { it != base.showFeatured },
+    attributionDomains = edited.attributionDomains.takeIf { it != base.attributionDomains },
+)
 
 internal val CompactNavigationHeight = 60.dp
 internal val CompactTimelineSelectorWidth = 168.dp
@@ -203,7 +228,7 @@ private fun contextualActionFor(
     Destination.Profile -> when {
         profileTarget?.movedTo != null -> null
         profileTarget?.id == authenticatedAccountId && authenticatedAccountId != null ->
-            ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", true, onEditProfile)
+            ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", profileState.editableSupported, onEditProfile)
         profileState.relationshipSupported == true && profileState.relationship != null -> {
             val relationship = profileState.relationship
             val following = relationship.following || relationship.requested
@@ -321,7 +346,9 @@ fun PalustrisApp(
     onSwitchAccount: (AccountId) -> Unit = {},
     onAddAccount: () -> Unit = {},
     onPublish: (CreatePostRequest, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
-    onUpdateProfile: (UpdateProfileRequest, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
+    onUpdateProfile: (EditableProfilePatch, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
+    onOpenProfileEditor: () -> Unit = {},
+    onCloseEditor: () -> Unit = {},
     onSearchAccounts: (String) -> Unit = {},
     onLoadMoreSearch: () -> Unit = {},
     draftStore: DraftStore? = null,
@@ -330,7 +357,13 @@ fun PalustrisApp(
     onReply: (OwnedPost) -> Unit = {},
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
-    onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+    onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    onSavedPostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    onProfilePostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    emojiCatalogState: EmojiCatalogState = EmojiCatalogState(),
+    emojiCapabilities: EmojiCapabilities = EmojiCapabilities(),
+    onLoadEmojiCatalog: () -> Unit = {},
+    onRetryEmojiCatalog: () -> Unit = {},
     savedPostsState: SavedPostsUiState? = null,
     onRefreshSavedPosts: () -> Unit = {},
     onLoadMoreSavedPosts: () -> Unit = {},
@@ -386,11 +419,13 @@ fun PalustrisApp(
     var composerQuoteOf by remember { mutableStateOf<EntityId?>(null) }
     var composerTarget by remember { mutableStateOf<OwnedPost?>(null) }
     var viewedProfile by remember { mutableStateOf<Account?>(null) }
-    var profileName by rememberSaveable { mutableStateOf("") }
-    var profileBiography by rememberSaveable { mutableStateOf("") }
+    var profileEditor by remember { mutableStateOf<EditableProfile?>(null) }
     var profileDialog by rememberSaveable { mutableStateOf(false) }
     var signOutDialog by remember { mutableStateOf(false) }
     var mediaRequest by remember { mutableStateOf<MediaOpenRequest?>(null) }
+    var emojiPickerTarget by remember { mutableStateOf<EmojiPickerTarget?>(null) }
+    var emojiReactionHandler by remember { mutableStateOf<((OwnedPost, EmojiChoice) -> Unit)?>(null) }
+    var pendingEmojiInsertion by remember { mutableStateOf<Pair<EmojiChoice, ComposerField>?>(null) }
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
     var notificationRoute by remember { mutableStateOf<AppRoute?>(initialNotificationRoute) }
     var closing by remember { mutableStateOf(false) }
@@ -400,7 +435,7 @@ fun PalustrisApp(
         "NotificationSettings" -> Overlay.NotificationSettings
         else -> null
     }
-    val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog || mediaRequest != null
+    val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog || mediaRequest != null || emojiPickerTarget != null
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
     val profileTargetId = viewedProfile?.id ?: account?.id
     val refreshedProfile = profileState.account?.takeIf { it.id == profileTargetId }
@@ -413,8 +448,20 @@ fun PalustrisApp(
         composerQuoteOf?.value != savedQuoteOf ||
         composerReplyTo?.value != savedReplyTo
     val editableProfile = profileState.account?.takeIf { it.id == account?.id } ?: account
-    val profileDirty = editableProfile != null &&
-        (profileName != editableProfile.displayName || profileBiography != editableProfile.biography)
+    val editorBase = profileState.editable
+        ?: editableProfile?.let { account ->
+            EditableProfile(
+                id = account.id.localId,
+                displayName = account.displayName,
+                biography = account.biography,
+                fields = account.profileFields.map { EditableProfileField(it.name, it.value) },
+                avatarUrl = account.avatarUrl,
+                bannerUrl = account.bannerUrl,
+                locked = account.locked,
+                bot = account.bot,
+            )
+        }
+    val profileDirty = profileEditor != null && editorBase != null && profileEditor != editorBase
 
     suspend fun reloadDrafts() {
         drafts = runCatching {
@@ -424,10 +471,9 @@ fun PalustrisApp(
     }
 
     LaunchedEffect(account?.id, store) { reloadDrafts() }
-    LaunchedEffect(overlayKey, editableProfile?.id, editableProfile?.displayName, editableProfile?.biography) {
-        if (overlay == Overlay.EditProfile && editableProfile != null) {
-            profileName = editableProfile.displayName
-            profileBiography = editableProfile.biography
+    LaunchedEffect(overlayKey) {
+        if (overlay == Overlay.EditProfile && editorBase != null && profileEditor == null) {
+            profileEditor = editorBase
         }
     }
     LaunchedEffect(availableTimelines) { if (timeline !in availableTimelines) timeline = Timeline.Home }
@@ -442,6 +488,10 @@ fun PalustrisApp(
         composerReplyTo = null
         savedReplyTo = null
         mediaRequest = null
+        profileEditor = null
+        emojiPickerTarget = null
+        emojiReactionHandler = null
+        pendingEmojiInsertion = null
     }
     LaunchedEffect(initialNotificationRoute) {
         notificationRoute = initialNotificationRoute
@@ -582,7 +632,20 @@ fun PalustrisApp(
     fun closeComposer() { if (feedState?.publishing == true || closing) return; if (hasDraftChanges) saveCurrentDraft { overlayKey = null } else overlayKey = null }
     fun closeProfile() {
         if (profileState.savingProfile) return
-        if (profileDirty) profileDialog = true else overlayKey = null
+        if (profileDirty) profileDialog = true else discardProfileEditor()
+    }
+
+    fun discardProfileEditor() {
+        profileEditor = null
+        overlayKey = null
+        onCloseEditor()
+    }
+
+    fun openProfileEditor() {
+        if (account != null && displayedProfile?.id == account.id && profileState.editableSupported) {
+            onOpenProfileEditor()
+            overlayKey = Overlay.EditProfile::class.simpleName
+        }
     }
     fun closeNotificationSettings() { overlayKey = null }
     fun selectDestination(item: Destination) {
@@ -687,7 +750,13 @@ fun PalustrisApp(
                                     onReact = onReact,
                                      onReply = handleReply,
                                     onReshare = onReshare,
-                                     onReaction = onReaction,
+                                     onReaction = onSavedPostReaction,
+                                     onOpenReactionPicker = { ownedPost ->
+                                         if (account != null && ownedPost.fetchedBy == account.id) {
+                                             emojiReactionHandler = onSavedPostReaction
+                                             emojiPickerTarget = EmojiPickerTarget.Reaction(ownedPost)
+                                         }
+                                     },
                                      onOpenMedia = ::openMedia,
                                      availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
                                     onOpenProfile = ::openProfile,
@@ -697,7 +766,12 @@ fun PalustrisApp(
                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                             LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                                 Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenMedia = ::openMedia) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                 Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenReactionPicker = { ownedPost ->
+                                     if (account != null && ownedPost.fetchedBy == account.id) {
+                                         emojiReactionHandler = onReaction
+                                         emojiPickerTarget = EmojiPickerTarget.Reaction(ownedPost)
+                                     }
+                                 }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenMedia = ::openMedia) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                                  Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill, compactLayout = !wide, compactNavigationVisible = !wide, mediaOwner = account?.id, onOpenMedia = ::openMedia)
                                 Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(
                                     connected = account != null,
@@ -718,39 +792,41 @@ fun PalustrisApp(
                                         if (account != null) overlayKey = Overlay.NotificationSettings::class.simpleName
                                     },
                                 ) else MessagesScreen()
-                                Destination.Profile -> RichProfileScreen(
-                                    account = displayedProfile,
-                                    profileState = profileState,
-                                    compactLayout = !wide,
-                                    compactNavigationVisible = navigationVisible,
-                                    authenticatedAccountId = account?.id,
-                                    onProfileShown = onProfileShown,
-                                    onCategorySelected = onProfileCategorySelected,
-                                    onRefresh = onRefreshProfile,
-                                    onLoadMore = onLoadMoreProfile,
-                                    onFollow = onFollowProfile,
-                                    onUnfollow = onUnfollowProfile,
-                                    onEditProfile = {
-                                        if (account != null && displayedProfile?.id == account.id) {
-                                            overlayKey = Overlay.EditProfile::class.simpleName
-                                        }
-                                    },
-                                    onOpenDrafts = {
-                                        if (account != null && displayedProfile?.id == account.id) page = LocalPage.Drafts
-                                    },
-                                    onOpenBookmarks = {
-                                        if (account != null && displayedProfile?.id == account.id) page = LocalPage.SavedPosts
-                                    },
-                                    onOpenProfile = ::openProfile,
-                                    onSearchHashtag = ::openHashtagSearch,
-                                    availableActions = feedState?.actions ?: emptySet(),
-                                    onReact = onReact,
-                                     onReply = handleReply,
-                                    onReshare = onReshare,
-                                    onBookmark = onBookmark,
-                                     onReaction = onReaction,
-                                     onOpenMedia = ::openMedia,
-                                 )
+                Destination.Profile -> RichProfileScreen(
+                    account = displayedProfile,
+                    profileState = profileState,
+                    compactLayout = !wide,
+                    compactNavigationVisible = navigationVisible,
+                    authenticatedAccountId = account?.id,
+                    onProfileShown = onProfileShown,
+                    onCategorySelected = onProfileCategorySelected,
+                    onRefresh = onRefreshProfile,
+                    onLoadMore = onLoadMoreProfile,
+                    onFollow = onFollowProfile,
+                    onUnfollow = onUnfollowProfile,
+                    onEditProfile = ::openProfileEditor,
+                    onOpenDrafts = {
+                        if (account != null && displayedProfile?.id == account.id) page = LocalPage.Drafts
+                    },
+                    onOpenBookmarks = {
+                        if (account != null && displayedProfile?.id == account.id) page = LocalPage.SavedPosts
+                    },
+                    onOpenProfile = ::openProfile,
+                    onSearchHashtag = ::openHashtagSearch,
+                    availableActions = feedState?.actions ?: emptySet(),
+                    onReact = onReact,
+                     onReply = handleReply,
+                    onReshare = onReshare,
+                    onBookmark = onBookmark,
+                     onReaction = onProfilePostReaction,
+                     onOpenReactionPicker = { ownedPost ->
+                         if (account != null && ownedPost.fetchedBy == account.id) {
+                             emojiReactionHandler = onProfilePostReaction
+                             emojiPickerTarget = EmojiPickerTarget.Reaction(ownedPost)
+                         }
+                     },
+                     onOpenMedia = ::openMedia,
+                 )
                             } }
                         }
                     }
@@ -805,11 +881,7 @@ fun PalustrisApp(
                                                 NotificationsPanel.Notifications.name
                                             }
                                         },
-                                        onEditProfile = {
-                                            if (account != null && displayedProfile?.id == account.id) {
-                                                overlayKey = Overlay.EditProfile::class.simpleName
-                                            }
-                                        },
+                                        onEditProfile = ::openProfileEditor,
                                         onFollowProfile = onFollowProfile,
                                         onUnfollowProfile = onUnfollowProfile,
                                     ),
@@ -860,7 +932,9 @@ fun PalustrisApp(
                 Row(verticalAlignment = Alignment.CenterVertically) { ActionIcon(AppIcons.Close, "Close composer", ::closeComposer); Text("New post", style = MaterialTheme.typography.titleLarge) }
                 TextButton(enabled = (draft.isNotBlank() || composerReplyTo != null) && !closing, onClick = { saveCurrentDraft { overlayKey = null } }) { Text("Save draft") }
             }
-            ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, quoteTarget = composerTarget, isReply = composerReplyTo != null, onRemoveQuote = { composerTarget = null; composerQuoteOf = null; composerReplyTo = null }, onPublish = {
+            ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, quoteTarget = composerTarget, isReply = composerReplyTo != null, onRemoveQuote = { composerTarget = null; composerQuoteOf = null; composerReplyTo = null }, onRequestEmoji = { field ->
+                emojiPickerTarget = EmojiPickerTarget.Composer(field)
+            }, pendingEmojiInsertion = pendingEmojiInsertion, onEmojiInsertionApplied = { pendingEmojiInsertion = null }, onPublish = {
                 val submittedText = draft; val submittedWarning = warning.takeIf { warningEnabled && it.isNotBlank() }
                 val submittedQuote = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
                 val submittedReply = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
@@ -890,19 +964,48 @@ fun PalustrisApp(
 
     if (overlay == Overlay.EditProfile && account != null) ModalBottomSheet(onDismissRequest = ::closeProfile, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         me.foxtails.palustris.ui.profile.EditProfileScreen(
-            account = profileState.account?.takeIf { it.id == account?.id } ?: account!!,
-            displayName = profileName,
-            biography = profileBiography,
+            editor = profileEditor,
+            capabilities = profileState.editorCapabilities,
+            emoji = profileState.account?.emoji ?: emptyMap(),
+            handle = account!!.handle,
+            loading = profileState.editableLoading,
             saving = profileState.savingProfile,
-            error = profileState.editError,
-            onDisplayNameChange = { profileName = it },
-            onBiographyChange = { profileBiography = it },
+            error = profileState.editError ?: profileState.editableError,
+            onEditorChange = { profileEditor = it },
             onSave = {
-                onUpdateProfile(UpdateProfileRequest(profileName.trim(), profileBiography)) {
+                val base = editorBase ?: return@EditProfileScreen
+                val edited = profileEditor ?: return@EditProfileScreen
+                onUpdateProfile(editableProfilePatch(base, edited)) {
+                    profileEditor = null
                     overlayKey = null
                 }
             },
             onClose = ::closeProfile,
+        )
+    }
+
+    if (emojiPickerTarget != null) {
+        EmojiPickerHost(
+            target = emojiPickerTarget,
+            catalog = emojiCatalogState,
+            selectionMode = emojiCapabilities.selectionMode,
+            mutationSupported = emojiCapabilities.reactionMutation == CapabilityStatus.Supported,
+            onLoadCatalog = onLoadEmojiCatalog,
+            onRetryCatalog = onRetryEmojiCatalog,
+            onDismiss = {
+                emojiPickerTarget = null
+                emojiReactionHandler = null
+            },
+            onEmojiSelected = { choice ->
+                val target = emojiPickerTarget
+                when (target) {
+                    is EmojiPickerTarget.Reaction -> emojiReactionHandler?.invoke(target.post, choice)
+                    is EmojiPickerTarget.Composer -> pendingEmojiInsertion = choice to target.field
+                    null -> Unit
+                }
+                emojiPickerTarget = null
+                emojiReactionHandler = null
+            },
         )
     }
 
@@ -954,7 +1057,7 @@ fun PalustrisApp(
         closeNotificationSettings()
     }
 
-    if (profileDialog) AlertDialog(onDismissRequest = { profileDialog = false }, title = { Text("Discard profile changes?") }, text = { Text("Your changes have not been saved.") }, confirmButton = { TextButton(onClick = { profileDialog = false; overlayKey = null }) { Text("Discard") } }, dismissButton = { TextButton(onClick = { profileDialog = false }) { Text("Keep editing") } })
+    if (profileDialog) AlertDialog(onDismissRequest = { profileDialog = false }, title = { Text("Discard profile changes?") }, text = { Text("Your changes have not been saved.") }, confirmButton = { TextButton(onClick = { profileDialog = false; discardProfileEditor() }) { Text("Discard") } }, dismissButton = { TextButton(onClick = { profileDialog = false }) { Text("Keep editing") } })
     if (signOutDialog) AlertDialog(onDismissRequest = { signOutDialog = false }, title = { Text("Sign out?") }, text = { Text("Your sign-in will be removed from this device. Local drafts will remain.") }, confirmButton = { TextButton(onClick = { signOutDialog = false; onSignOut() }) { Text("Sign out") } }, dismissButton = { TextButton(onClick = { signOutDialog = false }) { Text("Cancel") } })
 }
 
