@@ -116,9 +116,19 @@ fun EmojiPickerHost(
                     Text(catalog.error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
                     TextButton(onClick = onRetryCatalog) { Text(stringResource(R.string.emoji_picker_retry)) }
                 }
-                else -> PickerGrid(
-                    target = target,
+                catalog.empty && catalog.items.isEmpty() -> PickerMessage(stringResource(R.string.emoji_picker_empty))
+                else -> EmojiChoiceGrid(
                     catalogItems = catalog.items,
+                    additionalChoices = (target as? EmojiPickerTarget.Reaction)?.post?.post?.reactions?.map { reaction ->
+                        EmojiChoice(reaction.emoji, reaction.emoji, reaction.emojiMetadata)
+                    }.orEmpty(),
+                    selectedIdentities = (target as? EmojiPickerTarget.Reaction)?.post?.post?.let { post ->
+                        buildSet {
+                            post.selectedReactions.forEach { add(it.submissionValue) }
+                            post.reactions.filter { it.selected }.forEach { add(it.emoji) }
+                            post.myReaction?.let(::add)
+                        }
+                    }.orEmpty(),
                     onEmojiSelected = { choice ->
                         onEmojiSelected(choice)
                         onDismiss()
@@ -171,40 +181,41 @@ private fun ReadOnlyReactions(target: EmojiPickerTarget.Reaction) {
 }
 
 @Composable
-private fun PickerGrid(
-    target: EmojiPickerTarget,
+fun EmojiChoiceGrid(
     catalogItems: List<CustomEmoji>,
+    additionalChoices: List<EmojiChoice> = emptyList(),
+    selectedIdentities: Set<String> = emptySet(),
+    compact: Boolean = false,
+    modifier: Modifier = Modifier,
+    testTag: String = "emoji_picker_grid",
     onEmojiSelected: (EmojiChoice) -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var recents by rememberSaveable { mutableStateOf(listOf<String>()) }
-    val post = (target as? EmojiPickerTarget.Reaction)?.post?.post
-    val selectedIdentities = remember(post) {
-        (post?.selectedReactions?.map { it.submissionValue }.orEmpty()).toSet()
-    }
     val unicodeChoices = remember {
         DefaultUnicodeEmojis.map { EmojiChoice(it, it) }
     }
     val recentChoices = remember(recents) {
         recents.map { EmojiChoice(it, it) }
     }
-    val serverChoices = remember(catalogItems) {
-        catalogItems.map { item ->
+    val serverChoices = remember(catalogItems, additionalChoices) {
+        (catalogItems.filter { it.visibleInPicker }.map { item ->
             EmojiChoice(
                 submissionValue = item.submissionValue,
                 displayText = item.token,
                 emoji = item,
             )
-        }
+        } + additionalChoices).distinctBy { it.submissionValue }
     }
     val recentHeader = stringResource(R.string.emoji_recent_section)
     val unicodeHeader = stringResource(R.string.emoji_unicode_section)
-    val allChoices = remember(recentChoices, unicodeChoices, serverChoices) {
+    val allChoices = remember(recentChoices, unicodeChoices, serverChoices, selectedIdentities) {
         buildList {
             recentChoices.forEach { add(PickerChoice(it, null, PickerSection.Recent, false)) }
             unicodeChoices.forEach { add(PickerChoice(it, null, PickerSection.Unicode, false)) }
             serverChoices.forEach { add(PickerChoice(it, it.emoji?.category, PickerSection.Server, false)) }
-        }.map { it.copy(selected = it.choice.submissionValue in selectedIdentities) }
+        }.distinctBy { it.choice.submissionValue }
+            .map { it.copy(selected = it.choice.submissionValue in selectedIdentities) }
     }
     val filtered = remember(allChoices, query) {
         val needle = query.trim()
@@ -218,6 +229,36 @@ private fun PickerGrid(
                     picker.choice.emoji?.aliases?.any { it.contains(needle, ignoreCase = true) } == true
             }
         }
+    }
+    val compactChoices = remember(allChoices) {
+        buildList {
+            addAll(allChoices.filter { it.section == PickerSection.Recent })
+            addAll(allChoices.filter { it.section == PickerSection.Unicode }.take(COMPACT_UNICODE_LIMIT))
+            addAll(allChoices.filter { it.section == PickerSection.Server }.take(COMPACT_SERVER_LIMIT))
+            addAll(allChoices.filter { it.selected })
+        }.distinctBy { it.choice.submissionValue }
+    }
+    if (compact) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(48.dp),
+            modifier = modifier.fillMaxWidth().heightIn(max = 160.dp).testTag(testTag),
+            contentPadding = PaddingValues(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            items(compactChoices, key = { "compact-${it.choice.submissionValue}" }) { picker ->
+                PickerCell(
+                    choice = picker.choice,
+                    selected = picker.selected,
+                    onClick = {
+                        recents = (listOf(picker.choice.submissionValue) +
+                            recents.filterNot { it == picker.choice.submissionValue }).take(RECENT_LIMIT)
+                        onEmojiSelected(picker.choice)
+                    },
+                )
+            }
+        }
+        return
     }
     Column(Modifier.fillMaxWidth()) {
         TextField(
@@ -237,9 +278,9 @@ private fun PickerGrid(
         )
         LazyVerticalGrid(
             columns = GridCells.Adaptive(48.dp),
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
-                .testTag("emoji_picker_grid"),
+                .testTag(testTag),
             contentPadding = PaddingValues(vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -354,3 +395,5 @@ private fun PickerCell(
 }
 
 private const val RECENT_LIMIT = 16
+private const val COMPACT_UNICODE_LIMIT = 8
+private const val COMPACT_SERVER_LIMIT = 4

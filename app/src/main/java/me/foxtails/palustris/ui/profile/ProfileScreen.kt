@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -92,7 +93,9 @@ fun ProfileScreen(
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    onOpenReactionBubble: ((OwnedPost, Rect) -> Unit)? = null,
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
     LaunchedEffect(account?.id) {
@@ -144,7 +147,9 @@ fun ProfileScreen(
             onReshare = onReshare,
             onBookmark = onBookmark,
             onReaction = onReaction,
+            onOpenReactionBubble = onOpenReactionBubble,
             onOpenReactionPicker = onOpenReactionPicker,
+            onOpenHashtagBubble = onOpenHashtagBubble,
             onOpenMedia = onOpenMedia,
             header = {
                 ProfileHeader(

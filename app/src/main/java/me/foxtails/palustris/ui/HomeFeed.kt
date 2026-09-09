@@ -30,6 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -81,14 +84,25 @@ fun HomeFeed(
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    onOpenReactionBubble: ((OwnedPost, Rect) -> Unit)? = null,
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onQuote: (OwnedPost) -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
     val list = rememberLazyListState()
     val pullToRefreshState = rememberPullToRefreshState()
+    var fallbackBubbleTarget by remember { mutableStateOf<PostActionBubbleTarget?>(null) }
+    val openHashtagBubble: (OwnedPost, List<String>, Rect) -> Unit = { ownedPost, hashtags, bounds ->
+        if (onOpenHashtagBubble != null) onOpenHashtagBubble(ownedPost, hashtags, bounds)
+        else fallbackBubbleTarget = PostActionBubbleTarget.HashtagList(ownedPost.post.id, hashtags, bounds)
+    }
+    val openReactionBubble: (OwnedPost, Rect) -> Unit = { ownedPost, bounds ->
+        onOpenReactionBubble?.invoke(ownedPost, bounds)
+        onOpenReactionPicker(ownedPost)
+    }
     val currentState by rememberUpdatedState(state)
     val loadMore by rememberUpdatedState(onLoadMore)
     val scrollDirectionChanged by rememberUpdatedState(onScrollDirectionChanged)
@@ -163,9 +177,10 @@ fun HomeFeed(
                     onReaction,
                     onOpenProfile,
                     onSearchHashtag,
+                    onOpenHashtagBubble = openHashtagBubble,
                     quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported,
                     onQuote = onQuote,
-                    onOpenReactionPicker = onOpenReactionPicker,
+                    onOpenReactionBubble = openReactionBubble,
                     onOpenMedia = onOpenMedia,
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
@@ -180,6 +195,16 @@ fun HomeFeed(
                 }
             }
         }
+    }
+    if (onOpenHashtagBubble == null) {
+        PostActionBubbleHost(
+            target = fallbackBubbleTarget,
+            emojiCatalog = me.foxtails.palustris.ui.emoji.EmojiCatalogState(),
+            emojiCapabilities = me.foxtails.palustris.domain.EmojiCapabilities(),
+            onDismiss = { fallbackBubbleTarget = null },
+            onHashtagSelected = onSearchHashtag,
+            onReactionSelected = { _, _ -> },
+        )
     }
 }
 
@@ -209,8 +234,10 @@ internal fun PostRow(
     onReaction: (OwnedPost, EmojiChoice) -> Unit,
     onOpenProfile: ((Account) -> Unit)?,
     onSearchHashtag: ((String) -> Unit)?,
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     quoteEnabled: Boolean = false,
     onQuote: (OwnedPost) -> Unit = {},
+    onOpenReactionBubble: (OwnedPost, Rect) -> Unit = { _, _ -> },
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
@@ -234,6 +261,8 @@ internal fun PostRow(
             filteredHashtags = presentation.filteredHashtags.takeIf { contentVisible }.orEmpty(),
             onOpenProfile = onOpenProfile?.let { callback -> { callback(post.author) } },
             onSearchHashtag = onSearchHashtag,
+            onOpenHashtagBubble = onOpenHashtagBubble,
+            postOwned = ownedPost,
         )
         if (post.replyTo != null) Text("Reply", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         if (post.contentWarning != null) {
@@ -301,14 +330,24 @@ internal fun PostRow(
             onReaction = onReaction,
             quoteEnabled = quoteEnabled,
             onQuote = onQuote,
-            onOpenReactionPicker = onOpenReactionPicker,
+            onOpenReactionBubble = { target, bounds ->
+                onOpenReactionBubble(target, bounds)
+                onOpenReactionPicker(target)
+            },
             onShare = { sharePost(context, post) },
         )
     }
 }
 
 @Composable
-private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenProfile: (() -> Unit)?, onSearchHashtag: ((String) -> Unit)?) {
+private fun PostMetadataRow(
+    post: Post,
+    filteredHashtags: List<String>,
+    onOpenProfile: (() -> Unit)?,
+    onSearchHashtag: ((String) -> Unit)?,
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
+    postOwned: OwnedPost? = null,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -332,9 +371,18 @@ private fun PostMetadataRow(post: Post, filteredHashtags: List<String>, onOpenPr
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (filteredHashtags.isNotEmpty() && onSearchHashtag != null) {
+        if (filteredHashtags.isNotEmpty() && (onSearchHashtag != null || onOpenHashtagBubble != null)) {
             Spacer(Modifier.width(4.dp))
-            FilteredHashtagSummary(filteredHashtags, onSearchHashtag)
+            FilteredHashtagSummary(
+                hashtags = filteredHashtags,
+                onOpen = { bounds ->
+                    if (onOpenHashtagBubble != null && postOwned != null) {
+                        onOpenHashtagBubble(postOwned, filteredHashtags, bounds)
+                    } else {
+                        onSearchHashtag?.invoke(filteredHashtags.first())
+                    }
+                },
+            )
         }
     }
 }
@@ -351,18 +399,20 @@ private fun postTimestamp(post: Post): String? = if (post.publishedAtEpochMillis
 }
 
 @Composable
-private fun FilteredHashtagSummary(hashtags: List<String>, onSearchHashtag: (String) -> Unit) {
-    var menuVisible by rememberSaveable(hashtags) { mutableStateOf(false) }
+private fun FilteredHashtagSummary(hashtags: List<String>, onOpen: (Rect) -> Unit) {
     val label = if (hashtags.size == 1) hashtags.first() else "${hashtags.first()} +${hashtags.size - 1}"
+    var bounds by remember { mutableStateOf(Rect.Zero) }
     Box {
         Surface(
             modifier = Modifier
                 .widthIn(max = 124.dp)
                 .height(32.dp)
-                .clickable { menuVisible = true }
+                .onGloballyPositioned { bounds = it.boundsInWindow() }
+                .clickable { onOpen(bounds) }
                 .semantics {
                     contentDescription = hashtagSummaryDescription(hashtags)
                     role = Role.Button
+                    stateDescription = "Collapsed"
                 },
             shape = CircleShape,
             color = MaterialTheme.colorScheme.primaryContainer,
@@ -375,16 +425,6 @@ private fun FilteredHashtagSummary(hashtags: List<String>, onSearchHashtag: (Str
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-        }
-        DropdownMenu(expanded = menuVisible, onDismissRequest = { menuVisible = false }) {
-            Text("Hashtags", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
-            hashtags.forEach { hashtag ->
-                DropdownMenuItem(
-                    modifier = Modifier.semantics { contentDescription = "Hashtag $hashtag" },
-                    text = { Text(hashtag) },
-                    onClick = { menuVisible = false; onSearchHashtag(hashtag) },
-                )
-            }
         }
     }
 }
@@ -482,7 +522,7 @@ private fun InteractionRow(
     onReaction: (OwnedPost, EmojiChoice) -> Unit,
     quoteEnabled: Boolean,
     onQuote: (OwnedPost) -> Unit,
-    onOpenReactionPicker: (OwnedPost) -> Unit,
+    onOpenReactionBubble: (OwnedPost, Rect) -> Unit,
     onShare: () -> Unit,
 ) {
     var repostMenuVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
@@ -522,6 +562,7 @@ private fun InteractionRow(
         Box(Modifier.weight(1f)) {
             val favouriteEnabled = PostAction.Favorite in availableActions
             val reactionEnabled = PostAction.React in availableActions
+            fun openReactionBubble(bounds: Rect) = onOpenReactionBubble(ownedPost, bounds)
             InteractionButton(
                 modifier = Modifier.fillMaxWidth(),
                 icon = AppIcons.Heart,
@@ -531,10 +572,12 @@ private fun InteractionRow(
                 onClick = {
                     when {
                         favouriteEnabled -> onReact(ownedPost)
-                        reactionEnabled -> onOpenReactionPicker(ownedPost)
                     }
                 },
-                onLongClick = if (reactionEnabled) ({ onOpenReactionPicker(ownedPost) }) else null,
+                onClickWithBounds = if (reactionEnabled) ({ bounds ->
+                    if (!favouriteEnabled) openReactionBubble(bounds)
+                }) else null,
+                onLongClick = if (reactionEnabled) ::openReactionBubble else null,
             )
         }
         InteractionButton(
@@ -557,10 +600,19 @@ private fun InteractionButton(
     enabled: Boolean = true,
     isSelected: Boolean = false,
     onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
+    onClickWithBounds: ((Rect) -> Unit)? = null,
+    onLongClick: ((Rect) -> Unit)? = null,
 ) {
+    var bounds by remember { mutableStateOf(Rect.Zero) }
     Box(
-        modifier = modifier.height(PostInteractionRowHeight).combinedClickable(enabled = enabled, onClick = onClick, onLongClick = onLongClick)
+        modifier = modifier
+            .height(PostInteractionRowHeight)
+            .onGloballyPositioned { bounds = it.boundsInWindow() }
+            .combinedClickable(
+                enabled = enabled,
+                onClick = { onClick(); onClickWithBounds?.invoke(bounds) },
+                onLongClick = onLongClick?.let { callback -> { callback(bounds) } },
+            )
             .semantics {
                 contentDescription = label
                 role = Role.Button

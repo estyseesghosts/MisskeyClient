@@ -10,8 +10,10 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
@@ -487,6 +489,94 @@ private fun show(
         compose.onNodeWithContentDescription("Hashtag #two").performClick()
 
         assertTrue(searched == "#two")
+    }
+
+    @Test fun appHashtagBubbleSendsExactTagAndPrefillsSearch() {
+        var searched = ""
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(
+                        posts = listOf(Post(postId("app-tag"), account, "Body #one #two", 0, Audience.Public)),
+                    ),
+                    onSearchAccounts = { searched = it },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("2 hashtags: #one and #two").performClick()
+        compose.onNodeWithContentDescription("Hashtag #two").performClick()
+        compose.waitForIdle()
+
+        assertEquals("#two", searched)
+        compose.onNodeWithText("#two", substring = false).assertIsDisplayed()
+    }
+
+    @Test fun longPressingHeartOpensCompactReactionBubbleAndEmojiSelectionUsesChoice() {
+        val post = Post(postId("bubble-reaction"), account, "Reaction bubble", 0, Audience.Public)
+        var selected: String? = null
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(
+                        posts = listOf(post),
+                        ownedPosts = listOf(OwnedPost(account.id, post)),
+                        actions = setOf(PostAction.React),
+                    ),
+                    emojiCapabilities = EmojiCapabilities(
+                        reactionMutation = CapabilityStatus.Supported,
+                    ),
+                    onReaction = { _, choice -> selected = choice.submissionValue },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Favorite").performTouchInput { longClick() }
+        compose.onNodeWithTag("reaction_bubble_compact", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("emoji_picker_cell_👍", useUnmergedTree = true).performClick()
+
+        assertEquals("👍", selected)
+        compose.onNodeWithTag("reaction_bubble_compact", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun flickingReactionBubbleExpandsItsScrollableGrid() {
+        val custom = (0..30).map { index ->
+            me.foxtails.palustris.domain.CustomEmoji(
+                shortcode = "custom$index",
+                animatedUrl = null,
+                staticUrl = null,
+                submissionValue = ":custom$index:",
+            )
+        }
+        val post = Post(postId("expanded-reaction"), account, "Reaction bubble", 0, Audience.Public)
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(
+                        posts = listOf(post),
+                        ownedPosts = listOf(OwnedPost(account.id, post)),
+                        actions = setOf(PostAction.React),
+                    ),
+                    emojiCapabilities = EmojiCapabilities(
+                        catalog = CapabilityStatus.Supported,
+                        reactionMutation = CapabilityStatus.Supported,
+                    ),
+                    emojiCatalogState = me.foxtails.palustris.ui.emoji.EmojiCatalogState(items = custom),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Favorite").performTouchInput { longClick() }
+        compose.onNodeWithTag("reaction_bubble_compact", useUnmergedTree = true)
+            .performTouchInput { swipeUp() }
+        compose.onNodeWithTag("reaction_bubble_expanded", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("reaction_bubble_grid", useUnmergedTree = true).assert(hasScrollAction())
     }
 
     @Test fun clearingHashtagSearchRemovesPreviousResults() {

@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -424,7 +425,8 @@ fun PalustrisApp(
     var signOutDialog by remember { mutableStateOf(false) }
     var mediaRequest by remember { mutableStateOf<MediaOpenRequest?>(null) }
     var emojiPickerTarget by remember { mutableStateOf<EmojiPickerTarget?>(null) }
-    var emojiReactionHandler by remember { mutableStateOf<((OwnedPost, EmojiChoice) -> Unit)?>(null) }
+    var postActionBubbleTarget by remember { mutableStateOf<PostActionBubbleTarget?>(null) }
+    var postReactionHandler by remember { mutableStateOf<((OwnedPost, EmojiChoice) -> Unit)?>(null) }
     var pendingEmojiInsertion by remember { mutableStateOf<Pair<EmojiChoice, ComposerField>?>(null) }
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
     var notificationRoute by remember { mutableStateOf<AppRoute?>(initialNotificationRoute) }
@@ -463,6 +465,11 @@ fun PalustrisApp(
         }
     val profileDirty = profileEditor != null && editorBase != null && profileEditor != editorBase
 
+    fun clearPostActionBubble() {
+        postActionBubbleTarget = null
+        postReactionHandler = null
+    }
+
     suspend fun reloadDrafts() {
         drafts = runCatching {
             store.migrateLegacy(account?.id, context.getSharedPreferences("local_draft", Context.MODE_PRIVATE))
@@ -490,8 +497,13 @@ fun PalustrisApp(
         mediaRequest = null
         profileEditor = null
         emojiPickerTarget = null
-        emojiReactionHandler = null
+        postActionBubbleTarget = null
+        postReactionHandler = null
         pendingEmojiInsertion = null
+    }
+    LaunchedEffect(destination, page, overlayKey, sheet, profileDialog, signOutDialog, mediaRequest, notificationRoute) {
+        postActionBubbleTarget = null
+        postReactionHandler = null
     }
     LaunchedEffect(initialNotificationRoute) {
         notificationRoute = initialNotificationRoute
@@ -530,6 +542,7 @@ fun PalustrisApp(
     }
 
     fun loadDraft(item: PostDraft) {
+        clearPostActionBubble()
         draftId = item.id
         draft = item.text
         savedDraft = item.text
@@ -547,6 +560,7 @@ fun PalustrisApp(
 
     fun openComposer() {
         if (overlay == Overlay.Composer) return
+        clearPostActionBubble()
         val first = drafts.firstOrNull()
         if (draft.isBlank() && savedDraft.isBlank() && first != null) loadDraft(first) else overlayKey = Overlay.Composer::class.simpleName
     }
@@ -555,6 +569,7 @@ fun PalustrisApp(
         val owner = account ?: return
         if (target.fetchedBy != owner.id || feedState?.quoteStatus != CapabilityStatus.Supported) return
         if (overlay != null || hasDraftChanges) return
+        clearPostActionBubble()
         draftId = null
         draft = ""
         savedDraft = ""
@@ -574,6 +589,7 @@ fun PalustrisApp(
         val owner = account ?: return
         if (target.fetchedBy != owner.id || PostAction.Reply !in (feedState?.actions ?: emptySet())) return
         if (overlay != null || hasDraftChanges) return
+        clearPostActionBubble()
         draftId = null
         draft = ""
         savedDraft = ""
@@ -643,18 +659,39 @@ fun PalustrisApp(
 
     fun openProfileEditor() {
         if (account != null && displayedProfile?.id == account.id && profileState.editableSupported) {
+            clearPostActionBubble()
             onOpenProfileEditor()
             overlayKey = Overlay.EditProfile::class.simpleName
         }
     }
     fun closeNotificationSettings() { overlayKey = null }
+    fun openHashtagBubble(ownedPost: OwnedPost, hashtags: List<String>, bounds: Rect) {
+        postReactionHandler = null
+        postActionBubbleTarget = PostActionBubbleTarget.HashtagList(
+            postId = ownedPost.post.id,
+            hashtags = hashtags,
+            anchorBounds = bounds,
+        )
+    }
+    fun openReactionBubble(
+        ownedPost: OwnedPost,
+        bounds: Rect,
+        handler: (OwnedPost, EmojiChoice) -> Unit,
+    ) {
+        val owner = account ?: return
+        if (ownedPost.fetchedBy != owner.id || emojiCapabilities.reactionMutation != CapabilityStatus.Supported) return
+        postReactionHandler = handler
+        postActionBubbleTarget = PostActionBubbleTarget.Reaction(ownedPost, bounds)
+    }
     fun selectDestination(item: Destination) {
+        clearPostActionBubble()
         if (item == Destination.Profile) viewedProfile = null
         destination = item
         page = null
         notificationRoute = null
     }
     fun openProfile(profile: Account) {
+        clearPostActionBubble()
         viewedProfile = profile
         destination = Destination.Profile
         page = null
@@ -675,6 +712,7 @@ fun PalustrisApp(
     }
 
     fun openHashtagSearch(hashtag: String) {
+        clearPostActionBubble()
         searchPrefill = hashtag
         searchPanelName = SearchPanel.Search.name
         destination = Destination.Search
@@ -685,6 +723,7 @@ fun PalustrisApp(
     fun openMedia(request: MediaOpenRequest) {
         if (account?.id != null && request.ownedPost.fetchedBy != account.id) return
         if (request.attachmentIndex !in request.ownedPost.post.attachments.indices) return
+        clearPostActionBubble()
         mediaRequest = request
     }
 
@@ -696,7 +735,7 @@ fun PalustrisApp(
             overlay == Overlay.EditProfile -> closeProfile()
             notificationRoute != null -> notificationRoute = null
             page != null -> page = null
-            else -> destination = Destination.Home
+            else -> selectDestination(Destination.Home)
         }
     }
 
@@ -723,9 +762,9 @@ fun PalustrisApp(
                     when {
                         page != null -> TopAppBar(
                             title = { Text(if (page == LocalPage.SavedPosts) savedTitle else page!!.name) },
-                            navigationIcon = { ActionIcon(AppIcons.Back, "Back") { page = null } },
-                        )
-                        notificationRoute != null -> TopAppBar(title = { Text("Notification") }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { notificationRoute = null } })
+                             navigationIcon = { ActionIcon(AppIcons.Back, "Back") { clearPostActionBubble(); page = null } },
+                         )
+                         notificationRoute != null -> TopAppBar(title = { Text("Notification") }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { clearPostActionBubble(); notificationRoute = null } })
                     }
                 }) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
@@ -733,6 +772,8 @@ fun PalustrisApp(
                             NotificationDetailScreen(
                                 route = notificationRoute!!,
                                 items = notificationState.items,
+                                onSearchHashtag = ::openHashtagSearch,
+                                onOpenHashtagBubble = ::openHashtagBubble,
                                 onOpenTarget = (notificationRoute as? AppRoute.Profile)?.let { route ->
                                     { openNotificationTarget(route) }
                                 },
@@ -749,30 +790,38 @@ fun PalustrisApp(
                                     onUpgradePermissions = onUpgradeSavedPermissions,
                                     onReact = onReact,
                                      onReply = handleReply,
-                                    onReshare = onReshare,
-                                     onReaction = onSavedPostReaction,
-                                     onOpenReactionPicker = { ownedPost ->
-                                         if (account != null && ownedPost.fetchedBy == account.id) {
-                                             emojiReactionHandler = onSavedPostReaction
-                                             emojiPickerTarget = EmojiPickerTarget.Reaction(ownedPost)
-                                         }
-                                     },
+                                     onReshare = onReshare,
+                                      onReaction = onSavedPostReaction,
+                                      onOpenReactionBubble = { ownedPost, bounds ->
+                                          openReactionBubble(ownedPost, bounds, onSavedPostReaction)
+                                      },
                                      onOpenMedia = ::openMedia,
                                      availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
-                                    onOpenProfile = ::openProfile,
-                                    onSearchHashtag = ::openHashtagSearch,
-                                )
+                                     onOpenProfile = ::openProfile,
+                                     onSearchHashtag = ::openHashtagSearch,
+                                     onOpenHashtagBubble = ::openHashtagBubble,
+                                 )
                             } ?: EmptyState(AppIcons.Bookmark, "No saved posts yet", "Posts you save will appear here.")
                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                             LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                             else -> screenStates.SaveableStateProvider(destination.name) { when (destination) {
-                                 Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenReactionPicker = { ownedPost ->
-                                     if (account != null && ownedPost.fetchedBy == account.id) {
-                                         emojiReactionHandler = onReaction
-                                         emojiPickerTarget = EmojiPickerTarget.Reaction(ownedPost)
-                                     }
-                                 }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenMedia = ::openMedia) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
-                                 Destination.Search -> SearchScreen(searchPanel, feedState?.accountSearch ?: AccountSearchState(), onSearchAccounts, ::openProfile, onLoadMoreSearch, searchPrefill, compactLayout = !wide, compactNavigationVisible = !wide, mediaOwner = account?.id, onOpenMedia = ::openMedia)
+                                  Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenReactionBubble = { ownedPost, bounds ->
+                                      openReactionBubble(ownedPost, bounds, onReaction)
+                                  }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                  Destination.Search -> SearchScreen(
+                                      mode = searchPanel,
+                                      accountSearch = feedState?.accountSearch ?: AccountSearchState(),
+                                      onSearchAccounts = onSearchAccounts,
+                                      onAccountClick = ::openProfile,
+                                      onSearchHashtag = ::openHashtagSearch,
+                                      onOpenHashtagBubble = ::openHashtagBubble,
+                                      onLoadMoreSearch = onLoadMoreSearch,
+                                      initialQuery = searchPrefill,
+                                      compactLayout = !wide,
+                                      compactNavigationVisible = !wide,
+                                      mediaOwner = account?.id,
+                                      onOpenMedia = ::openMedia,
+                                  )
                                 Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) NotificationsScreen(
                                     connected = account != null,
                                     compactLayout = !wide,
@@ -783,13 +832,17 @@ fun PalustrisApp(
                                     onMarkNotificationSeen = onMarkNotificationSeen,
                                     onDismissNotification = onDismissNotification,
                                     onFollowRequest = onFollowRequest,
-                                    onOpenNotification = { notification ->
-                                        notificationRoute = NotificationRouteResolver.resolve(notification)
+                                     onOpenNotification = { notification ->
+                                         clearPostActionBubble()
+                                         notificationRoute = NotificationRouteResolver.resolve(notification)
                                     },
                                     onSelectQuery = onSelectNotificationQuery,
                                     onMarkAllRead = onMarkAllNotificationsRead,
-                                    onOpenSettings = {
-                                        if (account != null) overlayKey = Overlay.NotificationSettings::class.simpleName
+                                     onOpenSettings = {
+                                         if (account != null) {
+                                             clearPostActionBubble()
+                                             overlayKey = Overlay.NotificationSettings::class.simpleName
+                                         }
                                     },
                                 ) else MessagesScreen()
                 Destination.Profile -> RichProfileScreen(
@@ -812,19 +865,17 @@ fun PalustrisApp(
                         if (account != null && displayedProfile?.id == account.id) page = LocalPage.SavedPosts
                     },
                     onOpenProfile = ::openProfile,
-                    onSearchHashtag = ::openHashtagSearch,
+                     onSearchHashtag = ::openHashtagSearch,
+                     onOpenHashtagBubble = ::openHashtagBubble,
                     availableActions = feedState?.actions ?: emptySet(),
                     onReact = onReact,
                      onReply = handleReply,
                     onReshare = onReshare,
                     onBookmark = onBookmark,
                      onReaction = onProfilePostReaction,
-                     onOpenReactionPicker = { ownedPost ->
-                         if (account != null && ownedPost.fetchedBy == account.id) {
-                             emojiReactionHandler = onProfilePostReaction
-                             emojiPickerTarget = EmojiPickerTarget.Reaction(ownedPost)
-                         }
-                     },
+                      onOpenReactionBubble = { ownedPost, bounds ->
+                          openReactionBubble(ownedPost, bounds, onProfilePostReaction)
+                      },
                      onOpenMedia = ::openMedia,
                  )
                             } }
@@ -833,7 +884,7 @@ fun PalustrisApp(
                 }
                 if (wide && page == null && !modalOverlayOpen && destination == Destination.Home) {
                     androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp).zIndex(1f)) {
-                        TimelineSelector(timeline) { sheet = "Timelines" }
+                         TimelineSelector(timeline) { clearPostActionBubble(); sheet = "Timelines" }
                     }
                 }
                 if (!wide && page == null && !modalOverlayOpen) {
@@ -854,7 +905,7 @@ fun PalustrisApp(
                                 horizontalAlignment = Alignment.End,
                             ) {
                                 if (destination == Destination.Home) {
-                                    TimelineSelector(timeline) { sheet = "Timelines" }
+                                     TimelineSelector(timeline) { clearPostActionBubble(); sheet = "Timelines" }
                                     Spacer(Modifier.height(CompactOverlayControlSpacing))
                                 }
                                 CompactContextualNavigationBar(
@@ -886,7 +937,7 @@ fun PalustrisApp(
                                         onUnfollowProfile = onUnfollowProfile,
                                     ),
                                     account = account,
-                                    onOpenAccounts = { sheet = "Accounts" },
+                                     onOpenAccounts = { clearPostActionBubble(); sheet = "Accounts" },
                                     onDestinationSelected = ::selectDestination,
                                 )
                             }
@@ -984,6 +1035,28 @@ fun PalustrisApp(
         )
     }
 
+    PostActionBubbleHost(
+        target = postActionBubbleTarget,
+        emojiCatalog = emojiCatalogState,
+        emojiCapabilities = emojiCapabilities,
+        onLoadEmojiCatalog = onLoadEmojiCatalog,
+        onRetryEmojiCatalog = onRetryEmojiCatalog,
+        onDismiss = ::clearPostActionBubble,
+        onHashtagSelected = { hashtag ->
+            clearPostActionBubble()
+            openHashtagSearch(hashtag)
+        },
+        onReactionSelected = { target, choice ->
+            val owner = account
+            val handler = postReactionHandler
+            if (owner != null && target.fetchedBy == owner.id && emojiCapabilities.reactionMutation == CapabilityStatus.Supported) {
+                handler?.invoke(target, choice)
+            }
+            clearPostActionBubble()
+        },
+        onReactionModeChanged = { expanded -> postActionBubbleTarget = expanded },
+    )
+
     if (emojiPickerTarget != null) {
         EmojiPickerHost(
             target = emojiPickerTarget,
@@ -994,17 +1067,15 @@ fun PalustrisApp(
             onRetryCatalog = onRetryEmojiCatalog,
             onDismiss = {
                 emojiPickerTarget = null
-                emojiReactionHandler = null
             },
             onEmojiSelected = { choice ->
                 val target = emojiPickerTarget
                 when (target) {
-                    is EmojiPickerTarget.Reaction -> emojiReactionHandler?.invoke(target.post, choice)
+                    is EmojiPickerTarget.Reaction -> Unit
                     is EmojiPickerTarget.Composer -> pendingEmojiInsertion = choice to target.field
                     null -> Unit
                 }
                 emojiPickerTarget = null
-                emojiReactionHandler = null
             },
         )
     }

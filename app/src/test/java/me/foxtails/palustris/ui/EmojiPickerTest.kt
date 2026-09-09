@@ -3,6 +3,7 @@ package me.foxtails.palustris.ui.emoji
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -23,6 +24,7 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Reaction
 import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ValidatedUrl
+import me.foxtails.palustris.ui.PalustrisTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -164,5 +166,42 @@ class EmojiPickerTest {
 
         compose.onNodeWithText("blobs").assertIsDisplayed()
         assertTrue(compose.onAllNodesWithTag("emoji_picker_cell_:blob:").fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun extractedGridSupportsCompactCustomChoicesAndExpandedSelection() {
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisTheme {
+                    EmojiChoiceGrid(
+                        catalogItems = catalogEmoji,
+                        selectedIdentities = setOf(":blob:"),
+                        compact = true,
+                        testTag = "reaction_bubble_grid",
+                        onEmojiSelected = {},
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("reaction_bubble_grid").assertIsDisplayed()
+        compose.onNodeWithTag("emoji_picker_cell_:blob:", useUnmergedTree = true).assertIsSelected()
+        compose.onNodeWithTag("emoji_picker_cell_👍", useUnmergedTree = true).assertIsDisplayed()
+
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisTheme {
+                    EmojiChoiceGrid(
+                        catalogItems = catalogEmoji,
+                        selectedIdentities = setOf(":blob:"),
+                        onEmojiSelected = {},
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("emoji_picker_cell_:blob:", useUnmergedTree = true).assertIsSelected()
+        compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).assertIsDisplayed()
     }
 }

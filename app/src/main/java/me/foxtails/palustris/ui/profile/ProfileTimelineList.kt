@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -69,7 +70,9 @@ internal fun ProfileTimelineList(
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
     onReaction: (OwnedPost, EmojiChoice) -> Unit,
+    onOpenReactionBubble: ((OwnedPost, Rect) -> Unit)?,
     onOpenReactionPicker: (OwnedPost) -> Unit,
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
     header: @Composable () -> Unit,
     details: @Composable () -> Unit,
@@ -136,9 +139,11 @@ internal fun ProfileTimelineList(
                 onReshare = onReshare,
                 onBookmark = onBookmark,
                 onReaction = onReaction,
+                onOpenReactionBubble = { ownedPost, bounds -> onOpenReactionBubble?.invoke(ownedPost, bounds) },
                 onOpenReactionPicker = onOpenReactionPicker,
                 onOpenProfile = onOpenProfile,
                 onSearchHashtag = onSearchHashtag,
+                onOpenHashtagBubble = onOpenHashtagBubble,
                 onOpenMedia = onOpenMedia,
             )
             if (state.selectedTab == ProfileCategory.ShowMore) {
@@ -154,9 +159,11 @@ internal fun ProfileTimelineList(
                     onReshare = onReshare,
                     onBookmark = onBookmark,
                     onReaction = onReaction,
+                    onOpenReactionBubble = { ownedPost, bounds -> onOpenReactionBubble?.invoke(ownedPost, bounds) },
                     onOpenReactionPicker = onOpenReactionPicker,
                     onOpenProfile = onOpenProfile,
                     onSearchHashtag = onSearchHashtag,
+                    onOpenHashtagBubble = onOpenHashtagBubble,
                     onOpenMedia = onOpenMedia,
                 )
             }
@@ -209,9 +216,11 @@ private fun LazyListScope.profilePinnedItems(
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
     onReaction: (OwnedPost, EmojiChoice) -> Unit,
+    onOpenReactionBubble: ((OwnedPost, Rect) -> Unit)?,
     onOpenReactionPicker: (OwnedPost) -> Unit,
     onOpenProfile: (Account) -> Unit,
     onSearchHashtag: (String) -> Unit,
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
 ) {
     if (state.pinnedLoading) item(key = "profile-pinned-loading") {
@@ -241,9 +250,11 @@ private fun LazyListScope.profilePinnedItems(
                 onReshare = onReshare,
                 onBookmark = onBookmark,
                 onReaction = onReaction,
+                onOpenReactionBubble = { ownedPost, bounds -> onOpenReactionBubble?.invoke(ownedPost, bounds) },
                 onOpenReactionPicker = onOpenReactionPicker,
                 onOpenProfile = onOpenProfile,
                 onSearchHashtag = onSearchHashtag,
+                onOpenHashtagBubble = onOpenHashtagBubble,
                 onOpenMedia = onOpenMedia,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
@@ -261,9 +272,11 @@ private fun LazyListScope.profilePageItems(
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
     onReaction: (OwnedPost, EmojiChoice) -> Unit,
+    onOpenReactionBubble: ((OwnedPost, Rect) -> Unit)?,
     onOpenReactionPicker: (OwnedPost) -> Unit,
     onOpenProfile: (Account) -> Unit,
     onSearchHashtag: (String) -> Unit,
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
 ) {
     if (page == null || page.initialLoading && page.posts.isEmpty()) {
@@ -298,9 +311,11 @@ private fun LazyListScope.profilePageItems(
             onReshare = onReshare,
             onBookmark = onBookmark,
             onReaction = onReaction,
+            onOpenReactionBubble = { ownedPost, bounds -> onOpenReactionBubble?.invoke(ownedPost, bounds) },
             onOpenReactionPicker = onOpenReactionPicker,
             onOpenProfile = onOpenProfile,
             onSearchHashtag = onSearchHashtag,
+            onOpenHashtagBubble = onOpenHashtagBubble,
             onOpenMedia = onOpenMedia,
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))

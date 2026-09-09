@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -30,6 +31,8 @@ fun NotificationDetailScreen(
     route: AppRoute,
     items: List<Notification>,
     onOpenTarget: (() -> Unit)? = null,
+    onSearchHashtag: ((String) -> Unit)? = null,
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -114,7 +117,8 @@ fun NotificationDetailScreen(
                             onBookmark = {},
                             onReaction = { _, _ -> },
                             onOpenProfile = null,
-                            onSearchHashtag = null,
+                            onSearchHashtag = onSearchHashtag,
+                            onOpenHashtagBubble = onOpenHashtagBubble,
                         )
                         ValidatedUrl.https(post.url.orEmpty())?.let { url ->
                             Button(

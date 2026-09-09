@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -41,6 +42,8 @@ fun SearchScreen(
     accountSearch: AccountSearchState = AccountSearchState(),
     onSearchAccounts: (String) -> Unit = {},
     onAccountClick: (Account) -> Unit = {},
+    onSearchHashtag: (String) -> Unit = {},
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     onLoadMoreSearch: () -> Unit = {},
     initialQuery: String = "",
     compactLayout: Boolean = true,
@@ -89,8 +92,10 @@ fun SearchScreen(
                 onAccountClick = onAccountClick,
                 onLoadMoreSearch = onLoadMoreSearch,
                 endClearance = 0.dp,
-                mediaOwner = mediaOwner,
-                onOpenMedia = onOpenMedia,
+                 mediaOwner = mediaOwner,
+                 onOpenMedia = onOpenMedia,
+                 onSearchHashtag = onSearchHashtag,
+                 onOpenHashtagBubble = onOpenHashtagBubble,
             )
         }
     } else {
@@ -107,6 +112,8 @@ fun SearchScreen(
                 endClearance = searchEndClearance,
                 mediaOwner = mediaOwner,
                 onOpenMedia = onOpenMedia,
+                onSearchHashtag = onSearchHashtag,
+                onOpenHashtagBubble = onOpenHashtagBubble,
             )
             Box(
                 Modifier
@@ -141,10 +148,21 @@ private fun SearchContent(
     endClearance: Dp,
     mediaOwner: AccountId?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
+    onSearchHashtag: (String) -> Unit,
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
 ) {
     Box(modifier.testTag("search_content")) {
         if (tab == 0 || hashtagSearchRequested) {
-             if (hashtagSearchRequested) HashtagSearchResults(accountSearch, query, onLoadMoreSearch, endClearance, mediaOwner, onOpenMedia)
+             if (hashtagSearchRequested) HashtagSearchResults(
+                 state = accountSearch,
+                 query = query,
+                 onLoadMore = onLoadMoreSearch,
+                 endClearance = endClearance,
+                 mediaOwner = mediaOwner,
+                 onOpenMedia = onOpenMedia,
+                 onSearchHashtag = onSearchHashtag,
+                 onOpenHashtagBubble = onOpenHashtagBubble,
+             )
             else AccountSearchResults(query, accountSearch, onAccountClick, endClearance)
         } else {
             EmptyState(
@@ -197,6 +215,8 @@ private fun HashtagSearchResults(
     endClearance: Dp,
     mediaOwner: AccountId?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
+    onSearchHashtag: (String) -> Unit,
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
 ) {
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -210,7 +230,8 @@ private fun HashtagSearchResults(
                     ownedPost = OwnedPost(mediaOwner ?: post.author.id, post),
                     availableActions = emptySet(),
                     onReact = {}, onReply = {}, onReshare = {}, onBookmark = {}, onReaction = { _, _ -> }, onOpenProfile = {},
-                    onSearchHashtag = null,
+                     onSearchHashtag = onSearchHashtag,
+                    onOpenHashtagBubble = onOpenHashtagBubble,
                     onOpenMedia = if (mediaOwner != null) onOpenMedia else { _: MediaOpenRequest -> },
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))

@@ -20,6 +20,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -40,10 +41,12 @@ fun SavedPostsScreen(
     onReply: (OwnedPost) -> Unit = {},
     onReshare: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, me.foxtails.palustris.domain.EmojiChoice) -> Unit = { _, _ -> },
+    onOpenReactionBubble: ((OwnedPost, Rect) -> Unit)? = null,
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
     availableActions: Set<PostAction> = setOf(PostAction.Bookmark),
     onOpenProfile: (me.foxtails.palustris.domain.Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
 ) {
     val title = if (state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites) "favourites" else "bookmarks"
@@ -99,6 +102,10 @@ fun SavedPostsScreen(
                         onReaction = onReaction,
                         onOpenProfile = onOpenProfile,
                         onSearchHashtag = onSearchHashtag,
+                        onOpenHashtagBubble = onOpenHashtagBubble,
+                        onOpenReactionBubble = { target, bounds ->
+                            onOpenReactionBubble?.invoke(target, bounds)
+                        },
                         onOpenReactionPicker = onOpenReactionPicker,
                         onOpenMedia = onOpenMedia,
                     )
