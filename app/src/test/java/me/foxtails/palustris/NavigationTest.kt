@@ -24,6 +24,7 @@ import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.Protocol
@@ -589,6 +590,33 @@ class NavigationTest {
         categories.performScrollToNode(hasText("Bookmarks"))
         compose.onNodeWithTag("profile_bookmarks_chip").performClick()
         compose.onNodeWithText("Bookmarks").assertIsDisplayed()
+    }
+
+    @Test fun contextualProfileEditActionOpensEditor() {
+        val account = fixtureAccount("profile-editor")
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    profileState = ProfileUiState(
+                        targetId = account.id,
+                        seedAccount = account,
+                        account = account,
+                        editable = EditableProfile(
+                            id = account.id.localId,
+                            displayName = account.displayName,
+                            biography = account.biography,
+                        ),
+                    ),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription("Edit profile").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Display name").assertIsDisplayed()
     }
 
     @Test fun notificationSettingsUsesPullUpSheetAndBackClosesIt() {

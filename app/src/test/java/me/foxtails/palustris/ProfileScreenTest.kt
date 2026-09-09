@@ -269,21 +269,18 @@ class ProfileScreenTest {
     }
 
     @Test
-    fun selfGetsEditActionAndUnsupportedRemoteRelationshipGetsNoDeadAction() {
+    fun selfDoesNotRenderDuplicateEditActionAndUnsupportedRemoteRelationshipGetsNoDeadAction() {
         val selfState = mutableStateOf(profileState(self, emptyList()))
-        var edits = 0
         show {
             ProfileScreen(
                 account = self,
                 profileState = selfState.value,
                 compactLayout = false,
                 authenticatedAccountId = self.id,
-                onEditProfile = { edits++ },
             )
         }
 
-        compose.onNodeWithText("Edit profile").assertIsDisplayed().performClick()
-        assertEquals(1, edits)
+        compose.onNodeWithText("Edit profile").assertDoesNotExist()
         compose.onNodeWithTag("profile_follow_action").assertDoesNotExist()
 
         val remote = account("unsupported", "Unsupported")
@@ -597,7 +594,7 @@ class ProfileScreenTest {
     }
 
     @Test
-    fun unsupportedEditingDisablesTheEditAction() {
+    fun unsupportedEditingDoesNotRenderAnInlineEditAction() {
         val state = profileState(self, emptyList()).copy(editableSupported = false)
         show {
             ProfileScreen(
@@ -608,7 +605,7 @@ class ProfileScreenTest {
             )
         }
 
-        compose.onNodeWithText("Edit profile").assertIsDisplayed().assertIsNotEnabled()
+        compose.onNodeWithText("Edit profile").assertDoesNotExist()
     }
 
     private fun show(content: @Composable () -> Unit) {

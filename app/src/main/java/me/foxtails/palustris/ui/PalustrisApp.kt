@@ -117,6 +117,10 @@ private sealed interface Overlay {
     data object NotificationSettings : Overlay
 }
 
+private const val COMPOSER_OVERLAY_KEY = "Composer"
+private const val EDIT_PROFILE_OVERLAY_KEY = "EditProfile"
+private const val NOTIFICATION_SETTINGS_OVERLAY_KEY = "NotificationSettings"
+
 private data class ContextualBottomAction(
     val icon: ImageVector,
     val contentDescription: String,
@@ -510,9 +514,9 @@ fun PalustrisApp(
     var closing by remember { mutableStateOf(false) }
     val motionScheme = LocalPalustrisMotionScheme.current
     val overlay = when (overlayKey) {
-        "Composer" -> Overlay.Composer
-        "EditProfile" -> Overlay.EditProfile
-        "NotificationSettings" -> Overlay.NotificationSettings
+        COMPOSER_OVERLAY_KEY -> Overlay.Composer
+        EDIT_PROFILE_OVERLAY_KEY -> Overlay.EditProfile
+        NOTIFICATION_SETTINGS_OVERLAY_KEY -> Overlay.NotificationSettings
         else -> null
     }
     val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog || mediaRequest != null || singlePost != null || emojiPickerTarget != null
@@ -590,7 +594,7 @@ fun PalustrisApp(
             destination = Destination.Notifications
             if (initialNotificationRoute is AppRoute.NotificationSettings) {
                 notificationRoute = null
-                overlayKey = Overlay.NotificationSettings::class.simpleName
+                overlayKey = NOTIFICATION_SETTINGS_OVERLAY_KEY
             }
         }
     }
@@ -634,14 +638,14 @@ fun PalustrisApp(
         savedQuoteOf = composerQuoteOf?.value
         savedReplyTo = composerReplyTo?.value
         draftError = null
-        overlayKey = Overlay.Composer::class.simpleName
+        overlayKey = COMPOSER_OVERLAY_KEY
     }
 
     fun openComposer() {
         if (overlay == Overlay.Composer) return
         clearPostActionBubble()
         val first = drafts.firstOrNull()
-        if (draft.isBlank() && savedDraft.isBlank() && first != null) loadDraft(first) else overlayKey = Overlay.Composer::class.simpleName
+        if (draft.isBlank() && savedDraft.isBlank() && first != null) loadDraft(first) else overlayKey = COMPOSER_OVERLAY_KEY
     }
 
     fun openQuote(target: OwnedPost) {
@@ -661,7 +665,7 @@ fun PalustrisApp(
         savedQuoteOf = null
         savedReplyTo = null
         draftError = null
-        overlayKey = Overlay.Composer::class.simpleName
+        overlayKey = COMPOSER_OVERLAY_KEY
     }
 
     fun openReply(target: OwnedPost) {
@@ -681,7 +685,7 @@ fun PalustrisApp(
         savedQuoteOf = null
         savedReplyTo = null
         draftError = null
-        overlayKey = Overlay.Composer::class.simpleName
+        overlayKey = COMPOSER_OVERLAY_KEY
     }
 
     val handleReply: (OwnedPost) -> Unit = { target ->
@@ -740,7 +744,7 @@ fun PalustrisApp(
         if (account != null && displayedProfile?.id == account.id && profileState.editableSupported) {
             clearPostActionBubble()
             onOpenProfileEditor()
-            overlayKey = Overlay.EditProfile::class.simpleName
+            overlayKey = EDIT_PROFILE_OVERLAY_KEY
         }
     }
     fun closeNotificationSettings() { overlayKey = null }
@@ -960,7 +964,7 @@ fun PalustrisApp(
                                      onOpenSettings = {
                                          if (account != null) {
                                              clearPostActionBubble()
-                                             overlayKey = Overlay.NotificationSettings::class.simpleName
+                                              overlayKey = NOTIFICATION_SETTINGS_OVERLAY_KEY
                                          }
                                     },
                                  ) else MessagesScreen() }
@@ -976,7 +980,6 @@ fun PalustrisApp(
                     onLoadMore = onLoadMoreProfile,
                     onFollow = onFollowProfile,
                     onUnfollow = onUnfollowProfile,
-                    onEditProfile = ::openProfileEditor,
                     onOpenDrafts = {
                         if (account != null && displayedProfile?.id == account.id) page = LocalPage.Drafts
                     },

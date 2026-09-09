@@ -25,7 +25,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -83,7 +82,6 @@ fun ProfileScreen(
     onLoadMore: () -> Unit = {},
     onFollow: () -> Unit = {},
     onUnfollow: () -> Unit = {},
-    onEditProfile: () -> Unit = {},
     onOpenDrafts: () -> Unit = {},
     onOpenBookmarks: () -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
@@ -162,7 +160,6 @@ fun ProfileScreen(
                     onRefresh = onRefresh,
                     onFollow = onFollow,
                     onUnfollow = onUnfollow,
-                    onEditProfile = onEditProfile,
                     onOpenProfile = onOpenProfile,
                 )
             },
@@ -221,7 +218,6 @@ private fun ProfileHeader(
     onRefresh: () -> Unit,
     onFollow: () -> Unit,
     onUnfollow: () -> Unit,
-    onEditProfile: () -> Unit,
     onOpenProfile: (Account) -> Unit,
 ) {
     val statusBarHeight = with(LocalDensity.current) {
@@ -322,14 +318,6 @@ private fun ProfileHeader(
                                 },
                             )
                         }
-                    }
-                } else if (isSelf && movedTo == null) {
-                    OutlinedButton(
-                        onClick = onEditProfile,
-                        enabled = state.editableSupported,
-                        modifier = Modifier.testTag("profile_edit_action"),
-                    ) {
-                        Text("Edit profile")
                     }
                 }
             }

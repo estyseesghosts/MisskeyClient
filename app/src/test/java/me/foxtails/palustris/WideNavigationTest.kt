@@ -122,7 +122,7 @@ class WideNavigationTest {
         val postBounds = compose.onNodeWithText("Wide profile post").fetchSemanticsNode().boundsInRoot
         assertTrue("wide profile categories should precede the timeline in page flow", categoryBounds.bottom < postBounds.top)
         compose.onAllNodesWithText("Profile Name").onLast().assertIsDisplayed()
-        compose.onNodeWithText("Edit profile").assertIsDisplayed()
+        compose.onNodeWithText("Edit profile").assertDoesNotExist()
         listOf("Posts", "Media", "Reposts", "Replies", "Drafts", "Bookmarks", "Show more...").forEach { label ->
             compose.onNodeWithText(label).assertIsDisplayed()
         }
