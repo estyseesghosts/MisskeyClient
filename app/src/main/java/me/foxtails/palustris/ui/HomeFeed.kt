@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import me.foxtails.palustris.data.media.MediaImageLoader
 import kotlinx.coroutines.flow.distinctUntilChanged
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.*
@@ -252,6 +253,7 @@ fun HomeFeed(
 @Composable
 fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemantics: Boolean = true) {
     val context = LocalContext.current
+    val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
     val avatarRequest = remember(context, account.avatarUrl) {
         ImageRequest.Builder(context)
             .data(account.avatarUrl)
@@ -269,6 +271,7 @@ fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemanti
         Avatar(Modifier.fillMaxSize(), description = null)
         AsyncImage(
             model = avatarRequest,
+            imageLoader = mediaImageLoader.imageLoader,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize())

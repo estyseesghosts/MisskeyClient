@@ -154,4 +154,30 @@ class MediaViewerScreenTest {
         assertEquals(0, closeCount)
         compose.onNodeWithText("2 / 2").assertIsDisplayed()
     }
+
+    @Test
+    fun viewerKeepsControlsForAvifWithSeparatePreviewAndFullUrls() {
+        val avifPost = post.copy(
+            attachments = listOf(
+                Attachment(
+                    url = "https://cdn.example/full.jpg",
+                    previewUrl = "https://cdn.example/preview.jpg",
+                    mimeType = "image/avif",
+                    kind = MediaKind.Image,
+                ),
+            ),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                MediaViewerScreen(
+                    request = MediaOpenRequest(OwnedPost(account.id, avifPost), attachmentIndex = 0, revealed = true),
+                    onClose = {},
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("1 / 1").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Close media viewer").assertIsDisplayed()
+    }
 }

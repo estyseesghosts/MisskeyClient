@@ -20,6 +20,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.Image
+import coil.ImageLoader
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -56,6 +57,7 @@ fun rememberZoomableMediaState(key: Any?): ZoomableMediaState = remember(key) { 
 @Composable
 internal fun ZoomableMediaImage(
     request: ImageRequest,
+    imageLoader: ImageLoader,
     contentDescription: String,
     modifier: Modifier = Modifier,
     state: ZoomableMediaState = rememberZoomableMediaState(request.data),
@@ -64,7 +66,7 @@ internal fun ZoomableMediaImage(
     val transformState = rememberTransformableState { zoomChange, panChange, _ ->
         state.applyTransform(zoomChange, panChange)
     }
-    val painter = rememberAsyncImagePainter(model = request)
+    val painter = rememberAsyncImagePainter(model = request, imageLoader = imageLoader)
     LaunchedEffect(painter.state) {
         if (painter.state is AsyncImagePainter.State.Success) onImageReady()
     }

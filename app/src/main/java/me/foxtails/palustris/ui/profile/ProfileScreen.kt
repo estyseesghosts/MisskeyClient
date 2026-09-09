@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -49,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EmojiChoice
@@ -227,6 +229,8 @@ private fun ProfileHeader(
     onMessage: () -> Unit,
     onOpenProfile: (Account) -> Unit,
 ) {
+    val context = LocalContext.current
+    val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
     val statusBarHeight = with(LocalDensity.current) {
         WindowInsets.statusBars.getTop(this).toDp()
     }.coerceAtLeast(1.dp)
@@ -251,6 +255,7 @@ private fun ProfileHeader(
             ) {
                 AsyncImage(
                     model = account.bannerUrl,
+                    imageLoader = mediaImageLoader.imageLoader,
                     contentDescription = "Profile banner",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
@@ -266,6 +271,7 @@ private fun ProfileHeader(
                 ) {
                     AsyncImage(
                         model = account.bannerUrl,
+                        imageLoader = mediaImageLoader.imageLoader,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize().blur(24.dp),

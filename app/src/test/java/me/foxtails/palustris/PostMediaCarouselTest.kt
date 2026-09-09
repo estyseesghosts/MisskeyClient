@@ -130,6 +130,27 @@ class PostMediaCarouselTest {
         }
     }
 
+    @Test
+    fun avifWithAJpegUrlKeepsPreviewFrameGeometry() {
+        show(
+            post(
+                "avif-preview",
+                listOf(
+                    image("avif").copy(
+                        url = "https://cdn.example/image.jpg",
+                        previewUrl = "https://cdn.example/preview.jpg",
+                        mimeType = "image/avif",
+                    ),
+                ),
+            ),
+        )
+
+        val bounds = bounds("post_media_frame_avif-preview_0")
+
+        assertEquals(240f, bounds.height / compose.activity.resources.displayMetrics.density, 1f)
+        assertTrue(bounds.width > 0f)
+    }
+
     private fun show(vararg posts: Post) {
         compose.activity.runOnUiThread {
             compose.activity.setContent {

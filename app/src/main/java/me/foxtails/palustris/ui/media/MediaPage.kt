@@ -53,6 +53,7 @@ internal fun MediaPage(
         return
     }
     val context = LocalContext.current
+    val mediaLoader = MediaImageLoader.get(context)
     val role = if (selected) MediaRequestRole.Full else MediaRequestRole.Preview
     val decision = MediaRequestPolicy.resolve(attachment, role, revealed = true, explicitlyOpened = selected)
     BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -68,6 +69,7 @@ internal fun MediaPage(
                     decodeWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx().toInt() },
                     decodeHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxHeight.toPx().toInt() },
                 ),
+                 imageLoader = mediaLoader.imageLoader,
                  contentDescription = attachment.description ?: "Media ${index + 1}",
                  state = zoomState,
                  onImageReady = onImageReady,
