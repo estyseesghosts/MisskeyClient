@@ -227,7 +227,9 @@ class AccountManager @Inject constructor(
                     val session = Session(
                         accountId = account.id,
                         token = result.token,
-                        capabilities = ServerCapabilities(canPublish = result.canPublish),
+                        capabilities = result.capabilities.copy(
+                            canPublish = result.capabilities.canPublish || result.canPublish,
+                        ),
                         access = result.access,
                         pushInstanceName = previous?.pushInstanceName,
                         sessionRevision = (previous?.sessionRevision ?: 0L) + 1L,

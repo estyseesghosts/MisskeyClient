@@ -26,6 +26,7 @@ class LoginSession(
     val protocol: Protocol = Protocol.MISSKEY,
     val canPublish: Boolean = false,
     val access: AccessGrant = AccessGrant(),
+    val capabilities: ServerCapabilities = ServerCapabilities(),
 ) {
     val account: Account
         get() = when (protocol) {

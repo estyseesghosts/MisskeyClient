@@ -11,6 +11,8 @@ import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.EditableProfileCapabilities
+import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.NotificationCapabilities
 import me.foxtails.palustris.domain.NotificationReadSemantics
 import me.foxtails.palustris.domain.NotificationUnreadPrecision
@@ -19,6 +21,7 @@ import me.foxtails.palustris.domain.ProfileCapabilities
 import me.foxtails.palustris.domain.PrimaryFavouriteCapability
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
 import me.foxtails.palustris.domain.PushSessionState
+import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.SavedPostsCapability
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.Protocol
@@ -220,6 +223,7 @@ private fun ServerCapabilities.toJson(): JSONObject = JSONObject()
     .put("canPublish", canPublish)
     .put("notifications", notifications.toJson())
     .put("profile", profile.toJson())
+    .put("emoji", emoji.toJson())
     .put("quotes", quotes.name)
     .put("primaryFavourite", JSONObject()
         .put("status", primaryFavourite.status.name)
@@ -228,6 +232,7 @@ private fun ServerCapabilities.toJson(): JSONObject = JSONObject()
         JSONObject().put("status", it.status.name).put("kind", it.kind.name)
     })
     .put("capabilitiesLastUpdated", capabilitiesLastUpdated)
+    .put("capabilitySchemaVersion", capabilitySchemaVersion)
 
 private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities(
     timelines = enumSet<Timeline>("timelines"),
@@ -237,6 +242,7 @@ private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities
     canPublish = optBoolean("canPublish"),
     notifications = optJSONObject("notifications")?.toNotificationCapabilities() ?: NotificationCapabilities(),
     profile = optJSONObject("profile")?.toProfileCapabilities() ?: ProfileCapabilities(),
+    emoji = optJSONObject("emoji")?.toEmojiCapabilities() ?: EmojiCapabilities(),
     quotes = enumOrDefault("quotes", CapabilityStatus.Unknown),
     primaryFavourite = optJSONObject("primaryFavourite")?.let {
         PrimaryFavouriteCapability(
@@ -251,6 +257,7 @@ private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities
         )
     },
     capabilitiesLastUpdated = optLong("capabilitiesLastUpdated"),
+    capabilitySchemaVersion = optInt("capabilitySchemaVersion", 0),
 )
 
 private fun ProfileCapabilities.toJson(): JSONObject = JSONObject()
@@ -259,6 +266,7 @@ private fun ProfileCapabilities.toJson(): JSONObject = JSONObject()
     .put("relationships", relationships.name)
     .put("followActions", followActions.name)
     .put("pinnedPosts", pinnedPosts.name)
+    .put("editable", editable.toJson())
 
 private fun JSONObject.toProfileCapabilities(): ProfileCapabilities = ProfileCapabilities(
     details = enumOrDefault("details", CapabilityStatus.Unknown),
@@ -266,6 +274,37 @@ private fun JSONObject.toProfileCapabilities(): ProfileCapabilities = ProfileCap
     relationships = enumOrDefault("relationships", CapabilityStatus.Unknown),
     followActions = enumOrDefault("followActions", CapabilityStatus.Unknown),
     pinnedPosts = enumOrDefault("pinnedPosts", CapabilityStatus.Unknown),
+    editable = optJSONObject("editable")?.toEditableProfileCapabilities() ?: EditableProfileCapabilities(),
+)
+
+private fun EditableProfileCapabilities.toJson(): JSONObject = JSONObject()
+    .put("read", read.name)
+    .put("update", update.name)
+    .put("advancedSettings", advancedSettings.name)
+    .put("imageDescriptions", imageDescriptions.name)
+    .put("imageUpload", imageUpload.name)
+    .put("imageDeletion", imageDeletion.name)
+
+private fun JSONObject.toEditableProfileCapabilities(): EditableProfileCapabilities = EditableProfileCapabilities(
+    read = enumOrDefault("read", CapabilityStatus.Unknown),
+    update = enumOrDefault("update", CapabilityStatus.Unknown),
+    advancedSettings = enumOrDefault("advancedSettings", CapabilityStatus.Unknown),
+    imageDescriptions = enumOrDefault("imageDescriptions", CapabilityStatus.Unknown),
+    imageUpload = enumOrDefault("imageUpload", CapabilityStatus.Unknown),
+    imageDeletion = enumOrDefault("imageDeletion", CapabilityStatus.Unknown),
+)
+
+private fun EmojiCapabilities.toJson(): JSONObject = JSONObject()
+    .put("catalog", catalog.name)
+    .put("reactionListing", reactionListing.name)
+    .put("reactionMutation", reactionMutation.name)
+    .put("selectionMode", selectionMode.name)
+
+private fun JSONObject.toEmojiCapabilities(): EmojiCapabilities = EmojiCapabilities(
+    catalog = enumOrDefault("catalog", CapabilityStatus.Unknown),
+    reactionListing = enumOrDefault("reactionListing", CapabilityStatus.Unknown),
+    reactionMutation = enumOrDefault("reactionMutation", CapabilityStatus.Unknown),
+    selectionMode = enumOrDefault("selectionMode", ReactionSelectionMode.Unknown),
 )
 
 private fun NotificationCapabilities.toJson(): JSONObject = JSONObject()

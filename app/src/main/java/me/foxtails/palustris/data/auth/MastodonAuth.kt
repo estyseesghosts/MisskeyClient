@@ -3,12 +3,14 @@ package me.foxtails.palustris.data.auth
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.misskey.ServerAddress
+import me.foxtails.palustris.data.mastodon.MastodonCapabilityProbe
 import me.foxtails.palustris.data.mastodon.MastodonErrorMapper
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.AccessGrant
 import me.foxtails.palustris.domain.AccessScope
 import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.ServerCapabilities
 import kotlinx.coroutines.CancellationException
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONObject
@@ -92,8 +94,11 @@ class MastodonAuth(
         val tokenJson = JSONObject(tokenResponse.body)
         val token = tokenJson.getString("access_token")
         require(token.isNotBlank())
-        val user = JSONObject(apiFor(pending.origin)
-            .get(pending.origin, "v1/accounts/verify_credentials", token).body)
+        val api = apiFor(pending.origin)
+        val user = JSONObject(api.get(pending.origin, "v1/accounts/verify_credentials", token).body)
+        val capabilities = runCatching {
+            MastodonCapabilityProbe.parseCapabilities(JSONObject(api.get(pending.origin, "v2/instance").body))
+        }.getOrElse { ServerCapabilities() }
         LoginSession(
             origin = pending.origin,
             token = token,
@@ -105,6 +110,7 @@ class MastodonAuth(
                 known = tokenJson.optString("scope").takeIf { it.isNotBlank() }
                     ?.let(::accessFromScope).orEmpty(),
             ),
+            capabilities = capabilities,
         )
     } catch (e: CancellationException) {
         throw e
@@ -145,17 +151,11 @@ class MastodonAuth(
 
     private suspend fun detectPkceSupport(origin: String, api: MisskeyApi): Boolean {
         val version = runCatching {
-            JSONObject(api.get(origin, "v2/instance").body).optString("version")
-        }.getOrDefault("")
-        return versionAtLeast(version, 4, 3, 0)
-    }
-
-    private fun versionAtLeast(value: String, major: Int, minor: Int, patch: Int): Boolean {
-        val numbers = Regex("\\d+").findAll(value).map { it.value.toInt() }.toList()
-        val current = listOf(numbers.getOrElse(0) { 0 }, numbers.getOrElse(1) { 0 }, numbers.getOrElse(2) { 0 })
-        val target = listOf(major, minor, patch)
-        return current.zip(target).firstOrNull { (left, right) -> left != right }
-            ?.let { (left, right) -> left > right } ?: true
+            MastodonCapabilityProbe.parseLeadingVersion(
+                JSONObject(api.get(origin, "v2/instance").body).optString("version"),
+            )
+        }.getOrNull()
+        return version != null && version.atLeast(4, 3, 0)
     }
 
     private fun generateCodeVerifier(): String {
