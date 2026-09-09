@@ -38,7 +38,7 @@ class EmojiTextParserTest {
         assertEquals(3 until 13, model.segments[1].range)
         assertEquals(":blob_cat:", (model.segments[1] as RichTextSegment.Emoji).token)
         assertEquals(" there", (model.segments[2] as RichTextSegment.Text).text)
-        assertEquals(listOf(3 until 12), model.emojiRanges)
+        assertEquals(listOf(3 until 13), model.emojiRanges)
     }
 
     @Test
