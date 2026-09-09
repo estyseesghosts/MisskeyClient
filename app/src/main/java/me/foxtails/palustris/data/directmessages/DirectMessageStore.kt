@@ -1,6 +1,5 @@
 package me.foxtails.palustris.data.directmessages
 
-import androidx.room.withTransaction
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers

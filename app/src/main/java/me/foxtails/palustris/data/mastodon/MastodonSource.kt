@@ -84,7 +84,7 @@ class MastodonSource(
     )
     private val profileService = MastodonProfileService(origin, token, api, accountId)
     private val selfProfileService = MastodonSelfProfileService(origin, token, api, accountId)
-    private val directLastStatuses = mutableMapOf<String, EntityId>()
+    private val directLastPosts = mutableMapOf<String, Post>()
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request {
@@ -157,7 +157,7 @@ class MastodonSource(
         val values = JSONArray(response.body)
         val items = (0 until values.length()).mapNotNull { index ->
             MastodonMapper.directConversation(values.getJSONObject(index), origin)?.also { conversation ->
-                directLastStatuses[conversation.id.value] = conversation.lastPost.id
+                directLastPosts[conversation.id.value] = conversation.lastPost
             }
         }
         Page(items, response.linkHeaderCursor())
@@ -165,20 +165,20 @@ class MastodonSource(
 
     override suspend fun conversationThread(id: ConversationId): List<Post> = request {
         validateConversationId(id, "direct.thread")
-        val lastStatusId = directLastStatuses[id.value] ?: run {
+        val lastStatus = directLastPosts[id.value] ?: run {
             val conversation = MastodonMapper.directConversation(
                 api.get(origin, "v1/conversations/${id.value.encodePathSegment()}", token).body.toJson(),
                 origin,
             ) ?: throw SourceError.ServerError("Mastodon conversation had no last status")
-            directLastStatuses[id.value] = conversation.lastPost.id
-            conversation.lastPost.id
+            directLastPosts[id.value] = conversation.lastPost
+            conversation.lastPost
         }
         val context = JSONObject(
-            api.get(origin, "v1/statuses/${lastStatusId.value.encodePathSegment()}/context", token).body,
+            api.get(origin, "v1/statuses/${lastStatus.id.value.encodePathSegment()}/context", token).body,
         )
         val ancestors = context.optJSONArray("ancestors").toPostList(origin)
         val descendants = context.optJSONArray("descendants").toPostList(origin)
-        (ancestors + listOf(post(lastStatusId)) + descendants).distinctBy { it.id }
+        (ancestors + listOf(lastStatus) + descendants).distinctBy { it.id }
     }
 
     override suspend fun sendDirectMessage(message: DirectMessageRequest): Post = request {

@@ -19,6 +19,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,10 +54,13 @@ fun DirectMessageInboxScreen(
     }
     Column(Modifier.fillMaxSize().testTag("direct_message_inbox")) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
-            Text("Messages", style = MaterialTheme.typography.headlineSmall)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Messages", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                TextButton(onClick = onRefresh, enabled = !state.loading && !state.loadingMore) { Text("Refresh") }
+            }
             Spacer(Modifier.size(6.dp))
             Text(
-                "Private messages are federated posts, not end-to-end encrypted.",
+                "Private messages are federated posts, not end-to-end encrypted. History depends on what your server exposes.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

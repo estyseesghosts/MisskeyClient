@@ -3,6 +3,7 @@ package me.foxtails.palustris.data.directmessages
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
@@ -53,16 +54,14 @@ class DirectMessageRepository(
     suspend fun send(
         request: DirectMessageRequest,
         conversationId: ConversationId? = null,
+        recipientAccounts: List<Account> = emptyList(),
     ): Post = withContext(Dispatchers.IO) {
         val post = source.sendDirectMessage(request)
         val id = conversationId ?: ConversationId(accountId.connection.origin, post.id.value)
         val previous = store.conversation(accountId, id)
         val root = previous?.rootPostId ?: request.replyTo ?: post.id
-        val participants = (previous?.participants.orEmpty() + request.recipients + post.author.id)
-            .distinctBy { it }
-            .mapNotNull { participant ->
-                if (participant == post.author.id) post.author else previous?.participants?.firstOrNull { it.id == participant }
-            }
+        val participants = (previous?.participants.orEmpty() + recipientAccounts + post.author)
+            .distinctBy(Account::id)
         val conversation = DirectConversation(
             id = id,
             participants = participants,
