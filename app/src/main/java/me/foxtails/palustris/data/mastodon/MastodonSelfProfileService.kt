@@ -79,9 +79,6 @@ class MastodonSelfProfileService(
     }
 
     private fun validatePatch(patch: EditableProfilePatch, capabilities: EditableProfileCapabilities) {
-        if (patch.displayName != null || patch.biography != null) {
-            requireCapability(capabilities.update, "profile.editable.update")
-        }
         val advanced = listOfNotNull(
             patch.fields, patch.locked, patch.bot, patch.hideCollections, patch.discoverable,
             patch.indexable, patch.showMedia, patch.showMediaReplies, patch.showFeatured,

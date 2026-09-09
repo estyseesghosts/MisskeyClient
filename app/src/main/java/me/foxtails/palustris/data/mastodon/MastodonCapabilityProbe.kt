@@ -63,7 +63,7 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
             return VersionTriple(
                 match.groupValues[1].toInt(),
                 match.groupValues[2].toInt(),
-                match.groupValues[3].toInt(),
+                match.groupValues.getOrNull(3)?.toIntOrNull() ?: 0,
             )
         }
 

@@ -22,6 +22,11 @@ import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
+import me.foxtails.palustris.domain.CustomEmoji
+import me.foxtails.palustris.domain.EditableProfile
+import me.foxtails.palustris.domain.EditableProfilePatch
+import me.foxtails.palustris.domain.EmojiCapabilities
+import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Event
 import me.foxtails.palustris.domain.SocialEvent
@@ -46,11 +51,11 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PushSubscription
 import me.foxtails.palustris.domain.PushSubscriptionSpec
 import me.foxtails.palustris.domain.PushProviderInfo
+import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.domain.UpdateProfileRequest
 import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONArray
 import org.json.JSONObject
@@ -74,6 +79,7 @@ class MastodonSource(
         },
     )
     private val profileService = MastodonProfileService(origin, token, api, accountId)
+    private val selfProfileService = MastodonSelfProfileService(origin, token, api, accountId)
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request {
@@ -137,13 +143,90 @@ class MastodonSource(
         MastodonMapper.post(api.postForm(origin, "api/v1/statuses", fields, token).body.toJson(), origin)
     }
 
-    override suspend fun updateProfile(profile: UpdateProfileRequest) = request {
-        val response = api.patchForm(origin, "api/v1/accounts/update_credentials", listOf(
-            "display_name" to profile.displayName,
-            "note" to profile.biography,
-        ), token)
-        MastodonMapper.account(response.body.toJson(), origin)
+    override suspend fun loadEditableProfile(): EditableProfile = request {
+        refreshCapabilities()
+        selfProfileService.load(capabilities.profile.editable)
     }
+
+    override suspend fun updateEditableProfile(patch: EditableProfilePatch): EditableProfile = request {
+        refreshCapabilities()
+        selfProfileService.update(patch, capabilities.profile.editable)
+    }
+
+    override suspend fun customEmojis(): List<CustomEmoji> = request {
+        MastodonEmojiMapper.parseCatalog(api.get(origin, "v1/custom_emojis", token).body, origin)
+    }
+
+    override suspend fun react(id: EntityId, choice: EmojiChoice): PostActionResult = request {
+        validatePostId(id, "react")
+        requireReactionMutation()
+        try {
+            mutateEmojiReaction(id, choice.submissionValue, selected = true)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            downgradeReactionMutation()
+            throw e
+        }
+    }
+
+    override suspend fun removeReaction(id: EntityId, choice: EmojiChoice): PostActionResult = request {
+        validatePostId(id, "react")
+        requireReactionMutation()
+        try {
+            mutateEmojiReaction(id, choice.submissionValue, selected = false)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            downgradeReactionMutation()
+            throw e
+        }
+    }
+
+    private fun requireReactionMutation() {
+        if (capabilities.emoji.reactionMutation != CapabilityStatus.Supported) {
+            throw SourceError.Unsupported("react")
+        }
+    }
+
+    private fun downgradeReactionMutation() {
+        _capabilities.value = _capabilities.value.copy(
+            actions = _capabilities.value.actions - PostAction.React,
+            emoji = _capabilities.value.emoji.copy(
+                reactionMutation = CapabilityStatus.Unsupported,
+                selectionMode = ReactionSelectionMode.Unknown,
+            ),
+        )
+    }
+
+    private suspend fun mutateEmojiReaction(
+        id: EntityId,
+        submission: String,
+        selected: Boolean,
+    ): PostActionResult {
+        val response = if (selected) {
+            api.putForm(origin, emojiReactionEndpoint(id, submission), emptyList(), token)
+        } else {
+            api.delete(origin, emojiReactionEndpoint(id, submission), token)
+        }
+        return PostActionResult(
+            post = response.optionalPost(origin),
+            selected = selected,
+        )
+    }
+
+    private fun emojiReactionEndpoint(id: EntityId, submission: String): String =
+        origin.toHttpUrl().newBuilder()
+            .addPathSegment("api")
+            .addPathSegment("v1")
+            .addPathSegment("pleroma")
+            .addPathSegment("statuses")
+            .addPathSegment(id.value)
+            .addPathSegment("reactions")
+            .addPathSegment(submission)
+            .build()
+            .encodedPath
+            .removePrefix("/")
 
     override suspend fun favorite(id: EntityId) = request {
         validatePostId(id, "favorite")
@@ -684,13 +767,15 @@ class MastodonSource(
     private suspend fun refreshCapabilities() {
         val probe = capabilityProbe ?: return
         val now = clock()
-        if (now - capabilities.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS) return
+        val schemaCurrent = capabilities.capabilitySchemaVersion >= ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION
+        if (schemaCurrent && now - capabilities.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS) return
         try {
             val probed = probe.probeCapabilities(Connection(origin, Protocol.MASTODON))
             _capabilities.value = probed.copy(
                 canPublish = probed.canPublish || capabilities.canPublish,
                 notifications = probed.notifications.takeVerifiedOr(capabilities.notifications),
                 profile = probed.profile.takeVerifiedOr(capabilities.profile),
+                emoji = probed.emoji.takeVerifiedOr(capabilities.emoji),
             )
         } catch (e: CancellationException) {
             throw e
@@ -720,6 +805,7 @@ class MastodonSource(
             timelines = setOf(Timeline.Home, Timeline.Local, Timeline.Federated),
             audiences = setOf(Audience.Public, Audience.Unlisted, Audience.Followers, Audience.Direct),
             actions = setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.Bookmark),
+            emoji = EmojiCapabilities(catalog = CapabilityStatus.Supported),
             primaryFavourite = me.foxtails.palustris.domain.PrimaryFavouriteCapability(
                 me.foxtails.palustris.domain.CapabilityStatus.Supported,
                 me.foxtails.palustris.domain.PrimaryFavouriteMode.Native,
@@ -814,6 +900,9 @@ private fun HttpResponse.optionalPost(origin: String): Post? = runCatching {
 
 private fun ProfileCapabilities.takeVerifiedOr(previous: ProfileCapabilities): ProfileCapabilities =
     if (this == ProfileCapabilities()) previous else this
+
+private fun EmojiCapabilities.takeVerifiedOr(previous: EmojiCapabilities): EmojiCapabilities =
+    if (this == EmojiCapabilities()) previous else this
 
 private fun JSONArray?.toAccounts(origin: String): Map<String, Account> {
     if (this == null) return emptyMap()
