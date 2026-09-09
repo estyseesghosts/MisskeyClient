@@ -362,7 +362,9 @@ class NavigationTest {
                     account = account,
                     feedState = FeedState(
                         posts = listOf(
-                            fixturePost("home-underlap", account, longFixtureText("Home", lines = 26)),
+                             fixturePost("home-underlap", account, longFixtureText("Home", lines = 26)).copy(
+                                 attachments = listOf(Attachment(url = "https://cdn.example/home-underlap.jpg", mimeType = "image/jpeg")),
+                             ),
                             final,
                         ),
                     ),
@@ -390,7 +392,9 @@ class NavigationTest {
                             query = "#fixture",
                             tagQuery = "fixture",
                             posts = listOf(
-                                fixturePost("search-underlap", account, longFixtureText("Search", lines = 28)),
+                             fixturePost("search-underlap", account, longFixtureText("Search", lines = 28)).copy(
+                                 attachments = listOf(Attachment(url = "https://cdn.example/search-underlap.jpg", mimeType = "image/jpeg")),
+                             ),
                                 final,
                             ),
                         ),

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -74,23 +73,25 @@ fun InlineEmojiText(
     val primary = MaterialTheme.colorScheme.primary
     val linkStyle = SpanStyle(color = primary, textDecoration = TextDecoration.Underline)
     val model = remember(text, emoji) { EmojiTextParser.parse(text, emoji) }
-    val inlineContent = buildInlineContent(emoji, style.fontSize)
-    val annotated = remember(model) {
+    val inlineContent = remember(model, style.fontSize) {
+        buildInlineContent(model, style.fontSize)
+    }
+    val annotated = remember(model, linkStyle) {
         buildAnnotatedString {
             model.segments.forEach { segment -> appendSegment(this, segment, linkStyle) }
         }
     }
-    if (inlineContent.isEmpty()) {
-        ClickableText(
+    val hasLinks = remember(annotated) {
+        annotated.getStringAnnotations(URL_ANNOTATION, 0, annotated.length).isNotEmpty()
+    }
+    if (!hasLinks) {
+        BasicText(
             text = annotated,
             modifier = modifier,
             style = resolvedStyle,
             maxLines = maxLines,
             overflow = overflow,
-            onClick = { offset ->
-                annotated.getStringAnnotations(URL_ANNOTATION, offset, offset)
-                    .firstOrNull()?.let { openExternal(context, it.item) }
-            },
+            inlineContent = inlineContent,
         )
         return
     }
@@ -163,22 +164,21 @@ fun CustomEmojiImage(
          )
         if (emoji != null && request != null) {
             val context = LocalContext.current
-            val density = LocalDensity.current
             val scope = LocalEmojiAccountScope.current
-            val imageRequest = remember(emoji, scope) {
-                with(density) {
-                    MediaImageLoader.get(context).emojiRequest(
-                        context = context,
-                        emoji = emoji,
-                        request = request,
-                        accountIdentity = scope,
-                        emojiIdentity = emoji.submissionValue,
-                        decodeSizePx = 96,
-                    )
-                }
+            val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
+            val imageRequest = remember(emoji, request, scope, mediaImageLoader) {
+                mediaImageLoader.emojiRequest(
+                    context = context,
+                    emoji = emoji,
+                    request = request,
+                    accountIdentity = scope,
+                    emojiIdentity = emoji.submissionValue,
+                    decodeSizePx = 96,
+                )
             }
             AsyncImage(
                 model = imageRequest,
+                imageLoader = mediaImageLoader.imageLoader,
                 contentDescription = null,
                 contentScale = contentScale,
                 modifier = Modifier
@@ -210,27 +210,31 @@ private fun appendSegment(
 }
 
 private fun buildInlineContent(
-    emoji: Map<String, CustomEmoji>,
+    model: RichTextModel,
     emSize: TextUnit,
 ): Map<String, androidx.compose.foundation.text.InlineTextContent> {
-    val ids = buildSet {
-        emoji.forEach { (key, value) ->
-            add(key)
-            add(value.token)
-            add(key.removeSurrounding(":"))
+    return buildMap {
+        fun addSegments(segments: List<RichTextSegment>) {
+            segments.forEach { segment ->
+                when (segment) {
+                    is RichTextSegment.Emoji -> put(
+                        segment.token,
+                        androidx.compose.foundation.text.InlineTextContent(
+                            placeholder = androidx.compose.ui.text.Placeholder(
+                                width = emSize,
+                                height = emSize,
+                                placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter,
+                            ),
+                        ) {
+                            EmojiInlineContent(segment.token, segment.emoji, emSize)
+                        },
+                    )
+                    is RichTextSegment.Link -> addSegments(segment.label)
+                    is RichTextSegment.Text -> Unit
+                }
+            }
         }
-    }
-    return ids.associateWith { id ->
-        val value = emoji[id] ?: emoji[id.removeSurrounding(":")] ?: emoji[id.trim(':')]
-        androidx.compose.foundation.text.InlineTextContent(
-            placeholder = androidx.compose.ui.text.Placeholder(
-                width = emSize,
-                height = emSize,
-                placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter,
-            ),
-        ) {
-            EmojiInlineContent(id, value, emSize)
-        }
+        addSegments(model.segments)
     }
 }
 

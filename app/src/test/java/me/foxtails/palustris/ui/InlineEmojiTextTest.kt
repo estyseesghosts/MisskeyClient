@@ -101,4 +101,17 @@ class InlineEmojiTextTest {
         compose.onNodeWithText("read the guide", substring = true)
             .assertIsDisplayed()
     }
+
+    @Test
+    fun customEmojiInsideLinkStillRendersAsInlineContent() {
+        show {
+            InlineEmojiText(
+                "[the :blob_cat: guide](https://example.org/guide)",
+                mapOf("blob_cat" to blob),
+            )
+        }
+
+        compose.onNodeWithText("the :blob_cat: guide", substring = true)
+            .assertIsDisplayed()
+    }
 }

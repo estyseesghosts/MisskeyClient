@@ -9,6 +9,14 @@ internal data class PostTextPresentation(
     val filteredRanges: List<IntRange>,
 )
 
+internal const val PostBodyCharacterLimit = 350
+
+internal fun truncatedPostBody(text: String): String {
+    if (text.codePointCount(0, text.length) <= PostBodyCharacterLimit) return text
+    val end = text.offsetByCodePoints(0, PostBodyCharacterLimit)
+    return text.substring(0, end) + "…"
+}
+
 private data class HashtagToken(
     val range: IntRange,
     val value: String,

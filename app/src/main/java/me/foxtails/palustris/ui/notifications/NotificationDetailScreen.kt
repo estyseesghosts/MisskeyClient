@@ -34,6 +34,7 @@ fun NotificationDetailScreen(
     onOpenTarget: (() -> Unit)? = null,
     onSearchHashtag: ((String) -> Unit)? = null,
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
+    onOpenPost: (OwnedPost) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -129,8 +130,9 @@ fun NotificationDetailScreen(
                             onReaction = { _, _ -> },
                             onOpenProfile = null,
                             onSearchHashtag = onSearchHashtag,
-                            onOpenHashtagBubble = onOpenHashtagBubble,
-                        )
+                             onOpenHashtagBubble = onOpenHashtagBubble,
+                             onOpenPost = onOpenPost,
+                         )
                         ValidatedUrl.https(post.url.orEmpty())?.let { url ->
                             Button(
                                 onClick = { openExternal(context, url.value) },

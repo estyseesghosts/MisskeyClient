@@ -108,6 +108,7 @@ fun HomeFeed(
     onSearchHashtag: (String) -> Unit = {},
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
+    onOpenPost: (OwnedPost) -> Unit = {},
 ) {
     val list = rememberLazyListState()
     val pullToRefreshState = rememberPullToRefreshState()
@@ -212,9 +213,10 @@ fun HomeFeed(
                         onOpenHashtagBubble = openHashtagBubble,
                         quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported,
                         onQuote = onQuote,
-                        onOpenReactionBubble = openReactionBubble,
-                        onOpenMedia = onOpenMedia,
-                    )
+                         onOpenReactionBubble = openReactionBubble,
+                         onOpenMedia = onOpenMedia,
+                         onOpenPost = onOpenPost,
+                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 }
             }
@@ -245,6 +247,14 @@ fun HomeFeed(
 
 @Composable
 fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemantics: Boolean = true) {
+    val context = LocalContext.current
+    val avatarRequest = remember(context, account.avatarUrl) {
+        ImageRequest.Builder(context)
+            .data(account.avatarUrl)
+            // Avoid starting an animation while a recycled timeline row is scrolling into view.
+            .crossfade(false)
+            .build()
+    }
     Box(
         modifier
             .clip(CircleShape)
@@ -254,10 +264,7 @@ fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemanti
     ) {
         Avatar(Modifier.fillMaxSize(), description = null)
         AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(account.avatarUrl)
-                .crossfade(true)
-                .build(),
+            model = avatarRequest,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize())
@@ -282,12 +289,16 @@ internal fun PostRow(
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
     modifier: Modifier = Modifier,
+    truncateBody: Boolean = true,
+    onOpenPost: (OwnedPost) -> Unit = {},
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
     val presentation = remember(post.text, post.emoji) { parseHashtagBlocks(post.text, post.emoji) }
     val contentVisible = post.contentWarning == null || expanded
+    val bodyTruncated = truncateBody && post.text.codePointCount(0, post.text.length) > PostBodyCharacterLimit
+    val bodyText = if (bodyTruncated) truncatedPostBody(presentation.visibleText) else presentation.visibleText
     Column(modifier.fillMaxWidth().testTag("post_row_${post.id.value}")) {
         post.resharedBy?.let {
             Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp)) {
@@ -316,11 +327,26 @@ internal fun PostRow(
             if (presentation.visibleText.isNotBlank() || timestamp != null) SelectionContainer {
                 Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
                     if (presentation.visibleText.isNotBlank()) {
-                        InlineEmojiText(
-                            presentation.visibleText,
-                            post.emoji,
-                            style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                        )
+                        if (bodyTruncated) {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                InlineEmojiText(
+                                    bodyText,
+                                    post.emoji,
+                                    style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                                )
+                                ViewFullPostBubble { onOpenPost(ownedPost) }
+                            }
+                        } else {
+                            InlineEmojiText(
+                                bodyText,
+                                post.emoji,
+                                style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                            )
+                        }
                     }
                     timestamp?.let {
                         if (presentation.visibleText.isNotBlank()) Spacer(Modifier.height(2.dp))
@@ -382,7 +408,7 @@ internal fun PostRow(
 }
 
 @Composable
-private fun PostMetadataRow(
+internal fun PostMetadataRow(
     post: Post,
     filteredHashtags: List<String>,
     onOpenProfile: (() -> Unit)?,
@@ -438,7 +464,37 @@ private fun PostMetadataRow(
     }
 }
 
-private fun postTimestamp(post: Post): String? = if (post.publishedAtEpochMillis > 0) {
+@Composable
+private fun ViewFullPostBubble(onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Surface(
+        modifier = Modifier
+            .height(32.dp)
+            .widthIn(max = 124.dp)
+            .springPress(interactionSource, pressedScale = LocalPalustrisMotionScheme.current.compactPressedScale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick,
+            )
+            .semantics {
+                contentDescription = "View full post"
+                role = Role.Button
+            },
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    ) {
+        Text(
+            "View full post",
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+        )
+    }
+}
+
+internal fun postTimestamp(post: Post): String? = if (post.publishedAtEpochMillis > 0) {
     DateUtils.getRelativeTimeSpanString(
         post.publishedAtEpochMillis,
         System.currentTimeMillis(),

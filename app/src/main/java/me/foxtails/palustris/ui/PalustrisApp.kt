@@ -92,6 +92,7 @@ import me.foxtails.palustris.ui.profile.ProfileScreen as RichProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.MediaViewerScreen
+import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.motion.SpringAnimatedContent
@@ -499,6 +500,7 @@ fun PalustrisApp(
     var profileDialog by rememberSaveable { mutableStateOf(false) }
     var signOutDialog by remember { mutableStateOf(false) }
     var mediaRequest by remember { mutableStateOf<MediaOpenRequest?>(null) }
+    var singlePost by remember { mutableStateOf<OwnedPost?>(null) }
     var emojiPickerTarget by remember { mutableStateOf<EmojiPickerTarget?>(null) }
     var postActionBubbleTarget by remember { mutableStateOf<PostActionBubbleTarget?>(null) }
     var postReactionHandler by remember { mutableStateOf<((OwnedPost, EmojiChoice) -> Unit)?>(null) }
@@ -513,7 +515,7 @@ fun PalustrisApp(
         "NotificationSettings" -> Overlay.NotificationSettings
         else -> null
     }
-    val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog || mediaRequest != null || emojiPickerTarget != null
+    val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog || mediaRequest != null || singlePost != null || emojiPickerTarget != null
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
     val profileTargetId = viewedProfile?.id ?: account?.id
     val refreshedProfile = profileState.account?.takeIf { it.id == profileTargetId }
@@ -571,13 +573,14 @@ fun PalustrisApp(
         composerReplyTo = null
         savedReplyTo = null
         mediaRequest = null
+        singlePost = null
         profileEditor = null
         emojiPickerTarget = null
         postActionBubbleTarget = null
         postReactionHandler = null
         pendingEmojiInsertion = null
     }
-    LaunchedEffect(destination, page, overlayKey, sheet, profileDialog, signOutDialog, mediaRequest, notificationRoute) {
+    LaunchedEffect(destination, page, overlayKey, sheet, profileDialog, signOutDialog, mediaRequest, singlePost, notificationRoute) {
         postActionBubbleTarget = null
         postReactionHandler = null
     }
@@ -806,8 +809,15 @@ fun PalustrisApp(
         mediaRequest = request
     }
 
-    BackHandler(enabled = mediaRequest != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home) {
+    fun openSinglePost(post: OwnedPost) {
+        clearPostActionBubble()
+        mediaRequest = null
+        singlePost = post
+    }
+
+    BackHandler(enabled = singlePost != null || mediaRequest != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home) {
         when {
+            singlePost != null -> singlePost = null
             mediaRequest != null -> mediaRequest = null
             overlay == Overlay.NotificationSettings -> closeNotificationSettings()
             overlay == Overlay.Composer -> closeComposer()
@@ -863,6 +873,7 @@ fun PalustrisApp(
                                 items = notificationState.items,
                                 onSearchHashtag = ::openHashtagSearch,
                                 onOpenHashtagBubble = ::openHashtagBubble,
+                                onOpenPost = ::openSinglePost,
                                 onOpenTarget = (notificationRoute as? AppRoute.Profile)?.let { route ->
                                     { openNotificationTarget(route) }
                                 },
@@ -884,8 +895,9 @@ fun PalustrisApp(
                                       onOpenReactionBubble = { ownedPost, bounds ->
                                           openReactionBubble(ownedPost, bounds, onSavedPostReaction)
                                       },
-                                     onOpenMedia = ::openMedia,
-                                     availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
+                                      onOpenMedia = ::openMedia,
+                                      onOpenPost = ::openSinglePost,
+                                      availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
                                      onOpenProfile = ::openProfile,
                                      onSearchHashtag = ::openHashtagSearch,
                                      onOpenHashtagBubble = ::openHashtagBubble,
@@ -896,7 +908,7 @@ fun PalustrisApp(
                               else -> when (animatedDestination) {
                                   Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenReactionBubble = { ownedPost, bounds ->
                                       openReactionBubble(ownedPost, bounds, onReaction)
-                                  }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                   }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia, onOpenPost = ::openSinglePost) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
                                  Destination.Search -> AnimatedStatePane(
                                      stateKey = searchPanel,
                                      modifier = Modifier.fillMaxSize(),
@@ -922,9 +934,10 @@ fun PalustrisApp(
                                       initialQuery = searchPrefill,
                                       compactLayout = !wide,
                                       compactNavigationVisible = !wide,
-                                      mediaOwner = account?.id,
-                                      onOpenMedia = ::openMedia,
-                                   ) }
+                                       mediaOwner = account?.id,
+                                       onOpenMedia = ::openMedia,
+                                       onOpenPost = ::openSinglePost,
+                                    ) }
                                  Destination.Notifications -> AnimatedStatePane(
                                      stateKey = notificationsPanel,
                                      modifier = Modifier.fillMaxSize(),
@@ -982,8 +995,9 @@ fun PalustrisApp(
                       onOpenReactionBubble = { ownedPost, bounds ->
                           openReactionBubble(ownedPost, bounds, onProfilePostReaction)
                       },
-                     onOpenMedia = ::openMedia,
-                 )
+                      onOpenMedia = ::openMedia,
+                      onOpenPost = ::openSinglePost,
+                  )
                               }
                         }
                         }
@@ -1102,6 +1116,23 @@ fun PalustrisApp(
             onReact = onReact,
             onReply = handleReply,
             onReshare = onReshare,
+        )
+    }
+
+    singlePost?.let { post ->
+        SinglePostScreen(
+            ownedPost = post,
+            onClose = { singlePost = null },
+            availableActions = feedState?.actions ?: emptySet(),
+            onReact = onReact,
+            onReply = handleReply,
+            onReshare = onReshare,
+            onBookmark = onBookmark,
+            onReaction = onReaction,
+            onOpenProfile = ::openProfile,
+            onSearchHashtag = ::openHashtagSearch,
+            onOpenHashtagBubble = ::openHashtagBubble,
+            onOpenMedia = ::openMedia,
         )
     }
 

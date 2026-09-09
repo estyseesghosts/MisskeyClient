@@ -33,6 +33,7 @@ internal fun MediaPage(
     accountIdentity: String,
     postIdentity: String,
     onReveal: () -> Unit,
+    edgeToEdge: Boolean = false,
 ) {
     if (attachment.sensitive && !revealed) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -65,7 +66,7 @@ internal fun MediaPage(
                     decodeHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxHeight.toPx().toInt() },
                 ),
                 contentDescription = attachment.description ?: "Media ${index + 1}",
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                modifier = Modifier.fillMaxWidth().then(if (edgeToEdge) Modifier else Modifier.padding(horizontal = 8.dp)),
             )
             is MediaRequestDecision.NoRequest -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator()

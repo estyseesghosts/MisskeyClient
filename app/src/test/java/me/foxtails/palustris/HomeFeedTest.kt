@@ -474,6 +474,25 @@ private fun show(
         compose.onNodeWithText("A recent #cats post").assertIsDisplayed()
     }
 
+    @Test fun postsLongerThan350CharactersShowAnInlineFullPostAction() {
+        val text = "x".repeat(351)
+        show(Post(postId("long-body"), account, text, 0, Audience.Public))
+
+        compose.onNodeWithText("x".repeat(350) + "…").assertIsDisplayed()
+        compose.onNodeWithText(text).assertDoesNotExist()
+        compose.onNodeWithContentDescription("View full post").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Post").assertIsDisplayed()
+        compose.onNodeWithText(text).assertIsDisplayed()
+    }
+
+    @Test fun postsWith350OrFewerCharactersRemainUntruncated() {
+        val text = "x".repeat(350)
+        show(Post(postId("boundary-body"), account, text, 0, Audience.Public))
+
+        compose.onNodeWithText(text).assertIsDisplayed()
+        compose.onNodeWithContentDescription("View full post").assertDoesNotExist()
+    }
+
     @Test fun searchResultsExposePostActionCallbacks() {
         val result = Post(postId("search-actions"), account, "Search actions", 0, Audience.Public)
         var replied = false

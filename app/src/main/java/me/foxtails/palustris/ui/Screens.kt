@@ -76,6 +76,7 @@ fun SearchScreen(
     compactNavigationVisible: Boolean = false,
     mediaOwner: AccountId? = null,
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
+    onOpenPost: (OwnedPost) -> Unit = {},
 ) {
     if (mode == SearchPanel.Alternate) {
         EmptyState(AppIcons.WaffleGrid, "Alternate search", "A second search surface will be available in a future update.")
@@ -129,7 +130,8 @@ fun SearchScreen(
                 onLoadMoreSearch = onLoadMoreSearch,
                 endClearance = 0.dp,
                  mediaOwner = mediaOwner,
-                 onOpenMedia = onOpenMedia,
+                  onOpenMedia = onOpenMedia,
+                  onOpenPost = onOpenPost,
                  onSearchHashtag = onSearchHashtag,
                  onOpenHashtagBubble = onOpenHashtagBubble,
             )
@@ -158,6 +160,7 @@ fun SearchScreen(
                 endClearance = searchEndClearance,
                 mediaOwner = mediaOwner,
                 onOpenMedia = onOpenMedia,
+                onOpenPost = onOpenPost,
                 onSearchHashtag = onSearchHashtag,
                 onOpenHashtagBubble = onOpenHashtagBubble,
             )
@@ -204,6 +207,7 @@ private fun SearchContent(
     endClearance: Dp,
     mediaOwner: AccountId?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
+    onOpenPost: (OwnedPost) -> Unit,
     onSearchHashtag: (String) -> Unit,
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
 ) {
@@ -243,7 +247,8 @@ private fun SearchContent(
                     mediaOwner = mediaOwner,
                     onOpenMedia = onOpenMedia,
                     onSearchHashtag = onSearchHashtag,
-                    onOpenHashtagBubble = onOpenHashtagBubble,
+                     onOpenHashtagBubble = onOpenHashtagBubble,
+                     onOpenPost = onOpenPost,
                 ) else AccountSearchResults(query, accountSearch, onAccountClick, endClearance)
             } else {
                 EmptyState(
@@ -323,6 +328,7 @@ private fun HashtagSearchResults(
     onOpenMedia: (MediaOpenRequest) -> Unit,
     onSearchHashtag: (String) -> Unit,
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
+    onOpenPost: (OwnedPost) -> Unit,
 ) {
     val scheme = LocalPalustrisMotionScheme.current
     when {
@@ -355,7 +361,8 @@ private fun HashtagSearchResults(
                         onQuote = onQuote,
                         onSearchHashtag = onSearchHashtag,
                         onOpenHashtagBubble = onOpenHashtagBubble,
-                        onOpenMedia = if (mediaOwner != null) onOpenMedia else { _: MediaOpenRequest -> },
+                         onOpenMedia = if (mediaOwner != null) onOpenMedia else { _: MediaOpenRequest -> },
+                         onOpenPost = onOpenPost,
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 }

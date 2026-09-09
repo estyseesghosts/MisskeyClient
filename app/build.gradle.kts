@@ -22,7 +22,7 @@ android {
     buildFeatures { compose = true }
     // *Test classes, including MisskeySourceContractTest, are discovered automatically.
     testOptions { unitTests.isIncludeAndroidResources = true }
-    buildTypes { release { optimization { enable = false } } }
+    buildTypes { release { optimization { enable = true } } }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

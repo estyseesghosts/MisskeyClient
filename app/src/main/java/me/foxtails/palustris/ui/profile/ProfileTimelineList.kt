@@ -76,6 +76,7 @@ internal fun ProfileTimelineList(
     onOpenReactionPicker: (OwnedPost) -> Unit,
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
+    onOpenPost: (OwnedPost) -> Unit,
     header: @Composable () -> Unit,
     details: @Composable () -> Unit,
 ) {
@@ -145,9 +146,10 @@ internal fun ProfileTimelineList(
                 onOpenReactionPicker = onOpenReactionPicker,
                 onOpenProfile = onOpenProfile,
                 onSearchHashtag = onSearchHashtag,
-                onOpenHashtagBubble = onOpenHashtagBubble,
-                onOpenMedia = onOpenMedia,
-            )
+                 onOpenHashtagBubble = onOpenHashtagBubble,
+                 onOpenMedia = onOpenMedia,
+                 onOpenPost = onOpenPost,
+             )
             if (state.selectedTab == ProfileCategory.ShowMore) {
                 item(key = "profile-details") { details() }
             } else {
@@ -165,9 +167,10 @@ internal fun ProfileTimelineList(
                     onOpenReactionPicker = onOpenReactionPicker,
                     onOpenProfile = onOpenProfile,
                     onSearchHashtag = onSearchHashtag,
-                    onOpenHashtagBubble = onOpenHashtagBubble,
-                    onOpenMedia = onOpenMedia,
-                )
+                     onOpenHashtagBubble = onOpenHashtagBubble,
+                     onOpenMedia = onOpenMedia,
+                     onOpenPost = onOpenPost,
+                 )
             }
         }
     }
@@ -224,6 +227,7 @@ private fun LazyListScope.profilePinnedItems(
     onSearchHashtag: (String) -> Unit,
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
+    onOpenPost: (OwnedPost) -> Unit,
 ) {
     if (state.pinnedLoading) item(key = "profile-pinned-loading") {
         Text("Featured posts", Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
@@ -256,8 +260,9 @@ private fun LazyListScope.profilePinnedItems(
                 onOpenReactionPicker = onOpenReactionPicker,
                 onOpenProfile = onOpenProfile,
                 onSearchHashtag = onSearchHashtag,
-                onOpenHashtagBubble = onOpenHashtagBubble,
-                onOpenMedia = onOpenMedia,
+                     onOpenHashtagBubble = onOpenHashtagBubble,
+                     onOpenMedia = onOpenMedia,
+                     onOpenPost = onOpenPost,
                 modifier = Modifier.animateItem(
                     fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,
                     fadeOutSpec = LocalPalustrisMotionScheme.current.fastFadeOut,
@@ -285,6 +290,7 @@ private fun LazyListScope.profilePageItems(
     onSearchHashtag: (String) -> Unit,
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
     onOpenMedia: (MediaOpenRequest) -> Unit,
+    onOpenPost: (OwnedPost) -> Unit,
 ) {
     if (page == null || page.initialLoading && page.posts.isEmpty()) {
         item(key = "profile-timeline-loading") {
@@ -328,8 +334,9 @@ private fun LazyListScope.profilePageItems(
             onOpenReactionPicker = onOpenReactionPicker,
             onOpenProfile = onOpenProfile,
             onSearchHashtag = onSearchHashtag,
-            onOpenHashtagBubble = onOpenHashtagBubble,
-            onOpenMedia = onOpenMedia,
+                     onOpenHashtagBubble = onOpenHashtagBubble,
+                     onOpenMedia = onOpenMedia,
+                     onOpenPost = onOpenPost,
             modifier = Modifier.animateItem(
                 fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,
                 fadeOutSpec = LocalPalustrisMotionScheme.current.fastFadeOut,

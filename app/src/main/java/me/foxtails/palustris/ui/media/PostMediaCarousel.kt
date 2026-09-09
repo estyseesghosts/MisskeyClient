@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -75,6 +76,9 @@ fun PostMediaCarousel(
 ) {
     val attachments = ownedPost.post.attachments
     if (attachments.isEmpty()) return
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
     BoxWithConstraints(modifier.fillMaxWidth()) {
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -89,6 +93,9 @@ fun PostMediaCarousel(
                     ownedPost = ownedPost,
                     attachment = attachment,
                     index = index,
+                    decodeWidthPx = with(density) { width.roundToPx() },
+                    decodeHeightPx = with(density) { 240.dp.roundToPx() },
+                    mediaImageLoader = mediaImageLoader,
                     onOpenMedia = onOpenMedia,
                     modifier = Modifier
                         .width(width)
@@ -104,6 +111,9 @@ private fun MediaPreviewTile(
     ownedPost: OwnedPost,
     attachment: Attachment,
     index: Int,
+    decodeWidthPx: Int,
+    decodeHeightPx: Int,
+    mediaImageLoader: MediaImageLoader,
     onOpenMedia: (MediaOpenRequest) -> Unit,
     modifier: Modifier,
 ) {
@@ -162,18 +172,29 @@ private fun MediaPreviewTile(
                 when {
                     attachment.kind !in setOf(MediaKind.Image, MediaKind.AnimatedImage) -> UnsupportedMediaTile(attachment)
                     visibleDecision is MediaRequestDecision.Request -> {
-                        AsyncImage(
-                            model = MediaImageLoader.get(context).request(
+                        val imageRequest = remember(
+                            visibleDecision,
+                            ownedPost.fetchedBy,
+                            ownedPost.post.id,
+                            attachment,
+                            index,
+                            decodeWidthPx,
+                            decodeHeightPx,
+                        ) {
+                            mediaImageLoader.request(
                                 context = context,
                                 decision = visibleDecision,
                                 accountIdentity = ownedPost.fetchedBy.toString(),
                                 postIdentity = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}",
                                 attachment = attachment,
                                 attachmentIndex = index,
-                                decodeWidthPx = context.resources.displayMetrics.widthPixels,
-                                decodeHeightPx = (240 * context.resources.displayMetrics.density).toInt(),
-                            ),
-                            imageLoader = MediaImageLoader.get(context).imageLoader,
+                                decodeWidthPx = decodeWidthPx,
+                                decodeHeightPx = decodeHeightPx,
+                            )
+                        }
+                        AsyncImage(
+                            model = imageRequest,
+                            imageLoader = mediaImageLoader.imageLoader,
                             contentDescription = attachment.description ?: "Post attachment ${index + 1}",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop,
