@@ -6,6 +6,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
@@ -89,7 +90,7 @@ object MisskeyMapper {
             ?: json.optJSONObject("reply")?.nullableString("userId")
             ?: json.optJSONObject("reply")?.optJSONObject("user")?.nullableString("id")
         val myChoice = myReaction?.let { identity ->
-            me.foxtails.palustris.domain.EmojiChoice(identity, identity, emojiMetadata[identity])
+            me.foxtails.palustris.domain.EmojiChoice(identity, identity, reactionMetadata(identity, emojiMetadata))
         }
         return Post(
             id = id,
@@ -102,7 +103,12 @@ object MisskeyMapper {
             replyTo = json.nullableString("replyId")?.let { EntityId(origin, it) },
             replyToAuthorId = replyToAuthorId?.let { AccountId(Connection(origin, Protocol.MISSKEY), it) },
             reactions = reactionJson.keys().asSequence().map { emoji ->
-                Reaction(emoji, reactionJson.optInt(emoji).coerceAtLeast(0), myReaction == emoji, emojiMetadata[emoji])
+                Reaction(
+                    emoji,
+                    reactionJson.optInt(emoji).coerceAtLeast(0),
+                    myReaction == emoji,
+                    reactionMetadata(emoji, emojiMetadata),
+                )
             }.toList(),
             url = json.nullableString("url") ?: json.nullableString("uri") ?: "$origin/notes/${id.value}",
             replyCount = json.optInt("repliesCount"), reshareCount = json.optInt("renoteCount"),
@@ -120,6 +126,17 @@ object MisskeyMapper {
                 ?.let { EntityId(origin, it) },
         )
     }
+
+    private fun reactionMetadata(identity: String, emoji: Map<String, CustomEmoji>): CustomEmoji? =
+        emoji[identity] ?: emoji[identity.trim(':')] ?: identity.takeIf { it.startsWith(":") }?.let {
+            CustomEmoji(
+                shortcode = it.trim(':'),
+                animatedUrl = null,
+                staticUrl = null,
+                submissionValue = it,
+                visibleInPicker = false,
+            )
+        }
 
     private fun attachment(json: JSONObject?): Attachment? {
         if (json == null) return null

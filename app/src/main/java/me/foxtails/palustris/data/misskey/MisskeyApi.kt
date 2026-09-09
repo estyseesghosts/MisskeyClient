@@ -8,6 +8,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.source
 import org.json.JSONObject
 import java.io.InputStream
 import java.io.IOException
@@ -213,7 +214,7 @@ class MultipartFileBody(
     internal fun body(): RequestBody = object : RequestBody() {
         override fun contentType(): MediaType? = mimeType.toMediaType()
         override fun writeTo(sink: okio.BufferedSink) {
-            stream.use { sink.writeAll(okio.Okio.source(it)) }
+            stream.use { sink.writeAll(it.source()) }
         }
     }
 }

@@ -121,6 +121,7 @@
     <string name="notifications_settings_registration_pending">Delivery registration is pending or retrying.</string>
 
     <string name="emoji_picker_title">Choose an emoji</string>
+    <string name="emoji_add_reaction">Add reaction</string>
     <string name="emoji_picker_search_hint">Search emoji</string>
     <string name="emoji_picker_loading">Loading emoji</string>
     <string name="emoji_picker_retry">Retry</string>
@@ -133,6 +134,7 @@
     <plurals name="reaction_count">
         <item quantity="one">%1$d reaction</item>
         <item quantity="many">%1$d reactions</item>
+        <item quantity="other">%1$d reactions</item>
     </plurals>
     <string name="emoji_reaction_remove">Remove the %1$s reaction</string>
     <string name="emoji_reaction_selected">%1$s reaction selected</string>
@@ -146,6 +148,7 @@
     <string name="profile_editor_field_name">Field name</string>
     <string name="profile_editor_field_value">Field value</string>
     <string name="profile_editor_add_field">Add field</string>
+    <string name="profile_editor_add_domain">Add domain</string>
     <string name="profile_editor_remove_field">Remove field</string>
     <string name="profile_editor_move_field_up">Move field up</string>
     <string name="profile_editor_move_field_down">Move field down</string>

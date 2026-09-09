@@ -234,8 +234,8 @@ fun ConnectedApp(
                 onCloseEditor = { profileModel?.closeEditor() },
                 emojiCatalogState = emojiCatalogState,
                 emojiCapabilities = sharedSource?.capabilities?.emoji ?: EmojiCapabilities(),
-                onLoadEmojiCatalog = { emojiCatalogModel?.loadCatalog() },
-                onRetryEmojiCatalog = { emojiCatalogModel?.retryCatalog() },
+                 onLoadEmojiCatalog = { emojiCatalogModel?.loadIfNeeded() },
+                 onRetryEmojiCatalog = { emojiCatalogModel?.retry() },
                 onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
                 onProfilePostReaction = { ownedPost, choice -> profileModel?.react(ownedPost, choice) },
             )

@@ -1,0 +1,168 @@
+package me.foxtails.palustris.ui.emoji
+
+import androidx.activity.compose.setContent
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import me.foxtails.palustris.MainActivity
+import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.CustomEmoji
+import me.foxtails.palustris.domain.EmojiChoice
+import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.Reaction
+import me.foxtails.palustris.domain.ReactionSelectionMode
+import me.foxtails.palustris.domain.ValidatedUrl
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], qualifiers = "w411dp-h891dp-420dpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class EmojiPickerTest {
+    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    private val account = Account(
+        AccountId(Connection("https://example.org", Protocol.MASTODON), "person"),
+        "Person",
+        "@person@example.org",
+    )
+    private val post = Post(
+        id = EntityId("https://example.org", "post"),
+        author = account,
+        text = "Post",
+        publishedAtEpochMillis = 0,
+        audience = Audience.Public,
+        reactions = listOf(
+            Reaction(":blob:", 2, selected = true),
+            Reaction("👍", 1, selected = false),
+        ),
+    )
+    private val catalogEmoji = listOf(
+        CustomEmoji(
+            shortcode = "blob",
+            animatedUrl = ValidatedUrl.https("https://cdn.example/blob.gif"),
+            staticUrl = ValidatedUrl.https("https://cdn.example/blob.png"),
+            category = "blobs",
+            submissionValue = ":blob:",
+        ),
+        CustomEmoji(
+            shortcode = "wave",
+            animatedUrl = ValidatedUrl.https("https://cdn.example/wave.gif"),
+            staticUrl = ValidatedUrl.https("https://cdn.example/wave.png"),
+            category = null,
+            submissionValue = ":wave:",
+        ),
+    )
+
+    private fun show(
+        target: EmojiPickerTarget?,
+        catalog: EmojiCatalogState = EmojiCatalogState(items = catalogEmoji),
+        mutationSupported: Boolean = true,
+        selectionMode: ReactionSelectionMode = ReactionSelectionMode.Single,
+        onEmojiSelected: (EmojiChoice) -> Unit = {},
+        onLoadCatalog: () -> Unit = {},
+    ) {
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                EmojiPickerHost(
+                    target = target,
+                    catalog = catalog,
+                    selectionMode = selectionMode,
+                    mutationSupported = mutationSupported,
+                    onLoadCatalog = onLoadCatalog,
+                    onRetryCatalog = {},
+                    onDismiss = {},
+                    onEmojiSelected = onEmojiSelected,
+                )
+            }
+        }
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun nullTargetRendersNothing() {
+        show(
+            target = null,
+        )
+        compose.onNodeWithTag("emoji_picker_sheet").assertDoesNotExist()
+    }
+
+    @Test
+    fun reactionTargetShowsPickerVisibleServerEntriesAndUnicodeDefaults() {
+        show(target = EmojiPickerTarget.Reaction(OwnedPost(account.id, post)))
+
+        compose.onNodeWithTag("emoji_picker_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("emoji_picker_cell_:blob:", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("emoji_picker_cell_👍", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun selectingACellReportsTheStructuredChoice() {
+        var selected: EmojiChoice? = null
+        show(
+            target = EmojiPickerTarget.Reaction(OwnedPost(account.id, post)),
+            onEmojiSelected = { selected = it },
+        )
+
+        compose.onNodeWithTag("emoji_picker_cell_:blob:", useUnmergedTree = true).performClick()
+
+        assertEquals(":blob:", selected?.submissionValue)
+        assertEquals("blob", selected?.emoji?.shortcode)
+    }
+
+    @Test
+    fun searchFiltersChoices() {
+        show(target = EmojiPickerTarget.Composer(ComposerField.Text))
+
+        compose.onNodeWithTag("emoji_picker_search").performTextInput("wave")
+        compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("emoji_picker_cell_:blob:", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun readOnlyReactionListAppearsWhenMutationIsUnsupported() {
+        show(
+            target = EmojiPickerTarget.Reaction(OwnedPost(account.id, post)),
+            mutationSupported = false,
+        )
+
+        compose.onNodeWithTag("emoji_picker_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("emoji_picker_grid").assertDoesNotExist()
+        compose.onNodeWithText(":blob:", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("👍", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun loadingAndEmptyStatesRemainReadable() {
+        show(target = EmojiPickerTarget.Composer(ComposerField.Warning), catalog = EmojiCatalogState(loading = true))
+        compose.onNodeWithTag("emoji_picker_sheet").assertIsDisplayed()
+        show(target = EmojiPickerTarget.Composer(ComposerField.Warning), catalog = EmojiCatalogState(empty = true))
+        compose.onNodeWithTag("emoji_picker_sheet").assertIsDisplayed()
+    }
+
+    @Test
+    fun categorySectionsAppearInTheGrid() {
+        show(target = EmojiPickerTarget.Composer(ComposerField.Text))
+
+        compose.onNodeWithText("blobs").assertIsDisplayed()
+        assertTrue(compose.onAllNodesWithTag("emoji_picker_cell_:blob:").fetchSemanticsNodes().isNotEmpty())
+    }
+}

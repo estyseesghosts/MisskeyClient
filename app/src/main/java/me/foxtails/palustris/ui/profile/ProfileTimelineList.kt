@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileTimelineTab
@@ -67,7 +68,8 @@ internal fun ProfileTimelineList(
     onReply: (OwnedPost) -> Unit,
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
-    onReaction: (OwnedPost, String) -> Unit,
+    onReaction: (OwnedPost, EmojiChoice) -> Unit,
+    onOpenReactionPicker: (OwnedPost) -> Unit,
     onOpenMedia: (MediaOpenRequest) -> Unit,
     header: @Composable () -> Unit,
     details: @Composable () -> Unit,
@@ -134,6 +136,7 @@ internal fun ProfileTimelineList(
                 onReshare = onReshare,
                 onBookmark = onBookmark,
                 onReaction = onReaction,
+                onOpenReactionPicker = onOpenReactionPicker,
                 onOpenProfile = onOpenProfile,
                 onSearchHashtag = onSearchHashtag,
                 onOpenMedia = onOpenMedia,
@@ -151,6 +154,7 @@ internal fun ProfileTimelineList(
                     onReshare = onReshare,
                     onBookmark = onBookmark,
                     onReaction = onReaction,
+                    onOpenReactionPicker = onOpenReactionPicker,
                     onOpenProfile = onOpenProfile,
                     onSearchHashtag = onSearchHashtag,
                     onOpenMedia = onOpenMedia,
@@ -204,7 +208,8 @@ private fun LazyListScope.profilePinnedItems(
     onReply: (OwnedPost) -> Unit,
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
-    onReaction: (OwnedPost, String) -> Unit,
+    onReaction: (OwnedPost, EmojiChoice) -> Unit,
+    onOpenReactionPicker: (OwnedPost) -> Unit,
     onOpenProfile: (Account) -> Unit,
     onSearchHashtag: (String) -> Unit,
     onOpenMedia: (MediaOpenRequest) -> Unit,
@@ -236,6 +241,7 @@ private fun LazyListScope.profilePinnedItems(
                 onReshare = onReshare,
                 onBookmark = onBookmark,
                 onReaction = onReaction,
+                onOpenReactionPicker = onOpenReactionPicker,
                 onOpenProfile = onOpenProfile,
                 onSearchHashtag = onSearchHashtag,
                 onOpenMedia = onOpenMedia,
@@ -254,7 +260,8 @@ private fun LazyListScope.profilePageItems(
     onReply: (OwnedPost) -> Unit,
     onReshare: (OwnedPost) -> Unit,
     onBookmark: (OwnedPost) -> Unit,
-    onReaction: (OwnedPost, String) -> Unit,
+    onReaction: (OwnedPost, EmojiChoice) -> Unit,
+    onOpenReactionPicker: (OwnedPost) -> Unit,
     onOpenProfile: (Account) -> Unit,
     onSearchHashtag: (String) -> Unit,
     onOpenMedia: (MediaOpenRequest) -> Unit,
@@ -291,6 +298,7 @@ private fun LazyListScope.profilePageItems(
             onReshare = onReshare,
             onBookmark = onBookmark,
             onReaction = onReaction,
+            onOpenReactionPicker = onOpenReactionPicker,
             onOpenProfile = onOpenProfile,
             onSearchHashtag = onSearchHashtag,
             onOpenMedia = onOpenMedia,

@@ -456,7 +456,7 @@ fun PalustrisApp(
                 biography = account.biography,
                 fields = account.profileFields.map { EditableProfileField(it.name, it.value) },
                 avatarUrl = account.avatarUrl,
-                bannerUrl = account.bannerUrl,
+                headerUrl = account.bannerUrl,
                 locked = account.locked,
                 bot = account.bot,
             )
@@ -630,15 +630,15 @@ fun PalustrisApp(
         }
     }
     fun closeComposer() { if (feedState?.publishing == true || closing) return; if (hasDraftChanges) saveCurrentDraft { overlayKey = null } else overlayKey = null }
-    fun closeProfile() {
-        if (profileState.savingProfile) return
-        if (profileDirty) profileDialog = true else discardProfileEditor()
-    }
-
     fun discardProfileEditor() {
         profileEditor = null
         overlayKey = null
         onCloseEditor()
+    }
+
+    fun closeProfile() {
+        if (profileState.savingProfile) return
+        if (profileDirty) profileDialog = true else discardProfileEditor()
     }
 
     fun openProfileEditor() {

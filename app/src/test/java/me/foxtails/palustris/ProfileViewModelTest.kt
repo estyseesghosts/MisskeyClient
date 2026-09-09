@@ -16,19 +16,27 @@ import kotlinx.coroutines.withContext
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
+import me.foxtails.palustris.domain.EditableProfile
+import me.foxtails.palustris.domain.EditableProfileCapabilities
+import me.foxtails.palustris.domain.EditableProfileField
+import me.foxtails.palustris.domain.EditableProfilePatch
+import me.foxtails.palustris.domain.EmojiCapabilities
+import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.ProfileTimelineTab
+import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.domain.UpdateProfileRequest
 import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfileViewModel
 import org.junit.Assert.assertEquals
@@ -183,23 +191,284 @@ class ProfileViewModelTest {
         assertEquals(listOf("eventually-visible"), model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.map { it.post.id.value })
     }
 
-    @Test fun selfSkipsRelationshipAndOwnsProfileEditingState() = runProfileTest {
+    @Test fun editorLoadsOnlyForTheSignedInProfile() = runProfileTest {
         val source = FakeSource().apply {
-            updateResult = self.copy(displayName = "Updated Self")
+            editableResults[self.id] = editableProfile(self, "Raw Self")
         }
         val model = model(source)
-        var callbackAccount: Account? = null
+
+        model.open(remote)
+        advanceUntilIdle()
+        model.openEditor()
+        advanceUntilIdle()
+
+        assertTrue(source.editableLoadCalls.isEmpty())
+        assertFalse(model.state.value.editorOpen)
 
         model.open(self)
         advanceUntilIdle()
-        model.updateSelf(UpdateProfileRequest("Updated Self", "New bio")) { callbackAccount = it }
+        model.openEditor()
         advanceUntilIdle()
 
-        assertTrue(source.relationshipCalls.isEmpty())
+        assertEquals(listOf(self.id), source.editableLoadCalls)
+        assertTrue(model.state.value.editorOpen)
+        assertEquals("Raw Self", model.state.value.editable?.displayName)
+        assertFalse(model.state.value.editableLoading)
+    }
+
+    @Test fun unchangedEditorClosesWithoutSourceUpdate() = runProfileTest {
+        val source = FakeSource().apply {
+            editableResults[self.id] = editableProfile(self, "Self")
+        }
+        val model = model(source)
+        model.open(self)
+        advanceUntilIdle()
+        model.openEditor()
+        advanceUntilIdle()
+        var callbackAccount: Account? = null
+
+        model.saveEditor(EditableProfilePatch()) { callbackAccount = it }
+        advanceUntilIdle()
+
+        assertTrue(source.editableUpdateCalls.isEmpty())
+        assertFalse(model.state.value.editorOpen)
+        assertEquals(self.id, callbackAccount?.id)
+    }
+
+    @Test fun successfulUpdateMergesReturnedValuesIntoDisplayedAccount() = runProfileTest {
+        val source = FakeSource().apply {
+            editableResults[self.id] = editableProfile(self, "Self")
+            editableUpdateResults[self.id] = editableProfile(self, "Updated Self").copy(
+                biography = "Raw updated bio",
+                locked = true,
+            )
+        }
+        val model = model(source)
+        var callbackAccount: Account? = null
+        model.open(self)
+        advanceUntilIdle()
+        model.openEditor()
+        advanceUntilIdle()
+
+        model.saveEditor(EditableProfilePatch(displayName = "Updated Self")) { callbackAccount = it }
+        advanceUntilIdle()
+
+        assertEquals(listOf(EditableProfilePatch(displayName = "Updated Self")), source.editableUpdateCalls)
         assertEquals("Updated Self", model.state.value.account?.displayName)
+        assertEquals("Raw updated bio", model.state.value.account?.biography)
+        assertEquals(self.handle, model.state.value.account?.handle)
+        assertEquals(42L, model.state.value.account?.followersCount)
         assertEquals("Updated Self", callbackAccount?.displayName)
         assertFalse(model.state.value.savingProfile)
         assertNull(model.state.value.editError)
+        assertFalse(model.state.value.editorOpen)
+    }
+
+    @Test fun editorFailurePreservesCurrentAccount() = runProfileTest {
+        val source = FakeSource().apply {
+            editableResults[self.id] = editableProfile(self, "Self")
+            editableUpdateError = SourceError.ServerError("boom")
+        }
+        val model = model(source)
+        model.open(self)
+        advanceUntilIdle()
+        model.openEditor()
+        advanceUntilIdle()
+        val before = model.state.value.account
+
+        model.saveEditor(EditableProfilePatch(displayName = "Changed")) {}
+        advanceUntilIdle()
+
+        assertEquals(before, model.state.value.account)
+        assertFalse(model.state.value.savingProfile)
+        assertNotNull(model.state.value.editError)
+        assertTrue(model.state.value.editorOpen)
+    }
+
+    @Test fun staleEditorResponsesCannotUpdateState() = runProfileTest {
+        val gate = CompletableDeferred<Unit>()
+        val source = FakeSource().apply {
+            editableLoadGates[self.id] = gate
+            editableResults[self.id] = editableProfile(self, "Late")
+        }
+        val model = model(source)
+        model.open(self)
+        advanceUntilIdle()
+        model.openEditor()
+        runCurrent()
+        model.open(remote)
+        advanceUntilIdle()
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(remote.id, model.state.value.targetId)
+        assertNull(model.state.value.editable)
+    }
+
+    @Test fun cancelledEditorLoadCannotPublishLateValue() = runProfileTest {
+        val gate = CompletableDeferred<Unit>()
+        val source = FakeSource().apply {
+            editableLoadGates[self.id] = gate
+            editableResults[self.id] = editableProfile(self, "Late")
+        }
+        val model = model(source)
+        model.open(self)
+        advanceUntilIdle()
+        model.openEditor()
+        runCurrent()
+        model.closeEditor()
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertNull(model.state.value.editable)
+        assertFalse(model.state.value.editorOpen)
+    }
+
+    @Test fun unsupportedAdvancedFieldsProduceNoNetworkUpdates() = runProfileTest {
+        val source = FakeSource(
+            ServerCapabilities(
+                timelines = setOf(Timeline.Home),
+                profile = me.foxtails.palustris.domain.ProfileCapabilities(
+                    editable = EditableProfileCapabilities(
+                        read = CapabilityStatus.Supported,
+                        update = CapabilityStatus.Supported,
+                        advancedSettings = CapabilityStatus.Unsupported,
+                    ),
+                ),
+            ),
+        ).apply {
+            editableResults[self.id] = editableProfile(self, "Self")
+        }
+        val model = model(source)
+        model.open(self)
+        advanceUntilIdle()
+        model.openEditor()
+        advanceUntilIdle()
+        assertEquals(CapabilityStatus.Unsupported, model.state.value.editorCapabilities.advancedSettings)
+
+        model.saveEditor(EditableProfilePatch(fields = listOf(EditableProfileField("Site", "https://example.org")))) {}
+        advanceUntilIdle()
+
+        assertTrue(source.editableUpdateCalls.isEmpty())
+        assertNotNull(model.state.value.editError)
+        assertFalse(model.state.value.savingProfile)
+    }
+
+    @Test fun reactionMutationSelectsDeselectsAndReplacesThroughReducer() = runProfileTest {
+        val base = post("reactive", remote).copy(
+            reactions = listOf(me.foxtails.palustris.domain.Reaction("🎉", 2, false)),
+        )
+        val source = FakeSource(ServerCapabilities(actions = setOf(PostAction.React), emoji = reactionCapabilities())).apply {
+            timelineResults[ProfileTimelineTab.Posts] = mutableListOf(Page(listOf(base), null))
+        }
+        val model = model(source)
+        model.open(remote)
+        advanceUntilIdle()
+        val owned = model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single()
+
+        model.react(owned, EmojiChoice("🎉", "🎉", null))
+        advanceUntilIdle()
+        assertEquals(listOf("react" to "🎉"), source.reactionCalls.map { it.first to it.second.submissionValue })
+        val selected = model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single().post
+        assertEquals(3, selected.reactions.single().count)
+        assertTrue(selected.reactions.single().selected)
+        assertEquals("🎉", selected.myReaction)
+
+        model.react(model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single(), EmojiChoice("🎉", "🎉", null))
+        advanceUntilIdle()
+        assertEquals(listOf("react", "remove"), source.reactionCalls.map { it.first })
+        val deselected = model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single().post
+        assertEquals(2, deselected.reactions.single().count)
+        assertFalse(deselected.reactions.single().selected)
+        assertNull(deselected.myReaction)
+    }
+
+    @Test fun singleSelectionModeRemovesPreviousReactionBeforeAddingNewOne() = runProfileTest {
+        val base = post("reactive", remote).copy(
+            reactions = listOf(me.foxtails.palustris.domain.Reaction("🎉", 2, true)),
+            myReaction = "🎉",
+        )
+        val source = FakeSource(ServerCapabilities(actions = setOf(PostAction.React), emoji = reactionCapabilities().copy(selectionMode = ReactionSelectionMode.Single))).apply {
+            timelineResults[ProfileTimelineTab.Posts] = mutableListOf(Page(listOf(base), null))
+        }
+        val model = model(source)
+        model.open(remote)
+        advanceUntilIdle()
+        val owned = model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single()
+
+        model.react(owned, EmojiChoice("❤️", "❤️", null))
+        advanceUntilIdle()
+
+        assertEquals(listOf("remove" to "🎉", "react" to "❤️"), source.reactionCalls.map { it.first to it.second.submissionValue })
+        val updated = model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single().post
+        assertEquals("❤️", updated.myReaction)
+        assertEquals("❤️", updated.reactions.first { it.selected }.emoji)
+        assertEquals(1, updated.reactions.first { it.selected }.count)
+    }
+
+    @Test fun failedReactionMutationRollsBackOptimisticState() = runProfileTest {
+        val base = post("reactive", remote).copy(
+            reactions = listOf(me.foxtails.palustris.domain.Reaction("🎉", 2, false)),
+        )
+        val source = FakeSource(ServerCapabilities(actions = setOf(PostAction.React), emoji = reactionCapabilities())).apply {
+            reactionError = SourceError.ServerError("boom")
+            timelineResults[ProfileTimelineTab.Posts] = mutableListOf(Page(listOf(base), null))
+        }
+        val model = model(source)
+        model.open(remote)
+        advanceUntilIdle()
+        val owned = model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single()
+
+        model.react(owned, EmojiChoice("🎉", "🎉", null))
+        advanceUntilIdle()
+
+        val rolledBack = model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single().post
+        assertEquals(base, rolledBack)
+    }
+
+    @Test fun oneReactionMutationInFlightPerPost() = runProfileTest {
+        val gate = CompletableDeferred<Unit>()
+        val base = post("reactive", remote).copy(
+            reactions = listOf(me.foxtails.palustris.domain.Reaction("🎉", 1, false)),
+        )
+        val source = FakeSource(ServerCapabilities(actions = setOf(PostAction.React), emoji = reactionCapabilities())).apply {
+            reactionGates["react"] = gate
+            timelineResults[ProfileTimelineTab.Posts] = mutableListOf(Page(listOf(base), null))
+        }
+        val model = model(source)
+        model.open(remote)
+        advanceUntilIdle()
+        val owned = model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single()
+
+        model.react(owned, EmojiChoice("🎉", "🎉", null))
+        runCurrent()
+        model.react(owned, EmojiChoice("🎉", "🎉", null))
+        runCurrent()
+        assertEquals(1, source.reactionCalls.size)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(1, source.reactionCalls.size)
+    }
+
+    @Test fun readOnlyReactionListingIgnoresMutationTaps() = runProfileTest {
+        val base = post("reactive", remote).copy(
+            reactions = listOf(me.foxtails.palustris.domain.Reaction("🎉", 2, false)),
+        )
+        val source = FakeSource(ServerCapabilities(actions = setOf(PostAction.React), emoji = reactionCapabilities().copy(reactionMutation = CapabilityStatus.Unsupported))).apply {
+            timelineResults[ProfileTimelineTab.Posts] = mutableListOf(Page(listOf(base), null))
+        }
+        val model = model(source)
+        model.open(remote)
+        advanceUntilIdle()
+        val owned = model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single()
+
+        model.react(owned, EmojiChoice("🎉", "🎉", null))
+        advanceUntilIdle()
+
+        assertTrue(source.reactionCalls.isEmpty())
+        assertEquals(base, model.state.value.pages.getValue(ProfileTimelineTab.Posts).posts.single().post)
     }
 
     @Test fun relationshipMutationsUseSourceStateAndUnsupportedHidesActions() = runProfileTest {
@@ -263,12 +532,25 @@ class ProfileViewModelTest {
         handle = "@$name@example.org",
     )
 
+    private fun editableProfile(account: Account, name: String): EditableProfile = EditableProfile(
+        id = account.id.localId,
+        displayName = name,
+        biography = "Raw bio",
+    )
+
     private fun post(id: String, author: Account): Post = Post(
         id = EntityId(origin, id),
         author = author,
         text = id,
         publishedAtEpochMillis = 0,
         audience = Audience.Public,
+    )
+
+    private fun reactionCapabilities(): EmojiCapabilities = EmojiCapabilities(
+        catalog = CapabilityStatus.Supported,
+        reactionListing = CapabilityStatus.Supported,
+        reactionMutation = CapabilityStatus.Supported,
+        selectionMode = ReactionSelectionMode.Single,
     )
 
     private class FakeSource(
@@ -286,8 +568,16 @@ class ProfileViewModelTest {
         private val timelineIndexes = mutableMapOf<ProfileTimelineTab, AtomicInteger>()
         var timelineError: Exception? = null
         var relationshipError: Exception? = null
-        var updateError: Exception? = null
-        var updateResult: Account? = null
+        val editableLoadCalls = mutableListOf<AccountId>()
+        val editableUpdateCalls = mutableListOf<EditableProfilePatch>()
+        val editableResults = mutableMapOf<AccountId, EditableProfile>()
+        val editableLoadGates = mutableMapOf<AccountId, CompletableDeferred<Unit>>()
+        var editableLoadError: Exception? = null
+        var editableUpdateError: Exception? = null
+        val editableUpdateResults = mutableMapOf<AccountId, EditableProfile>()
+        val reactionCalls = mutableListOf<Pair<String, EmojiChoice>>()
+        val reactionGates = mutableMapOf<String, CompletableDeferred<Unit>>()
+        var reactionError: Exception? = null
 
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
 
@@ -295,7 +585,12 @@ class ProfileViewModelTest {
             detailCalls += id
             profileGates[id]?.let { gate -> withContext(NonCancellable) { gate.await() } }
             detailResults[id]?.let { return it }
-            return Account(id, "${id.localId} authoritative", "@${id.localId}@example.org")
+            return Account(
+                id,
+                "${id.localId} authoritative",
+                "@${id.localId.replaceFirstChar(Char::uppercase)}@example.org",
+                followersCount = 42L,
+            )
         }
 
         override suspend fun profileTimeline(query: ProfileTimelineQuery, cursor: String?): Page<Post> {
@@ -331,14 +626,43 @@ class ProfileViewModelTest {
 
         override suspend fun pinnedPosts(id: AccountId): List<Post> = pinnedResults[id].orEmpty()
 
-        override suspend fun updateProfile(request: UpdateProfileRequest): Account {
-            updateError?.let { throw it }
-            return updateResult ?: Account(
-                AccountId(Connection("https://example.org", me.foxtails.palustris.domain.Protocol.MASTODON), "self"),
-                request.displayName,
-                "@self@example.org",
-                biography = request.biography,
+        override suspend fun loadEditableProfile(): EditableProfile {
+            val accountId = AccountId(Connection("https://example.org", me.foxtails.palustris.domain.Protocol.MASTODON), "self")
+            editableLoadCalls += accountId
+            editableLoadGates[accountId]?.let { gate -> withContext(NonCancellable) { gate.await() } }
+            editableLoadError?.let { throw it }
+            return editableResults[accountId] ?: EditableProfile(accountId.localId, "Self", "Raw bio")
+        }
+
+        override suspend fun updateEditableProfile(patch: EditableProfilePatch): EditableProfile {
+            val advanced = patch.fields != null || patch.locked != null || patch.bot != null ||
+                patch.hideCollections != null || patch.discoverable != null || patch.indexable != null ||
+                patch.showMedia != null || patch.showMediaReplies != null || patch.showFeatured != null ||
+                patch.attributionDomains != null
+            if (advanced && capabilities.profile.editable.advancedSettings != CapabilityStatus.Supported) {
+                throw SourceError.Unsupported("profile.editable.advanced")
+            }
+            editableUpdateCalls += patch
+            editableUpdateError?.let { throw it }
+            val accountId = AccountId(Connection("https://example.org", me.foxtails.palustris.domain.Protocol.MASTODON), "self")
+            val base = editableResults[accountId] ?: EditableProfile(accountId.localId, "Self", "Raw bio")
+            val merged = editableUpdateResults[accountId] ?: base.copy(
+                displayName = patch.displayName ?: base.displayName,
+                biography = patch.biography ?: base.biography,
             )
+            return merged
+        }
+
+        override suspend fun react(id: EntityId, choice: EmojiChoice) {
+            reactionCalls += "react" to choice
+            reactionGates["react"]?.let { gate -> withContext(NonCancellable) { gate.await() } }
+            reactionError?.let { throw it }
+        }
+
+        override suspend fun removeReaction(id: EntityId, choice: EmojiChoice) {
+            reactionCalls += "remove" to choice
+            reactionGates["remove"]?.let { gate -> withContext(NonCancellable) { gate.await() } }
+            reactionError?.let { throw it }
         }
 
         override suspend fun create(post: CreatePostRequest): Post = error("not used")

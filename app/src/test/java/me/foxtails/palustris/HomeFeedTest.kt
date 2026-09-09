@@ -4,6 +4,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performTouchInput
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Attachment
@@ -22,6 +24,7 @@ import me.foxtails.palustris.ui.SearchScreen
 import me.foxtails.palustris.ui.AccountSearchState
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -42,14 +45,18 @@ class HomeFeedTest {
         "@person@example.org",
     )
 
-    private fun show(
+private fun show(
         post: Post,
         feedState: FeedState = FeedState(posts = listOf(post)),
-        onReaction: (OwnedPost, String) -> Unit = { _, _ -> },
+        onReaction: (OwnedPost, me.foxtails.palustris.domain.EmojiChoice) -> Unit = { _, _ -> },
     ) {
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(account = account, feedState = feedState, onReaction = onReaction)
+                PalustrisApp(
+                    account = account,
+                    feedState = feedState,
+                    onReaction = onReaction,
+                )
             }
         }
         compose.waitForIdle()
@@ -285,11 +292,17 @@ class HomeFeedTest {
         assertTrue(submitted == "@alice@example.org")
     }
 
-    @Test fun reactionsShareChipAndEmojiSlotGeometryAcrossUnicodeAndCustomEmoji() {
+@Test fun reactionsShareChipAndEmojiSlotGeometryAcrossUnicodeAndCustomEmoji() {
+        val blob = me.foxtails.palustris.domain.CustomEmoji(
+            shortcode = "blob",
+            animatedUrl = me.foxtails.palustris.domain.ValidatedUrl.https("https://example.org/blob.gif"),
+            staticUrl = me.foxtails.palustris.domain.ValidatedUrl.https("https://example.org/blob.png"),
+            submissionValue = ":blob:",
+        )
         val reactions = listOf(
             Reaction("❤️", 3, selected = false),
             Reaction("👨‍👩‍👧‍👦", 3, selected = false),
-            Reaction(":blob:", 3, selected = true, imageUrl = "https://example.org/blob.png"),
+            Reaction(":blob:", 3, selected = true, emojiMetadata = blob),
         )
         val post = Post(
             postId("reaction-geometry"),
@@ -307,7 +320,7 @@ class HomeFeedTest {
                 ownedPosts = listOf(OwnedPost(account.id, post)),
                 actions = setOf(PostAction.React),
             ),
-            onReaction = { _, emoji -> clicked = emoji },
+            onReaction = { _, choice -> clicked = choice.submissionValue },
         )
 
         val chips = reactions.map { reaction ->
@@ -327,6 +340,104 @@ class HomeFeedTest {
 
         compose.onNodeWithTag("reaction_chip_${reactions.last().emoji}", useUnmergedTree = true).performClick()
         assertTrue(clicked == reactions.last().emoji)
+    }
+
+    @Test fun longPressingTheHeartOpensTheSharedReactionPicker() {
+        val post = Post(postId("picker-post"), account, "Picker post", 0, Audience.Public)
+        var opened: OwnedPost? = null
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                me.foxtails.palustris.ui.HomeFeed(
+                    state = FeedState(
+                        posts = listOf(post),
+                        ownedPosts = listOf(OwnedPost(account.id, post)),
+                        actions = setOf(PostAction.React),
+                    ),
+                    onRefresh = {}, onLoadMore = {}, onSignIn = {},
+                    onOpenReactionPicker = { opened = it },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Favorite").performTouchInput { longClick() }
+        assertTrue(opened != null && opened?.post?.id == post.id)
+    }
+
+    @Test fun reactionOnlyServerUsesActionableTapInsteadOfNoOpHeart() {
+        val post = Post(postId("reaction-only"), account, "Reaction only", 0, Audience.Public)
+        var opened: OwnedPost? = null
+        var favoured = false
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                me.foxtails.palustris.ui.HomeFeed(
+                    state = FeedState(
+                        posts = listOf(post),
+                        ownedPosts = listOf(OwnedPost(account.id, post)),
+                        actions = setOf(PostAction.React),
+                    ),
+                    onRefresh = {}, onLoadMore = {}, onSignIn = {},
+                    onReact = { favoured = true },
+                    onOpenReactionPicker = { opened = it },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Favorite").performClick()
+        assertTrue(opened != null)
+        assertTrue(!favoured)
+    }
+
+    @Test fun unselectableReactionChipsStayReadOnlyWhenMutationIsUnavailable() {
+        val reactions = listOf(Reaction("🎉", 2, false))
+        val post = Post(
+            postId("read-only-reactions"),
+            account,
+            "Read only",
+            0,
+            Audience.Public,
+            reactions = reactions,
+        )
+        var clicked: String? = null
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                me.foxtails.palustris.ui.HomeFeed(
+                    state = FeedState(
+                        posts = listOf(post),
+                        ownedPosts = listOf(OwnedPost(account.id, post)),
+                        actions = emptySet(),
+                    ),
+                    onRefresh = {}, onLoadMore = {}, onSignIn = {},
+                    onReaction = { _, choice -> clicked = choice.submissionValue },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("reaction_chip_🎉", useUnmergedTree = true).performClick()
+        assertNull(clicked)
+    }
+
+    @Test fun postBodyRendersKnownCustomEmojiAndFallsBackForUnknownTokens() {
+        val blob = me.foxtails.palustris.domain.CustomEmoji(
+            shortcode = "blob_cat",
+            animatedUrl = me.foxtails.palustris.domain.ValidatedUrl.https("https://example.org/blob_cat.gif"),
+            staticUrl = me.foxtails.palustris.domain.ValidatedUrl.https("https://example.org/blob_cat.png"),
+            submissionValue = ":blob_cat:",
+        )
+        val post = Post(
+            postId("inline-emoji"),
+            account,
+            "A post with :blob_cat: and :unknown_token: text",
+            0,
+            Audience.Public,
+            emoji = mapOf("blob_cat" to blob),
+        )
+        show(post)
+
+        compose.onNodeWithText("A post with :blob_cat: and :unknown_token: text").assertIsDisplayed()
+        compose.onNodeWithText("unknown_token").assertDoesNotExist()
     }
 
     @Test fun searchChipsUseCompactSelectionSemanticsAndHorizontalScrolling() {

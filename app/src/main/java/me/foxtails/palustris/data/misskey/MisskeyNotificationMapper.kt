@@ -106,9 +106,9 @@ object MisskeyNotificationMapper {
             ?: firstReaction?.nullableString("reaction")
             ?: "reaction"
         val emoji = json.optJSONObject("customEmoji")?.let { objectValue ->
-            MisskeyEmojiMapper.parseEmojis(JSONObject().put("value", objectValue), origin).values.firstOrNull()
+            MisskeyEmojiMapper.parseEmojis(JSONObject().put(identity, objectValue), origin).values.firstOrNull()
         } ?: json.optJSONObject("emoji")?.let { objectValue ->
-            MisskeyEmojiMapper.parseEmojis(JSONObject().put("value", objectValue), origin).values.firstOrNull()
+            MisskeyEmojiMapper.parseEmojis(JSONObject().put(identity, objectValue), origin).values.firstOrNull()
         } ?: mappedPost?.reactions?.firstOrNull { it.emoji == identity }?.emojiMetadata
         ?: mappedPost?.emoji?.get(identity) ?: mappedPost?.emoji?.get(identity.trim(':'))
         return NotificationActivity.EmojiReaction(NotificationReaction(

@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -21,8 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.appendInlineContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -83,7 +85,7 @@ fun InlineEmojiText(
         )
         return
     }
-    var layoutResult by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+    var layoutResult: TextLayoutResult? by remember { mutableStateOf(null) }
     BasicText(
         text = annotated,
         modifier = modifier.pointerInput(annotated) {
@@ -145,12 +147,11 @@ fun CustomEmojiImage(
     Box(modifier, contentAlignment = Alignment.Center) {
         androidx.compose.material3.Text(
             fallbackText,
-            style = textStyle,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Clip,
-            modifier = Modifier.clearAndSetSemantics {},
-        )
+             style = textStyle,
+             maxLines = 1,
+             softWrap = false,
+             overflow = TextOverflow.Clip,
+         )
         if (emoji != null && request != null) {
             val context = LocalContext.current
             val density = LocalDensity.current
@@ -202,20 +203,30 @@ private fun appendSegment(
 private fun buildInlineContent(
     emoji: Map<String, CustomEmoji>,
     emSize: TextUnit,
-): Map<String, androidx.compose.foundation.text.InlineTextContent> = emoji.entries.associate { (token, value) ->
-    token to androidx.compose.foundation.text.InlineTextContent(
-        placeholder = androidx.compose.ui.text.Placeholder(
-            width = emSize,
-            height = emSize,
-            placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter,
-        ),
-    ) {
-        EmojiInlineContent(token, value, emSize)
+): Map<String, androidx.compose.foundation.text.InlineTextContent> {
+    val ids = buildSet {
+        emoji.forEach { (key, value) ->
+            add(key)
+            add(value.token)
+            add(key.removeSurrounding(":"))
+        }
+    }
+    return ids.associateWith { id ->
+        val value = emoji[id] ?: emoji[id.removeSurrounding(":")] ?: emoji[id.trim(':')]
+        androidx.compose.foundation.text.InlineTextContent(
+            placeholder = androidx.compose.ui.text.Placeholder(
+                width = emSize,
+                height = emSize,
+                placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter,
+            ),
+        ) {
+            EmojiInlineContent(id, value, emSize)
+        }
     }
 }
 
 @Composable
-private fun EmojiInlineContent(token: String, emoji: CustomEmoji, emSize: TextUnit) {
+private fun EmojiInlineContent(token: String, emoji: CustomEmoji?, emSize: TextUnit) {
     val density = LocalDensity.current
     val size = with(density) { emSize.toDp() }
     Box(Modifier.size(size), contentAlignment = Alignment.Center) {

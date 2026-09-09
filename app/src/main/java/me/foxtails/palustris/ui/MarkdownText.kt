@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
+import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
 
 /**
@@ -13,12 +14,13 @@ import me.foxtails.palustris.ui.emoji.InlineEmojiText
 @Composable
 internal fun MarkdownPostText(
     text: String,
+    emoji: Map<String, CustomEmoji> = emptyMap(),
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     InlineEmojiText(
         text = text,
-        emoji = emptyMap(),
+        emoji = emoji,
         modifier = modifier,
         style = style.copy(color = MaterialTheme.colorScheme.onSurface),
     )

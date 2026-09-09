@@ -240,12 +240,17 @@ class SignInScreenTest {
             reactions = listOf(Reaction("🎉", 3, false)),
         )
         val ownedPost = OwnedPost(account.id, post)
-        var chosenReaction: String? = null
+         var chosenReaction: String? = null
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = account,
                 feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React)),
-                onReaction = { _, emoji -> chosenReaction = emoji },
+                emojiCapabilities = EmojiCapabilities(
+                    reactionListing = CapabilityStatus.Supported,
+                    reactionMutation = CapabilityStatus.Supported,
+                    selectionMode = ReactionSelectionMode.Single,
+                ),
+                 onReaction = { _, emoji -> chosenReaction = emoji.submissionValue },
             )
         } }
 

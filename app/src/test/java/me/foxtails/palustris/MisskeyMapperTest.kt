@@ -3,7 +3,9 @@ package me.foxtails.palustris
 import me.foxtails.palustris.data.misskey.MisskeyMapper
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -12,6 +14,8 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class MisskeyMapperTest {
+    private val origin = "https://example.org"
+
     @Test
     fun accountAcceptsOnlyAlreadyResolvedShallowDestination() {
         val origin = "https://example.org"
@@ -54,5 +58,87 @@ class MisskeyMapperTest {
 
         assertEquals("outer-id", post.id.value)
         assertEquals("original-id", post.actionTargetId?.value)
+    }
+
+    @Test
+    fun accountAndNoteEmojiMapsPreserveLocalAndRemoteIdentities() {
+        val account = MisskeyMapper.account(JSONObject()
+            .put("id", "user-emoji")
+            .put("username", "emojiuser")
+            .put("name", "Emoji User :local_blob:")
+            .put("host", JSONObject.NULL)
+            .put("emojis", JSONObject()
+                .put("local_blob", JSONObject()
+                    .put("name", "local_blob")
+                    .put("url", "https://cdn.local.example/local_blob.png")
+                    .put("aliases", org.json.JSONArray().put("localblob")))
+                .put("remote_blob@remote.example", JSONObject()
+                    .put("name", "remote_blob@remote.example")
+                    .put("url", "https://cdn.remote.example/remote_blob.png"))), origin)
+
+        assertEquals(":local_blob:", account.emoji.getValue(":local_blob:").submissionValue)
+        assertEquals("local_blob", account.emoji.getValue("local_blob").shortcode)
+        assertEquals(":local_blob:", account.emoji.getValue("localblob").submissionValue)
+        val remote = account.emoji.getValue(":remote_blob@remote.example:")
+        assertEquals(":remote_blob@remote.example:", remote.submissionValue)
+        assertEquals("https://cdn.remote.example/remote_blob.png", remote.staticUrl?.value)
+    }
+
+    @Test
+    fun noteReactionsClampNegativeCountsAndResolveMetadataWithoutNormalizingIdentity() {
+        val note = JSONObject()
+            .put("id", "note-reactions")
+            .put("createdAt", "2026-09-06T10:00:00Z")
+            .put("text", "reactions")
+            .put("user", JSONObject().put("id", "u").put("username", "u").put("name", "U"))
+            .put("reactions", JSONObject()
+                .put(":blob_cat:", 3)
+                .put(":blob_cat@remote.example:", 1)
+                .put("❤️", -7)
+                .put(":broken:", -2))
+            .put("reactionEmojis", JSONObject()
+                .put("blob_cat", "https://cdn.local.example/blob_cat.png")
+                .put("blob_cat@remote.example", "https://cdn.remote.example/blob_cat.png"))
+            .put("myReaction", ":blob_cat:")
+
+        val post = MisskeyMapper.post(note, origin)
+
+        val byIdentity = post.reactions.associateBy { it.emoji }
+        assertEquals(3, byIdentity.getValue(":blob_cat:").count)
+        assertEquals("https://cdn.local.example/blob_cat.png",
+            byIdentity.getValue(":blob_cat:").emojiMetadata?.staticUrl?.value)
+        assertEquals(":blob_cat:", byIdentity.getValue(":blob_cat:").emojiMetadata?.submissionValue)
+        assertEquals(
+            "https://cdn.remote.example/blob_cat.png",
+            byIdentity.getValue(":blob_cat@remote.example:").emojiMetadata?.staticUrl?.value,
+        )
+        assertEquals(0, byIdentity.getValue("❤️").count)
+        assertEquals(0, byIdentity.getValue(":broken:").count)
+        assertNotNull(byIdentity.getValue(":broken:").emojiMetadata)
+        assertEquals(listOf(":blob_cat:"), post.selectedReactions.map { it.submissionValue })
+        assertEquals(":blob_cat:", post.myReaction)
+        assertTrue(post.reactions.none { it.count < 0 })
+    }
+
+    @Test
+    fun nestedRenotesKeepIndependentEmojiMaps() {
+        val user = JSONObject().put("id", "u").put("username", "u").put("name", "U").put("host", JSONObject.NULL)
+        val inner = JSONObject()
+            .put("id", "inner")
+            .put("createdAt", "2026-09-06T10:00:00Z")
+            .put("user", user)
+            .put("text", "inner")
+            .put("emojis", JSONObject().put("inner_blob", JSONObject()
+                .put("name", "inner_blob").put("url", "https://cdn.example/inner.png")))
+        val outer = JSONObject()
+            .put("id", "outer")
+            .put("createdAt", "2026-09-06T11:00:00Z")
+            .put("user", user)
+            .put("renote", inner)
+
+        val post = MisskeyMapper.post(outer, origin)
+
+        assertTrue(post.emoji.containsKey("inner_blob"))
+        assertTrue(post.emoji.keys.none { it.contains("outer") })
     }
 }

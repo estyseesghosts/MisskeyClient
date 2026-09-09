@@ -7,15 +7,22 @@ import me.foxtails.palustris.data.mastodon.MastodonSource
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.EditableProfileCapabilities
+import me.foxtails.palustris.domain.EditableProfileField
+import me.foxtails.palustris.domain.EditableProfilePatch
+import me.foxtails.palustris.domain.EmojiCapabilities
+import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.ProfileCapabilities
 import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.ProfileTimelineTab
+import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SourceError
-import me.foxtails.palustris.domain.UpdateProfileRequest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONArray
@@ -242,17 +249,196 @@ class MastodonIntegrationTest {
     }
 
     @Test
-    fun sourceUpdatesMastodonProfileWithPatch() = runBlocking {
-        server.enqueue(MockResponse().setBody(localAccount.toString()))
-        val account = source().updateProfile(UpdateProfileRequest("New name", "New bio"))
-        assertEquals("Alice", account.displayName)
+    fun sourceLoadsApiEightSelfProfileWithBearerAndRawValues() = runBlocking {
+        server.enqueue(MockResponse().setBody(profileResponse("local-user").toString()))
+        val source = editableSource(editableCapabilities())
+
+        val profile = source.loadEditableProfile()
+
+        assertEquals("local-user", profile.id)
+        assertEquals("<p>Raw <b>note</b></p>", profile.biography)
+        assertEquals("Site", profile.fields.single().name)
+        assertEquals("<a href=\"https://example.org\">site</a>", profile.fields.single().value)
+        val request = server.takeRequest()
+        assertEquals("/api/v1/profile", request.path)
+        assertEquals("Bearer token", request.getHeader("Authorization"))
+    }
+
+    @Test
+    fun sourcePatchesApiEightProfileWithChangedFieldsOnly() = runBlocking {
+        server.enqueue(MockResponse().setBody(profileResponse("local-user").toString()))
+        val source = editableSource(editableCapabilities(advancedSettings = true, imageDescriptions = true))
+
+        source.updateEditableProfile(
+            EditableProfilePatch(
+                displayName = "New name",
+                fields = listOf(EditableProfileField("Site", "https://example.org")),
+                attributionDomains = listOf("one.example", "two.example"),
+                avatarDescription = "A picture",
+            ),
+        )
+
         val request = server.takeRequest()
         assertEquals("PATCH", request.method)
-        assertEquals("/api/v1/accounts/update_credentials", request.path)
+        assertEquals("/api/v1/profile", request.path)
         assertEquals("Bearer token", request.getHeader("Authorization"))
         val body = request.body.readUtf8()
         assertTrue(body.contains("display_name=New%20name"))
-        assertTrue(body.contains("note=New%20bio"))
+        assertFalse(body.contains("note="))
+        assertTrue(body.contains("fields_attributes%5B0%5D%5Bname%5D=Site"))
+        assertTrue(body.contains("fields_attributes%5B0%5D%5Bvalue%5D=https%3A%2F%2Fexample.org"))
+        assertTrue(body.contains("attribution_domains%5B%5D=one.example"))
+        assertTrue(body.contains("attribution_domains%5B%5D=two.example"))
+        assertTrue(body.contains("avatar_description=A%20picture"))
+    }
+
+    @Test
+    fun apiSevenUsesLegacySelfProfileEndpointsAndNeverTheProfileApi() = runBlocking {
+        server.enqueue(MockResponse().setBody(legacyCredentialResponse("local-user").toString()))
+        server.enqueue(MockResponse().setBody(legacyCredentialResponse("local-user").toString()))
+        val source = editableSource(
+            editableCapabilities().copy(read = CapabilityStatus.Unsupported, update = CapabilityStatus.Unsupported),
+        )
+
+        val profile = source.loadEditableProfile()
+        source.updateEditableProfile(EditableProfilePatch(displayName = "New name"))
+
+        assertEquals("Plaintext note", profile.biography)
+        val loadRequest = server.takeRequest()
+        assertEquals("/api/v1/accounts/verify_credentials", loadRequest.path)
+        assertEquals("Bearer token", loadRequest.getHeader("Authorization"))
+        val updateRequest = server.takeRequest()
+        assertEquals("PATCH", updateRequest.method)
+        assertEquals("/api/v1/accounts/update_credentials", updateRequest.path)
+        assertTrue(updateRequest.body.readUtf8().contains("display_name=New%20name"))
+        assertEquals(null, server.takeRequest(0, java.util.concurrent.TimeUnit.MILLISECONDS))
+    }
+
+    @Test
+    fun unknownCapabilitiesUseLegacyEndpointsBeforeAnyProbe() = runBlocking {
+        server.enqueue(MockResponse().setBody(legacyCredentialResponse("local-user").toString()))
+        val source = editableSource(
+            editableCapabilities().copy(read = CapabilityStatus.Unknown, update = CapabilityStatus.Unknown),
+        )
+
+        source.loadEditableProfile()
+
+        assertEquals("/api/v1/accounts/verify_credentials", server.takeRequest().path)
+    }
+
+    @Test
+    fun mismatchedSelfProfileIdFailsBeforeStateChanges() = runBlocking {
+        server.enqueue(MockResponse().setBody(profileResponse("other-user").toString()))
+        val source = editableSource(editableCapabilities())
+
+        assertThrows(SourceError.AccountMismatch::class.java) {
+            runBlocking { source.loadEditableProfile() }
+        }
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun missingSelfProfileIdIsRejectedAsMismatch() = runBlocking<Unit> {
+        server.enqueue(MockResponse().setBody("""{"note":"No id"}"""))
+        val source = editableSource(editableCapabilities())
+
+        assertThrows(SourceError.AccountMismatch::class.java) {
+            runBlocking { source.loadEditableProfile() }
+        }
+    }
+
+    @Test
+    fun patchRejectsAdvancedFieldsWithoutCapabilityBeforeNetwork() = runBlocking {
+        val source = editableSource(editableCapabilities(advancedSettings = false))
+
+        assertThrows(SourceError.Unsupported::class.java) {
+            runBlocking {
+                source.updateEditableProfile(EditableProfilePatch(
+                    fields = listOf(EditableProfileField("Site", "https://example.org")),
+                ))
+            }
+        }
+        assertThrows(SourceError.Unsupported::class.java) {
+            runBlocking {
+                source.updateEditableProfile(EditableProfilePatch(locked = true))
+            }
+        }
+        assertThrows(SourceError.Unsupported::class.java) {
+            runBlocking {
+                source.updateEditableProfile(EditableProfilePatch(avatarDescription = "A picture"))
+            }
+        }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun sourceLoadsCustomEmojiCatalogWithBearer() = runBlocking {
+        server.enqueue(MockResponse().setBody("""[
+            {"shortcode":"blobcat","url":"https://example.org/blobcat.gif","static_url":"https://example.org/blobcat.png","category":"Cats","visible_in_picker":true}
+        ]"""))
+        val source = source()
+
+        val emojis = source.customEmojis()
+
+        assertEquals(listOf("blobcat"), emojis.map { it.shortcode })
+        val request = server.takeRequest()
+        assertEquals("/api/v1/custom_emojis", request.path)
+        assertEquals("Bearer token", request.getHeader("Authorization"))
+    }
+
+    @Test
+    fun extensionReactionsUseEncodedPutAndDeleteRoutes() = runBlocking {
+        server.enqueue(MockResponse().setBody(status("reacted").toString()))
+        server.enqueue(MockResponse().setBody(""))
+        val source = reactionSource()
+        val postId = EntityId(origin, "status-1")
+
+        source.react(postId, EmojiChoice(":custom/emoji:", ":custom/emoji:", null))
+        source.removeReaction(postId, EmojiChoice(":custom/emoji:", ":custom/emoji:", null))
+
+        val putRequest = server.takeRequest()
+        assertEquals("PUT", putRequest.method)
+        assertEquals("/api/v1/pleroma/statuses/status-1/reactions/:custom%2Femoji:", putRequest.path)
+        assertEquals("Bearer token", putRequest.getHeader("Authorization"))
+        val deleteRequest = server.takeRequest()
+        assertEquals("DELETE", deleteRequest.method)
+        assertEquals("/api/v1/pleroma/statuses/status-1/reactions/:custom%2Femoji:", deleteRequest.path)
+        assertEquals("Bearer token", deleteRequest.getHeader("Authorization"))
+    }
+
+    @Test
+    fun extensionReactionsRejectForeignOriginsBeforeNetwork() = runBlocking {
+        val source = reactionSource()
+        val foreign = EntityId("https://other.example", "status-1")
+
+        assertThrows(SourceError.Unsupported::class.java) {
+            runBlocking { source.react(foreign, EmojiChoice(":a:", ":a:", null)) }
+        }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun reactionMutationsRequireTheVerifiedExtensionCapability() = runBlocking {
+        val source = source()
+
+        assertThrows(SourceError.Unsupported::class.java) {
+            runBlocking { source.react(EntityId(origin, "status-1"), EmojiChoice(":a:", ":a:", null)) }
+        }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun failedReactionMutationDowngradesOnlyTheExtensionCapability() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(404).setBody("""{"error":"Record not found"}"""))
+        val source = reactionSource()
+
+        assertThrows(SourceError.Unsupported::class.java) {
+            runBlocking { source.react(EntityId(origin, "status-1"), EmojiChoice(":a:", ":a:", null)) }
+        }
+        assertEquals(CapabilityStatus.Unsupported, source.capabilities.emoji.reactionMutation)
+        assertFalse(PostAction.React in source.capabilities.actions)
+        assertTrue(source.capabilities.canPublish)
+        assertTrue(PostAction.Favorite in source.capabilities.actions)
     }
 
     @Test
@@ -488,6 +674,78 @@ class MastodonIntegrationTest {
         api = MisskeyApi(),
         accountId = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user"),
     )
+
+    private fun sourceWith(capabilities: ServerCapabilities) = MastodonSource(
+        origin = origin,
+        token = "token",
+        api = MisskeyApi(),
+        accountId = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user"),
+        initialCapabilities = capabilities,
+    )
+
+    private fun editableCapabilities(
+        advancedSettings: Boolean = false,
+        imageDescriptions: Boolean = false,
+    ): EditableProfileCapabilities = EditableProfileCapabilities(
+        read = CapabilityStatus.Supported,
+        update = CapabilityStatus.Supported,
+        advancedSettings = if (advancedSettings) CapabilityStatus.Supported else CapabilityStatus.Unsupported,
+        imageDescriptions = if (imageDescriptions) CapabilityStatus.Supported else CapabilityStatus.Unsupported,
+    )
+
+    private fun editableSource(editable: EditableProfileCapabilities) = sourceWith(
+        ServerCapabilities(
+            timelines = setOf(me.foxtails.palustris.domain.Timeline.Home),
+            profile = ProfileCapabilities(editable = editable),
+            capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
+        ),
+    )
+
+    private fun reactionSource() = sourceWith(
+        ServerCapabilities(
+            timelines = setOf(me.foxtails.palustris.domain.Timeline.Home),
+            actions = setOf(PostAction.Reply, PostAction.Favorite, PostAction.React),
+            canPublish = true,
+            emoji = EmojiCapabilities(
+                catalog = CapabilityStatus.Supported,
+                reactionListing = CapabilityStatus.Supported,
+                reactionMutation = CapabilityStatus.Supported,
+                selectionMode = me.foxtails.palustris.domain.ReactionSelectionMode.Independent,
+            ),
+            capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
+        ),
+    )
+
+    private fun profileResponse(id: String) = JSONObject()
+        .put("id", id)
+        .put("display_name", "Self")
+        .put("note", "<p>Raw <b>note</b></p>")
+        .put("fields", JSONArray()
+            .put(JSONObject().put("name", "Site").put("value", "<a href=\"https://example.org\">site</a>")))
+        .put("avatar", JSONObject.NULL)
+        .put("header", JSONObject.NULL)
+        .put("locked", false)
+        .put("bot", false)
+        .put("hide_collections", false)
+        .put("discoverable", false)
+        .put("indexable", false)
+        .put("show_media", false)
+        .put("show_media_replies", false)
+        .put("show_featured", false)
+        .put("attribution_domains", JSONArray())
+
+    private fun legacyCredentialResponse(id: String) = JSONObject()
+        .put("id", id)
+        .put("username", "alice")
+        .put("acct", "alice")
+        .put("display_name", "Self")
+        .put("note", "<p>Rendered note</p>")
+        .put("fields", JSONArray()
+            .put(JSONObject().put("name", "Site").put("value", "<a href=\"https://example.org\">site</a>")))
+        .put("source", JSONObject()
+            .put("note", "Plaintext note")
+            .put("fields", JSONArray()
+                .put(JSONObject().put("name", "Site").put("value", "https://example.org"))))
 
     private fun status(id: String) = JSONObject()
         .put("id", id)

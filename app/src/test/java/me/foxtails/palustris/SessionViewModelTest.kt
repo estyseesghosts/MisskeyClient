@@ -319,7 +319,7 @@ class SessionViewModelTest {
             val actionTarget = EntityId("https://example.org", "original")
             assertEquals(listOf(actionTarget), source.favoriteIds)
 
-            model.react(ownedPost, "🎉")
+            model.react(ownedPost, me.foxtails.palustris.domain.EmojiChoice("🎉", "🎉"))
             advanceUntilIdle()
             assertEquals(listOf(actionTarget), source.reactionIds)
 

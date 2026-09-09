@@ -187,8 +187,9 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody(user))
             val origin = server.url("/").toString().removeSuffix("/")
-            val account = MisskeySource(origin, "test-token", MisskeyApi()).updateProfile(UpdateProfileRequest("New name", "New bio"))
-            assertEquals("Alice", account.displayName)
+            val profile = MisskeySource(origin, "test-token", MisskeyApi())
+                .updateEditableProfile(EditableProfilePatch(displayName = "New name", biography = "New bio"))
+            assertEquals("Alice", profile.displayName)
             val request = server.takeRequest()
             assertEquals("/api/i/update", request.path)
             val body = JSONObject(request.body.readUtf8())

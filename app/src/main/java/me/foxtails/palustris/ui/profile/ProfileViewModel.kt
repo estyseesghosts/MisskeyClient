@@ -28,6 +28,7 @@ import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.domain.mergeInto
 import me.foxtails.palustris.ui.requiresSignIn
 import me.foxtails.palustris.ui.sourceErrorMessage
 
@@ -40,6 +41,7 @@ class ProfileViewModel @AssistedInject constructor(
     val state = _state.asStateFlow()
 
     private var generation = 0L
+    private var editorGeneration = 0L
     private var stopped = false
     private var detailJob: Job? = null
     private var relationshipJob: Job? = null
@@ -142,6 +144,7 @@ class ProfileViewModel @AssistedInject constructor(
 
     fun openEditor() {
         if (stopped || _state.value.targetId != accountId) return
+        editorGeneration += 1
         _state.value = _state.value.copy(
             editorOpen = true,
             editableLoading = true,
@@ -149,15 +152,17 @@ class ProfileViewModel @AssistedInject constructor(
             editError = null,
             editorCapabilities = source.capabilities.profile.editable,
         )
-        loadEditor(generation)
+        loadEditor(editorGeneration)
     }
 
     fun refreshEditor() {
         if (stopped || !_state.value.editorOpen) return
-        loadEditor(generation)
+        editorGeneration += 1
+        loadEditor(editorGeneration)
     }
 
     fun closeEditor() {
+        editorGeneration += 1
         editJob?.cancel()
         _state.value = _state.value.copy(
             editorOpen = false,
@@ -175,13 +180,13 @@ class ProfileViewModel @AssistedInject constructor(
             _state.value.account?.let(onSuccess)
             return
         }
-        val targetGeneration = generation
+        val targetEditorGeneration = editorGeneration
         _state.value = _state.value.copy(savingProfile = true, editError = null)
         editJob?.cancel()
         editJob = viewModelScope.launch {
             try {
                 val updated = source.updateEditableProfile(patch)
-                if (isCurrent(targetGeneration, accountId)) {
+                if (isEditorCurrent(targetEditorGeneration, accountId)) {
                     val current = _state.value.account ?: _state.value.seedAccount
                     val merged = current?.let { updated.mergeInto(it) } ?: current
                     _state.value = _state.value.copy(
@@ -197,7 +202,7 @@ class ProfileViewModel @AssistedInject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                if (isCurrent(targetGeneration, accountId)) {
+                if (isEditorCurrent(targetEditorGeneration, accountId)) {
                     _state.value = _state.value.copy(
                         savingProfile = false,
                         editError = sourceErrorMessage(error),
@@ -219,7 +224,8 @@ class ProfileViewModel @AssistedInject constructor(
         if (reactionJobs[postId]?.isActive == true) return
         val actionTargetId = ownedPost.post.actionTargetId ?: postId
         val before = ownedPost.post
-        val selected = before.selectedReactions.any { it.submissionValue == choice.submissionValue }
+        val selected = before.selectedReactions.any { it.submissionValue == choice.submissionValue } ||
+            (before.myReaction != null && before.myReaction == choice.submissionValue)
         val optimistic = PostReactionReducer.apply(
             post = before,
             choice = choice,
@@ -233,8 +239,11 @@ class ProfileViewModel @AssistedInject constructor(
                     source.removeReaction(actionTargetId, choice)
                 } else {
                     if (emojiCapabilities.selectionMode == ReactionSelectionMode.Single) {
-                        before.selectedReactions.firstOrNull { it.submissionValue != choice.submissionValue }
-                            ?.let { source.removeReaction(actionTargetId, it) }
+                        val previous = before.selectedReactions
+                            .firstOrNull { it.submissionValue != choice.submissionValue }
+                            ?: before.myReaction?.takeIf { it != choice.submissionValue }
+                                ?.let { EmojiChoice(it, it, null) }
+                        previous?.let { source.removeReaction(actionTargetId, it) }
                     }
                     source.react(actionTargetId, choice)
                 }
@@ -267,12 +276,12 @@ class ProfileViewModel @AssistedInject constructor(
         reactionJobs.clear()
     }
 
-    private fun loadEditor(targetGeneration: Long) {
+    private fun loadEditor(targetEditorGeneration: Long) {
         editJob?.cancel()
         editJob = viewModelScope.launch {
             try {
                 val editable = source.loadEditableProfile()
-                if (isCurrent(targetGeneration, accountId)) {
+                if (isEditorCurrent(targetEditorGeneration, accountId)) {
                     _state.value = _state.value.copy(
                         editable = editable,
                         editableLoading = false,
@@ -282,7 +291,7 @@ class ProfileViewModel @AssistedInject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                if (isCurrent(targetGeneration, accountId)) {
+                if (isEditorCurrent(targetEditorGeneration, accountId)) {
                     _state.value = _state.value.copy(
                         editableLoading = false,
                         editableError = sourceErrorMessage(error),
@@ -558,6 +567,9 @@ class ProfileViewModel @AssistedInject constructor(
 
     private fun isCurrent(targetGeneration: Long, target: AccountId): Boolean =
         !stopped && generation == targetGeneration && _state.value.targetId == target
+
+    private fun isEditorCurrent(targetEditorGeneration: Long, target: AccountId): Boolean =
+        !stopped && editorGeneration == targetEditorGeneration && _state.value.targetId == target
 
     override fun onCleared() {
         stop()

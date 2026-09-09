@@ -13,10 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -39,6 +35,7 @@ import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EditableProfileCapabilities
 import me.foxtails.palustris.domain.EditableProfileField
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
+import me.foxtails.palustris.ui.AppIcons
 
 @Composable
 fun EditProfileScreen(
@@ -176,18 +173,18 @@ private fun EditorFields(
                     onClick = {
                         onEditorChange(editor.copy(fields = editor.fields.move(index, index - 1)))
                     },
-                ) { Icon(Icons.Filled.ArrowUpward, stringResource(R.string.profile_editor_move_field_up)) }
+                ) { Text("Up") }
                 IconButton(
                     enabled = index < editor.fields.lastIndex,
                     onClick = {
                         onEditorChange(editor.copy(fields = editor.fields.move(index, index + 1)))
                     },
-                ) { Icon(Icons.Filled.ArrowDownward, stringResource(R.string.profile_editor_move_field_down)) }
+                ) { Text("Down") }
                 IconButton(
                     onClick = {
                         onEditorChange(editor.copy(fields = editor.fields.filterIndexed { i, _ -> i != index }))
                     },
-                ) { Icon(Icons.Filled.Close, stringResource(R.string.profile_editor_remove_field)) }
+                ) { Icon(AppIcons.Close, stringResource(R.string.profile_editor_remove_field)) }
             }
         }
     }
@@ -280,7 +277,7 @@ private fun AttributionDomains(editor: EditableProfile, onEditorChange: (Editabl
                 },
                 modifier = Modifier.size(40.dp),
             ) {
-                Icon(Icons.Filled.Close, stringResource(R.string.profile_editor_remove_field))
+                Icon(AppIcons.Close, stringResource(R.string.profile_editor_remove_field))
             }
         }
     }
@@ -288,7 +285,7 @@ private fun AttributionDomains(editor: EditableProfile, onEditorChange: (Editabl
         onClick = { onEditorChange(editor.copy(attributionDomains = editor.attributionDomains + "")) },
         modifier = Modifier.padding(top = 8.dp),
     ) {
-        Text(stringResource(R.string.profile_editor_add_field))
+        Text(stringResource(R.string.profile_editor_add_domain))
     }
 }
 

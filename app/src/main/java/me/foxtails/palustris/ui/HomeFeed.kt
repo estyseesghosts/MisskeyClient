@@ -410,8 +410,17 @@ private fun ReactionRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        reactions.forEach { reaction ->
+    reactions.forEach { reaction ->
             val countText = pluralStringResource(R.plurals.reaction_count, reaction.count, reaction.count)
+            val selectedStateDescription = if (reaction.selected) {
+                if (enabled) {
+                    stringResource(R.string.emoji_reaction_remove, reaction.emoji)
+                } else {
+                    stringResource(R.string.emoji_reaction_selected, reaction.emoji)
+                }
+            } else {
+                null
+            }
             Surface(
                 modifier = Modifier
                     .height(ReactionChipHeight)
@@ -427,13 +436,7 @@ private fun ReactionRow(
                         contentDescription = "${reaction.emoji}, $countText"
                         role = Role.Button
                         this.selected = reaction.selected
-                        if (reaction.selected) {
-                            stateDescription = if (enabled) {
-                                stringResource(R.string.emoji_reaction_remove, reaction.emoji)
-                            } else {
-                                stringResource(R.string.emoji_reaction_selected, reaction.emoji)
-                            }
-                        }
+                        selectedStateDescription?.let { stateDescription = it }
                     },
                 shape = CircleShapeForReaction,
                 color = if (reaction.selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,

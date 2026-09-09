@@ -280,6 +280,7 @@ fun ComposeScreen(
     pendingEmojiInsertion: Pair<me.foxtails.palustris.domain.EmojiChoice, me.foxtails.palustris.ui.emoji.ComposerField>? = null,
     onEmojiInsertionApplied: () -> Unit = {},
 ) {
+    val emojiPickerDescription = stringResource(me.foxtails.palustris.R.string.emoji_open_picker)
     var textSelection by remember { mutableStateOf(androidx.compose.ui.text.TextRange(text.length)) }
     var warningSelection by remember { mutableStateOf(androidx.compose.ui.text.TextRange(warning.length)) }
     LaunchedEffect(text) {
@@ -325,10 +326,12 @@ fun ComposeScreen(
             OutlinedCard(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
                 Column(Modifier.padding(12.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Row {
-                            Text(if (isReply) "Replying to " else "Quoting ", style = MaterialTheme.typography.titleSmall)
-                            me.foxtails.palustris.ui.emoji.AccountDisplayName(target.post.author, style = MaterialTheme.typography.titleSmall)
-                        }
+                        me.foxtails.palustris.ui.emoji.InlineEmojiText(
+                            text = "${if (isReply) "Replying to " else "Quoting "}${target.post.author.displayName}",
+                            emoji = target.post.author.emoji,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                        )
                         TextButton(onClick = onRemoveQuote) { Text("Remove") }
                     }
                     if (target.post.text.isBlank()) {
@@ -356,7 +359,7 @@ fun ComposeScreen(
                 if (onRequestEmoji != null) {
                     TextButton(
                         onClick = { onRequestEmoji(me.foxtails.palustris.ui.emoji.ComposerField.Warning) },
-                        modifier = Modifier.semantics { contentDescription = stringResource(me.foxtails.palustris.R.string.emoji_open_picker) },
+                        modifier = Modifier.semantics { contentDescription = emojiPickerDescription },
                     ) { Text(":)") }
                 }
             },
@@ -379,7 +382,7 @@ fun ComposeScreen(
                 if (onRequestEmoji != null) {
                     TextButton(
                         onClick = { onRequestEmoji(me.foxtails.palustris.ui.emoji.ComposerField.Text) },
-                        modifier = Modifier.semantics { contentDescription = stringResource(me.foxtails.palustris.R.string.emoji_open_picker) },
+                        modifier = Modifier.semantics { contentDescription = emojiPickerDescription },
                     ) { Text(stringResource(me.foxtails.palustris.R.string.emoji_picker_title)) }
                 }
             }

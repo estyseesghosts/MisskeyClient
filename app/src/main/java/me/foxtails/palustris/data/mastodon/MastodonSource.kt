@@ -157,7 +157,7 @@ class MastodonSource(
         MastodonEmojiMapper.parseCatalog(api.get(origin, "v1/custom_emojis", token).body, origin)
     }
 
-    override suspend fun react(id: EntityId, choice: EmojiChoice): PostActionResult = request {
+    override suspend fun react(id: EntityId, choice: EmojiChoice) = request {
         validatePostId(id, "react")
         requireReactionMutation()
         try {
@@ -168,9 +168,10 @@ class MastodonSource(
             downgradeReactionMutation()
             throw e
         }
+        Unit
     }
 
-    override suspend fun removeReaction(id: EntityId, choice: EmojiChoice): PostActionResult = request {
+    override suspend fun removeReaction(id: EntityId, choice: EmojiChoice) = request {
         validatePostId(id, "react")
         requireReactionMutation()
         try {
@@ -181,6 +182,7 @@ class MastodonSource(
             downgradeReactionMutation()
             throw e
         }
+        Unit
     }
 
     private fun requireReactionMutation() {

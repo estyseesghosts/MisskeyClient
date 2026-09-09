@@ -31,7 +31,7 @@ object MastodonEmojiMapper {
         val shortcode = json.optString("shortcode").ifBlank { json.optString("short_code").ifBlank { "" } }
         if (shortcode.isBlank()) return null
         val url = MediaRequestPolicy.validatedWebUrl(json.optString("url"), origin)
-        val staticUrl = MediaRequestPolicy.validatedWebUrl(json.optString("static_url"), origin)
+        val staticUrl = MediaRequestPolicy.validatedWebUrl(json.optString("static_url"), origin) ?: url
         if (url == null && staticUrl == null) return null
         val entry = CustomEmoji(
             shortcode = shortcode,

@@ -209,21 +209,22 @@ private fun decodeEmojiMap(json: JSONObject?): Map<String, me.foxtails.palustris
     json.keys().asSequence().forEach { key ->
         runCatching {
             val entry = json.getJSONObject(key)
-            val shortcode = entry.optString("shortcode").takeIf { it.isNotBlank() } ?: return@runCatching
-            val submissionValue = entry.optString("submissionValue").takeIf { it.isNotBlank() } ?: ":$shortcode:"
-            me.foxtails.palustris.domain.CustomEmoji(
-                shortcode = shortcode,
-                animatedUrl = entry.optString("animatedUrl").takeIf { it.isNotBlank() }
-                    ?.let(me.foxtails.palustris.domain.ValidatedUrl::https),
-                staticUrl = entry.optString("staticUrl").takeIf { it.isNotBlank() }
-                    ?.let(me.foxtails.palustris.domain.ValidatedUrl::https),
-                category = entry.optString("category").takeIf { it.isNotBlank() },
-                aliases = entry.optJSONArray("aliases")?.let { values ->
-                    (0 until values.length()).mapNotNull { values.optString(it).takeIf(String::isNotBlank) }
-                }.orEmpty(),
-                visibleInPicker = entry.optBoolean("visibleInPicker", true),
-                submissionValue = submissionValue,
-            )
+            entry.optString("shortcode").takeIf { it.isNotBlank() }?.let { shortcode ->
+                val submissionValue = entry.optString("submissionValue").takeIf { it.isNotBlank() } ?: ":$shortcode:"
+                me.foxtails.palustris.domain.CustomEmoji(
+                    shortcode = shortcode,
+                    animatedUrl = entry.optString("animatedUrl").takeIf { it.isNotBlank() }
+                        ?.let(me.foxtails.palustris.domain.ValidatedUrl::https),
+                    staticUrl = entry.optString("staticUrl").takeIf { it.isNotBlank() }
+                        ?.let(me.foxtails.palustris.domain.ValidatedUrl::https),
+                    category = entry.optString("category").takeIf { it.isNotBlank() },
+                    aliases = entry.optJSONArray("aliases")?.let { values ->
+                        (0 until values.length()).mapNotNull { values.optString(it).takeIf(String::isNotBlank) }
+                    }.orEmpty(),
+                    visibleInPicker = entry.optBoolean("visibleInPicker", true),
+                    submissionValue = submissionValue,
+                )
+            }
         }.getOrNull()?.let { result[key] = it }
     }
     return result

@@ -4,6 +4,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
@@ -408,6 +410,205 @@ class ProfileScreenTest {
             .boundsInRoot
         assertTrue("final profile row should clear the floating category dock", finalBounds.bottom <= categoryBounds.top)
         compose.onNodeWithText("Profile post 8").assertIsDisplayed()
+    }
+
+    @Test
+    fun editorShowsBasicControlsForEveryAdapterAndOmitsUnsupportedAdvancedControls() {
+        show {
+            PalustrisTheme {
+                me.foxtails.palustris.ui.profile.EditProfileScreen(
+                    editor = me.foxtails.palustris.domain.EditableProfile(
+                        id = "self",
+                        displayName = "Self",
+                        biography = "Bio",
+                    ),
+                    capabilities = me.foxtails.palustris.domain.EditableProfileCapabilities(
+                        read = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                        update = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                    ),
+                    emoji = emptyMap(),
+                    handle = "@self@example.org",
+                    loading = false,
+                    saving = false,
+                    error = null,
+                    onEditorChange = {},
+                    onSave = {},
+                    onClose = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Edit profile").assertIsDisplayed()
+        compose.onNodeWithText("Display name").assertIsDisplayed()
+        compose.onNodeWithText("Biography").assertIsDisplayed()
+        compose.onNodeWithText("@self@example.org").assertIsDisplayed()
+        compose.onNodeWithText("Profile fields").assertDoesNotExist()
+        compose.onNodeWithText("Attribution domains").assertDoesNotExist()
+        compose.onNodeWithText("This server does not support advanced profile settings.").assertIsDisplayed()
+    }
+
+    @Test
+    fun editorShowsApiEightControlsOnlyFromCapabilities() {
+        show {
+            PalustrisTheme {
+                me.foxtails.palustris.ui.profile.EditProfileScreen(
+                    editor = me.foxtails.palustris.domain.EditableProfile(
+                        id = "self",
+                        displayName = "Self",
+                        biography = "Bio",
+                        fields = listOf(me.foxtails.palustris.domain.EditableProfileField("Site", "https://example.org")),
+                        attributionDomains = listOf("example.org"),
+                    ),
+                    capabilities = me.foxtails.palustris.domain.EditableProfileCapabilities(
+                        read = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                        update = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                        advancedSettings = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                    ),
+                    emoji = emptyMap(),
+                    handle = "@self@example.org",
+                    loading = false,
+                    saving = false,
+                    error = null,
+                    onEditorChange = {},
+                    onSave = {},
+                    onClose = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Profile fields").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Add field").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Visibility and profile tabs").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Allow discovery").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Attribution domains").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Image descriptions").assertDoesNotExist()
+    }
+
+    @Test
+    fun editorShowsImageDescriptionControlsOnlyAtApiNine() {
+        show {
+            PalustrisTheme {
+                me.foxtails.palustris.ui.profile.EditProfileScreen(
+                    editor = me.foxtails.palustris.domain.EditableProfile(
+                        id = "self",
+                        displayName = "Self",
+                        biography = "Bio",
+                    ),
+                    capabilities = me.foxtails.palustris.domain.EditableProfileCapabilities(
+                        read = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                        update = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                        advancedSettings = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                        imageDescriptions = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                    ),
+                    emoji = emptyMap(),
+                    handle = "@self@example.org",
+                    loading = false,
+                    saving = false,
+                    error = null,
+                    onEditorChange = {},
+                    onSave = {},
+                    onClose = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Image descriptions").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Profile picture description").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Profile banner description").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun editorSaveDisablesDuringActiveUpdateAndShowsSavingLabel() {
+        show {
+            PalustrisTheme {
+                me.foxtails.palustris.ui.profile.EditProfileScreen(
+                    editor = me.foxtails.palustris.domain.EditableProfile(
+                        id = "self",
+                        displayName = "Self",
+                        biography = "Bio",
+                    ),
+                    capabilities = me.foxtails.palustris.domain.EditableProfileCapabilities(
+                        read = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                        update = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                    ),
+                    emoji = emptyMap(),
+                    handle = "@self@example.org",
+                    loading = false,
+                    saving = true,
+                    error = null,
+                    onEditorChange = {},
+                    onSave = {},
+                    onClose = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Saving").assertIsDisplayed()
+        compose.onNodeWithText("Saving").assertIsNotEnabled()
+    }
+
+    @Test
+    fun editorShowsLoadErrorWhenNoEditorValueArrives() {
+        show {
+            PalustrisTheme {
+                me.foxtails.palustris.ui.profile.EditProfileScreen(
+                    editor = null,
+                    capabilities = me.foxtails.palustris.domain.EditableProfileCapabilities(),
+                    emoji = emptyMap(),
+                    handle = "@self@example.org",
+                    loading = false,
+                    saving = false,
+                    error = null,
+                    onEditorChange = {},
+                    onSave = {},
+                    onClose = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("Profile could not load. Try again.").assertIsDisplayed()
+    }
+
+    @Test
+    fun profileRowReactionsRemainVisibleAndEmojiAware() {
+        val profile = account("reactions", "Reactions")
+        val reacted = post("reacted", profile).copy(
+            reactions = listOf(me.foxtails.palustris.domain.Reaction("🎉", 3, false)),
+        )
+        val state = mutableStateOf(
+            profileState(profile, emptyList()).copy(
+                pages = mapOf(
+                    ProfileTimelineTab.Posts to ProfilePageState(
+                        posts = listOf(OwnedPost(self.id, reacted)),
+                    ),
+                ),
+            ),
+        )
+        show {
+            ProfileScreen(
+                account = profile,
+                profileState = state.value,
+                compactLayout = false,
+                authenticatedAccountId = self.id,
+            )
+        }
+
+        compose.onNodeWithTag("post_row_reacted").assertIsDisplayed()
+    }
+
+    @Test
+    fun unsupportedEditingDisablesTheEditAction() {
+        val state = profileState(self, emptyList()).copy(editableSupported = false)
+        show {
+            ProfileScreen(
+                account = self,
+                profileState = state,
+                compactLayout = false,
+                authenticatedAccountId = self.id,
+            )
+        }
+
+        compose.onNodeWithText("Edit profile").assertIsDisplayed().assertIsNotEnabled()
     }
 
     private fun show(content: @Composable () -> Unit) {

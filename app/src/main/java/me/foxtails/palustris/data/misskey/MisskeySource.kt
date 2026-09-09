@@ -324,8 +324,13 @@ class MisskeySource(
         patch.displayName?.let { body.put("name", it) }
         patch.biography?.let { body.put("description", it) }
         val json = JSONObject(api.post(origin, "i/update", body).body)
+        val returnedId = json.optString("id").takeIf { it.isNotBlank() }
+        val expectedId = accountId?.localId
+        if (expectedId != null && returnedId != null && returnedId != expectedId) {
+            throw SourceError.AccountMismatch
+        }
         EditableProfile(
-            id = requireAccountId().localId,
+            id = expectedId ?: returnedId ?: throw SourceError.AccountMismatch,
             displayName = json.optString("name"),
             biography = json.optString("description"),
         )

@@ -42,6 +42,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -130,7 +131,22 @@ class CrossCuttingTest {
                 relationships = me.foxtails.palustris.domain.CapabilityStatus.Unknown,
                 followActions = me.foxtails.palustris.domain.CapabilityStatus.Denied,
                 pinnedPosts = me.foxtails.palustris.domain.CapabilityStatus.Unsupported,
+                editable = me.foxtails.palustris.domain.EditableProfileCapabilities(
+                    read = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                    update = me.foxtails.palustris.domain.CapabilityStatus.Unsupported,
+                    advancedSettings = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                    imageDescriptions = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                    imageUpload = me.foxtails.palustris.domain.CapabilityStatus.Denied,
+                    imageDeletion = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                ),
             ),
+            emoji = me.foxtails.palustris.domain.EmojiCapabilities(
+                catalog = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                reactionListing = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                reactionMutation = me.foxtails.palustris.domain.CapabilityStatus.Unsupported,
+                selectionMode = me.foxtails.palustris.domain.ReactionSelectionMode.Independent,
+            ),
+            capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
             notifications = me.foxtails.palustris.domain.NotificationCapabilities(
                 listing = me.foxtails.palustris.domain.CapabilityStatus.Supported,
                 supportedCategories = setOf(me.foxtails.palustris.domain.NotificationCategory.Mentions),
@@ -166,6 +182,108 @@ class CrossCuttingTest {
             it.copy(notifications = it.notifications.copy(webPush = CapabilityStatus.Unsupported))
         })
         assertEquals(CapabilityStatus.Unsupported, store.read(accountId)?.capabilities?.notifications?.webPush)
+    }
+
+    @Test
+    fun olderSessionJsonDefaultsNewCapabilityValuesSafely() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val key = SecretKeySpec(ByteArray(16) { 11 }, "AES")
+        val store = AccountFileStore(context, key)
+        store.clear()
+        val accountId = AccountId(Connection("https://legacy.example", Protocol.MASTODON), "account")
+        val legacyJson = JSONObject()
+            .put("origin", "https://legacy.example")
+            .put("protocol", "MASTODON")
+            .put("localId", "account")
+            .put("token", "session-token")
+            .put("capabilities", JSONObject()
+                .put("timelines", org.json.JSONArray().put("Home"))
+                .put("audiences", org.json.JSONArray())
+                .put("actions", org.json.JSONArray().put("Favorite"))
+                .put("canPublish", true)
+                .put("quotes", "Supported"))
+            .put("access", JSONObject())
+            .put("sessionRevision", 1)
+        store.writeJson(accountSessionFile(context, accountId), legacyJson)
+
+        val restored = store.read(accountId) ?: error("Session was not restored")
+
+        assertEquals(0, restored.capabilities.capabilitySchemaVersion)
+        assertEquals(CapabilityStatus.Unknown, restored.capabilities.profile.editable.read)
+        assertEquals(CapabilityStatus.Unknown, restored.capabilities.profile.editable.imageDescriptions)
+        assertEquals(CapabilityStatus.Unknown, restored.capabilities.emoji.catalog)
+        assertEquals(CapabilityStatus.Unknown, restored.capabilities.emoji.reactionMutation)
+        assertEquals(me.foxtails.palustris.domain.ReactionSelectionMode.Unknown, restored.capabilities.emoji.selectionMode)
+        assertTrue(restored.capabilities.canPublish)
+    }
+
+    @Test
+    fun olderCapabilitySchemaForcesAFreshMastodonProbe() = runBlocking {
+        val fixedClock = 1_000_000L
+        var probeCalls = 0
+        val probe = object : CapabilityProbe {
+            override suspend fun probeCapabilities(connection: Connection) = ServerCapabilities(
+                timelines = setOf(Timeline.Home),
+                capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
+                capabilitiesLastUpdated = fixedClock,
+            ).also { probeCalls++ }
+        }
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            server.enqueue(MockResponse().setBody("[]"))
+            server.enqueue(MockResponse().setBody("[]"))
+            val stale = me.foxtails.palustris.data.mastodon.MastodonSource(
+                origin = origin,
+                token = "token",
+                api = MisskeyApi(),
+                accountId = AccountId(Connection(origin, Protocol.MASTODON), "account"),
+                initialCapabilities = ServerCapabilities(
+                    timelines = setOf(Timeline.Home),
+                    capabilitiesLastUpdated = fixedClock,
+                    capabilitySchemaVersion = 0,
+                ),
+                capabilityProbe = probe,
+                clock = { fixedClock },
+            )
+            val current = me.foxtails.palustris.data.mastodon.MastodonSource(
+                origin = origin,
+                token = "token",
+                api = MisskeyApi(),
+                accountId = AccountId(Connection(origin, Protocol.MASTODON), "account"),
+                initialCapabilities = ServerCapabilities(
+                    timelines = setOf(Timeline.Home),
+                    capabilitiesLastUpdated = fixedClock,
+                    capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
+                ),
+                capabilityProbe = probe,
+                clock = { fixedClock },
+            )
+
+            stale.timeline(Timeline.Home)
+            current.timeline(Timeline.Home)
+
+            assertEquals(1, probeCalls)
+        }
+    }
+
+    @Test
+    fun sourceRegistryScopesSourcesPerAccountAndDropsStoppedEntries() {
+        val registry = me.foxtails.palustris.data.AccountSourceRegistry()
+        val first = AccountId(Connection("https://first.example", Protocol.MISSKEY), "one")
+        val second = AccountId(Connection("https://second.example", Protocol.MISSKEY), "two")
+        val firstSource = MisskeySource(first.connection.origin, "token-a", MisskeyApi(), accountId = first)
+        val secondSource = MisskeySource(second.connection.origin, "token-b", MisskeyApi(), accountId = second)
+        val token = { account: AccountId -> me.foxtails.palustris.domain.NotificationSyncToken(account, 1L) }
+
+        registry.register(token(first), firstSource)
+        registry.register(token(second), secondSource)
+
+        assertSame(firstSource, registry.sourceFor(first))
+        assertSame(secondSource, registry.sourceFor(second))
+
+        registry.remove(first, 1L)
+        assertNull(registry.sourceFor(first))
+        assertSame(secondSource, registry.sourceFor(second))
     }
 
     @Test
@@ -280,5 +398,12 @@ class CrossCuttingTest {
 
     private fun enqueueTimeline(server: MockWebServer, id: String) {
         server.enqueue(MockResponse().setBody("""[{"id":"$id","createdAt":"2026-09-06T10:00:00Z","user":{"id":"u","username":"u","name":"User"},"text":"Text","visibility":"home"}]"""))
+    }
+
+    private fun accountSessionFile(context: Context, accountId: AccountId): File {
+        val value = "${accountId.connection.origin}\u0000${accountId.localId}"
+        val filename = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(value.toByteArray(Charsets.UTF_8))
+        return File(File(context.noBackupFilesDir, "accounts"), "$filename.enc")
     }
 }

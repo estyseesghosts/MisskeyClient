@@ -22,6 +22,16 @@ import org.json.JSONObject
 
 /** Probes Mastodon instance metadata without making protocol details visible to the UI. */
 class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
+    enum class EmojiMutationProbeOutcome { Supported, Ambiguous, Failed, Unknown }
+
+    data class VersionTriple(val major: Int, val minor: Int, val patch: Int) {
+        fun atLeast(major: Int, minor: Int, patch: Int): Boolean = when {
+            this.major != major -> this.major > major
+            this.minor != minor -> this.minor > minor
+            else -> this.patch >= patch
+        }
+    }
+
     override suspend fun probeCapabilities(connection: Connection): ServerCapabilities {
         val instance = JSONObject(api.get(connection.origin, "v2/instance").body)
         val mutationOutcome = if (hasVerifiedEmojiReactionMetadata(instance)) {
@@ -45,16 +55,6 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
 
     companion object {
         private const val PROBE_EMOJI_ENCODED = "%F0%9F%8E%89"
-
-        enum class EmojiMutationProbeOutcome { Supported, Ambiguous, Failed, Unknown }
-
-        data class VersionTriple(val major: Int, val minor: Int, val patch: Int) {
-            fun atLeast(major: Int, minor: Int, patch: Int): Boolean = when {
-                this.major != major -> this.major > major
-                this.minor != minor -> this.minor > minor
-                else -> this.patch >= patch
-            }
-        }
 
         /** Parses only a leading major.minor.patch value; fork suffixes are ignored. */
         fun parseLeadingVersion(value: String): VersionTriple? {

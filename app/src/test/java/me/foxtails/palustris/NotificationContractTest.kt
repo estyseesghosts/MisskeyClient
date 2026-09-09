@@ -14,7 +14,9 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ValidatedUrl
 import me.foxtails.palustris.domain.effectiveCapabilityStatus
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -78,7 +80,8 @@ class NotificationContractTest {
 
         val activity = reaction.activity as NotificationActivity.EmojiReaction
         assertEquals(":party_parrot:", activity.reaction.identity)
-        assertEquals("https://example.org/party.png", activity.reaction.imageUrl)
+        assertEquals("https://example.org/party.png", activity.reaction.emoji?.staticUrl?.value)
+        assertEquals(":party_parrot:", activity.reaction.emoji?.submissionValue)
         assertTrue(event.activity is NotificationActivity.Unknown)
         assertTrue(event.actors.isEmpty())
     }
@@ -107,6 +110,38 @@ class NotificationContractTest {
         assertEquals(NotificationTarget.Post(notification.post!!.id), notification.target)
         assertEquals("status-1", (notification.destination as me.foxtails.palustris.domain.NotificationDestination.InApp)
             .target.let { (it as NotificationTarget.Post).id.value })
+    }
+
+    @Test
+    fun akkomaEmojiReactionMapsIdentityFallbackAndImageWithoutRewriting() {
+        val notification = MastodonNotificationMapper.notification(
+            JSONObject()
+                .put("id", "akko-reaction-1")
+                .put("type", "pleroma:emoji_reaction")
+                .put("created_at", "2026-09-07T10:00:00Z")
+                .put("emoji", ":blob_cat:")
+                .put("emoji_url", "https://cdn.example/emoji/blob_cat.png")
+                .put("status", JSONObject()
+                    .put("id", "status-1")
+                    .put("created_at", "2026-09-07T09:00:00Z")
+                    .put("account", JSONObject().put("id", "author").put("username", "author").put("acct", "author"))
+                    .put("content", "<p>Hello</p>")
+                    .put("visibility", "public")
+                    .put("emojis", JSONArray()
+                        .put(JSONObject()
+                            .put("shortcode", "blob_cat")
+                            .put("url", "https://cdn.example/emoji/blob_cat.gif")
+                            .put("static_url", "https://cdn.example/emoji/blob_cat.png")))), origin, receivingAccount,
+        )
+
+        val activity = notification.activity as NotificationActivity.EmojiReaction
+        assertEquals(":blob_cat:", activity.reaction.identity)
+        assertEquals("blob_cat", activity.reaction.fallbackText)
+        assertEquals("blob_cat", activity.reaction.emoji?.shortcode)
+        assertEquals("https://cdn.example/emoji/blob_cat.png", activity.reaction.emoji?.staticUrl?.value)
+        assertEquals(":blob_cat:", activity.reaction.emoji?.submissionValue)
+        assertNotNull(notification.post)
+        assertEquals(":blob_cat:", notification.post?.emoji?.get("blob_cat")?.submissionValue)
     }
 
     @Test

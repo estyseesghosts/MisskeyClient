@@ -68,16 +68,33 @@ internal object EmojiTextParser {
             }
             if (text[cursor] == ':' && emoji.isNotEmpty()) {
                 val token = longestKnownToken(text, cursor, endExclusive, emoji)
-                if (token != null) {
+                val value = token?.let { emojiForToken(it, emoji) }
+                if (token != null && value != null) {
                     val range = cursor until cursor + token.length
-                    segments += RichTextSegment.Emoji(token, emoji.getValue(token), range)
+                    segments += RichTextSegment.Emoji(token, value, range)
                     emojiRanges += range
                     cursor += token.length
                     continue
                 }
             }
-            val nextInteresting = nextInterestingPosition(text, cursor + 1, endExclusive)
-            segments += RichTextSegment.Text(text.substring(cursor, nextInteresting), cursor until nextInteresting)
+            val nextInteresting = if (text[cursor] == ':') {
+                text.indexOf(':', cursor + 1)
+                    .takeIf { it in (cursor + 1) until endExclusive }
+                    ?.plus(1)
+                    ?: endExclusive
+            } else {
+                nextInterestingPosition(text, cursor + 1, endExclusive)
+            }
+            val plainText = text.substring(cursor, nextInteresting)
+            val previous = segments.lastOrNull() as? RichTextSegment.Text
+            if (previous != null && previous.range.last + 1 == cursor) {
+                segments[segments.lastIndex] = RichTextSegment.Text(
+                    previous.text + plainText,
+                    previous.range.first until nextInteresting,
+                )
+            } else {
+                segments += RichTextSegment.Text(plainText, cursor until nextInteresting)
+            }
             cursor = nextInteresting
         }
     }
@@ -97,9 +114,15 @@ internal object EmojiTextParser {
         for (index in colons.indices.reversed()) {
             val end = colons[index] + 1
             val candidate = text.substring(start, end)
-            if (candidate in emoji) return candidate
+            val bare = candidate.removeSurrounding(":")
+            if (candidate in emoji || (bare.isNotBlank() && bare in emoji)) return candidate
         }
         return null
+    }
+
+    private fun emojiForToken(token: String, emoji: Map<String, CustomEmoji>): CustomEmoji? {
+        val bare = token.removeSurrounding(":")
+        return emoji[token] ?: bare.takeIf { it.isNotBlank() }?.let(emoji::get)
     }
 
     private fun nextInterestingPosition(text: String, from: Int, endExclusive: Int): Int {

@@ -98,7 +98,10 @@ fun EmojiPickerHost(
     ) {
         Column(Modifier.fillMaxWidth().heightIn(min = 320.dp).padding(horizontal = 16.dp)) {
             Text(
-                stringResource(R.string.emoji_picker_title),
+                stringResource(
+                    if (target is EmojiPickerTarget.Reaction) R.string.emoji_add_reaction
+                    else R.string.emoji_picker_title,
+                ),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(vertical = 4.dp),
             )
@@ -113,7 +116,6 @@ fun EmojiPickerHost(
                     Text(catalog.error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
                     TextButton(onClick = onRetryCatalog) { Text(stringResource(R.string.emoji_picker_retry)) }
                 }
-                catalog.items.isEmpty() && !catalog.empty -> PickerMessage(stringResource(R.string.emoji_picker_empty))
                 else -> PickerGrid(
                     target = target,
                     catalogItems = catalog.items,
@@ -195,6 +197,8 @@ private fun PickerGrid(
             )
         }
     }
+    val recentHeader = stringResource(R.string.emoji_recent_section)
+    val unicodeHeader = stringResource(R.string.emoji_unicode_section)
     val allChoices = remember(recentChoices, unicodeChoices, serverChoices) {
         buildList {
             recentChoices.forEach { add(PickerChoice(it, null, PickerSection.Recent, false)) }
@@ -242,8 +246,8 @@ private fun PickerGrid(
         ) {
             val sections = filtered.groupBy { it.section }
             val sectionHeaders = listOf(
-                PickerSection.Recent to stringResource(R.string.emoji_recent_section),
-                PickerSection.Unicode to stringResource(R.string.emoji_unicode_section),
+                PickerSection.Recent to recentHeader,
+                PickerSection.Unicode to unicodeHeader,
             )
             sectionHeaders.forEach { (section, header) ->
                 val sectionChoices = sections[section].orEmpty()
