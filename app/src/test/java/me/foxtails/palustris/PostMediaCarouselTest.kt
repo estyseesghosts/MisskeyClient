@@ -1,5 +1,7 @@
 package me.foxtails.palustris
 
+import android.graphics.Bitmap
+import android.graphics.Color
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -15,6 +17,10 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.media.PostMediaCarousel
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okio.Buffer
+import java.io.ByteArrayOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -71,6 +77,57 @@ class PostMediaCarouselTest {
         assertEquals(visible.width, unsupported.width, 1f)
         assertEquals(visible.height, sensitive.height, 1f)
         assertEquals(visible.height, unsupported.height, 1f)
+    }
+
+    @Test
+    fun feedImageFillsFrameWithCropInsteadOfTileBackground() {
+        val fixture = Bitmap.createBitmap(2, 4, Bitmap.Config.ARGB_8888)
+        for (y in 0 until fixture.height) {
+            for (x in 0 until fixture.width) {
+                fixture.setPixel(x, y, if (y < 2) Color.RED else Color.BLUE)
+            }
+        }
+        val png = ByteArrayOutputStream().also { fixture.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+        fixture.recycle()
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody(Buffer().write(png)))
+        server.start()
+
+        try {
+            show(
+                post(
+                    "crop",
+                    listOf(
+                        image("crop").copy(
+                            url = server.url("/full.png").toString(),
+                            previewUrl = server.url("/crop.png").toString(),
+                            previewWidth = 2,
+                            previewHeight = 4,
+                        ),
+                    ),
+                ),
+            )
+            repeat(10) {
+                compose.waitForIdle()
+                Thread.sleep(100)
+            }
+
+            val bounds = bounds("post_media_frame_crop_0")
+            lateinit var screenshot: Bitmap
+            compose.runOnIdle {
+                val view = compose.activity.window.decorView
+                screenshot = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+                view.draw(android.graphics.Canvas(screenshot))
+            }
+            val x = bounds.center.x.toInt()
+            val top = screenshot.getPixel(x, bounds.top.toInt() + 8)
+            val bottom = screenshot.getPixel(x, bounds.bottom.toInt() - 8)
+
+            assertTrue("top of feed frame should contain the image: $top", Color.red(top) > 180 && Color.blue(top) < 80)
+            assertTrue("bottom of feed frame should contain the image: $bottom", Color.blue(bottom) > 180 && Color.red(bottom) < 80)
+        } finally {
+            server.shutdown()
+        }
     }
 
     private fun show(vararg posts: Post) {
