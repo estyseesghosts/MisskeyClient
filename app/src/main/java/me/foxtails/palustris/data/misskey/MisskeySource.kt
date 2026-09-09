@@ -7,6 +7,10 @@ import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
+import me.foxtails.palustris.domain.CustomEmoji
+import me.foxtails.palustris.domain.EditableProfile
+import me.foxtails.palustris.domain.EditableProfilePatch
+import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationAcknowledgement
@@ -41,7 +45,6 @@ import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.domain.UpdateProfileRequest
 import me.foxtails.palustris.domain.ValidatedUrl
 import me.foxtails.palustris.domain.normalizeFavouriteEmoji
 import kotlinx.coroutines.Dispatchers
@@ -197,7 +200,24 @@ class MisskeySource(
         Unit
     }
 
+    override suspend fun react(id: EntityId, choice: EmojiChoice) = request {
+        validatePostId(id, "react")
+        val reaction = choice.submissionValue.takeIf { it.isNotBlank() }
+            ?: throw SourceError.Unsupported("react.emoji")
+        api.post(origin, "notes/reactions/create", JSONObject()
+            .put("i", token)
+            .put("noteId", id.value)
+            .put("reaction", reaction))
+        Unit
+    }
+
     override suspend fun removeReaction(id: EntityId, emoji: String) = request {
+        validatePostId(id, "react")
+        api.post(origin, "notes/reactions/delete", JSONObject().put("i", token).put("noteId", id.value))
+        Unit
+    }
+
+    override suspend fun removeReaction(id: EntityId, choice: EmojiChoice) = request {
         validatePostId(id, "react")
         api.post(origin, "notes/reactions/delete", JSONObject().put("i", token).put("noteId", id.value))
         Unit
@@ -287,9 +307,33 @@ class MisskeySource(
         if (id.connection != origin || id.value.isBlank()) throw SourceError.Unsupported(feature)
     }
 
-    override suspend fun updateProfile(profile: UpdateProfileRequest) = request {
-        val body = JSONObject().put("i", token).put("name", profile.displayName).put("description", profile.biography)
-        MisskeyMapper.account(JSONObject(api.post(origin, "i/update", body).body), origin)
+    override suspend fun loadEditableProfile(): EditableProfile = request {
+        val localId = requireAccountId().localId
+        val json = JSONObject(api.post(origin, "i", JSONObject().put("i", token)).body)
+        EditableProfile(
+            id = localId,
+            displayName = json.optString("name"),
+            biography = json.optString("description"),
+        )
+    }
+
+    override suspend fun updateEditableProfile(patch: EditableProfilePatch): EditableProfile = request {
+        val unsupported = patch != EditableProfilePatch(displayName = patch.displayName, biography = patch.biography)
+        if (unsupported) throw SourceError.Unsupported("profile.editable.update")
+        val body = JSONObject().put("i", token)
+        patch.displayName?.let { body.put("name", it) }
+        patch.biography?.let { body.put("description", it) }
+        val json = JSONObject(api.post(origin, "i/update", body).body)
+        EditableProfile(
+            id = requireAccountId().localId,
+            displayName = json.optString("name"),
+            biography = json.optString("description"),
+        )
+    }
+
+    override suspend fun customEmojis(): List<CustomEmoji> = request {
+        val response = api.post(origin, "emojis", JSONObject().put("i", token))
+        MisskeyEmojiMapper.parseCatalog(response.body, origin)
     }
 
     override suspend fun delete(id: EntityId) = request {

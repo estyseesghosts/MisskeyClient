@@ -4,10 +4,14 @@ import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.EditableProfileCapabilities
+import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.NotificationCapabilities
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PrimaryFavouriteCapability
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
+import me.foxtails.palustris.domain.ProfileCapabilities
+import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.SavedPostsCapability
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.ServerCapabilities
@@ -34,12 +38,25 @@ class MisskeyCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
             quotes = CapabilityStatus.Supported,
             primaryFavourite = PrimaryFavouriteCapability(CapabilityStatus.Supported, PrimaryFavouriteMode.Reaction),
             savedPosts = SavedPostsCapability(CapabilityStatus.Supported, SavedPostsKind.Favourites),
+            profile = ProfileCapabilities(
+                editable = EditableProfileCapabilities(
+                    read = CapabilityStatus.Supported,
+                    update = CapabilityStatus.Supported,
+                ),
+            ),
+            emoji = EmojiCapabilities(
+                catalog = CapabilityStatus.Supported,
+                reactionListing = CapabilityStatus.Supported,
+                reactionMutation = CapabilityStatus.Supported,
+                selectionMode = ReactionSelectionMode.Single,
+            ),
             notifications = NotificationCapabilities(
                 webPush = meta.optString("swPublickey").takeIf(String::isNotBlank)
                     ?.let { CapabilityStatus.Supported }
                     ?: CapabilityStatus.Unsupported,
             ),
             capabilitiesLastUpdated = System.currentTimeMillis(),
+            capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
         )
     }
 }

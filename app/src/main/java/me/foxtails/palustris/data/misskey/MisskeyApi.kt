@@ -126,6 +126,26 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
             .build())
         .build())
 
+    /** PATCH multipart for avatar and header bytes; application-owned streams close after the request. */
+    suspend fun patchMultipart(
+        origin: String,
+        endpoint: String,
+        fields: List<Pair<String, String>> = emptyList(),
+        files: List<MultipartFileBody> = emptyList(),
+        bearerToken: String? = null,
+    ): HttpResponse {
+        val body = MultipartBody.Builder().setType(MultipartBody.FORM).apply {
+            fields.forEach { (name, value) -> addFormDataPart(name, value) }
+            files.forEach { part -> addFormDataPart(part.fieldName, part.fileName, part.body()) }
+        }.build()
+        return execute(Request.Builder().url("$origin/$endpoint")
+            .header("Accept", "application/json")
+            .header("User-Agent", "Palustris/0.1 (Android)")
+            .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
+            .patch(body)
+            .build())
+    }
+
     suspend fun get(origin: String, endpoint: String, bearerToken: String? = null): HttpResponse =
         execute(Request.Builder().url("$origin/api/$endpoint")
             .header("Accept", "application/json")
@@ -179,6 +199,21 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
                     }
                 }
             })
+        }
+    }
+}
+
+/** One file part for a multipart patch; the stream is application-owned and closes after the request. */
+class MultipartFileBody(
+    val fieldName: String,
+    val fileName: String?,
+    private val mimeType: String,
+    private val stream: InputStream,
+) {
+    internal fun body(): RequestBody = object : RequestBody() {
+        override fun contentType(): MediaType? = mimeType.toMediaType()
+        override fun writeTo(sink: okio.BufferedSink) {
+            stream.use { sink.writeAll(okio.Okio.source(it)) }
         }
     }
 }
