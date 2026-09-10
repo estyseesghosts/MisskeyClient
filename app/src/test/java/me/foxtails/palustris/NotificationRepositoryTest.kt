@@ -1,6 +1,7 @@
 package me.foxtails.palustris
 
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import me.foxtails.palustris.data.notifications.InMemoryNotificationStore
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.domain.Account
@@ -18,6 +19,7 @@ import me.foxtails.palustris.domain.NotificationPageDirection
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationSyncToken
+import me.foxtails.palustris.domain.NotificationSyncCompleteness
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.SocialEvent
@@ -239,6 +241,82 @@ class NotificationRepositoryTest {
         ))
 
         assertEquals(listOf("newer"), repository.pendingDeliveries(account).map { it.notificationId.value })
+    }
+
+    @Test
+    fun filteredQueriesKeepIndependentCheckpointsAndCompleteness() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val mentions = NotificationQuery(setOf(me.foxtails.palustris.domain.NotificationCategory.Mentions))
+        val social = NotificationQuery(setOf(me.foxtails.palustris.domain.NotificationCategory.Social))
+        repository.activate(token)
+        repository.establishBaseline(token, NotificationPage(
+            items = listOf(notification("mention", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, mentions, oldest = me.foxtails.palustris.domain.NotificationCursor("mentions-old")),
+        ))
+        repository.ingestOlderPage(token, NotificationPage(
+            items = listOf(notification("social", NotificationActivity.Follow)),
+            olderCursor = me.foxtails.palustris.domain.NotificationCursor("social-old"),
+            checkpoint = NotificationCheckpoint(account, social, oldest = me.foxtails.palustris.domain.NotificationCursor("social-old")),
+            direction = NotificationPageDirection.Older,
+        ))
+
+        assertEquals("mentions-old", repository.checkpoint(account, mentions)?.oldest?.value)
+        assertEquals("social-old", repository.checkpoint(account, social)?.oldest?.value)
+        assertEquals(1, repository.observeInbox(account, mentions).first().items.size)
+        assertEquals(1, repository.observeInbox(account, social).first().items.size)
+    }
+
+    @Test
+    fun olderContinuationMovesFromIncompleteToTerminalWithoutRestoringTheCursor() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val query = NotificationQuery()
+        repository.activate(token)
+        repository.establishBaseline(token, NotificationPage(
+            items = listOf(notification("baseline", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, query, oldest = me.foxtails.palustris.domain.NotificationCursor("old-1")),
+        ))
+        repository.ingestOlderPage(token, NotificationPage(
+            items = listOf(notification("older", NotificationActivity.Mention)),
+            olderCursor = me.foxtails.palustris.domain.NotificationCursor("old-2"),
+            checkpoint = NotificationCheckpoint(account, query, oldest = me.foxtails.palustris.domain.NotificationCursor("old-2")),
+            direction = NotificationPageDirection.Older,
+        ))
+        assertEquals(NotificationSyncCompleteness.Incomplete, repository.checkpoint(account, query)?.completeness)
+
+        repository.ingestOlderPage(token, NotificationPage(
+            items = emptyList(),
+            checkpoint = NotificationCheckpoint(account, query),
+            direction = NotificationPageDirection.Older,
+            reachedBoundary = true,
+        ))
+        assertEquals(NotificationSyncCompleteness.Complete, repository.checkpoint(account, query)?.completeness)
+        assertEquals(null, repository.checkpoint(account, query)?.oldest)
+    }
+
+    @Test
+    fun streamDuplicatesCreateOneDeliveryAndDismissalSurvivesRedelivery() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val query = NotificationQuery()
+        val baseline = notification("baseline", NotificationActivity.Mention)
+        val incoming = notification("stream", NotificationActivity.Reply)
+        repository.activate(token)
+        repository.establishBaseline(token, NotificationPage(
+            items = listOf(baseline),
+            checkpoint = NotificationCheckpoint(account, query),
+        ))
+
+        val event = Event(account, SocialEvent.NotificationReceived(incoming))
+        assertTrue(repository.applyStreamEvent(token, event))
+        assertTrue(repository.applyStreamEvent(token, event))
+        assertEquals(listOf("stream"), repository.pendingDeliveries(account).map { it.notificationId.value })
+
+        assertTrue(repository.dismissFromInbox(token, incoming.id, remoteApplied = false))
+        assertTrue(repository.applyStreamEvent(token, event))
+        assertTrue(repository.observe(account).value.items.none { it.id == incoming.id })
+        assertTrue(repository.pendingDeliveries(account).isEmpty())
     }
 
     @Test

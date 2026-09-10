@@ -356,7 +356,9 @@ class NotificationRepository @Inject constructor(
                             .filterNot { it.id in current.dismissedIds }
                             .sortedWith(compareByDescending<Notification> { it.createdAtEpochMillis }.thenByDescending { it.id.value })
                             .take(MAX_ITEMS)
-                        val deliveries = if (current.checkpoints.values.any { it.baselineEstablished } && incoming.id !in current.deliveries) {
+                        val deliveries = if (current.checkpoints.values.any { it.baselineEstablished } &&
+                            incoming.id !in current.deliveries && incoming.id !in current.dismissedIds
+                        ) {
                             current.deliveries + (incoming.id to NotificationDeliveryRecord(
                                 accountId = incoming.accountId,
                                 notificationId = incoming.id,
