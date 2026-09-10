@@ -34,6 +34,12 @@ import me.foxtails.palustris.ui.media.MediaTransitionImageCanvas
 import me.foxtails.palustris.ui.media.MediaTransitionKey
 import me.foxtails.palustris.ui.media.MediaViewerScreen
 import me.foxtails.palustris.ui.media.PostMediaCarousel
+import okhttp3.mockwebserver.Dispatcher
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+import okio.Buffer
+import java.io.ByteArrayOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -249,5 +255,79 @@ class MediaViewerScreenTest {
         assertEquals(android.graphics.Color.YELLOW, screenshot.getPixel(272, 360))
         assertEquals(android.graphics.Color.BLACK, screenshot.getPixel(34, 182))
         fixture.recycle()
+    }
+
+    @Test
+    fun delayedFullImageDoesNotPreventPreviewSourceRestoration() {
+        val preview = markerPng(android.graphics.Color.RED, android.graphics.Color.BLUE)
+        val full = markerPng(android.graphics.Color.GREEN, android.graphics.Color.YELLOW)
+        val server = MockWebServer()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when (request.requestUrl?.encodedPath) {
+                "/preview.png" -> MockResponse().setBody(Buffer().write(preview))
+                "/full.png" -> MockResponse()
+                    .setBody(Buffer().write(full))
+                    .setBodyDelay(2, java.util.concurrent.TimeUnit.SECONDS)
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        server.start()
+
+        val openedRequest = androidx.compose.runtime.mutableStateOf<MediaOpenRequest?>(null)
+        val transitionPost = post.copy(
+            id = EntityId("https://example.org", "delayed-transition"),
+            attachments = listOf(
+                post.attachments.first().copy(
+                    id = "delayed",
+                    url = server.url("/full.png").toString(),
+                    previewUrl = server.url("/preview.png").toString(),
+                    previewWidth = 2,
+                    previewHeight = 2,
+                    width = 2,
+                    height = 2,
+                ),
+            ),
+        )
+
+        try {
+            compose.activity.runOnUiThread {
+                compose.activity.setContent {
+                    Box(Modifier.fillMaxSize()) {
+                        PostMediaCarousel(
+                            OwnedPost(account.id, transitionPost),
+                            onOpenMedia = { openedRequest.value = it },
+                        )
+                        openedRequest.value?.let { request: MediaOpenRequest ->
+                            MediaViewerScreen(request = request, onClose = { openedRequest.value = null })
+                        }
+                    }
+                }
+            }
+            repeat(10) {
+                compose.waitForIdle()
+                Thread.sleep(100)
+            }
+            compose.onNodeWithContentDescription("Open media 1 of 1").performClick()
+            compose.waitForIdle()
+            compose.onNodeWithContentDescription("Close media viewer").performClick()
+            compose.waitForIdle()
+
+            assertEquals(null, openedRequest.value)
+            compose.onNodeWithContentDescription("Open media 1 of 1").assertIsDisplayed()
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    private fun markerPng(top: Int, bottom: Int): ByteArray {
+        val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, top)
+        bitmap.setPixel(1, 0, top)
+        bitmap.setPixel(0, 1, bottom)
+        bitmap.setPixel(1, 1, bottom)
+        return ByteArrayOutputStream().also {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            bitmap.recycle()
+        }.toByteArray()
     }
 }

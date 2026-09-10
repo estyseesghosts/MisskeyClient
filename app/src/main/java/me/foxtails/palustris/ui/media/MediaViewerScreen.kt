@@ -196,7 +196,7 @@ fun MediaViewerScreen(
             }
         }
         LaunchedEffect(transition.phase, selectedTransitionKey, selectedDestinationFrame) {
-            if (transition.phase == MediaViewerPhase.Open) {
+            if (transition.phase == MediaViewerPhase.Open || transition.phase == MediaViewerPhase.Opening) {
                 transition.updateDestinationFrame(selectedDestinationFrame)
             }
         }

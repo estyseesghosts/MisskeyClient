@@ -65,12 +65,12 @@ class MediaViewerTransitionState(
 
     val visualFrame: MediaTransitionFrame
         get() = when (phase) {
-            MediaViewerPhase.Opening -> lerpFrame(sourceFrame, destinationFrame, opening.value)
+            MediaViewerPhase.Opening -> lerpFrame(sourceFrame, destinationFrame, opening.value.coerceIn(0f, 1f))
             MediaViewerPhase.Open -> destinationFrame
             MediaViewerPhase.Dragging -> draggedFrame()
-            MediaViewerPhase.Returning -> lerpFrame(returnStartFrame, destinationFrame, returning.value)
+            MediaViewerPhase.Returning -> lerpFrame(returnStartFrame, destinationFrame, returning.value.coerceIn(0f, 1f))
             MediaViewerPhase.Closing -> centeredFrame(
-                lerpFrame(closeStartFrame, closeTargetFrame, closing.value),
+                lerpFrame(closeStartFrame, closeTargetFrame, closing.value.coerceIn(0f, 1f)),
                 Offset(closeCenterX.value, closeCenterY.value),
             )
         }
