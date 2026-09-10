@@ -226,9 +226,19 @@ internal fun ProfileCategoryChips(
     onCategorySelected: (ProfileCategory) -> Unit,
     onOpenDrafts: () -> Unit,
     onOpenBookmarks: () -> Unit,
+    onOpenLikes: () -> Unit = {},
+    onEditProfile: () -> Unit = {},
+    includeLikes: Boolean = false,
+    includeShowMore: Boolean = true,
+    includeEditProfile: Boolean = false,
 ) {
     FilterChipRow(
-        entries = profileChipEntries(isSelf).map { entry ->
+        entries = profileChipEntries(
+            isSelf = isSelf,
+            includeLikes = includeLikes,
+            includeShowMore = includeShowMore,
+            includeEditProfile = includeEditProfile,
+        ).map { entry ->
             when (entry) {
                 is ProfileChipEntry.Timeline -> FilterChipEntry(
                     label = stringResource(entry.category.labelRes),
@@ -248,6 +258,20 @@ internal fun ProfileCategoryChips(
                     contentDescription = stringResource(R.string.profile_action_bookmarks_description),
                     role = Role.Button,
                     testTag = "profile_bookmarks_chip",
+                )
+                ProfileChipEntry.Likes -> FilterChipEntry(
+                    label = stringResource(R.string.profile_action_likes),
+                    onClick = onOpenLikes,
+                    contentDescription = stringResource(R.string.profile_action_likes_description),
+                    role = Role.Button,
+                    testTag = "profile_likes_chip",
+                )
+                ProfileChipEntry.EditProfile -> FilterChipEntry(
+                    label = stringResource(R.string.profile_edit),
+                    onClick = onEditProfile,
+                    contentDescription = stringResource(R.string.profile_edit_description),
+                    role = Role.Button,
+                    testTag = "profile_edit_profile_chip",
                 )
             }
         },

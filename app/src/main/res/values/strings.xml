@@ -76,6 +76,9 @@
     <string name="profile_action_drafts_description">Open drafts</string>
     <string name="profile_action_bookmarks">Bookmarks</string>
     <string name="profile_action_bookmarks_description">Open bookmarks</string>
+    <string name="profile_action_likes">Likes</string>
+    <string name="profile_action_likes_description">Open likes</string>
+    <string name="profile_edit_description">Edit profile</string>
     <string name="profile_redirect_notice">%1$s has indicated that their new account is now:</string>
     <string name="profile_redirect_go_to_profile">Go to profile</string>
     <string name="profile_redirect_destination_description">Open the new profile for %1$s, %2$s</string>

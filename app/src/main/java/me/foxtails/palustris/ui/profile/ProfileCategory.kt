@@ -20,9 +20,16 @@ sealed interface ProfileChipEntry {
     data class Timeline(val category: ProfileCategory) : ProfileChipEntry
     data object Drafts : ProfileChipEntry
     data object Bookmarks : ProfileChipEntry
+    data object Likes : ProfileChipEntry
+    data object EditProfile : ProfileChipEntry
 }
 
-fun profileChipEntries(isSelf: Boolean): List<ProfileChipEntry> = buildList {
+fun profileChipEntries(
+    isSelf: Boolean,
+    includeLikes: Boolean = false,
+    includeShowMore: Boolean = true,
+    includeEditProfile: Boolean = false,
+): List<ProfileChipEntry> = buildList {
     addAll(
         listOf(
             ProfileChipEntry.Timeline(ProfileCategory.Posts),
@@ -34,6 +41,8 @@ fun profileChipEntries(isSelf: Boolean): List<ProfileChipEntry> = buildList {
     if (isSelf) {
         add(ProfileChipEntry.Drafts)
         add(ProfileChipEntry.Bookmarks)
+        if (includeLikes) add(ProfileChipEntry.Likes)
+        if (includeEditProfile) add(ProfileChipEntry.EditProfile)
     }
-    add(ProfileChipEntry.Timeline(ProfileCategory.ShowMore))
+    if (includeShowMore) add(ProfileChipEntry.Timeline(ProfileCategory.ShowMore))
 }

@@ -94,6 +94,7 @@ fun ProfileScreen(
     onEditProfile: (() -> Unit)? = null,
     onOpenDrafts: () -> Unit = {},
     onOpenBookmarks: () -> Unit = {},
+    onOpenLikes: () -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
     availableActions: Set<PostAction> = emptySet(),
@@ -153,8 +154,9 @@ fun ProfileScreen(
             listState = listState,
             endContentClearance = endContentClearance,
             onCategorySelected = onCategorySelected,
-            onOpenDrafts = onOpenDrafts,
-            onOpenBookmarks = onOpenBookmarks,
+             onOpenDrafts = onOpenDrafts,
+             onOpenBookmarks = onOpenBookmarks,
+             onOpenLikes = onOpenLikes,
             onRefresh = onRefresh,
             onLoadMore = onLoadMore,
             onFollow = onFollow,
@@ -252,13 +254,27 @@ fun ProfileScreen(
                                 role = Role.Button,
                                 testTag = "profile_drafts_chip",
                             )
-                            ProfileChipEntry.Bookmarks -> FilterChipEntry(
-                                label = stringResource(R.string.profile_action_bookmarks),
-                                onClick = onOpenBookmarks,
-                                contentDescription = stringResource(R.string.profile_action_bookmarks_description),
-                                role = Role.Button,
-                                testTag = "profile_bookmarks_chip",
-                            )
+                             ProfileChipEntry.Bookmarks -> FilterChipEntry(
+                                 label = stringResource(R.string.profile_action_bookmarks),
+                                 onClick = onOpenBookmarks,
+                                 contentDescription = stringResource(R.string.profile_action_bookmarks_description),
+                                 role = Role.Button,
+                                 testTag = "profile_bookmarks_chip",
+                             )
+                             ProfileChipEntry.Likes -> FilterChipEntry(
+                                 label = stringResource(R.string.profile_action_likes),
+                                 onClick = onOpenLikes,
+                                 contentDescription = stringResource(R.string.profile_action_likes_description),
+                                 role = Role.Button,
+                                 testTag = "profile_likes_chip",
+                             )
+                             ProfileChipEntry.EditProfile -> FilterChipEntry(
+                                 label = stringResource(R.string.profile_edit),
+                                 onClick = onEditProfile ?: {},
+                                 contentDescription = stringResource(R.string.profile_edit_description),
+                                 role = Role.Button,
+                                 testTag = "profile_edit_profile_chip",
+                             )
                         }
                     },
                     rowContentDescription = "Profile categories; swipe horizontally for more",
@@ -279,6 +295,7 @@ private fun LargeProfilePresentation(
     onCategorySelected: (ProfileCategory) -> Unit,
     onOpenDrafts: () -> Unit,
     onOpenBookmarks: () -> Unit,
+    onOpenLikes: () -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onFollow: () -> Unit,
@@ -347,9 +364,14 @@ private fun LargeProfilePresentation(
                     selected = state.selectedTab,
                     isSelf = isSelf,
                     onCategorySelected = onCategorySelected,
-                    onOpenDrafts = onOpenDrafts,
-                    onOpenBookmarks = onOpenBookmarks,
-                )
+                         onOpenDrafts = onOpenDrafts,
+                         onOpenBookmarks = onOpenBookmarks,
+                         onOpenLikes = onOpenLikes,
+                         onEditProfile = onEditProfile ?: {},
+                         includeLikes = true,
+                         includeShowMore = false,
+                         includeEditProfile = true,
+                     )
             },
             modifier = modifier,
         )
@@ -372,9 +394,10 @@ private fun LargeProfilePresentation(
                         onFollow = onFollow,
                         onUnfollow = onUnfollow,
                         onMessage = onMessage,
-                        onOpenProfile = onOpenProfile,
-                        onEditProfile = onEditProfile,
-                    )
+                         onOpenProfile = onOpenProfile,
+                         onEditProfile = onEditProfile,
+                         largeSummary = showSummary,
+                     )
                     details()
                 }
                 Box(Modifier.weight(0.58f).fillMaxHeight()) {
@@ -402,6 +425,7 @@ private fun ProfileHeader(
     onMessage: () -> Unit,
     onOpenProfile: (Account) -> Unit,
     onEditProfile: (() -> Unit)? = null,
+    largeSummary: Boolean = false,
 ) {
     val context = LocalContext.current
     val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
@@ -454,8 +478,13 @@ private fun ProfileHeader(
             }
             Surface(
                 modifier = Modifier
-                    .padding(start = 16.dp, top = 104.dp)
-                    .size(112.dp)
+                    .then(
+                        if (largeSummary) {
+                            Modifier.align(Alignment.BottomCenter).size(96.dp).testTag("profile_large_avatar")
+                        } else {
+                            Modifier.padding(start = 16.dp, top = 104.dp).size(112.dp)
+                        },
+                    )
                     .clip(CircleShape),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surface,
@@ -477,16 +506,19 @@ private fun ProfileHeader(
                     InlineEmojiText(
                         text = account.displayName.ifBlank { account.handle },
                         emoji = account.emoji,
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        style = if (largeSummary) MaterialTheme.typography.titleMedium
+                        else MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     )
                     Text(
                         text = account.handle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = if (largeSummary) MaterialTheme.typography.bodyMedium
+                        else MaterialTheme.typography.bodyLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (isSelf && onEditProfile != null && state.editableSupported) {
+                if (isSelf && !largeSummary && onEditProfile != null && state.editableSupported) {
                     androidx.compose.material3.OutlinedButton(
                         onClick = onEditProfile,
                         modifier = Modifier.testTag("profile_edit_action"),
@@ -536,7 +568,8 @@ private fun ProfileHeader(
                 text = account.biography.ifBlank { "No biography yet." },
                 emoji = account.emoji,
                 modifier = Modifier.padding(top = 16.dp).testTag("profile_biography"),
-                style = MaterialTheme.typography.bodyLarge,
+                style = if (largeSummary) MaterialTheme.typography.bodyMedium
+                else MaterialTheme.typography.bodyLarge,
             )
 
             ProfileStats(account)

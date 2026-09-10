@@ -157,6 +157,38 @@ class ProfileScreenTest {
     }
 
     @Test
+    fun largeSummaryCentersSmallerAvatarAndMovesSelfActionsToDock() {
+        var likes = 0
+        var edits = 0
+
+        show {
+            ProfileScreen(
+                account = self,
+                profileState = profileState(self, emptyList()),
+                compactLayout = false,
+                largeLayout = true,
+                largeShowSummary = true,
+                authenticatedAccountId = self.id,
+                onOpenLikes = { likes++ },
+                onEditProfile = { edits++ },
+            )
+        }
+
+        val avatar = compose.onNodeWithTag("profile_large_avatar").fetchSemanticsNode().boundsInRoot
+        val header = compose.onNodeWithTag("profile_header").fetchSemanticsNode().boundsInRoot
+        assertEquals(96f * compose.activity.resources.displayMetrics.density, avatar.width, 1f)
+        assertEquals(header.center.x, avatar.center.x, 0.5f)
+        compose.onNodeWithTag("profile_edit_action").assertDoesNotExist()
+        val categories = compose.onNodeWithContentDescription("Profile categories; swipe horizontally for more")
+        categories.performScrollToNode(hasText("Likes"))
+        compose.onNodeWithTag("profile_likes_chip").assertIsDisplayed().performClick()
+        categories.performScrollToNode(hasText("Edit profile"))
+        compose.onNodeWithTag("profile_edit_profile_chip").assertIsDisplayed().performClick()
+        assertEquals(1, likes)
+        assertEquals(1, edits)
+    }
+
+    @Test
     fun remoteProfileOmitsDraftsAndBookmarks() {
         show {
             ProfileScreen(
