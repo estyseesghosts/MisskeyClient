@@ -179,40 +179,6 @@ fun SearchScreen(
                      .onSizeChanged { largeDockHeightPx = it.height },
             )
         }
-    } else if (!compactLayout) {
-        Column(Modifier.fillMaxSize()) {
-            SearchField(query, ::submitSearch, ::updateQuery)
-            CategoryChips(sections, tab, "Search categories; swipe horizontally for more", ::updateTab)
-            SearchContent(
-                modifier = Modifier.weight(1f),
-                query = query,
-                tab = tab,
-                hashtagSearchRequested = hashtagSearchRequested,
-                accountSearch = accountSearch,
-                onAccountClick = onAccountClick,
-                availableActions = availableActions,
-                onReact = onReact,
-                onReply = onReply,
-                onReshare = onReshare,
-                onBookmark = onBookmark,
-                onReaction = onReaction,
-                onOpenReactionBubble = onOpenReactionBubble,
-                onOpenReactionPicker = onOpenReactionPicker,
-                quoteEnabled = quoteEnabled,
-                onQuote = onQuote,
-                onLoadMoreSearch = onLoadMoreSearch,
-                endClearance = 0.dp,
-                 mediaOwner = mediaOwner,
-                  onOpenMedia = onOpenMedia,
-                  onOpenPost = onOpenPost,
-                  onOpenUrl = onOpenUrl,
-                  onOpenUsername = onOpenUsername,
-                 onSearchHashtag = onSearchHashtag,
-                 onOpenHashtagBubble = onOpenHashtagBubble,
-                 listState = listState,
-                 largeLayout = false,
-             )
-        }
     } else {
         Box(Modifier.fillMaxSize()) {
             SearchContent(

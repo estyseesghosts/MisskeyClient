@@ -890,7 +890,6 @@ fun PalustrisApp(
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val presentationMode = largeLayoutMode(maxWidth.value)
         val largePresentation = presentationMode != LargeLayoutMode.Compact
-        val wide = largePresentation
         val windowWidth = maxWidth
         SystemBars(
             mediaViewerOpen = mediaRequest != null,
@@ -911,9 +910,6 @@ fun PalustrisApp(
             }
         }
         Row(Modifier.fillMaxSize()) {
-            if (wide && !largePresentation) NavigationRail(Modifier.fillMaxHeight(), header = { FloatingActionButton(onClick = ::openComposer, modifier = Modifier.padding(vertical = 16.dp)) { Icon(AppIcons.Edit, "Compose post") } }) {
-                Destination.entries.forEach { item -> NavigationRailItem(selected = destination == item, onClick = { selectDestination(item) }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) }) }
-            }
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 @Composable
                 fun destinationScaffold(paneModifier: Modifier) {
@@ -925,7 +921,7 @@ fun PalustrisApp(
                     contentWindowInsets = when {
                         page == null && notificationRoute == null && destination == Destination.Profile ->
                             WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
-                        !wide && page == null && notificationRoute == null ->
+                        !largePresentation && page == null && notificationRoute == null ->
                             WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
                         else -> ScaffoldDefaults.contentWindowInsets
                     },
@@ -991,7 +987,7 @@ fun PalustrisApp(
                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                             LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                               else -> when (animatedDestination) {
-                                  Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, listState = homeListState, topContentPadding = if (largePresentation) 16.dp else null, bottomContentClearance = if (largePresentation) LargeBottomDockClearance else null, refreshIndicatorTopPadding = if (largePresentation) 16.dp else null, bottomDock = if (largePresentation) ({
+                                   Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !largePresentation, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, listState = homeListState, topContentPadding = if (largePresentation) 16.dp else null, bottomContentClearance = if (largePresentation) LargeBottomDockClearance else null, refreshIndicatorTopPadding = if (largePresentation) 16.dp else null, bottomDock = if (largePresentation) ({
                                         LargeTimelineDockContent(availableTimelines, timeline) { item ->
                                             val changed = item != timeline
                                             if (changed) clearSelectedPost()
@@ -1042,8 +1038,8 @@ fun PalustrisApp(
                                         onSharedTabChange = { searchCategory = it },
                                        listState = searchListState.takeIf { largePresentation },
                                         largeLayout = largePresentation,
-                                       compactLayout = !wide,
-                                      compactNavigationVisible = !wide,
+                                        compactLayout = !largePresentation,
+                                       compactNavigationVisible = !largePresentation,
                                         mediaOwner = account?.id,
                                         onOpenMedia = ::openMedia,
                                          onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
@@ -1054,7 +1050,7 @@ fun PalustrisApp(
                                      modifier = Modifier.fillMaxSize(),
                                  ) { panel -> if (panel == NotificationsPanel.Notifications) NotificationsScreen(
                                     connected = account != null,
-                                    compactLayout = !wide,
+                                     compactLayout = !largePresentation,
                                     accountIdentity = notificationAccountIdentity,
                                     notificationState = notificationState,
                                     onRefreshNotifications = onRefreshNotifications,
@@ -1085,7 +1081,7 @@ fun PalustrisApp(
                                       DirectMessageConversationScreen(
                                           accountId = account.id,
                                           state = directMessageState,
-                                          compactLayout = !wide,
+                                           compactLayout = !largePresentation,
                                           compactNavigationVisible = navigationVisible,
                                           onBack = onBackDirectConversation,
                                           onSend = onSendDirectMessage,
@@ -1094,7 +1090,7 @@ fun PalustrisApp(
                                       DirectMessageInboxScreen(
                                           accountId = account.id,
                                           state = directMessageState,
-                                          compactLayout = !wide,
+                                           compactLayout = !largePresentation,
                                           compactNavigationVisible = navigationVisible,
                                           onRefresh = onRefreshDirectMessages,
                                           onLoadMore = onLoadMoreDirectMessages,
@@ -1104,7 +1100,7 @@ fun PalustrisApp(
                 Destination.Profile -> RichProfileScreen(
                     account = displayedProfile,
                      profileState = profileState,
-                     compactLayout = !wide,
+                      compactLayout = !largePresentation,
                      largeLayout = largePresentation,
                      largeShowSummary = singlePost == null,
                      listState = profileListState,
@@ -1213,12 +1209,7 @@ fun PalustrisApp(
                 } else {
                     destinationScaffold(Modifier.fillMaxSize())
                 }
-                 if (!largePresentation && wide && page == null && !modalOverlayOpen && destination == Destination.Home) {
-                    androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = motionScheme.compactFloatingEnter(bottom = false), exit = motionScheme.compactFloatingExit(bottom = false), modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp).zIndex(1f)) {
-                         TimelineSelector(timeline) { clearPostActionBubble(); sheet = "Timelines" }
-                    }
-                }
-                if (!wide && page == null && !modalOverlayOpen) {
+                 if (!largePresentation && page == null && !modalOverlayOpen) {
                     androidx.compose.animation.AnimatedVisibility(
                         visible = navigationVisible,
                         enter = motionScheme.compactFloatingEnter(bottom = true),
@@ -1277,7 +1268,7 @@ fun PalustrisApp(
                 }
             }
         }
-        val hashtagBottomClearance = if (wide || page != null || notificationRoute != null) {
+         val hashtagBottomClearance = if (largePresentation || page != null || notificationRoute != null) {
             0.dp
         } else {
             when (destination) {

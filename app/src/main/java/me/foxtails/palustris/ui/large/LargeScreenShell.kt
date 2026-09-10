@@ -71,9 +71,8 @@ internal fun LargeScreenShell(
                 foldingFeatures = features,
             )
             val showDetail = hasDetail && twoPane && layout.detail != null
-            val primary = if (hasDetail && !showDetail) layout.primary else layout.primary
             Box(Modifier.fillMaxSize()) {
-                PaneSlot(primary, density, if (hasDetail && !showDetail) detailContent else primaryContent)
+                PaneSlot(layout.primary, density, if (hasDetail && !showDetail) detailContent else primaryContent)
                 if (showDetail) {
                     layout.detail?.let { detail -> PaneSlot(detail, density, detailContent) }
                 } else if (twoPane && !hasDetail) {

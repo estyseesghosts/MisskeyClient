@@ -21,6 +21,20 @@ class LargeLayoutModeTest {
     }
 
     @Test
+    fun singleLayoutAlwaysUsesOnePrimaryPane() {
+        val layout = calculateLargePaneLayout(
+            windowWidthDp = 600f,
+            contentWidthDp = 560f,
+            contentHeightDp = 600f,
+            density = 1f,
+        )
+
+        assertEquals(LargeLayoutMode.Single, layout.mode)
+        assertNull(layout.detail)
+        assertEquals(528f, layout.primary.width, 0.001f)
+    }
+
+    @Test
     fun unobstructedExpandedWindowClampsListToPaneMinimums() {
         val layout = calculateLargePaneLayout(
             windowWidthDp = 840f,
