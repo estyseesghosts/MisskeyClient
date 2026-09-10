@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -110,7 +111,6 @@ import me.foxtails.palustris.ui.motion.motionDirection
 import me.foxtails.palustris.ui.motion.springPress
 import me.foxtails.palustris.ui.large.LargeBottomDockClearance
 import me.foxtails.palustris.ui.large.LargeBottomDock
-import me.foxtails.palustris.ui.large.LargeNavigationRail
 import me.foxtails.palustris.ui.large.LargeNavTarget
 import me.foxtails.palustris.ui.large.LargeScreenShell
 import me.foxtails.palustris.ui.large.LargeTimelineDockContent
@@ -1490,11 +1490,11 @@ fun PalustrisApp(
                 ) {
                     ActionIcon(
                         AppIcons.Close,
-                        context.getString(me.foxtails.palustris.R.string.notification_settings_sheet_close),
+                        stringResource(me.foxtails.palustris.R.string.notification_settings_sheet_close),
                         ::closeNotificationSettings,
                     )
                     Text(
-                        context.getString(me.foxtails.palustris.R.string.notification_settings_sheet_title),
+                        stringResource(me.foxtails.palustris.R.string.notification_settings_sheet_title),
                         style = MaterialTheme.typography.titleLarge,
                     )
                 }
