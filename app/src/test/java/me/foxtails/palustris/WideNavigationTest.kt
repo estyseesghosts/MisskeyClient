@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.domain.Account
@@ -65,7 +66,7 @@ class WideNavigationTest {
     }
 
     @Test fun wideNotificationsUseNormalChipFlow() {
-        compose.onNodeWithText("Notifications").performClick()
+        compose.onNodeWithContentDescription("Notifications").performClick()
         compose.waitForIdle()
 
         val row = compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more")
@@ -139,11 +140,12 @@ class WideNavigationTest {
                 .outputStream()
                 .use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
-        compose.onAllNodesWithText("Home").onLast().assertIsDisplayed()
-        compose.onNodeWithContentDescription("Choose timeline").assertIsDisplayed()
-        compose.onNodeWithText("Search").assertIsDisplayed()
-        compose.onNodeWithText("Notifications").assertIsDisplayed()
-        compose.onNodeWithText("Profile").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Home").assertIsDisplayed()
+        compose.onNodeWithTag("large_screen_shell").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Timeline Home").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Search").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Notifications").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Profile").assertIsDisplayed()
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithText("New post").assertIsDisplayed()
     }

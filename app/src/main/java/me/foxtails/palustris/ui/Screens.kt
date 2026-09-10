@@ -50,6 +50,7 @@ import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.motion.springPress
 import me.foxtails.palustris.ui.large.LargeBottomDock
 import me.foxtails.palustris.ui.large.LargeBottomDockClearance
+import me.foxtails.palustris.ui.large.LargeSearchDockClearance
 
 private val exactHashtagQuery = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
 
@@ -145,7 +146,7 @@ fun SearchScreen(
                 quoteEnabled = quoteEnabled,
                 onQuote = onQuote,
                 onLoadMoreSearch = onLoadMoreSearch,
-                endClearance = LargeBottomDockClearance,
+                endClearance = LargeSearchDockClearance,
                 mediaOwner = mediaOwner,
                 onOpenMedia = onOpenMedia,
                 onOpenPost = onOpenPost,

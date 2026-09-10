@@ -61,6 +61,7 @@ internal fun SinglePostScreen(
     onOpenProfile: (Account) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
     onOpenHashtagBubble: ((OwnedPost, List<String>, androidx.compose.ui.geometry.Rect) -> Unit)? = null,
+    onOpenReactionBubble: ((OwnedPost, androidx.compose.ui.geometry.Rect) -> Unit)? = null,
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
@@ -168,7 +169,7 @@ internal fun SinglePostScreen(
                     onReaction = onReaction,
                     quoteEnabled = quoteEnabled,
                     onQuote = onQuote,
-                    onOpenReactionBubble = { _, _ -> },
+                    onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
                     onShare = {},
                 )
             }

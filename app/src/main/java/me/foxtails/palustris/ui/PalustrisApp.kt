@@ -21,6 +21,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.CircleShape
@@ -107,6 +108,14 @@ import me.foxtails.palustris.ui.motion.rememberSelectedColor
 import me.foxtails.palustris.ui.motion.rememberSelectedScale
 import me.foxtails.palustris.ui.motion.motionDirection
 import me.foxtails.palustris.ui.motion.springPress
+import me.foxtails.palustris.ui.large.LargeBottomDockClearance
+import me.foxtails.palustris.ui.large.LargeBottomDock
+import me.foxtails.palustris.ui.large.LargeNavigationRail
+import me.foxtails.palustris.ui.large.LargeNavTarget
+import me.foxtails.palustris.ui.large.LargeScreenShell
+import me.foxtails.palustris.ui.large.LargeTimelineDockContent
+import me.foxtails.palustris.ui.large.largeLayoutMode
+import me.foxtails.palustris.ui.large.LargeLayoutMode
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
@@ -116,10 +125,22 @@ private enum class Destination(val label: String, val icon: ImageVector) {
 private enum class NotificationsPanel { Notifications, DirectMessages }
 private enum class LocalPage { SavedPosts, Drafts, About }
 enum class SearchPanel { Search, Alternate }
+private enum class LargePostOrigin { Home, Search, Profile, Saved, Notification, Other }
 private sealed interface Overlay {
     data object Composer : Overlay
     data object EditProfile : Overlay
     data object NotificationSettings : Overlay
+}
+
+private fun largeTargetFor(
+    destination: Destination,
+    searchPanel: SearchPanel,
+    notificationsPanel: NotificationsPanel,
+): LargeNavTarget = when (destination) {
+    Destination.Home -> LargeNavTarget.Home
+    Destination.Search -> if (searchPanel == SearchPanel.Search) LargeNavTarget.Search else LargeNavTarget.AlternateSearch
+    Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) LargeNavTarget.Notifications else LargeNavTarget.DirectMessages
+    Destination.Profile -> LargeNavTarget.Profile
 }
 
 private const val COMPOSER_OVERLAY_KEY = "Composer"
@@ -495,6 +516,8 @@ fun PalustrisApp(
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
     var overlayKey by rememberSaveable { mutableStateOf<String?>(null) }
     var searchPanelName by rememberSaveable { mutableStateOf(SearchPanel.Search.name) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var searchCategory by rememberSaveable { mutableIntStateOf(0) }
     var searchPrefill by rememberSaveable { mutableStateOf("") }
     var notificationsPanelName by rememberSaveable { mutableStateOf(NotificationsPanel.Notifications.name) }
     val searchPanel = SearchPanel.valueOf(searchPanelName)
@@ -519,6 +542,9 @@ fun PalustrisApp(
     var signOutDialog by remember { mutableStateOf(false) }
     var mediaRequest by remember { mutableStateOf<MediaOpenRequest?>(null) }
     var singlePost by remember { mutableStateOf<OwnedPost?>(null) }
+    var singlePostOrigin by remember { mutableStateOf(LargePostOrigin.Other) }
+    val homeListState = rememberLazyListState()
+    val profileListState = rememberLazyListState()
     var emojiPickerTarget by remember { mutableStateOf<EmojiPickerTarget?>(null) }
     var postActionBubbleTarget by remember { mutableStateOf<PostActionBubbleTarget?>(null) }
     var postReactionHandler by remember { mutableStateOf<((OwnedPost, EmojiChoice) -> Unit)?>(null) }
@@ -593,6 +619,9 @@ fun PalustrisApp(
         savedReplyTo = null
         mediaRequest = null
         singlePost = null
+        singlePostOrigin = LargePostOrigin.Other
+        searchQuery = ""
+        searchCategory = 0
         profileEditor = null
         emojiPickerTarget = null
         postActionBubbleTarget = null
@@ -791,6 +820,8 @@ fun PalustrisApp(
     }
     fun openProfile(profile: Account) {
         clearPostActionBubble()
+        singlePost = null
+        singlePostOrigin = LargePostOrigin.Other
         viewedProfile = profile
         destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Profile.ordinal, motionScheme.reducedMotion)
         destination = Destination.Profile
@@ -799,8 +830,38 @@ fun PalustrisApp(
         notificationRoute = null
     }
 
+    fun selectLargeTarget(target: LargeNavTarget) {
+        singlePost = null
+        singlePostOrigin = LargePostOrigin.Other
+        when (target) {
+            LargeNavTarget.Home -> selectDestination(Destination.Home)
+            LargeNavTarget.Search -> {
+                searchPanelName = SearchPanel.Search.name
+                selectDestination(Destination.Search)
+            }
+            LargeNavTarget.AlternateSearch -> {
+                searchPanelName = SearchPanel.Alternate.name
+                selectDestination(Destination.Search)
+            }
+            LargeNavTarget.Notifications -> {
+                notificationsPanelName = NotificationsPanel.Notifications.name
+                selectDestination(Destination.Notifications)
+            }
+            LargeNavTarget.DirectMessages -> {
+                notificationsPanelName = NotificationsPanel.DirectMessages.name
+                selectDestination(Destination.Notifications)
+            }
+            LargeNavTarget.Profile -> {
+                viewedProfile = null
+                selectDestination(Destination.Profile)
+            }
+        }
+    }
+
     fun openDirectMessage(profile: Account) {
         clearPostActionBubble()
+        singlePost = null
+        singlePostOrigin = LargePostOrigin.Other
         onStartDirectConversation(profile)
         notificationsPanelName = NotificationsPanel.DirectMessages.name
         destinationTransitionDirection = motionDirection(
@@ -827,7 +888,10 @@ fun PalustrisApp(
 
     fun openHashtagSearch(hashtag: String) {
         clearPostActionBubble()
-        searchPrefill = hashtag
+        singlePost = null
+        singlePostOrigin = LargePostOrigin.Other
+        searchQuery = hashtag
+        searchPrefill = ""
         searchPanelName = SearchPanel.Search.name
         destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Search.ordinal, motionScheme.reducedMotion)
         destination = Destination.Search
@@ -837,7 +901,10 @@ fun PalustrisApp(
 
     fun openAccountSearch(username: String) {
         clearPostActionBubble()
-        searchPrefill = username
+        singlePost = null
+        singlePostOrigin = LargePostOrigin.Other
+        searchQuery = username
+        searchPrefill = ""
         searchPanelName = SearchPanel.Search.name
         destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Search.ordinal, motionScheme.reducedMotion)
         destination = Destination.Search
@@ -852,10 +919,21 @@ fun PalustrisApp(
         mediaRequest = request
     }
 
-    fun openSinglePost(post: OwnedPost) {
+    fun openSinglePost(post: OwnedPost, origin: LargePostOrigin = LargePostOrigin.Other) {
         clearPostActionBubble()
         mediaRequest = null
         singlePost = post
+        singlePostOrigin = origin
+    }
+
+    fun latestSelectedPost(): OwnedPost? {
+        val selected = singlePost ?: return null
+        val candidates = ownedPosts.orEmpty() +
+            feedState?.ownedPosts.orEmpty() +
+            savedPostsState?.posts.orEmpty() +
+            profileState.pinnedPosts +
+            profileState.pages.values.flatMap { it.posts }
+        return candidates.firstOrNull { it.post.id == selected.post.id } ?: selected
     }
 
     BackHandler(enabled = mediaRequest == null && (singlePost != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home)) {
@@ -871,14 +949,19 @@ fun PalustrisApp(
     }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        val wide = maxWidth >= 600.dp
+        val presentationMode = largeLayoutMode(maxWidth.value)
+        val largePresentation = presentationMode != LargeLayoutMode.Compact
+        val wide = largePresentation
+        val windowWidth = maxWidth
         Row(Modifier.fillMaxSize()) {
-            if (wide) NavigationRail(Modifier.fillMaxHeight(), header = { FloatingActionButton(onClick = ::openComposer, modifier = Modifier.padding(vertical = 16.dp)) { Icon(AppIcons.Edit, "Compose post") } }) {
+            if (wide && !largePresentation) NavigationRail(Modifier.fillMaxHeight(), header = { FloatingActionButton(onClick = ::openComposer, modifier = Modifier.padding(vertical = 16.dp)) { Icon(AppIcons.Edit, "Compose post") } }) {
                 Destination.entries.forEach { item -> NavigationRailItem(selected = destination == item, onClick = { selectDestination(item) }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) }) }
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
+                @Composable
+                fun destinationScaffold(paneModifier: Modifier) {
                 Scaffold(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = paneModifier.fillMaxSize(),
                     // Compact page bodies receive top/horizontal system insets only.
                     // Content must measure through the floating assembly; scrollables
                     // add end clearance inside their scroll range instead.
@@ -915,7 +998,7 @@ fun PalustrisApp(
                                 items = notificationState.items,
                                 onSearchHashtag = ::openHashtagSearch,
                                 onOpenHashtagBubble = ::openHashtagBubble,
-                                onOpenPost = ::openSinglePost,
+                                onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Notification) },
                                 onOpenTarget = (notificationRoute as? AppRoute.Profile)?.let { route ->
                                     { openNotificationTarget(route) }
                                 },
@@ -938,7 +1021,7 @@ fun PalustrisApp(
                                           openReactionBubble(ownedPost, bounds, onSavedPostReaction)
                                       },
                                       onOpenMedia = ::openMedia,
-                                      onOpenPost = ::openSinglePost,
+                                       onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Saved) },
                                       availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
                                       onOpenProfile = ::openProfile,
                                       onSearchHashtag = ::openHashtagSearch,
@@ -949,9 +1032,26 @@ fun PalustrisApp(
                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                             LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
                               else -> when (animatedDestination) {
-                                  Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, onOpenReactionBubble = { ownedPost, bounds ->
+                                  Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !wide, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, listState = homeListState, topContentPadding = if (largePresentation) 16.dp else null, bottomContentClearance = if (largePresentation) LargeBottomDockClearance else null, refreshIndicatorTopPadding = if (largePresentation) 16.dp else null, bottomDock = if (largePresentation) ({
+                                       LargeTimelineDockContent(availableTimelines, timeline) { item ->
+                                           val changed = item != timeline
+                                           timeline = item
+                                           if (changed) onRefresh(item)
+                                       }
+                                   }) else null, onOpenReactionBubble = { ownedPost, bounds ->
                                       openReactionBubble(ownedPost, bounds, onReaction)
-                                    }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia, onOpenPost = ::openSinglePost, onOpenUsername = ::openAccountSearch) else EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                     }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia, onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Home) }, onOpenUsername = ::openAccountSearch) else Box(Modifier.fillMaxSize()) {
+                                       EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                       if (largePresentation) {
+                                           LargeBottomDock(modifier = Modifier.align(Alignment.BottomStart), content = {
+                                               LargeTimelineDockContent(availableTimelines, timeline) { item ->
+                                                   val changed = item != timeline
+                                                   timeline = item
+                                                   if (changed) onRefresh(item)
+                                               }
+                                           })
+                                       }
+                                   }
                                  Destination.Search -> AnimatedStatePane(
                                      stateKey = searchPanel,
                                      modifier = Modifier.fillMaxSize(),
@@ -973,13 +1073,18 @@ fun PalustrisApp(
                                        onQuote = ::openQuote,
                                        onSearchHashtag = ::openHashtagSearch,
                                        onOpenHashtagBubble = ::openHashtagBubble,
-                                      onLoadMoreSearch = onLoadMoreSearch,
-                                      initialQuery = searchPrefill,
-                                      compactLayout = !wide,
+                                       onLoadMoreSearch = onLoadMoreSearch,
+                                       initialQuery = searchPrefill,
+                                       sharedQuery = searchQuery,
+                                       sharedTab = searchCategory,
+                                       onSharedQueryChange = { searchQuery = it },
+                                       onSharedTabChange = { searchCategory = it },
+                                       largeLayout = largePresentation,
+                                       compactLayout = !wide,
                                       compactNavigationVisible = !wide,
                                         mediaOwner = account?.id,
                                         onOpenMedia = ::openMedia,
-                                        onOpenPost = ::openSinglePost,
+                                         onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
                                         onOpenUsername = ::openAccountSearch,
                                      ) }
                                  Destination.Notifications -> AnimatedStatePane(
@@ -1031,8 +1136,11 @@ fun PalustrisApp(
                                   } }
                 Destination.Profile -> RichProfileScreen(
                     account = displayedProfile,
-                    profileState = profileState,
-                    compactLayout = !wide,
+                     profileState = profileState,
+                     compactLayout = !wide,
+                     largeLayout = largePresentation,
+                     largeShowSummary = singlePost == null,
+                     listState = profileListState,
                     compactNavigationVisible = navigationVisible,
                     authenticatedAccountId = account?.id,
                     onProfileShown = onProfileShown,
@@ -1061,17 +1169,78 @@ fun PalustrisApp(
                           openReactionBubble(ownedPost, bounds, onProfilePostReaction)
                       },
                        onOpenMedia = ::openMedia,
-                       onOpenPost = ::openSinglePost,
+                        onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
                        onOpenUsername = ::openAccountSearch,
                    )
                               }
-                        }
-                        }
-                        }
-                        }
-                    }
+                         }
+                         }
+                         }
+                         }
+                     }
+                 }
                 }
-                if (wide && page == null && !modalOverlayOpen && destination == Destination.Home) {
+                if (largePresentation) {
+                    LargeScreenShell(
+                        windowWidth = windowWidth,
+                        selectedTarget = largeTargetFor(destination, searchPanel, notificationsPanel),
+                        account = account,
+                        hasDetail = singlePost != null,
+                        twoPane = presentationMode == LargeLayoutMode.Expanded &&
+                            (destination == Destination.Home || (destination == Destination.Profile && singlePost != null)),
+                        onTargetSelected = ::selectLargeTarget,
+                        onOpenAccounts = { clearPostActionBubble(); sheet = "Accounts" },
+                        onCompose = ::openComposer,
+                        primaryContent = { paneModifier -> destinationScaffold(paneModifier) },
+                        detailContent = { paneModifier ->
+                            val selected = latestSelectedPost()
+                            if (selected != null) {
+                                SinglePostScreen(
+                                    ownedPost = selected,
+                                    onClose = { singlePost = null },
+                                    availableActions = feedState?.actions ?: emptySet(),
+                                    onReact = onReact,
+                                    onReply = handleReply,
+                                    onReshare = onReshare,
+                                    onBookmark = onBookmark,
+                                    onReaction = when (singlePostOrigin) {
+                                        LargePostOrigin.Profile -> onProfilePostReaction
+                                        LargePostOrigin.Saved -> onSavedPostReaction
+                                        else -> onReaction
+                                    },
+                                    onOpenProfile = ::openProfile,
+                                    onSearchHashtag = ::openHashtagSearch,
+                                    onOpenHashtagBubble = ::openHashtagBubble,
+                                    onOpenReactionBubble = { post, bounds ->
+                                        openReactionBubble(
+                                            post,
+                                            bounds,
+                                            when (singlePostOrigin) {
+                                                LargePostOrigin.Profile -> onProfilePostReaction
+                                                LargePostOrigin.Saved -> onSavedPostReaction
+                                                else -> onReaction
+                                            },
+                                        )
+                                    },
+                                    onOpenMedia = ::openMedia,
+                                    onOpenUsername = ::openAccountSearch,
+                                    embedded = true,
+                                    showCommentsPlaceholder = true,
+                                    quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
+                                    onQuote = ::openQuote,
+                                    modifier = paneModifier,
+                                )
+                            } else {
+                                Box(paneModifier, contentAlignment = Alignment.Center) {
+                                    EmptyState(AppIcons.Home, "Select a post", "Choose a post to read it here.")
+                                }
+                            }
+                        },
+                    )
+                } else {
+                    destinationScaffold(Modifier.fillMaxSize())
+                }
+                 if (!largePresentation && wide && page == null && !modalOverlayOpen && destination == Destination.Home) {
                     androidx.compose.animation.AnimatedVisibility(visible = navigationVisible, enter = motionScheme.compactFloatingEnter(bottom = false), exit = motionScheme.compactFloatingExit(bottom = false), modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp).zIndex(1f)) {
                          TimelineSelector(timeline) { clearPostActionBubble(); sheet = "Timelines" }
                     }
@@ -1171,9 +1340,28 @@ fun PalustrisApp(
                 clearPostActionBubble()
             },
             onReactionModeChanged = { expanded -> postActionBubbleTarget = expanded },
-            hashtagBottomClearance = hashtagBottomClearance,
-        )
-    }
+             hashtagBottomClearance = hashtagBottomClearance,
+         )
+         if (!largePresentation) {
+             singlePost?.let { post ->
+                 SinglePostScreen(
+                     ownedPost = post,
+                     onClose = { singlePost = null },
+                     availableActions = feedState?.actions ?: emptySet(),
+                     onReact = onReact,
+                     onReply = handleReply,
+                     onReshare = onReshare,
+                     onBookmark = onBookmark,
+                     onReaction = onReaction,
+                     onOpenProfile = ::openProfile,
+                     onSearchHashtag = ::openHashtagSearch,
+                     onOpenHashtagBubble = ::openHashtagBubble,
+                     onOpenMedia = ::openMedia,
+                     onOpenUsername = ::openAccountSearch,
+                 )
+             }
+         }
+     }
 
     mediaRequest?.let { request ->
         MediaViewerScreen(
@@ -1183,24 +1371,6 @@ fun PalustrisApp(
             onReply = handleReply,
             onReshare = onReshare,
         )
-    }
-
-    singlePost?.let { post ->
-        SinglePostScreen(
-            ownedPost = post,
-            onClose = { singlePost = null },
-            availableActions = feedState?.actions ?: emptySet(),
-            onReact = onReact,
-            onReply = handleReply,
-            onReshare = onReshare,
-            onBookmark = onBookmark,
-            onReaction = onReaction,
-            onOpenProfile = ::openProfile,
-            onSearchHashtag = ::openHashtagSearch,
-             onOpenHashtagBubble = ::openHashtagBubble,
-             onOpenMedia = ::openMedia,
-             onOpenUsername = ::openAccountSearch,
-         )
     }
 
     if (sheet != null) ModalBottomSheet(onDismissRequest = { sheet = null }) {
