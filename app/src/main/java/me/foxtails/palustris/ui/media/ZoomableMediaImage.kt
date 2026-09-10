@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -62,13 +63,20 @@ internal fun ZoomableMediaImage(
     modifier: Modifier = Modifier,
     state: ZoomableMediaState = rememberZoomableMediaState(request.data),
     onImageReady: () -> Unit = {},
+    onImageDimensionsReady: (Size) -> Unit = {},
 ) {
     val transformState = rememberTransformableState { zoomChange, panChange, _ ->
         state.applyTransform(zoomChange, panChange)
     }
     val painter = rememberAsyncImagePainter(model = request, imageLoader = imageLoader)
     LaunchedEffect(painter.state) {
-        if (painter.state is AsyncImagePainter.State.Success) onImageReady()
+        if (painter.state is AsyncImagePainter.State.Success) {
+            val size = (painter.state as AsyncImagePainter.State.Success).painter.intrinsicSize
+            if (size.width.isFinite() && size.height.isFinite() && size.width > 0f && size.height > 0f) {
+                onImageDimensionsReady(size)
+            }
+            onImageReady()
+        }
     }
     Box(
         modifier

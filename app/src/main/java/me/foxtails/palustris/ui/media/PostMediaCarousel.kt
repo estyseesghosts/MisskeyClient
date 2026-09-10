@@ -11,6 +11,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -45,7 +46,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -56,7 +56,8 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.MediaRequestDecision
@@ -94,7 +95,7 @@ fun PostMediaCarousel(
     var visibleViewport by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     BoxWithConstraints(modifier.fillMaxWidth()) {
         LazyRow(
-            modifier = Modifier.onGloballyPositioned { visibleViewport = it.boundsInRoot() },
+            modifier = Modifier.onGloballyPositioned { visibleViewport = it.fullBoundsInRoot() },
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -176,6 +177,11 @@ private fun MediaPreviewTile(
             )
         }
     }
+    val previewPainter = imageRequest?.let { rememberAsyncImagePainter(it, mediaImageLoader.imageLoader) }
+    val decodedPreviewSize = (previewPainter?.state as? AsyncImagePainter.State.Success)
+        ?.painter
+        ?.intrinsicSize
+        ?.takeIf { it.width.isFinite() && it.height.isFinite() && it.width > 0f && it.height > 0f }
     val open = {
         onOpenMedia(
             MediaOpenRequest(
@@ -198,29 +204,22 @@ private fun MediaPreviewTile(
     Surface(
         modifier = modifier
             .onGloballyPositioned { coordinates ->
-                val fullBounds = coordinates.boundsInRoot()
+                val fullBounds = coordinates.fullBoundsInRoot()
                 registry.updateIfVisible(
                     transitionKey,
                     MediaTransitionSource(
                         fullBounds = fullBounds,
-                        visibleBounds = fullBounds.visiblePartIn(visibleViewport),
+                        visibleBounds = coordinates.visibleBoundsInRoot(visibleViewport),
                         cornerRadiusPx = with(density) { 12.dp.toPx() },
                         previewRequest = imageRequest,
-                        imageWidth = (attachment.previewWidth ?: attachment.width ?: 4).toFloat(),
-                        imageHeight = (attachment.previewHeight ?: attachment.height ?: 3).toFloat(),
+                        imageWidth = decodedPreviewSize?.width
+                            ?: (attachment.previewWidth ?: attachment.width ?: 4).toFloat(),
+                        imageHeight = decodedPreviewSize?.height
+                            ?: (attachment.previewHeight ?: attachment.height ?: 3).toFloat(),
                     ),
                 )
             }
             .clip(RoundedCornerShape(12.dp))
-            .then(if (revealed) {
-                Modifier
-                    .springPress(interactionSource, pressedScale = scheme.largePressedScale)
-                    .clickable(
-                        interactionSource = interactionSource,
-                        indication = LocalIndication.current,
-                        onClick = open,
-                    )
-            } else Modifier)
             .testTag("post_media_frame_${ownedPost.post.id.value}_$index")
             .semantics {
                 if (revealed) {
@@ -233,33 +232,45 @@ private fun MediaPreviewTile(
             .then(if (active) Modifier.clearAndSetSemantics {} else Modifier),
         color = if (active) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
-        AnimatedContent(
-            targetState = revealed,
-            transitionSpec = {
-                if (scheme.reducedMotion) EnterTransition.None togetherWith ExitTransition.None
-                else (fadeIn(scheme.fastFadeIn) + scaleIn(initialScale = 0.98f, animationSpec = scheme.spatial)) togetherWith
-                    (fadeOut(scheme.fastFadeOut) + scaleOut(targetScale = 0.98f, animationSpec = scheme.spatial))
-            },
-            modifier = Modifier.fillMaxSize().then(
-                if (active) Modifier.graphicsLayer { alpha = 0f } else Modifier,
-            ),
-            label = "sensitiveMediaReveal",
-        ) { isRevealed ->
-            if (!isRevealed) {
-                SensitiveMediaTile(onReveal = { revealed = true })
-            } else {
-                when {
-                    attachment.kind !in setOf(MediaKind.Image, MediaKind.AnimatedImage) -> UnsupportedMediaTile(attachment)
-                    visibleDecision is MediaRequestDecision.Request -> {
-                        AsyncImage(
-                            model = imageRequest,
-                            imageLoader = mediaImageLoader.imageLoader,
-                            contentDescription = attachment.description ?: "Post attachment ${index + 1}",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
+        Box(
+            Modifier
+                .fillMaxSize()
+                .then(if (revealed) {
+                    Modifier
+                        .springPress(interactionSource, pressedScale = scheme.largePressedScale)
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = LocalIndication.current,
+                            onClick = open,
                         )
+                } else Modifier)
+                .then(if (active) Modifier.graphicsLayer { alpha = 0f } else Modifier),
+        ) {
+            AnimatedContent(
+                targetState = revealed,
+                transitionSpec = {
+                    if (scheme.reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+                    else (fadeIn(scheme.fastFadeIn) + scaleIn(initialScale = 0.98f, animationSpec = scheme.spatial)) togetherWith
+                        (fadeOut(scheme.fastFadeOut) + scaleOut(targetScale = 0.98f, animationSpec = scheme.spatial))
+                },
+                modifier = Modifier.fillMaxSize(),
+                label = "sensitiveMediaReveal",
+            ) { isRevealed ->
+                if (!isRevealed) {
+                    SensitiveMediaTile(onReveal = { revealed = true })
+                } else {
+                    when {
+                        attachment.kind !in setOf(MediaKind.Image, MediaKind.AnimatedImage) -> UnsupportedMediaTile(attachment)
+                        visibleDecision is MediaRequestDecision.Request && previewPainter != null -> {
+                            Image(
+                                painter = previewPainter,
+                                contentDescription = attachment.description ?: "Post attachment ${index + 1}",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                        else -> MissingPreviewTile(attachment.description)
                     }
-                    else -> MissingPreviewTile(attachment.description)
                 }
             }
         }

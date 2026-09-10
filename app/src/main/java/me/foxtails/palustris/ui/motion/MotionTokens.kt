@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.IntSize
 @Immutable
 data class PalustrisMotionScheme(
     val spatial: FiniteAnimationSpec<Float>,
+    val spatialPixels: FiniteAnimationSpec<Float>,
     val expressive: FiniteAnimationSpec<Float>,
     val press: FiniteAnimationSpec<Float>,
     val gentle: FiniteAnimationSpec<Float>,
@@ -50,6 +51,7 @@ data class PalustrisMotionScheme(
                 val snapSize = androidx.compose.animation.core.snap<IntSize>()
                 return PalustrisMotionScheme(
                     spatial = snapFloat,
+                    spatialPixels = snapFloat,
                     expressive = snapFloat,
                     press = snapFloat,
                     gentle = snapFloat,
@@ -65,6 +67,7 @@ data class PalustrisMotionScheme(
             }
             return PalustrisMotionScheme(
                 spatial = spring(dampingRatio = 0.82f, stiffness = 520f, visibilityThreshold = 0.001f),
+                spatialPixels = spring(dampingRatio = 0.82f, stiffness = 520f, visibilityThreshold = 0.5f),
                 expressive = spring(dampingRatio = 0.68f, stiffness = 620f, visibilityThreshold = 0.001f),
                 press = spring(dampingRatio = 0.76f, stiffness = 900f, visibilityThreshold = 0.001f),
                 gentle = spring(dampingRatio = 0.9f, stiffness = 380f, visibilityThreshold = 0.001f),

@@ -140,6 +140,7 @@ class MediaViewerTransitionState(
         val token = ++animationToken
         if (motionScheme.reducedMotion) opening.snapTo(1f)
         else opening.animateTo(1f, motionScheme.spatial)
+        opening.snapTo(1f)
         if (token == animationToken && phase == MediaViewerPhase.Opening) phase = MediaViewerPhase.Open
     }
 
@@ -178,6 +179,7 @@ class MediaViewerTransitionState(
         } else {
             returning.animateTo(1f, motionScheme.spatial)
         }
+        returning.snapTo(1f)
         if (token == animationToken) {
             dragX = 0f
             dragY = 0f
@@ -210,10 +212,13 @@ class MediaViewerTransitionState(
             coroutineScope {
                 listOf(
                     launch { closing.animateTo(1f, motionScheme.spatial) },
-                    launch { closeCenterX.animateTo(closeTargetFrame.clipBounds.center.x, motionScheme.spatial, initialVelocity = releaseVelocity.x) },
-                    launch { closeCenterY.animateTo(closeTargetFrame.clipBounds.center.y, motionScheme.spatial, initialVelocity = releaseVelocity.y) },
+                    launch { closeCenterX.animateTo(closeTargetFrame.clipBounds.center.x, motionScheme.spatialPixels, initialVelocity = releaseVelocity.x) },
+                    launch { closeCenterY.animateTo(closeTargetFrame.clipBounds.center.y, motionScheme.spatialPixels, initialVelocity = releaseVelocity.y) },
                 ).joinAll()
             }
+            closing.snapTo(1f)
+            closeCenterX.snapTo(closeTargetFrame.clipBounds.center.x)
+            closeCenterY.snapTo(closeTargetFrame.clipBounds.center.y)
         }
         if (token != animationToken) return
     }

@@ -4,13 +4,16 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Offset
 import me.foxtails.palustris.ui.media.MediaTransitionKey
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
+import me.foxtails.palustris.ui.media.MediaTransitionSource
 import me.foxtails.palustris.ui.media.MediaViewerPhase
 import me.foxtails.palustris.ui.media.MediaViewerTransitionState
 import me.foxtails.palustris.ui.media.ZoomableMediaState
 import me.foxtails.palustris.ui.media.dismissProgress
+import me.foxtails.palustris.ui.media.cropRect
 import me.foxtails.palustris.ui.media.fitRect
 import me.foxtails.palustris.ui.media.lerpRect
 import me.foxtails.palustris.ui.media.shouldDismiss
+import me.foxtails.palustris.ui.media.updateIfVisible
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -23,6 +26,24 @@ class MediaTransitionStateTest {
     fun fitRectCentersPortraitAndLandscapeImages() {
         assertEquals(Rect(250f, 0f, 750f, 1000f), fitRect(Rect(0f, 0f, 1000f, 1000f), 1f, 2f))
         assertEquals(Rect(0f, 250f, 1000f, 750f), fitRect(Rect(0f, 0f, 1000f, 1000f), 2f, 1f))
+    }
+
+    @Test
+    fun deterministicEdgeMarkerFixtureVariantsKeepCropGeometry() {
+        val boundedFeed = Rect(0f, 0f, 240f, 240f)
+        val landscape = cropRect(boundedFeed, 16f, 9f)
+        val portrait = cropRect(boundedFeed, 9f, 16f)
+        val sameAspect = cropRect(Rect(0f, 0f, 320f, 180f), 16f, 9f)
+        val differentAspect = cropRect(Rect(0f, 0f, 320f, 180f), 4f, 3f)
+        val missingMetadata = cropRect(boundedFeed, 4f, 3f)
+
+        assertTrue(landscape.width > boundedFeed.width)
+        assertEquals(boundedFeed.height, landscape.height, 0.001f)
+        assertTrue(portrait.height > boundedFeed.height)
+        assertEquals(boundedFeed.width, portrait.width, 0.001f)
+        assertEquals(Rect(0f, 0f, 320f, 180f), sameAspect)
+        assertTrue(differentAspect.height > sameAspect.height)
+        assertEquals(4f / 3f, missingMetadata.width / missingMetadata.height, 0.001f)
     }
 
     @Test
@@ -54,6 +75,38 @@ class MediaTransitionStateTest {
         assertNull(registry.currentActiveKey)
         registry.remove(key)
         assertNull(registry.boundsFor(key))
+    }
+
+    @Test
+    fun registryKeepsCompleteBoundsForPartialClipsAndInvalidatesInvisibleSources() {
+        val registry = MediaTransitionRegistry()
+        val key = MediaTransitionKey("account", "post", "attachment", "occurrence")
+        val full = Rect(10f, 20f, 210f, 220f)
+        val visible = Rect(10f, 40f, 210f, 220f)
+
+        registry.updateIfVisible(key, MediaTransitionSource(fullBounds = full, visibleBounds = visible))
+        assertEquals(full, registry.sourceFor(key)?.fullBounds)
+        assertEquals(visible, registry.sourceFor(key)?.visibleBounds)
+
+        registry.updateIfVisible(key, MediaTransitionSource(fullBounds = full, visibleBounds = Rect(0f, 0f, 0f, 0f)))
+        assertNull(registry.sourceFor(key))
+    }
+
+    @Test
+    fun oldViewerOwnerCannotClearAReplacementOrItsHandoff() {
+        val registry = MediaTransitionRegistry()
+        val key = MediaTransitionKey("account", "post", "attachment")
+        val first = registry.begin(key)
+        registry.prepareHandoff(first)
+        assertFalse(registry.isSourceHidden(key))
+
+        val replacement = registry.begin(key)
+        registry.end(first)
+        assertTrue(registry.isOwnerActive(replacement))
+        assertTrue(registry.isSourceHidden(key))
+
+        registry.end(replacement)
+        assertNull(registry.currentActiveKey)
     }
 
     @Test

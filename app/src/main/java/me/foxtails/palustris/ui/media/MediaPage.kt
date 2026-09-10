@@ -14,6 +14,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,7 @@ internal fun MediaPage(
     postIdentity: String,
     onReveal: () -> Unit,
     onImageReady: () -> Unit = {},
+    onImageDimensionsReady: (Size) -> Unit = {},
     zoomState: ZoomableMediaState = rememberZoomableMediaState(attachment.url),
     modifier: Modifier = Modifier,
     edgeToEdge: Boolean = false,
@@ -81,8 +83,9 @@ internal fun MediaPage(
                 ),
                  imageLoader = mediaLoader.imageLoader,
                  contentDescription = attachment.description ?: "Media ${index + 1}",
-                 state = zoomState,
-                 onImageReady = onImageReady,
+                  state = zoomState,
+                  onImageReady = onImageReady,
+                  onImageDimensionsReady = onImageDimensionsReady,
                   modifier = Modifier.fillMaxWidth().then(if (edgeToEdge) Modifier else Modifier.padding(horizontal = MediaPageHorizontalPadding)),
             )
             is MediaRequestDecision.NoRequest -> Column(horizontalAlignment = Alignment.CenterHorizontally) {

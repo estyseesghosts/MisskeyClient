@@ -4,7 +4,6 @@ package me.foxtails.palustris.ui.media
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -14,15 +13,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,22 +34,26 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
@@ -93,9 +91,12 @@ fun MediaViewerScreen(
         mutableStateMapOf<Int, Boolean>().apply { if (request.revealed) put(request.attachmentIndex, true) }
     }
     val fullReadyPages = remember(request.transitionKey) { mutableStateMapOf<Int, Boolean>() }
+    val fullDimensions = remember(request.transitionKey) { mutableStateMapOf<Int, Size>() }
     var menuVisible by rememberSaveable { mutableStateOf(false) }
     var chromeVisible by rememberSaveable { mutableStateOf(true) }
     var descriptionVisible by rememberSaveable { mutableStateOf(false) }
+    var closeRequested by remember(request.transitionKey) { mutableStateOf(false) }
+    var transitionOwner by remember(request.transitionKey) { mutableStateOf<MediaTransitionOwner?>(null) }
     val scope = rememberCoroutineScope()
     val zoomStates = remember(request.transitionKey) { mutableStateMapOf<Int, ZoomableMediaState>() }
     val selectedZoomScale = zoomStates[pagerState.currentPage]?.scale ?: 1f
@@ -106,11 +107,14 @@ fun MediaViewerScreen(
         } else {
             MediaTransitionKey.forAttachment(request.ownedPost, pagerState.currentPage)
         }
+    val selectedPage = pagerState.currentPage
+    val selectedKey = selectedTransitionKey
+    val selectedFullReady = fullReadyPages[selectedPage] == true
     val latestDescriptionVisible by rememberUpdatedState(descriptionVisible)
     val latestZoomScale by rememberUpdatedState(selectedZoomScale)
 
     DisposableEffect(request.transitionKey) {
-        onDispose { registry.endActive() }
+        onDispose { transitionOwner?.let { registry.end(it) } }
     }
 
     BoxWithConstraints(
@@ -122,7 +126,12 @@ fun MediaViewerScreen(
         val selectedSource = registry.sourceFor(selectedTransitionKey)
             ?: request.initialSource.takeIf { selectedTransitionKey == request.transitionKey }
         val initialAttachment = attachments[request.attachmentIndex.coerceIn(0, attachments.lastIndex)]
-        val initialDestinationFrame = destinationFrame(viewport, initialAttachment, density)
+        val initialDestinationFrame = destinationFrame(
+            viewport,
+            initialAttachment,
+            density,
+            fullDimensions[request.attachmentIndex.coerceIn(0, attachments.lastIndex)],
+        )
         val transition = remember(request.transitionKey) {
             MediaViewerTransitionState(
                 initialSourceBounds = request.initialSourceBounds,
@@ -132,9 +141,8 @@ fun MediaViewerScreen(
                 initialDestinationFrame = initialDestinationFrame,
             )
         }
-        val selectedDestinationFrame = destinationFrame(viewport, selectedAttachment, density)
+        val selectedDestinationFrame = destinationFrame(viewport, selectedAttachment, density, fullDimensions[selectedPage])
         val selectedSourceFrame = sourceFrame(selectedSource, Rect.Zero, selectedAttachment)
-        val selectedFullReady = fullReadyPages[pagerState.currentPage] == true
         val transitionLayerVisible = transition.phase != MediaViewerPhase.Open || !selectedFullReady
         val mediaLoader = remember(context) { MediaImageLoader.get(context) }
         val fullRequest = remember(
@@ -178,7 +186,7 @@ fun MediaViewerScreen(
 
         transition.updateViewport(viewport)
         LaunchedEffect(selectedTransitionKey) {
-            registry.begin(selectedTransitionKey)
+            transitionOwner = registry.begin(selectedTransitionKey)
             if (selectedTransitionKey == request.transitionKey && transition.phase == MediaViewerPhase.Opening) {
                 transition.updateSourceFrame(selectedSourceFrame)
                 transition.updateDestinationFrame(selectedDestinationFrame)
@@ -187,20 +195,32 @@ fun MediaViewerScreen(
                 transition.selectPage(selectedSourceFrame, selectedDestinationFrame)
             }
         }
+        LaunchedEffect(transition.phase, selectedTransitionKey, selectedDestinationFrame) {
+            if (transition.phase == MediaViewerPhase.Open) {
+                transition.updateDestinationFrame(selectedDestinationFrame)
+            }
+        }
 
         fun currentTargetFrame(): MediaTransitionFrame? = registry.sourceFor(selectedTransitionKey)?.let {
             sourceFrame(it, Rect.Zero, selectedAttachment)
         }
 
         fun requestClose(releaseVelocity: Offset = Offset.Zero) {
-            if (transition.isClosing) return
+            if (transition.isClosing || closeRequested) return
+            closeRequested = true
+            val target = currentTargetFrame()
+            val owner = transitionOwner
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 transition.close(
-                    targetBounds = currentTargetFrame()?.clipBounds,
+                    targetBounds = target?.clipBounds,
                     viewport = viewport,
                     releaseVelocity = releaseVelocity,
-                    targetFrame = currentTargetFrame(),
+                    targetFrame = target,
                 )
+                owner?.takeIf(registry::isOwnerActive)?.let {
+                    registry.prepareHandoff(it)
+                    withFrameNanos { }
+                }
                 onClose()
             }
         }
@@ -307,6 +327,11 @@ fun MediaViewerScreen(
                     onImageReady = {
                         if (selected) fullReadyPages[page] = true
                     },
+                    onImageDimensionsReady = { size ->
+                        if (selected && pagerState.currentPage == page && selectedTransitionKey == selectedKey) {
+                            fullDimensions[page] = size
+                        }
+                    },
                     zoomState = zoomState,
                     modifier = pageModifier,
                 )
@@ -319,7 +344,12 @@ fun MediaViewerScreen(
                     previewRequest = previewRequest,
                     fullRequest = fullRequest,
                     imageLoader = mediaLoader.imageLoader,
-                    onFullImageReady = { fullReadyPages[pagerState.currentPage] = true },
+                    useFullImage = transition.phase == MediaViewerPhase.Open && selectedFullReady,
+                    onFullImageReady = {
+                        if (pagerState.currentPage == selectedPage && selectedTransitionKey == selectedKey) {
+                            fullReadyPages[selectedPage] = true
+                        }
+                    },
                 )
             }
 
@@ -375,9 +405,9 @@ private fun MediaTransitionImage(
     previewRequest: ImageRequest?,
     fullRequest: ImageRequest?,
     imageLoader: coil.ImageLoader,
+    useFullImage: Boolean,
     onFullImageReady: () -> Unit,
 ) {
-    val density = LocalDensity.current
     if (!frame.visibleBounds.isValid() || (previewRequest == null && fullRequest == null)) return
     val previewPainter = previewRequest?.let { rememberAsyncImagePainter(it, imageLoader) }
     val fullPainter = fullRequest?.let { rememberAsyncImagePainter(it, imageLoader) }
@@ -385,51 +415,55 @@ private fun MediaTransitionImage(
     LaunchedEffect(fullPainter?.state) {
         if (fullPainter?.state is AsyncImagePainter.State.Success) onFullImageReady()
     }
-    val painter = if (fullReady) fullPainter else previewPainter ?: fullPainter
+    val painter = if (useFullImage && fullReady) fullPainter else previewPainter ?: fullPainter
     if (painter == null) return
+    MediaTransitionImageCanvas(painter, frame)
+}
+
+@Composable
+internal fun MediaTransitionImageCanvas(
+    painter: Painter,
+    frame: MediaTransitionFrame,
+) {
+    if (!frame.visibleBounds.isValid() || !frame.clipBounds.isValid() || !frame.imageBounds.isValid()) return
     Box(
         Modifier
-            .offset {
-                IntOffset(frame.visibleBounds.left.roundToInt(), frame.visibleBounds.top.roundToInt())
-            }
-            .size(
-                with(density) { frame.visibleBounds.width.toDp() },
-                with(density) { frame.visibleBounds.height.toDp() },
-            )
-            .clipToBounds(),
-    ) {
-        Box(
-            Modifier
-                .offset {
-                    IntOffset(
-                        (frame.clipBounds.left - frame.visibleBounds.left).roundToInt(),
-                        (frame.clipBounds.top - frame.visibleBounds.top).roundToInt(),
+            .fillMaxSize()
+            .drawWithCache {
+                val radius = frame.cornerRadiusPx.coerceIn(
+                    0f,
+                    minOf(frame.clipBounds.width, frame.clipBounds.height) / 2f,
+                )
+                val roundedClip = Path().apply {
+                    addRoundRect(
+                        RoundRect(
+                            rect = frame.clipBounds,
+                            radiusX = radius,
+                            radiusY = radius,
+                        ),
                     )
                 }
-                .size(
-                    with(density) { frame.clipBounds.width.toDp() },
-                    with(density) { frame.clipBounds.height.toDp() },
-                )
-                .clip(RoundedCornerShape(with(density) { max(0f, frame.cornerRadiusPx).toDp() })),
-        ) {
-            Image(
-                painter = painter,
-                contentDescription = null,
-                modifier = Modifier
-                    .offset {
-                        IntOffset(
-                            (frame.imageBounds.left - frame.clipBounds.left).roundToInt(),
-                            (frame.imageBounds.top - frame.clipBounds.top).roundToInt(),
-                        )
+                onDrawWithContent {
+                    drawContent()
+                    clipRect(
+                        left = frame.visibleBounds.left,
+                        top = frame.visibleBounds.top,
+                        right = frame.visibleBounds.right,
+                        bottom = frame.visibleBounds.bottom,
+                    ) {
+                        clipPath(roundedClip) {
+                            translate(frame.imageBounds.left, frame.imageBounds.top) {
+                                with(painter) {
+                                    draw(
+                                        size = Size(frame.imageBounds.width, frame.imageBounds.height),
+                                    )
+                                }
+                            }
+                        }
                     }
-                    .size(
-                        with(density) { frame.imageBounds.width.toDp() },
-                        with(density) { frame.imageBounds.height.toDp() },
-                    ),
-                contentScale = ContentScale.Fit,
-            )
-        }
-    }
+                }
+            },
+    )
 }
 
 private fun mediaRequest(
@@ -479,16 +513,21 @@ private fun destinationFrame(
     viewport: Rect,
     attachment: me.foxtails.palustris.domain.Attachment,
     density: androidx.compose.ui.unit.Density,
+    drawableSize: Size? = null,
 ): MediaTransitionFrame {
     val contentBounds = mediaPageContentBounds(
         viewport,
         with(density) { MediaPageHorizontalPadding.toPx() },
     )
-    val imageBounds = fitRect(contentBounds, attachment.imageWidth(), attachment.imageHeight())
+    val imageBounds = fitRect(
+        contentBounds,
+        drawableSize?.width ?: attachment.imageWidth(),
+        drawableSize?.height ?: attachment.imageHeight(),
+    )
     return MediaTransitionFrame(imageBounds, imageBounds, imageBounds)
 }
 
-private fun cropRect(container: Rect, imageWidth: Float, imageHeight: Float): Rect {
+internal fun cropRect(container: Rect, imageWidth: Float, imageHeight: Float): Rect {
     if (!container.isValid() || imageWidth <= 0f || imageHeight <= 0f) return container
     val scale = max(container.width / imageWidth, container.height / imageHeight)
     val width = imageWidth * scale

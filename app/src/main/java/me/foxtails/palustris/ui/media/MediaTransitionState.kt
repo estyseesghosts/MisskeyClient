@@ -41,6 +41,12 @@ data class MediaTransitionSource(
     val imageHeight: Float = fullBounds.height.coerceAtLeast(1f),
 )
 
+/** Ownership token for one mounted viewer instance. */
+class MediaTransitionOwner internal constructor(
+    val key: MediaTransitionKey,
+    val id: Long,
+)
+
 /** A transition frame separates image placement from the clip that reveals it. */
 data class MediaTransitionFrame(
     val imageBounds: Rect,
@@ -54,6 +60,8 @@ class MediaTransitionRegistry {
     private val sources = mutableStateMapOf<MediaTransitionKey, MediaTransitionSource>()
     private val hiddenSources = mutableStateMapOf<MediaTransitionKey, Boolean>()
     private val activeKey = mutableStateOf<MediaTransitionKey?>(null)
+    private val activeOwner = mutableStateOf<MediaTransitionOwner?>(null)
+    private var nextOwnerId = 0L
 
     val currentActiveKey: MediaTransitionKey?
         get() = activeKey.value
@@ -88,21 +96,32 @@ class MediaTransitionRegistry {
 
     fun sourceFor(key: MediaTransitionKey): MediaTransitionSource? = sources[key]
 
-    fun begin(key: MediaTransitionKey) {
-        if (activeKey.value == key && hiddenSources[key] == true) return
+    fun begin(key: MediaTransitionKey): MediaTransitionOwner {
         activeKey.value?.takeIf { it != key }?.let { hiddenSources[it] = false }
+        val owner = MediaTransitionOwner(key, ++nextOwnerId)
+        activeOwner.value = owner
         activeKey.value = key
         hiddenSources[key] = true
+        return owner
     }
 
     fun end(key: MediaTransitionKey) {
         hiddenSources.remove(key)
-        if (activeKey.value == key) activeKey.value = null
+        if (activeOwner.value?.key == key) {
+            activeOwner.value = null
+            activeKey.value = null
+        }
+    }
+
+    fun end(owner: MediaTransitionOwner) {
+        if (activeOwner.value != owner) return
+        hiddenSources.remove(owner.key)
+        activeOwner.value = null
+        activeKey.value = null
     }
 
     fun endActive() {
-        activeKey.value?.let(hiddenSources::remove)
-        activeKey.value = null
+        activeOwner.value?.let(::end)
     }
 
     fun isActive(key: MediaTransitionKey): Boolean = activeKey.value == key
@@ -110,6 +129,12 @@ class MediaTransitionRegistry {
     fun markSourceReady(key: MediaTransitionKey) {
         if (activeKey.value == key) hiddenSources[key] = true
     }
+
+    fun prepareHandoff(owner: MediaTransitionOwner) {
+        if (activeOwner.value == owner) hiddenSources[owner.key] = false
+    }
+
+    fun isOwnerActive(owner: MediaTransitionOwner): Boolean = activeOwner.value == owner
 
     fun isSourceHidden(key: MediaTransitionKey): Boolean = hiddenSources[key] == true
 }
