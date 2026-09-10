@@ -54,11 +54,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import me.foxtails.palustris.domain.Attachment
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.MediaRequestDecision
 import me.foxtails.palustris.domain.MediaRequestPolicy
@@ -202,6 +204,11 @@ private fun MediaPreviewTile(
     }
     val scheme = LocalPalustrisMotionScheme.current
     val interactionSource = remember { MutableInteractionSource() }
+    val mediaDescription = if (revealed) {
+        stringResource(R.string.a11y_open_media, index + 1, ownedPost.post.attachments.size)
+    } else {
+        stringResource(R.string.a11y_sensitive_media, index + 1)
+    }
     DisposableEffect(transitionKey) {
         onDispose { registry.remove(transitionKey) }
     }
@@ -227,10 +234,10 @@ private fun MediaPreviewTile(
             .testTag("post_media_frame_${ownedPost.post.id.value}_$index")
             .semantics {
                 if (revealed) {
-                    contentDescription = "Open media ${index + 1} of ${ownedPost.post.attachments.size}"
+                    contentDescription = mediaDescription
                     role = Role.Button
                 } else {
-                    contentDescription = "Sensitive media ${index + 1}"
+                    contentDescription = mediaDescription
                 }
             }
             .then(if (active) Modifier.clearAndSetSemantics {} else Modifier),
@@ -285,7 +292,7 @@ private fun MediaPreviewTile(
 private fun SensitiveMediaTile(onReveal: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(AppIcons.Image, null)
-        TextButton(onClick = onReveal) { Text("Show sensitive media") }
+        TextButton(onClick = onReveal) { Text(stringResource(R.string.media_show_sensitive)) }
     }
 }
 
@@ -294,21 +301,22 @@ private fun UnsupportedMediaTile(attachment: Attachment) {
     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(AppIcons.Image, null)
         Text(attachment.kind.name, style = MaterialTheme.typography.labelLarge)
-        Text("This media type is not available in the timeline viewer.", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.media_type_unavailable), style = MaterialTheme.typography.bodySmall)
     }
 }
 
 @Composable
 private fun MissingPreviewTile(description: String?) {
+    val fallbackDescription = stringResource(R.string.post_open)
     Column(
         Modifier.fillMaxSize().padding(16.dp).semantics {
-            contentDescription = description ?: "Post attachment"
+            contentDescription = description ?: fallbackDescription
         },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         CircularProgressIndicator(Modifier.padding(8.dp).height(24.dp))
-        Text("Preview unavailable", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.media_preview_unavailable), style = MaterialTheme.typography.bodySmall)
     }
 }
 

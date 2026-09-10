@@ -124,8 +124,8 @@ fun ProfileScreen(
     if (displayedAccount == null) {
         EmptyState(
             icon = AppIcons.Person,
-            title = "Your profile",
-            subtitle = "Connect an account to load profile details.",
+            title = stringResource(R.string.profile_empty_title),
+            subtitle = stringResource(R.string.profile_empty_subtitle),
             modifier = Modifier.fillMaxSize(),
         )
         return
@@ -241,7 +241,7 @@ fun ProfileScreen(
                     entries = profileChipEntries(isSelf).map { entry ->
                         when (entry) {
                             is ProfileChipEntry.Timeline -> FilterChipEntry(
-                                label = entry.category.label,
+                                 label = stringResource(entry.category.labelRes),
                                 selected = entry.category == profileState.selectedTab,
                                 onClick = { onCategorySelected(entry.category) },
                             )
@@ -430,7 +430,7 @@ private fun ProfileHeader(
                 AsyncImage(
                     model = account.bannerUrl,
                     imageLoader = mediaImageLoader.imageLoader,
-                    contentDescription = "Profile banner",
+                    contentDescription = stringResource(R.string.profile_banner),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -490,13 +490,13 @@ private fun ProfileHeader(
                     androidx.compose.material3.OutlinedButton(
                         onClick = onEditProfile,
                         modifier = Modifier.testTag("profile_edit_action"),
-                    ) { Text("Edit profile") }
+                    ) { Text(stringResource(R.string.profile_edit)) }
                 } else if (!isSelf && movedTo == null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         androidx.compose.material3.OutlinedButton(
                             onClick = onMessage,
                             modifier = Modifier.testTag("profile_message_action"),
-                        ) { Text("Message") }
+                        ) { Text(stringResource(R.string.profile_message)) }
                         if (state.relationshipSupported == true && state.relationship != null) {
                             val relationship = state.relationship
                             val following = relationship.following || relationship.requested
@@ -669,10 +669,10 @@ private fun ProfileDetails(account: Account) {
             .testTag("profile_details"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Profile details", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.profile_details), style = MaterialTheme.typography.titleLarge)
         if (account.profileFields.isEmpty()) {
             Text(
-                "No additional profile details.",
+                stringResource(R.string.profile_no_details),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {

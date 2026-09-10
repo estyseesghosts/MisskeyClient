@@ -1,17 +1,19 @@
 package me.foxtails.palustris.ui.profile
 
+import androidx.annotation.StringRes
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.ProfileTimelineTab
 
 /** The profile categories have an explicit domain mapping so their order cannot drift. */
 enum class ProfileCategory(
-    val label: String,
+    @StringRes val labelRes: Int,
     val timelineTab: ProfileTimelineTab?,
 ) {
-    Posts("Posts", ProfileTimelineTab.Posts),
-    Media("Media", ProfileTimelineTab.Media),
-    Reposts("Reposts", ProfileTimelineTab.Reposts),
-    Replies("Replies", ProfileTimelineTab.Replies),
-    ShowMore("Show more...", null),
+    Posts(R.string.profile_tab_posts, ProfileTimelineTab.Posts),
+    Media(R.string.profile_tab_media, ProfileTimelineTab.Media),
+    Reposts(R.string.profile_tab_reposts, ProfileTimelineTab.Reposts),
+    Replies(R.string.profile_tab_replies, ProfileTimelineTab.Replies),
+    ShowMore(R.string.profile_tab_show_more, null),
 }
 
 sealed interface ProfileChipEntry {

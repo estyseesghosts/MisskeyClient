@@ -18,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
+import me.foxtails.palustris.R
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -51,12 +53,12 @@ internal fun BoxScope.MediaViewerChrome(
         Box {
             ChromeButton(AppIcons.More, "Media options", enabled) { onMenuVisibilityChanged(true) }
             DropdownMenu(expanded = menuVisible && enabled, onDismissRequest = { onMenuVisibilityChanged(false) }) {
-                DropdownMenuItem(text = { Text("Open media in browser") }, onClick = { onMenuVisibilityChanged(false); onOpenBrowser() })
-                if (descriptionAvailable) DropdownMenuItem(text = { Text("Description") }, onClick = { onMenuVisibilityChanged(false); onShowDescription() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.media_open_browser)) }, onClick = { onMenuVisibilityChanged(false); onOpenBrowser() })
+                if (descriptionAvailable) DropdownMenuItem(text = { Text(stringResource(R.string.media_description)) }, onClick = { onMenuVisibilityChanged(false); onShowDescription() })
             }
         }
     }
-    Text("${page + 1} / $pageCount", modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 20.dp).graphicsLayer { this.alpha = alpha }, color = Color.White)
+    Text(stringResource(R.string.media_page_count, page + 1, pageCount), modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 20.dp).graphicsLayer { this.alpha = alpha }, color = Color.White)
     Row(
         modifier.fillMaxWidth().align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp)
             .graphicsLayer { this.alpha = alpha },

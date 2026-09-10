@@ -257,6 +257,8 @@ private fun TimelineSelector(
     val interactionSource = remember { MutableInteractionSource() }
     val scheme = LocalPalustrisMotionScheme.current
     val pressed by interactionSource.collectIsPressedAsState()
+    val timelineLabel = stringResource(timelineLabelRes(timeline))
+    val chooseTimelineLabel = stringResource(R.string.nav_choose_timeline)
     val pressColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     Surface(
         modifier = Modifier
@@ -264,14 +266,14 @@ private fun TimelineSelector(
             .springPress(interactionSource, pressedScale = scheme.pressedScale)
             .roundPressLayer(pressed, pressColor)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .semantics { contentDescription = "Choose timeline" },
+            .semantics { contentDescription = chooseTimelineLabel },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
         shadowElevation = 6.dp,
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
-                timeline.name,
+                timelineLabel,
                 color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
             )
@@ -300,6 +302,7 @@ private fun CompactContextualNavigationBar(
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                     Destination.entries.forEach { item ->
                         val selected = destination == item
+                        val label = stringResource(item.labelRes)
                         val interactionSource = remember(item) { MutableInteractionSource() }
                         val pressed by interactionSource.collectIsPressedAsState()
                         val selectedTint = rememberSelectedColor(selected, MaterialTheme.colorScheme.onSecondaryContainer, MaterialTheme.colorScheme.onSurfaceVariant)
@@ -320,7 +323,7 @@ private fun CompactContextualNavigationBar(
                             .springPress(interactionSource, pressedScale = scheme.compactPressedScale)
                             .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                             .clickable(interactionSource = interactionSource, indication = LocalIndication.current) { onDestinationSelected(item) }
-                        Box(itemModifier.semantics { contentDescription = item.label; this.selected = selected; role = Role.Tab }, contentAlignment = Alignment.Center) {
+                        Box(itemModifier.semantics { contentDescription = label; this.selected = selected; role = Role.Tab }, contentAlignment = Alignment.Center) {
                             androidx.compose.animation.AnimatedVisibility(
                                 visible = selected,
                                 enter = if (scheme.reducedMotion) EnterTransition.None
@@ -928,10 +931,10 @@ fun PalustrisApp(
                     topBar = {
                     when {
                         page != null -> TopAppBar(
-                            title = { Text(if (page == LocalPage.SavedPosts) savedTitle else page!!.name) },
+                             title = { Text(if (page == LocalPage.SavedPosts) stringResource(savedTitle) else page!!.name) },
                              navigationIcon = { ActionIcon(AppIcons.Back, "Back") { clearPostActionBubble(); page = null } },
                          )
-                         notificationRoute != null -> TopAppBar(title = { Text("Notification") }, navigationIcon = { ActionIcon(AppIcons.Back, "Back") { clearPostActionBubble(); notificationRoute = null } })
+                          notificationRoute != null -> TopAppBar(title = { Text(stringResource(R.string.app_notification)) }, navigationIcon = { ActionIcon(AppIcons.Back, stringResource(R.string.app_back)) { clearPostActionBubble(); notificationRoute = null } })
                     }
                 }) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
@@ -983,9 +986,9 @@ fun PalustrisApp(
                                       onOpenHashtagBubble = ::openHashtagBubble,
                                       onOpenUsername = ::openAccountSearch,
                                   )
-                            } ?: EmptyState(AppIcons.Bookmark, "No saved posts yet", "Posts you save will appear here.")
-                            LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
-                            LocalPage.About -> EmptyState(AppIcons.Globe, "A place for your fediverse", "Misskey and Sharkey home timelines. Publishing and other timelines are coming later.")
+                             } ?: EmptyState(AppIcons.Bookmark, stringResource(R.string.saved_posts_empty_title), stringResource(R.string.saved_posts_empty_subtitle))
+                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
+                             LocalPage.About -> EmptyState(AppIcons.Globe, stringResource(R.string.about_empty_title), stringResource(R.string.about_empty_subtitle))
                               else -> when (animatedDestination) {
                                    Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !largePresentation, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = onReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, listState = homeListState, topContentPadding = if (largePresentation) 16.dp else null, bottomContentClearance = if (largePresentation) LargeBottomDockClearance else null, refreshIndicatorTopPadding = if (largePresentation) 16.dp else null, bottomDock = if (largePresentation) ({
                                         LargeTimelineDockContent(availableTimelines, timeline) { item ->
@@ -997,7 +1000,7 @@ fun PalustrisApp(
                                    }) else null, onOpenReactionBubble = { ownedPost, bounds ->
                                       openReactionBubble(ownedPost, bounds, onReaction)
                                      }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia, onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Home) }, onOpenUsername = ::openAccountSearch) else Box(Modifier.fillMaxSize()) {
-                                       EmptyState(AppIcons.Home, "Your timeline starts here", "${timeline.name} posts will appear here when an account is connected.")
+                                        EmptyState(AppIcons.Home, stringResource(R.string.feed_timeline_empty_title), stringResource(R.string.feed_timeline_empty_subtitle, stringResource(timelineLabelRes(timeline))))
                                        if (largePresentation) {
                                            LargeBottomDock(modifier = Modifier.align(Alignment.BottomStart), content = {
                                                 LargeTimelineDockContent(availableTimelines, timeline) { item ->
@@ -1201,7 +1204,7 @@ fun PalustrisApp(
                                 )
                             } else {
                                 Box(paneModifier, contentAlignment = Alignment.Center) {
-                                    EmptyState(AppIcons.Home, "Select a post", "Choose a post to read it here.")
+                                     EmptyState(AppIcons.Home, stringResource(R.string.post_select_title), stringResource(R.string.post_select_subtitle))
                                 }
                             }
                         },
@@ -1350,8 +1353,8 @@ fun PalustrisApp(
                 ListItem(modifier = Modifier.clickable { sheet = null; if (accountRef.accountId != account?.id) onSwitchAccount(accountRef.accountId) }, headlineContent = { Text(accountRef.displayName) }, supportingContent = { Text(accountRef.handle) }, leadingContent = { AccountAvatar(listedAccount, Modifier.size(48.dp)) }, trailingContent = { if (accountRef.accountId == account?.id) Icon(AppIcons.Check, "Current account") })
             }
             if (accounts.isEmpty()) ListItem(headlineContent = { Text(account?.displayName ?: "No accounts connected") }, supportingContent = { Text(account?.handle ?: "Account connections are not available in this preview.") }, leadingContent = { if (account != null) AccountAvatar(account, Modifier.size(48.dp)) else Avatar(Modifier.size(48.dp)) })
-            if (account != null) TextButton(onClick = { sheet = null; onAddAccount() }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Add account") }
-            if (account != null) TextButton(onClick = { sheet = null; signOutDialog = true }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Sign out") }
+             if (account != null) TextButton(onClick = { sheet = null; onAddAccount() }, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.account_add)) }
+             if (account != null) TextButton(onClick = { sheet = null; signOutDialog = true }, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.account_sign_out)) }
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -1359,8 +1362,8 @@ fun PalustrisApp(
     if (overlay == Overlay.Composer) ModalBottomSheet(onDismissRequest = ::closeComposer, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Row(verticalAlignment = Alignment.CenterVertically) { ActionIcon(AppIcons.Close, "Close composer", ::closeComposer); Text("New post", style = MaterialTheme.typography.titleLarge) }
-                TextButton(enabled = (draft.isNotBlank() || composerReplyTo != null) && !closing, onClick = { saveCurrentDraft { overlayKey = null } }) { Text("Save draft") }
+                 Row(verticalAlignment = Alignment.CenterVertically) { ActionIcon(AppIcons.Close, stringResource(R.string.composer_close), ::closeComposer); Text(stringResource(R.string.composer_new_post), style = MaterialTheme.typography.titleLarge) }
+                 TextButton(enabled = (draft.isNotBlank() || composerReplyTo != null) && !closing, onClick = { saveCurrentDraft { overlayKey = null } }) { Text(stringResource(R.string.composer_save_draft)) }
             }
             ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, quoteTarget = composerTarget, isReply = composerReplyTo != null, onRemoveQuote = { composerTarget = null; composerQuoteOf = null; composerReplyTo = null }, onRequestEmoji = { field ->
                 emojiPickerTarget = EmojiPickerTarget.Composer(field)
@@ -1485,8 +1488,8 @@ fun PalustrisApp(
         closeNotificationSettings()
     }
 
-    if (profileDialog) AlertDialog(onDismissRequest = { profileDialog = false }, title = { Text("Discard profile changes?") }, text = { Text("Your changes have not been saved.") }, confirmButton = { TextButton(onClick = { profileDialog = false; discardProfileEditor() }) { Text("Discard") } }, dismissButton = { TextButton(onClick = { profileDialog = false }) { Text("Keep editing") } })
-    if (signOutDialog) AlertDialog(onDismissRequest = { signOutDialog = false }, title = { Text("Sign out?") }, text = { Text("Your sign-in will be removed from this device. Local drafts will remain.") }, confirmButton = { TextButton(onClick = { signOutDialog = false; onSignOut() }) { Text("Sign out") } }, dismissButton = { TextButton(onClick = { signOutDialog = false }) { Text("Cancel") } })
+    if (profileDialog) AlertDialog(onDismissRequest = { profileDialog = false }, title = { Text(stringResource(R.string.dialog_discard_profile_title)) }, text = { Text(stringResource(R.string.dialog_discard_profile_text)) }, confirmButton = { TextButton(onClick = { profileDialog = false; discardProfileEditor() }) { Text(stringResource(R.string.dialog_discard)) } }, dismissButton = { TextButton(onClick = { profileDialog = false }) { Text(stringResource(R.string.dialog_keep_editing)) } })
+    if (signOutDialog) AlertDialog(onDismissRequest = { signOutDialog = false }, title = { Text(stringResource(R.string.dialog_sign_out_title)) }, text = { Text(stringResource(R.string.dialog_sign_out_text)) }, confirmButton = { TextButton(onClick = { signOutDialog = false; onSignOut() }) { Text(stringResource(R.string.account_sign_out)) } }, dismissButton = { TextButton(onClick = { signOutDialog = false }) { Text(stringResource(R.string.dialog_cancel)) } })
     }
 }
 

@@ -30,10 +30,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.ui.AccountAvatar
 import me.foxtails.palustris.ui.ActionIcon
@@ -60,7 +62,7 @@ fun DirectMessageConversationScreen(
         ?.joinToString(", ") { it.displayName.ifBlank { it.handle } }
         ?.ifBlank { null }
         ?: recipient?.displayName?.ifBlank { recipient.handle }
-        ?: "Private message"
+        ?: stringResource(R.string.dm_private_message)
     val endClearance = if (compactLayout) {
         compactScrollEndClearance(
             controlStackHeight = CompactFilterDockHeight,
@@ -75,11 +77,11 @@ fun DirectMessageConversationScreen(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ActionIcon(AppIcons.Back, "Back to messages", onBack)
+            ActionIcon(AppIcons.Back, stringResource(R.string.dm_back), onBack)
             Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text(
-            "Private message. Not end-to-end encrypted.",
+            stringResource(R.string.dm_not_encrypted),
             Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -114,7 +116,7 @@ fun DirectMessageConversationScreen(
                 value = draft,
                 onValueChange = { draft = it },
                 modifier = Modifier.weight(1f).testTag("direct_message_input"),
-                placeholder = { Text("Write a private message") },
+                placeholder = { Text(stringResource(R.string.dm_compose_placeholder)) },
                 minLines = 1,
                 maxLines = 4,
             )
@@ -124,7 +126,7 @@ fun DirectMessageConversationScreen(
                 modifier = Modifier.size(52.dp).testTag("direct_message_send"),
             ) {
                 if (state.sending) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                else Icon(AppIcons.Compose, "Send direct message")
+                else Icon(AppIcons.Compose, stringResource(R.string.dm_send))
             }
         }
     }

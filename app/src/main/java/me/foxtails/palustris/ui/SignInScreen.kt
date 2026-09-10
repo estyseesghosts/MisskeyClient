@@ -345,8 +345,8 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
                     }
                     Spacer(Modifier.width(16.dp))
                     Column {
-                        Text("Your corner of the fediverse", style = MaterialTheme.typography.titleMedium)
-                        Text("Misskey & Sharkey", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.signin_fediverse_title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.signin_fediverse_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Spacer(Modifier.height(24.dp))

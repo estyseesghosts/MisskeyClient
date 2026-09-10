@@ -40,9 +40,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.Attachment
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.OwnedPost
@@ -92,8 +95,8 @@ internal fun SinglePostScreen(
              modifier = Modifier.fillMaxWidth().then(if (embedded) Modifier else Modifier.statusBarsPadding()).height(64.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ActionIcon(AppIcons.Back, "Close post", onClose)
-            Text("Post", modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleLarge)
+            ActionIcon(AppIcons.Back, stringResource(R.string.single_post_close), onClose)
+            Text(stringResource(R.string.single_post_title), modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleLarge)
         }
 
         if (photos.isEmpty()) {
@@ -143,7 +146,7 @@ internal fun SinglePostScreen(
              }
             if (post.contentWarning != null) {
                 InlineEmojiText(
-                    post.contentWarning.ifBlank { "Content warning" },
+                    post.contentWarning.ifBlank { stringResource(R.string.content_warning) },
                     post.emoji,
                     Modifier.padding(horizontal = 16.dp),
                     MaterialTheme.typography.bodyLarge,
@@ -151,7 +154,7 @@ internal fun SinglePostScreen(
                 TextButton(
                     onClick = { expanded = !expanded },
                     modifier = Modifier.padding(horizontal = 4.dp),
-                ) { Text(if (expanded) "Hide content" else "Show content") }
+                ) { Text(stringResource(if (expanded) R.string.content_warning_hide else R.string.content_warning_show)) }
             }
             if (contentVisible) {
                 SelectionContainer {
@@ -170,7 +173,7 @@ internal fun SinglePostScreen(
                             if (presentation.visibleText.isNotBlank()) androidx.compose.foundation.layout.Spacer(Modifier.height(2.dp))
                             Text(
                                 timestamp,
-                                Modifier.semantics { contentDescription = "Post time" },
+                                Modifier.semantics { contentDescription = context.getString(R.string.post_time) },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -186,7 +189,7 @@ internal fun SinglePostScreen(
                 ) {
                     Row(Modifier.padding(12.dp)) {
                         InlineEmojiText(option.text, post.emoji, Modifier.weight(1f), MaterialTheme.typography.bodyMedium)
-                        Text("${option.votes}", style = MaterialTheme.typography.labelLarge)
+                        Text(pluralStringResource(R.plurals.post_poll_votes, option.votes, option.votes), style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -198,12 +201,12 @@ internal fun SinglePostScreen(
                     Column(Modifier.padding(16.dp)) {
                         AccountDisplayName(quote.author, style = MaterialTheme.typography.titleSmall)
                         InlineEmojiText(
-                            quote.contentWarning?.ifBlank { "Content warning" } ?: quote.text,
+                            quote.contentWarning?.ifBlank { stringResource(R.string.content_warning) } ?: quote.text,
                             quote.emoji,
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 5,
                         )
-                        Text("View quoted post", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.single_post_view_quote), Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -226,9 +229,9 @@ internal fun SinglePostScreen(
             }
             if (showCommentsPlaceholder) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp)) {
-                    Text("Comments", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.post_comments), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Comments are not available in this view yet.",
+                        stringResource(R.string.single_post_comments_unavailable),
                         modifier = Modifier.padding(top = 4.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -270,7 +273,7 @@ private fun PhotoPager(ownedPost: OwnedPost, photos: List<Attachment>) {
                 contentColor = Color.White,
                 shape = MaterialTheme.shapes.small,
             ) {
-                Text("${pagerState.settledPage + 1} / ${photos.size}", Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                Text(stringResource(R.string.media_page_count, pagerState.settledPage + 1, photos.size), Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
             }
         }
     }

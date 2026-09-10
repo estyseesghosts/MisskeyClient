@@ -17,8 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.data.media.MediaImageLoader
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.MediaRequestDecision
@@ -52,15 +54,15 @@ internal fun MediaPage(
 ) {
     if (attachment.sensitive && !revealed) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text("Sensitive media", color = MaterialTheme.colorScheme.onSurface)
-            TextButton(onClick = onReveal) { Text("Show media") }
+            Text(stringResource(R.string.media_sensitive), color = MaterialTheme.colorScheme.onSurface)
+            TextButton(onClick = onReveal) { Text(stringResource(R.string.media_show)) }
         }
         return
     }
     if (attachment.kind !in setOf(MediaKind.Image, MediaKind.AnimatedImage)) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text("Media unavailable", color = MaterialTheme.colorScheme.onSurface)
-            Text("${attachment.kind.name} playback is not available here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.media_unavailable), color = MaterialTheme.colorScheme.onSurface)
+            Text(stringResource(R.string.media_playback_unavailable, attachment.kind.name), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         return
     }
@@ -82,7 +84,7 @@ internal fun MediaPage(
                     decodeHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxHeight.toPx().toInt() },
                 ),
                  imageLoader = mediaLoader.imageLoader,
-                 contentDescription = attachment.description ?: "Media ${index + 1}",
+                  contentDescription = attachment.description ?: stringResource(R.string.media_page_count, index + 1, 1),
                   state = zoomState,
                   onImageReady = onImageReady,
                   onImageDimensionsReady = onImageDimensionsReady,
@@ -90,7 +92,7 @@ internal fun MediaPage(
             )
             is MediaRequestDecision.NoRequest -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator()
-                Text("Full-size media unavailable", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(R.string.media_full_size_unavailable), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
             }
         }
     }

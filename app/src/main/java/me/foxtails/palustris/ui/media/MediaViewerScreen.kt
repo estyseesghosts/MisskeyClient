@@ -52,6 +52,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -61,6 +62,7 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.media.MediaImageLoader
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.MediaRequestDecision
 import me.foxtails.palustris.domain.MediaRequestPolicy
 import me.foxtails.palustris.domain.MediaRequestRole
@@ -112,6 +114,7 @@ fun MediaViewerScreen(
     val selectedFullReady = fullReadyPages[selectedPage] == true
     val latestDescriptionVisible by rememberUpdatedState(descriptionVisible)
     val latestZoomScale by rememberUpdatedState(selectedZoomScale)
+    val mediaViewerDescription = stringResource(R.string.media_viewer)
 
     DisposableEffect(request.transitionKey) {
         onDispose { transitionOwner?.let { registry.end(it) } }
@@ -120,7 +123,7 @@ fun MediaViewerScreen(
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
-            .semantics { contentDescription = "Media viewer" },
+            .semantics { contentDescription = mediaViewerDescription },
     ) {
         val viewport = with(density) { Rect(0f, 0f, maxWidth.toPx(), maxHeight.toPx()) }
         val selectedSource = registry.sourceFor(selectedTransitionKey)
@@ -381,10 +384,10 @@ fun MediaViewerScreen(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text("Description", color = Color.White, style = MaterialTheme.typography.titleLarge)
+                            Text(stringResource(R.string.media_description), color = Color.White, style = MaterialTheme.typography.titleLarge)
                             IconButton(
                                 onClick = { descriptionVisible = false },
-                                modifier = Modifier.semantics { contentDescription = "Close description" },
+                                modifier = Modifier.semantics { contentDescription = context.getString(R.string.media_close_description) },
                             ) { Icon(AppIcons.Close, null, tint = Color.White) }
                         }
                         Text(

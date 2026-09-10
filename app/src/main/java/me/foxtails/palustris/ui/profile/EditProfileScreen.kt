@@ -173,13 +173,13 @@ private fun EditorFields(
                     onClick = {
                         onEditorChange(editor.copy(fields = editor.fields.move(index, index - 1)))
                     },
-                ) { Text("Up") }
+                ) { Text(stringResource(R.string.profile_move_up)) }
                 IconButton(
                     enabled = index < editor.fields.lastIndex,
                     onClick = {
                         onEditorChange(editor.copy(fields = editor.fields.move(index, index + 1)))
                     },
-                ) { Text("Down") }
+                ) { Text(stringResource(R.string.profile_move_down)) }
                 IconButton(
                     onClick = {
                         onEditorChange(editor.copy(fields = editor.fields.filterIndexed { i, _ -> i != index }))

@@ -21,11 +21,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.asPaddingValues
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
@@ -129,9 +131,9 @@ fun SavedPostsScreen(
                     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                         when {
                             state.loadingMore -> CircularProgressIndicator(Modifier.padding(8.dp))
-                            state.error != null -> TextButton(onClick = onLoadMore) { Text("Retry") }
-                            state.nextCursor != null -> TextButton(onClick = onLoadMore) { Text("Load older posts") }
-                            else -> Text("You’re up to date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            state.error != null -> TextButton(onClick = onLoadMore) { Text(stringResource(R.string.notifications_retry)) }
+                            state.nextCursor != null -> TextButton(onClick = onLoadMore) { Text(stringResource(R.string.feed_load_older)) }
+                            else -> Text(stringResource(R.string.feed_up_to_date), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

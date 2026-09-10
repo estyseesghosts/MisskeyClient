@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -61,6 +62,7 @@ fun NotificationRow(
     modifier: Modifier = Modifier,
 ) {
     val scheme = LocalPalustrisMotionScheme.current
+    val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
     val actor = notification.actors.firstOrNull()
     val activityLabel = notification.activity.label()
@@ -99,7 +101,7 @@ fun NotificationRow(
                     )
             } ?: Modifier)
             .semantics {
-                contentDescription = "$activityLabel, $summary"
+                contentDescription = context.getString(R.string.notification_row_accessibility, activityLabel, summary)
                 if (stateLabel.isNotBlank()) stateDescription = stateLabel
             },
         shape = MaterialTheme.shapes.large,

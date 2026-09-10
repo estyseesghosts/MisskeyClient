@@ -231,7 +231,7 @@ internal fun ProfileCategoryChips(
         entries = profileChipEntries(isSelf).map { entry ->
             when (entry) {
                 is ProfileChipEntry.Timeline -> FilterChipEntry(
-                    label = entry.category.label,
+                    label = stringResource(entry.category.labelRes),
                     selected = entry.category == selected,
                     onClick = { onCategorySelected(entry.category) },
                 )
@@ -276,7 +276,7 @@ private fun LazyListScope.profilePinnedItems(
     largeLayout: Boolean,
 ) {
     if (state.pinnedLoading) item(key = "profile-pinned-loading") {
-        Text("Featured posts", Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.profile_featured_posts), Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(Modifier.size(24.dp))
         }
@@ -291,7 +291,7 @@ private fun LazyListScope.profilePinnedItems(
     }
     if (state.pinnedPosts.isNotEmpty()) {
         item(key = "profile-pinned-title") {
-            Text("Featured posts", Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.profile_featured_posts), Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
         }
         items(state.pinnedPosts, key = { "pinned/${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
             PostRow(
@@ -369,7 +369,7 @@ private fun LazyListScope.profilePageItems(
     if (page.posts.isEmpty() && page.error == null && !page.refreshing) {
         item(key = "profile-timeline-empty") {
             AnimatedStatePane(stateKey = "empty", modifier = Modifier.fillMaxWidth()) {
-                EmptyState(AppIcons.Person, "No posts in this view", "This profile has no matching posts yet.")
+                EmptyState(AppIcons.Person, stringResource(R.string.profile_no_posts_title), stringResource(R.string.profile_no_posts_subtitle))
             }
         }
     }
@@ -420,7 +420,7 @@ private fun LazyListScope.profilePageItems(
                     Text(if (page.consecutiveEmptyPages > 0) "Continue browsing" else "Load older posts")
                 }
             } else {
-                Text("You're up to date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.feed_up_to_date), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

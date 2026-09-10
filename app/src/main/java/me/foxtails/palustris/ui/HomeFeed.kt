@@ -83,7 +83,7 @@ internal fun openExternal(context: Context, url: String?) {
     val uri = url?.toUri() ?: return
     if (uri.scheme !in listOf("https", "http") || uri.host.isNullOrBlank()) return
     try { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-    catch (_: android.content.ActivityNotFoundException) { Toast.makeText(context, "No app can open this link.", Toast.LENGTH_SHORT).show() }
+    catch (_: android.content.ActivityNotFoundException) { Toast.makeText(context, context.getString(R.string.error_no_app_open_link), Toast.LENGTH_SHORT).show() }
 }
 
 private val PostMetadataVerticalPadding = 2.dp * 1.06f
@@ -192,13 +192,13 @@ fun HomeFeed(
                     Column(Modifier.padding(16.dp)) {
                         Text(state.error, color = MaterialTheme.colorScheme.onErrorContainer)
                         TextButton(onClick = if (state.needsSignIn) onSignIn else onRefresh) {
-                            Text(if (state.needsSignIn) "Sign in again" else "Retry")
+                            Text(if (state.needsSignIn) stringResource(R.string.feed_sign_in_again) else stringResource(R.string.notifications_retry))
                         }
                     }
                 }
             }
             if (state.posts.isEmpty() && !state.loading && state.error == null) item {
-                Box(Modifier.fillParentMaxSize()) { EmptyState(AppIcons.Home, "Your home feed is quiet", "Posts from accounts you follow will appear here. Pull down to refresh.") }
+                Box(Modifier.fillParentMaxSize()) { EmptyState(AppIcons.Home, stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_subtitle)) }
             }
             val hasOwnership = ownedPosts.isNotEmpty()
             val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
@@ -239,8 +239,8 @@ fun HomeFeed(
             }
             if (state.posts.isNotEmpty() && !state.loadingMore && state.error == null) item {
                 Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                    if (state.nextCursor != null) TextButton(onClick = onLoadMore) { Text("Load older posts") }
-                    else Text("You're up to date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (state.nextCursor != null) TextButton(onClick = onLoadMore) { Text(stringResource(R.string.feed_load_older)) }
+                    else Text(stringResource(R.string.feed_up_to_date), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
                 }
@@ -277,11 +277,12 @@ fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemanti
             .crossfade(false)
             .build()
     }
+    val avatarDescription = stringResource(R.string.post_profile_picture, account.displayName)
     Box(
         modifier
             .clip(CircleShape)
             .then(if (exposeSemantics) Modifier.semantics(mergeDescendants = true) {
-                contentDescription = "Profile picture of ${account.displayName}"
+                contentDescription = avatarDescription
             } else Modifier),
     ) {
         Avatar(Modifier.fillMaxSize(), description = null)
@@ -332,7 +333,7 @@ internal fun PostRow(
                     it,
                     style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                 )
-                Text(" reshared", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.post_reshared), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         PostMetadataRow(
@@ -343,10 +344,10 @@ internal fun PostRow(
             onOpenHashtagBubble = onOpenHashtagBubble,
             postOwned = ownedPost,
         )
-        if (post.replyTo != null) Text("Reply", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        if (post.replyTo != null) Text(stringResource(R.string.post_reply), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         if (post.contentWarning != null) {
-            InlineEmojiText(post.contentWarning.ifBlank { "Content warning" }, post.emoji, Modifier.padding(horizontal = 16.dp), MaterialTheme.typography.bodyLarge)
-            TextButton(onClick = { expanded = !expanded }, modifier = Modifier.padding(horizontal = 4.dp)) { Text(if (expanded) "Hide content" else "Show content") }
+            InlineEmojiText(post.contentWarning.ifBlank { stringResource(R.string.content_warning) }, post.emoji, Modifier.padding(horizontal = 16.dp), MaterialTheme.typography.bodyLarge)
+            TextButton(onClick = { expanded = !expanded }, modifier = Modifier.padding(horizontal = 4.dp)) { Text(stringResource(if (expanded) R.string.content_warning_hide else R.string.content_warning_show)) }
         }
         ExpandableContent(visible = contentVisible, modifier = Modifier.fillMaxWidth()) {
             val timestamp = postTimestamp(post)
@@ -384,7 +385,7 @@ internal fun PostRow(
                         if (presentation.visibleText.isNotBlank()) Spacer(Modifier.height(2.dp))
                         Text(
                             it,
-                            modifier = Modifier.semantics { contentDescription = "Post time" },
+                            modifier = Modifier.semantics { contentDescription = context.getString(R.string.post_time) },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -396,7 +397,7 @@ internal fun PostRow(
                 Surface(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
                     Row(Modifier.padding(12.dp)) {
                         InlineEmojiText(option.text, post.emoji, Modifier.weight(1f), MaterialTheme.typography.bodyMedium)
-                        Text("${option.votes}", style = MaterialTheme.typography.labelLarge)
+                        Text(pluralStringResource(R.plurals.post_poll_votes, option.votes, option.votes), style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -406,13 +407,13 @@ internal fun PostRow(
                         AccountDisplayName(quote.author, style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.height(8.dp))
                         InlineEmojiText(
-                            quote.contentWarning?.ifBlank { "Content warning" } ?: quote.text,
+                            quote.contentWarning?.ifBlank { stringResource(R.string.content_warning) } ?: quote.text,
                             quote.emoji,
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 5,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Text("View quoted post", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.post_view_quoted), Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -422,7 +423,7 @@ internal fun PostRow(
                 onClick = { onOpenPost(ownedPost) },
                 modifier = Modifier.padding(horizontal = 8.dp),
             ) {
-                Text("Open post")
+                Text(stringResource(R.string.post_open))
             }
         }
         if (post.reactions.isNotEmpty()) {
@@ -479,12 +480,13 @@ internal fun PostMetadataRow(
     postOwned: OwnedPost? = null,
 ) {
     val profileInteractionSource = remember { MutableInteractionSource() }
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = PostMetadataVerticalPadding)
             .height(PostChromeHeight)
-            .semantics { contentDescription = "Post metadata" },
+            .semantics { contentDescription = context.getString(R.string.post_metadata) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
@@ -529,6 +531,7 @@ internal fun PostMetadataRow(
 @Composable
 private fun ViewFullPostBubble(onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
+    val fullPostDescription = stringResource(R.string.post_view_full)
     Surface(
         modifier = Modifier
             .height(32.dp)
@@ -540,7 +543,7 @@ private fun ViewFullPostBubble(onClick: () -> Unit) {
                 onClick = onClick,
             )
             .semantics {
-                contentDescription = "View full post"
+                 contentDescription = fullPostDescription
                 role = Role.Button
             },
         shape = CircleShape,
@@ -548,7 +551,7 @@ private fun ViewFullPostBubble(onClick: () -> Unit) {
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
         Text(
-            "View full post",
+            stringResource(R.string.post_view_full),
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
             style = MaterialTheme.typography.labelMedium,
             maxLines = 1,
@@ -570,6 +573,7 @@ internal fun postTimestamp(post: Post): String? = if (post.publishedAtEpochMilli
 @Composable
 private fun FilteredHashtagSummary(hashtags: List<String>, onOpen: (Rect) -> Unit) {
     val label = if (hashtags.size == 1) hashtags.first() else "${hashtags.first()} +${hashtags.size - 1}"
+    val collapsedDescription = stringResource(R.string.post_action_bubble_collapsed)
     var bounds by remember { mutableStateOf(Rect.Zero) }
     val interactionSource = remember { MutableInteractionSource() }
     Box {
@@ -583,7 +587,7 @@ private fun FilteredHashtagSummary(hashtags: List<String>, onOpen: (Rect) -> Uni
                 .semantics {
                     contentDescription = hashtagSummaryDescription(hashtags)
                     role = Role.Button
-                    stateDescription = "Collapsed"
+                     stateDescription = collapsedDescription
                 },
             shape = CircleShape,
             color = MaterialTheme.colorScheme.primaryContainer,
@@ -618,6 +622,7 @@ private fun ReactionRow(
     onReaction: (OwnedPost, EmojiChoice) -> Unit,
 ) {
     val scheme = LocalPalustrisMotionScheme.current
+    val context = LocalContext.current
     FlowRow(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -655,7 +660,7 @@ private fun ReactionRow(
                     )
                     .testTag("reaction_chip_${reaction.emoji}")
                     .semantics {
-                        contentDescription = "${reaction.emoji}, $countText"
+                        contentDescription = context.getString(R.string.post_reaction_accessibility, reaction.emoji, countText)
                         role = Role.Button
                         this.selected = reaction.selected
                         selectedStateDescription?.let { stateDescription = it }
@@ -718,19 +723,20 @@ internal fun InteractionRow(
     onShare: () -> Unit,
 ) {
     var repostMenuVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(PostInteractionRowHeight)
             .padding(horizontal = 8.dp)
-            .semantics { contentDescription = "Post actions" },
+            .semantics { contentDescription = context.getString(R.string.post_actions) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         InteractionButton(
             Modifier.weight(1f),
             AppIcons.Reply,
-            "Reply",
+            stringResource(R.string.post_action_reply),
             enabled = PostAction.Reply in availableActions,
             onClick = { onReply(ownedPost) },
         )
@@ -738,7 +744,7 @@ internal fun InteractionRow(
             InteractionButton(
                 modifier = Modifier.fillMaxWidth(),
                 icon = AppIcons.Repost,
-                label = if (ownedPost.post.reposted) "Undo repost" else "Repost",
+                label = stringResource(if (ownedPost.post.reposted) R.string.post_action_undo_repost else R.string.post_action_repost),
                 enabled = PostAction.Reshare in availableActions,
                 isSelected = ownedPost.post.reposted,
                 onClick = { onReshare(ownedPost) },
@@ -746,7 +752,7 @@ internal fun InteractionRow(
             )
             DropdownMenu(expanded = repostMenuVisible, onDismissRequest = { repostMenuVisible = false }) {
                 DropdownMenuItem(
-                    text = { Text("Quote post") },
+                    text = { Text(stringResource(R.string.post_action_quote)) },
                     onClick = { repostMenuVisible = false; onQuote(ownedPost) },
                 )
             }
@@ -758,7 +764,7 @@ internal fun InteractionRow(
             InteractionButton(
                 modifier = Modifier.fillMaxWidth(),
                 icon = AppIcons.Heart,
-                label = if (ownedPost.post.favourited) "Unfavorite" else "Favorite",
+                label = stringResource(if (ownedPost.post.favourited) R.string.post_action_unfavorite else R.string.post_action_favorite),
                 enabled = favouriteEnabled || reactionEnabled,
                 isSelected = ownedPost.post.favourited,
                 onClick = {
@@ -775,12 +781,12 @@ internal fun InteractionRow(
         InteractionButton(
             Modifier.weight(1f),
             AppIcons.Bookmark,
-            if (ownedPost.post.saved) "Remove bookmark" else "Bookmark",
+            stringResource(if (ownedPost.post.saved) R.string.post_action_remove_bookmark else R.string.post_action_bookmark),
             enabled = PostAction.Bookmark in availableActions,
             isSelected = ownedPost.post.saved,
             onClick = { onBookmark(ownedPost) },
         )
-        InteractionButton(Modifier.weight(1f), AppIcons.Share, "Share", onClick = onShare)
+        InteractionButton(Modifier.weight(1f), AppIcons.Share, stringResource(R.string.post_action_share), onClick = onShare)
     }
 }
 
@@ -799,6 +805,7 @@ private fun InteractionButton(
     var popTrigger by remember { mutableIntStateOf(0) }
     val interactionSource = remember { MutableInteractionSource() }
     val scheme = LocalPalustrisMotionScheme.current
+    val selectedDescription = stringResource(if (isSelected) R.string.post_action_selected else R.string.post_action_not_selected)
     Box(
         modifier = modifier
             .height(PostInteractionRowHeight)
@@ -824,7 +831,7 @@ private fun InteractionButton(
                 contentDescription = label
                 role = Role.Button
                 this.selected = isSelected
-                stateDescription = if (isSelected) "Selected" else "Not selected"
+                    stateDescription = selectedDescription
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -845,8 +852,8 @@ internal fun sharePost(context: Context, post: Post) {
         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
-        }, "Share post"))
+        }, context.getString(R.string.post_action_share_post)))
     } catch (_: android.content.ActivityNotFoundException) {
-        Toast.makeText(context, "No app can share this post.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.error_no_app_share_post), Toast.LENGTH_SHORT).show()
     }
 }

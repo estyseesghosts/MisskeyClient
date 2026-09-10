@@ -1,16 +1,19 @@
 package me.foxtails.palustris.ui
 
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.StringRes
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.SavedPostsKind
+import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.large.LargeNavTarget
 
-internal enum class Destination(val label: String, val icon: ImageVector) {
-    Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
-    Notifications("Notifications", AppIcons.Notifications), Profile("Profile", AppIcons.Person),
+internal enum class Destination(@StringRes val labelRes: Int, val icon: ImageVector) {
+    Home(R.string.nav_home, AppIcons.Home), Search(R.string.nav_search, AppIcons.Search),
+    Notifications(R.string.nav_notifications, AppIcons.Notifications), Profile(R.string.nav_profile, AppIcons.Person),
 }
 
 internal enum class NotificationsPanel { Notifications, DirectMessages }
@@ -34,9 +37,18 @@ internal fun largeTargetFor(
     Destination.Profile -> LargeNavTarget.Profile
 }
 
-internal fun savedCollectionTitle(kind: SavedPostsKind?): String = when (kind) {
-    SavedPostsKind.Favourites -> "Favourites"
-    SavedPostsKind.Bookmarks, null -> "Bookmarks"
+@StringRes
+internal fun savedCollectionTitle(kind: SavedPostsKind?): Int = when (kind) {
+    SavedPostsKind.Favourites -> R.string.collection_favourites
+    SavedPostsKind.Bookmarks, null -> R.string.collection_bookmarks
+}
+
+@StringRes
+internal fun timelineLabelRes(timeline: Timeline): Int = when (timeline) {
+    Timeline.Home -> R.string.timeline_home
+    Timeline.Local -> R.string.timeline_local
+    Timeline.Social -> R.string.timeline_social
+    Timeline.Federated -> R.string.timeline_federated
 }
 
 internal fun editableProfilePatch(base: EditableProfile, edited: EditableProfile): EditableProfilePatch = EditableProfilePatch(

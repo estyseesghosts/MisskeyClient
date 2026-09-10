@@ -24,9 +24,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.ui.AccountAvatar
 import me.foxtails.palustris.ui.AppIcons
@@ -55,12 +57,12 @@ fun DirectMessageInboxScreen(
     Column(Modifier.fillMaxSize().testTag("direct_message_inbox")) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Messages", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-                TextButton(onClick = onRefresh, enabled = !state.loading && !state.loadingMore) { Text("Refresh") }
+                Text(stringResource(R.string.dm_title), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                TextButton(onClick = onRefresh, enabled = !state.loading && !state.loadingMore) { Text(stringResource(R.string.common_refresh)) }
             }
             Spacer(Modifier.size(6.dp))
             Text(
-                "Private messages are federated posts, not end-to-end encrypted. History depends on what your server exposes.",
+                stringResource(R.string.dm_explanation),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -76,14 +78,14 @@ fun DirectMessageInboxScreen(
             ) { CircularProgressIndicator() }
             state.error != null && state.conversations.isEmpty() -> EmptyState(
                 icon = AppIcons.Chat,
-                title = "Messages could not load",
+                title = stringResource(R.string.dm_load_error),
                 subtitle = state.error,
                 modifier = Modifier.fillMaxSize(),
             )
             state.conversations.isEmpty() -> EmptyState(
                 icon = AppIcons.Chat,
-                title = "No private messages yet",
-                subtitle = "Start a private conversation from someone’s profile.",
+                title = stringResource(R.string.dm_empty_title),
+                subtitle = stringResource(R.string.dm_empty_subtitle),
                 modifier = Modifier.fillMaxSize(),
             )
             else -> LazyColumn(
@@ -106,12 +108,12 @@ fun DirectMessageInboxScreen(
                         when {
                             state.loadingMore -> CircularProgressIndicator(Modifier.size(24.dp))
                             state.nextCursor != null -> Text(
-                                "Load older messages",
+                                stringResource(R.string.dm_load_older),
                                 modifier = Modifier.clickable(onClick = onLoadMore),
                                 color = MaterialTheme.colorScheme.primary,
                             )
                             else -> Text(
-                                "You're up to date",
+                                stringResource(R.string.dm_up_to_date),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -150,7 +152,7 @@ private fun DirectConversationRow(
             Column(Modifier.weight(1f)) {
                 InlineEmojiText(title, people.firstOrNull()?.emoji.orEmpty(), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    conversation.lastPost.text.ifBlank { "Private post" },
+                    conversation.lastPost.text.ifBlank { stringResource(R.string.dm_private_post) },
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
