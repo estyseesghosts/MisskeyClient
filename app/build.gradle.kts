@@ -60,6 +60,8 @@ dependencies {
     implementation("androidx.compose.ui:ui:1.9.5")
     implementation("androidx.compose.ui:ui-tooling-preview:1.9.5")
     implementation("androidx.compose.material3:material3:1.4.0")
+    // Provides window posture and folding-feature information for the hinge-aware shell.
+    implementation("androidx.compose.material3.adaptive:adaptive:1.3.0")
     debugImplementation("androidx.compose.ui:ui-tooling:1.9.5")
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.14.1")

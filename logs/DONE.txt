@@ -41,3 +41,6 @@
 - Commits created: `768fae9`, `46b4aa8`, `259b76d`, `4f81ff1`.
 - Verification passed: focused media tests, `lintDebug`, `test assembleRelease`, `:app:assembleDebug`, and `:app:connectedDebugAndroidTest` on `SM-G986W`.
 - Device recording evidence was reviewed outside the repository; no blank handoff, size pop, or stuck close was observed in ten repeated cycles.
+260909-224556 Foldable UI task:
+- Baseline focused compact-facing tests passed before implementation.
+- Added `androidx.compose.material3.adaptive:adaptive:1.3.0` because the large shell needs window posture and folding-feature information; adaptive navigation artifacts were not added.
