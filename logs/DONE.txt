@@ -73,3 +73,31 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 260910-000000 Mastodon and Misskey source split:
 - Extracted protocol-local DM, notification/cursor, push, and stream services while preserving source APIs and request wrappers.
 - Focused verification passed: Mastodon/Misskey integration and contract tests, Mastodon notification sync, notification adapter, and direct-message tests.
+260910-083151 Stabilization CI slice:
+- Reconciled the guide with the accepted API-29 minimum and preserved the existing unrelated worktree changes.
+- Added GitHub Actions for Java 21 Gradle tests, lint, debug/release compilation, artifacts, and an API-29 emulator smoke job.
+- Made release signing conditional on complete protected environment inputs and an existing keystore; hosted builds are unsigned otherwise.
+- Added an API-29 activity/media startup smoke test.
+- `:app:assembleRelease` passed locally without release signing material.
+260910-083151 Adaptive cleanup slice:
+- Removed the impossible `wide && !largePresentation` rail and timeline-selector branches and replaced remaining alias checks with `largePresentation` semantics.
+- Removed the unreachable intermediate search presentation path.
+- Simplified large-shell primary pane selection while keeping `LargeLayoutMode` as the geometry authority.
+- Added single-layout one-pane geometry coverage; focused navigation and layout tests passed.
+260910-083151 Notification state and service slice:
+- Added query-isolation, incomplete/terminal boundary, duplicate stream, dismissal, direct Misskey service, and Room persistence coverage.
+- Fixed stream delivery creation to honor local dismissal tombstones.
+- Focused repository, Mastodon sync, and Misskey service tests passed.
+260910-083151 Localization contract slice:
+- Expanded the default English catalog for navigation, feed, search, composer, media, profile, messages, actions, accessibility, and empty states.
+- Switched destination, collection, large-rail, profile-category, timeline, and major rendering call sites to resource IDs or localized resolution.
+- Added XML catalog, placeholder, plural, locale fallback diagnostics, and presentation-literal regression checks.
+- Localization regression tests passed for all seven existing locale directories.
+260910-083151 Translation slice:
+- Added confident navigation, collection, and profile-tab translations to German, Spanish, French, Hindi, Japanese, Korean, and Chinese resources.
+- Left uncertain long-form strings on English fallback.
+260910-091500 Final stabilization verification:
+- Fixed Home reply routing so the shell opens the composer through its guarded reply state transition.
+- Restored the large timeline dock accessibility label and replaced Compose-invalid LocalContext resource reads with stringResource calls.
+- Full unit tests, lintDebug, assembleDebug, and assembleRelease passed.
+- connectedDebugAndroidTest ran on the connected device; Room persistence, AVIF, and example tests passed, while the existing API-29 startup and system-bar tests failed with no Compose hierarchy found.

@@ -1,11 +1,8 @@
-# Product identity, architecture, localization, and documentation task
+# Stabilization task
 
-- [ ] Establish baseline and capture focused test results
-- [ ] Normalize product identity and related user-facing resources
-- [ ] Remove unauthenticated DM placeholder
-- [ ] Split notification repository
-- [x] Split Mastodon and Misskey protocol sources
-- [ ] Extract PalustrisApp shell and state ownership
-- [ ] Complete localization baseline and requested locale directories
-- [ ] Repair documentation and run final verification
-- [ ] Commit focused changes and push to GitHub
+- [x] Add safe CI and release compilation
+- [x] Prove API-29 guarded paths and instrumentation startup
+- [x] Clean obsolete adaptive-navigation branches
+- [x] Expand notification repository and protocol service coverage
+- [x] Complete localization extraction and regression checks
+- [ ] Push logical commits after preserving unrelated worktree changes

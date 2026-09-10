@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.timelineLabelRes
 
@@ -52,6 +53,7 @@ internal fun LargeTimelineDockContent(
     ) {
         Timeline.entries.filter { it in timelines }.forEach { timeline ->
             val label = stringResource(timelineLabelRes(timeline))
+            val description = stringResource(R.string.large_timeline, label)
             FilterChip(
                 selected = timeline == selected,
                 onClick = { onSelect(timeline) },
@@ -60,8 +62,10 @@ internal fun LargeTimelineDockContent(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                 ),
-                shape = RoundedCornerShape(50),
-                 modifier = Modifier.semantics { contentDescription = label },
+                 shape = RoundedCornerShape(50),
+                 modifier = Modifier.semantics {
+                     contentDescription = description
+                 },
             )
         }
     }

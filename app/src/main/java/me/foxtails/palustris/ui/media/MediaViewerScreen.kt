@@ -85,6 +85,7 @@ fun MediaViewerScreen(
     val attachments = request.ownedPost.post.attachments
     if (attachments.isEmpty()) return
     val context = LocalContext.current
+    val closeDescription = stringResource(R.string.media_close_description)
     val density = LocalDensity.current
     val registry = LocalMediaTransitionRegistry.current
     val motionScheme = LocalPalustrisMotionScheme.current
@@ -387,7 +388,7 @@ fun MediaViewerScreen(
                             Text(stringResource(R.string.media_description), color = Color.White, style = MaterialTheme.typography.titleLarge)
                             IconButton(
                                 onClick = { descriptionVisible = false },
-                                modifier = Modifier.semantics { contentDescription = context.getString(R.string.media_close_description) },
+                                 modifier = Modifier.semantics { contentDescription = closeDescription },
                             ) { Icon(AppIcons.Close, null, tint = Color.White) }
                         }
                         Text(

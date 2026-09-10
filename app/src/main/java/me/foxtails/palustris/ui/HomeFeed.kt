@@ -383,9 +383,10 @@ internal fun PostRow(
                     }
                     timestamp?.let {
                         if (presentation.visibleText.isNotBlank()) Spacer(Modifier.height(2.dp))
+                        val timeDescription = stringResource(R.string.post_time)
                         Text(
                             it,
-                            modifier = Modifier.semantics { contentDescription = context.getString(R.string.post_time) },
+                            modifier = Modifier.semantics { contentDescription = timeDescription },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -480,13 +481,13 @@ internal fun PostMetadataRow(
     postOwned: OwnedPost? = null,
 ) {
     val profileInteractionSource = remember { MutableInteractionSource() }
-    val context = LocalContext.current
+    val metadataDescription = stringResource(R.string.post_metadata)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = PostMetadataVerticalPadding)
             .height(PostChromeHeight)
-            .semantics { contentDescription = context.getString(R.string.post_metadata) },
+            .semantics { contentDescription = metadataDescription },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
@@ -631,6 +632,7 @@ private fun ReactionRow(
         reactions.forEach { reaction ->
             val interactionSource = remember(reaction.emoji) { MutableInteractionSource() }
             val countText = pluralStringResource(R.plurals.reaction_count, reaction.count, reaction.count)
+            val reactionDescription = stringResource(R.string.post_reaction_accessibility, reaction.emoji, countText)
             val selectedStateDescription = if (reaction.selected) {
                 if (enabled) {
                     stringResource(R.string.emoji_reaction_remove, reaction.emoji)
@@ -660,7 +662,7 @@ private fun ReactionRow(
                     )
                     .testTag("reaction_chip_${reaction.emoji}")
                     .semantics {
-                        contentDescription = context.getString(R.string.post_reaction_accessibility, reaction.emoji, countText)
+                        contentDescription = reactionDescription
                         role = Role.Button
                         this.selected = reaction.selected
                         selectedStateDescription?.let { stateDescription = it }
@@ -724,13 +726,14 @@ internal fun InteractionRow(
 ) {
     var repostMenuVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
     val context = LocalContext.current
+    val actionDescription = stringResource(R.string.post_actions)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(PostInteractionRowHeight)
             .padding(horizontal = 8.dp)
-            .semantics { contentDescription = context.getString(R.string.post_actions) },
+            .semantics { contentDescription = actionDescription },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         InteractionButton(

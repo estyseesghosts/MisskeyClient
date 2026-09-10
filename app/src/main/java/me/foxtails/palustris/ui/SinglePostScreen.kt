@@ -171,9 +171,10 @@ internal fun SinglePostScreen(
                         }
                         postTimestamp(post)?.let { timestamp ->
                             if (presentation.visibleText.isNotBlank()) androidx.compose.foundation.layout.Spacer(Modifier.height(2.dp))
+                            val timeDescription = stringResource(R.string.post_time)
                             Text(
                                 timestamp,
-                                Modifier.semantics { contentDescription = context.getString(R.string.post_time) },
+                                Modifier.semantics { contentDescription = timeDescription },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
