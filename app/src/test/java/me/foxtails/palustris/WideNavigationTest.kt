@@ -82,6 +82,25 @@ class WideNavigationTest {
         compose.onNodeWithContentDescription("Notification settings").assertDoesNotExist()
     }
 
+    @Test
+    @Config(qualifiers = "w840dp-h1000dp-420dpi")
+    fun expandedHomeShowsPanePromptAndTimelineDock() {
+        compose.onNodeWithTag("large_screen_shell").assertIsDisplayed()
+        compose.onNodeWithText("Select a post").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Timeline Home").assertIsDisplayed()
+    }
+
+    @Test fun largeSearchKeepsCategoriesAboveTheField() {
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.waitForIdle()
+
+        val categories = compose.onNodeWithContentDescription("Search categories; swipe horizontally for more")
+        val field = compose.onNodeWithContentDescription("Search field")
+        categories.assertIsDisplayed()
+        field.assertIsDisplayed()
+        assertTrue(categories.fetchSemanticsNode().boundsInRoot.top < field.fetchSemanticsNode().boundsInRoot.top)
+    }
+
     @Test fun wideProfileUsesNormalChipFlowAndKeepsSelfActionReachable() {
         val profile = wideProfile()
         val post = Post(
