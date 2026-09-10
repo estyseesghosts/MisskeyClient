@@ -1,7 +1,9 @@
-
 Media transition continuity task in progress:
 - Inspect current transition and loader architecture.
 - Implement continuous preview/full image rendering and geometry.
 - Implement stable gesture ownership and release physics.
 - Add focused coverage and run required verification.
 - Update results, commit, and push.
+
+Media transition correction task:
+- [ ] Geometry, content matching, source restoration, motion, tests, build, device evidence, and delivery.

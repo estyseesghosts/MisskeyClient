@@ -1,0 +1,35 @@
+# Media transition correction
+
+## Baseline
+
+- Started: 2026-09-09 20:52:51
+- Branch: `main`
+- Commit: `ad931a6 Implement continuous media viewer transitions`
+- Existing unrelated worktree changes preserved: `.gitignore`, `.idea/vcs.xml`, `AGENTS.md`, `docs/notifications-compatibility.md`, `.kotlin/`, supplied recordings, supplied `ffmpeg/`, and `notifications_progress.md`.
+
+## Intended steps
+
+1. Reproduce the transition geometry with deterministic edge-marker fixtures and record dimensions, frames, readiness, and handoff state without sensitive diagnostics.
+2. Replace nested overlay sizing with explicit painter drawing into image, rounded clip, and visible viewport rectangles.
+3. Keep preview content stable during full-image loading and bind readiness to the selected attachment/request.
+4. Correct source geometry, duplicate-occurrence keys, viewport clipping, and frame-synchronized restoration ownership.
+5. Tune close motion only after rendering and restoration correctness are verified.
+6. Extend existing transition, viewer, and carousel tests, then run focused and required final verification.
+7. Verify device behavior where a connected test device is available, record evidence, and push focused commits after review.
+
+## Affected areas
+
+- `app/src/main/java/me/foxtails/palustris/ui/media/MediaViewerScreen.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/media/MediaPage.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/media/PostMediaCarousel.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/media/MediaTransitionState.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/media/MediaViewerTransitionState.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/media/MediaTransitionRegistryExtensions.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
+- Existing media transition tests and required task logs only.
+
+## Reproduction record
+
+- Supplied recordings are `1080 x 2400`; no extracted frames are stored in the repository.
+- Reported failing close: visible returning image approximately `622 x 474`, then a blank handoff, then approximately `842 x 720` feed preview.
+- Deterministic fixture variants and actual decoded dimensions will be recorded after the focused test harness is extended.

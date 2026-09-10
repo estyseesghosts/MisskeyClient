@@ -29,3 +29,7 @@
 - Added io.github.awxkee:avif-coder:2.2.1 because the app needs an app-owned decoder that avoids device-specific platform AVIF defects while retaining Coil 2.7.0.
 - Commits created: 3a1adf8, 9ba09a6, 1742b49, 2faa8bb.
 - Verification passed: focused AVIF tests, Android 13 device AVIF tests, lintDebug, test, and assembleRelease.
+
+260909-205251 Media transition correction task started:
+- Baseline captured at `ad931a6`; unrelated worktree changes preserved.
+- Required task log and active TODO record created.
