@@ -32,4 +32,26 @@
 
 - Supplied recordings are `1080 x 2400`; no extracted frames are stored in the repository.
 - Reported failing close: visible returning image approximately `622 x 474`, then a blank handoff, then approximately `842 x 720` feed preview.
-- Deterministic fixture variants and actual decoded dimensions will be recorded after the focused test harness is extended.
+- Deterministic edge-marker fixture variants cover landscape, portrait, equal and different aspect ratios, and missing metadata.
+- The rendered fixture uses floating-point image, clip, and visible rectangles and verifies all four marker quadrants plus rounded clipping.
+- The connected device showed the reported feed image at approximately `843 x 726` rendered pixels and the viewer image at approximately `1032 x 586` rendered pixels; these are rendered bounds, not drawable dimensions.
+- Actual server metadata and decoded drawable dimensions for the live photo were not exposed by the production diagnostics and were not guessed.
+
+## Verification
+
+- Focused `MediaTransitionStateTest`: passed.
+- Focused `MediaViewerScreenTest`: passed, including delayed full-image readiness and preview restoration.
+- Focused `PostMediaCarouselTest`: passed.
+- `lintDebug`: passed.
+- `test assembleRelease`: passed.
+- `:app:assembleDebug`: passed.
+- `:app:connectedDebugAndroidTest`: passed on `SM-G986W`, Android 13.
+- Installed debug identity: package `me.foxtails.palustris`, version `0.1.0` / code `1`, target SDK `37`.
+
+## Device evidence
+
+- Installed `app/build/outputs/apk/debug/app-debug.apk` on the connected `SM_G986W` using the supplied adb serial.
+- Manually opened the reported landscape source photo, then recorded ten repeated closes from that item using both vertical directions and varied release speeds.
+- Temporary recording: `1080 x 2400`, `30.31s`, `1633` frames, approximately `53.88fps`; it was kept outside the repository and not staged.
+- ffmpeg contact-sheet and handoff samples showed continuous image presence through opening, close movement, and source restoration; no blank handoff, final size pop, or stuck viewer was observed in this run.
+- Filtered device logcat showed no application crash or fatal exception during the run.

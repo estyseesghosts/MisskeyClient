@@ -33,3 +33,11 @@
 260909-205251 Media transition correction task started:
 - Baseline captured at `ad931a6`; unrelated worktree changes preserved.
 - Required task log and active TODO record created.
+260909-205251 Media transition correction task:
+- Replaced nested constrained overlay layout and implicit fit with explicit painter drawing and separate image, rounded clip, and visible viewport geometry.
+- Kept preview pixels stable during opening and closing, resolved dimensions from decoded drawables with metadata fallback, and bound readiness to the selected page/key.
+- Measured complete resting source rectangles, intersected ancestor and viewport clipping, invalidated invisible sources, and added request-scoped restoration ownership with a frame-synchronized handoff.
+- Added deterministic edge-marker, geometry, ownership, pager, delayed-readiness, and source-restoration coverage.
+- Commits created: `768fae9`, `46b4aa8`, `259b76d`, `4f81ff1`.
+- Verification passed: focused media tests, `lintDebug`, `test assembleRelease`, `:app:assembleDebug`, and `:app:connectedDebugAndroidTest` on `SM-G986W`.
+- Device recording evidence was reviewed outside the repository; no blank handoff, size pop, or stuck close was observed in ten repeated cycles.

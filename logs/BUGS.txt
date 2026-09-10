@@ -1,0 +1,4 @@
+# Unresolved transition concerns
+
+- Live-server metadata and decoded drawable dimensions were not available without adding sensitive diagnostics; the device record therefore contains rendered bounds only.
+- The device recording is evidence for the connected handset and reported photo, not proof of every server crop, device renderer, or reference-application spring configuration.
