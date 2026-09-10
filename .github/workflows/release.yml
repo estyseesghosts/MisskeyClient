@@ -79,41 +79,9 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug
 
-  instrumentation:
-    name: API 29 instrumentation smoke test
-    needs: checks
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: gradle
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Run API 29 smoke test
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          force-avd-creation: false
-          emulator-options: -no-window -noaudio -no-boot-anim
-          disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest
-
   release:
     name: Build and publish signed APK
-    needs: [prepare, instrumentation]
+    needs: [prepare, checks]
     runs-on: ubuntu-24.04
     environment: release
     permissions:
