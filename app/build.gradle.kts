@@ -3,6 +3,8 @@ import java.io.File
 
 val productName = "MisskeyClient"
 val productVersion = "0.1.0"
+val configuredVersionName = providers.gradleProperty("versionName").orElse(productVersion).get()
+val configuredVersionCode = providers.gradleProperty("versionCode").map { it.toInt() }.getOrElse(1)
 val releaseStoreFile = providers.environmentVariable("RELEASE_STORE_FILE").map { File(it) }
 val releaseSigningAvailable = providers.environmentVariable("RELEASE_STORE_FILE")
     .zip(providers.environmentVariable("RELEASE_KEY_ALIAS")) { path, alias -> File(path).isFile && alias.isNotBlank() }
@@ -27,11 +29,11 @@ android {
         applicationId = "me.foxtails.palustris"
         minSdk = 29
         targetSdk = 37
-        versionCode = 1
-        versionName = productVersion
+        versionCode = configuredVersionCode
+        versionName = configuredVersionName
         resValue("string", "app_name", productName)
         buildConfigField("String", "PRODUCT_NAME", "\"$productName\"")
-        buildConfigField("String", "PRODUCT_VERSION", "\"$productVersion\"")
+        buildConfigField("String", "PRODUCT_VERSION", "\"$configuredVersionName\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures {
