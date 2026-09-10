@@ -15,6 +15,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -30,7 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -87,6 +90,7 @@ fun SearchScreen(
     sharedTab: Int? = null,
     onSharedQueryChange: (String) -> Unit = {},
     onSharedTabChange: (Int) -> Unit = {},
+    listState: LazyListState? = null,
 ) {
     if (mode == SearchPanel.Alternate) {
         EmptyState(AppIcons.WaffleGrid, "Alternate search", "A second search surface will be available in a future update.")
@@ -94,6 +98,12 @@ fun SearchScreen(
     }
     var localQuery by rememberSaveable { mutableStateOf("") }
     var localTab by rememberSaveable { mutableIntStateOf(0) }
+    var largeDockHeightPx by remember { mutableIntStateOf(0) }
+    val largeDockClearance = if (largeDockHeightPx > 0) {
+        with(LocalDensity.current) { largeDockHeightPx.toDp() }
+    } else {
+        LargeSearchDockClearance
+    }
     val query = sharedQuery ?: localQuery
     val tab = sharedTab ?: localTab
     fun updateQuery(value: String) {
@@ -146,7 +156,7 @@ fun SearchScreen(
                 quoteEnabled = quoteEnabled,
                 onQuote = onQuote,
                 onLoadMoreSearch = onLoadMoreSearch,
-                endClearance = LargeSearchDockClearance,
+                 endClearance = largeDockClearance,
                 mediaOwner = mediaOwner,
                 onOpenMedia = onOpenMedia,
                 onOpenPost = onOpenPost,
@@ -154,6 +164,8 @@ fun SearchScreen(
                 onOpenUsername = onOpenUsername,
                 onSearchHashtag = onSearchHashtag,
                 onOpenHashtagBubble = onOpenHashtagBubble,
+                listState = listState,
+                largeLayout = largeLayout,
             )
             LargeBottomDock(
                 content = {
@@ -162,7 +174,9 @@ fun SearchScreen(
                         SearchField(query, ::submitSearch, ::updateQuery)
                     }
                 },
-                modifier = Modifier.align(Alignment.BottomStart),
+                 modifier = Modifier
+                     .align(Alignment.BottomStart)
+                     .onSizeChanged { largeDockHeightPx = it.height },
             )
         }
     } else if (!compactLayout) {
@@ -195,7 +209,9 @@ fun SearchScreen(
                   onOpenUsername = onOpenUsername,
                  onSearchHashtag = onSearchHashtag,
                  onOpenHashtagBubble = onOpenHashtagBubble,
-            )
+                 listState = listState,
+                 largeLayout = false,
+             )
         }
     } else {
         Box(Modifier.fillMaxSize()) {
@@ -225,8 +241,10 @@ fun SearchScreen(
                 onOpenUrl = onOpenUrl,
                 onOpenUsername = onOpenUsername,
                 onSearchHashtag = onSearchHashtag,
-                onOpenHashtagBubble = onOpenHashtagBubble,
-            )
+                 onOpenHashtagBubble = onOpenHashtagBubble,
+                 listState = listState,
+                 largeLayout = false,
+             )
             Box(
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -275,6 +293,8 @@ private fun SearchContent(
     onOpenUsername: ((String) -> Unit)?,
     onSearchHashtag: (String) -> Unit,
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
+    listState: LazyListState?,
+    largeLayout: Boolean,
 ) {
     Box(modifier.testTag("search_content")) {
         val queryKind = when {
@@ -313,10 +333,18 @@ private fun SearchContent(
                     onOpenMedia = onOpenMedia,
                     onSearchHashtag = onSearchHashtag,
                      onOpenHashtagBubble = onOpenHashtagBubble,
-                      onOpenPost = onOpenPost,
+                     listState = listState,
+                     largeLayout = largeLayout,
+                       onOpenPost = onOpenPost,
                       onOpenUrl = onOpenUrl,
                       onOpenUsername = onOpenUsername,
-                ) else AccountSearchResults(query, accountSearch, onAccountClick, endClearance)
+                ) else AccountSearchResults(
+                    query = query,
+                    state = accountSearch,
+                    onAccountClick = onAccountClick,
+                    endClearance = endClearance,
+                    listState = listState,
+                )
             } else {
                 EmptyState(
                     AppIcons.Tag,
@@ -398,12 +426,15 @@ private fun HashtagSearchResults(
     onOpenPost: (OwnedPost) -> Unit,
     onOpenUrl: ((String) -> Unit)?,
     onOpenUsername: ((String) -> Unit)?,
+    listState: LazyListState?,
+    largeLayout: Boolean,
 ) {
     val scheme = LocalPalustrisMotionScheme.current
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         state.error != null -> EmptyState(AppIcons.Search, "Hashtag search failed", state.error)
         state.posts.isNotEmpty() && state.query == query.trim() -> LazyColumn(
+            state = listState ?: androidx.compose.foundation.lazy.rememberLazyListState(),
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 24.dp + endClearance),
         ) {
@@ -434,7 +465,8 @@ private fun HashtagSearchResults(
                          onOpenPost = onOpenPost,
                          onOpenUrl = onOpenUrl,
                          onOpenUsername = onOpenUsername,
-                     )
+                         largeLayout = largeLayout,
+                      )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 }
             }
@@ -458,12 +490,14 @@ private fun AccountSearchResults(
     state: AccountSearchState,
     onAccountClick: (Account) -> Unit,
     endClearance: Dp,
+    listState: LazyListState?,
 ) {
     val scheme = LocalPalustrisMotionScheme.current
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         state.error != null -> EmptyState(AppIcons.Search, "Account search failed", state.error)
         state.accounts.isNotEmpty() -> LazyColumn(
+            state = listState ?: androidx.compose.foundation.lazy.rememberLazyListState(),
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = endClearance),
         ) {

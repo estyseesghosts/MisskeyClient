@@ -18,7 +18,11 @@ import androidx.compose.material3.adaptive.HingeInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import me.foxtails.palustris.domain.Account
 
 @Composable
@@ -37,7 +41,14 @@ internal fun LargeScreenShell(
 ) {
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     val density = LocalDensity.current
-    Row(modifier.fillMaxSize().testTag("large_screen_shell")) {
+    val layoutDirection = LocalLayoutDirection.current
+    val systemBars = WindowInsets.systemBars
+    Row(
+        modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.systemBars)
+            .testTag("large_screen_shell"),
+    ) {
         LargeNavigationRail(
             selectedTarget = selectedTarget,
             account = account,
@@ -47,7 +58,11 @@ internal fun LargeScreenShell(
         )
         BoxWithConstraints(Modifier.weight(1f).fillMaxSize().testTag("large_content_region")) {
             val railPx = with(density) { 80.dp.toPx() }
-            val features = adaptiveInfo.windowPosture.hingeList.map { it.toLargeFeature(railPx) }
+            val insetLeftPx = systemBars.getLeft(density, layoutDirection).toFloat()
+            val insetTopPx = systemBars.getTop(density).toFloat()
+            val features = adaptiveInfo.windowPosture.hingeList.map {
+                it.toLargeFeature(railPx, insetLeftPx, insetTopPx)
+            }
             val layout = calculateLargePaneLayout(
                 windowWidthDp = windowWidth.value,
                 contentWidthDp = maxWidth.value,
@@ -87,8 +102,8 @@ private fun PaneSlot(
     )
 }
 
-private fun HingeInfo.toLargeFeature(railPx: Float): LargeFoldingFeature {
-    val pxBounds = bounds.translate(-railPx, 0f)
+private fun HingeInfo.toLargeFeature(railPx: Float, insetLeftPx: Float, insetTopPx: Float): LargeFoldingFeature {
+    val pxBounds = bounds.translate(-(railPx + insetLeftPx), -insetTopPx)
     return LargeFoldingFeature(
         bounds = pxBounds,
         isVertical = isVertical,

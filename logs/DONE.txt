@@ -49,3 +49,5 @@
 - Compact-facing tests and the updated wide shell tests pass.
 - `lintDebug`, full `test`, and `assembleRelease` pass after replacing notification-settings `Context.getString` calls with `stringResource`.
 - `connectedDebugAndroidTest` ran on the connected SM-G986W: 7 tests passed and the existing system-bar appearance test failed because no Compose hierarchy was found; details are in `logs/BUGS.txt`.
+- Corrected compact-search regression by keeping the shared search list state limited to large presentation; renamed the horizontal-fold test to match its behavior.
+- Final verification passed: focused foldable/navigation UI tests, full `test`, `lintDebug`, and `assembleRelease`.

@@ -15,12 +15,17 @@ import androidx.core.view.WindowCompat
 
 /** Applies the app-shell navigation-bar appearance for normal and viewer modes. */
 @Composable
-internal fun SystemBars(mediaViewerOpen: Boolean) {
+internal fun SystemBars(mediaViewerOpen: Boolean, largePresentation: Boolean = false) {
     val context = LocalContext.current
     val view = LocalView.current
     val window = (view.rootView.context.findActivity() ?: context.findActivity())?.window ?: return
-    val navigationBarColor = if (mediaViewerOpen) Color.Black else MaterialTheme.colorScheme.background
-    val useDarkNavigationIcons = !mediaViewerOpen && navigationBarColor.luminance() > 0.5f
+    val navigationBarColor = when {
+        mediaViewerOpen -> Color.Black
+        largePresentation -> Color.Transparent
+        else -> MaterialTheme.colorScheme.background
+    }
+    val navigationIconBackground = if (largePresentation) MaterialTheme.colorScheme.background else navigationBarColor
+    val useDarkNavigationIcons = !mediaViewerOpen && navigationIconBackground.luminance() > 0.5f
 
     SideEffect {
         window.navigationBarColor = navigationBarColor.toArgb()

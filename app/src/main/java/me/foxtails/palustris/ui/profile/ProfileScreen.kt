@@ -91,6 +91,7 @@ fun ProfileScreen(
     onFollow: () -> Unit = {},
     onUnfollow: () -> Unit = {},
     onMessage: (Account) -> Unit = {},
+    onEditProfile: (() -> Unit)? = null,
     onOpenDrafts: () -> Unit = {},
     onOpenBookmarks: () -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
@@ -159,6 +160,7 @@ fun ProfileScreen(
             onFollow = onFollow,
             onUnfollow = onUnfollow,
             onMessage = { onMessage(displayedAccount) },
+            onEditProfile = onEditProfile,
             onOpenProfile = onOpenProfile,
             details = { ProfileDetails(displayedAccount) },
             availableActions = availableActions,
@@ -298,6 +300,7 @@ private fun LargeProfilePresentation(
     onSearchHashtag: (String) -> Unit,
     onOpenUrl: ((String) -> Unit)?,
     onOpenUsername: ((String) -> Unit)?,
+    onEditProfile: (() -> Unit)?,
 ) {
     @Composable
     fun timeline() {
@@ -329,10 +332,11 @@ private fun LargeProfilePresentation(
             onOpenUsername = onOpenUsername,
             header = {},
             details = details,
-            listState = listState,
-            showHeader = false,
-            showInlineCategories = false,
-        )
+             listState = listState,
+             showHeader = false,
+             showInlineCategories = false,
+             largeLayout = true,
+         )
     }
 
     @Composable
@@ -352,29 +356,32 @@ private fun LargeProfilePresentation(
     }
 
     if (showSummary) {
-        Row(Modifier.fillMaxSize()) {
-            Column(
-                Modifier
-                    .weight(0.42f)
-                    .fillMaxHeight()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                ProfileHeader(
-                    account = account,
-                    state = state,
-                    isSelf = isSelf,
-                    onRefresh = onRefresh,
-                    onFollow = onFollow,
-                    onUnfollow = onUnfollow,
-                    onMessage = onMessage,
-                    onOpenProfile = onOpenProfile,
-                )
-                details()
+        Box(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxSize()) {
+                Column(
+                    Modifier
+                        .weight(0.42f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    ProfileHeader(
+                        account = account,
+                        state = state,
+                        isSelf = isSelf,
+                        onRefresh = onRefresh,
+                        onFollow = onFollow,
+                        onUnfollow = onUnfollow,
+                        onMessage = onMessage,
+                        onOpenProfile = onOpenProfile,
+                        onEditProfile = onEditProfile,
+                    )
+                    details()
+                }
+                Box(Modifier.weight(0.58f).fillMaxHeight()) {
+                    timeline()
+                }
             }
-            Box(Modifier.weight(0.58f).fillMaxHeight()) {
-                timeline()
-                dock(Modifier.align(Alignment.BottomStart))
-            }
+            dock(Modifier.align(Alignment.BottomStart))
         }
     } else {
         Box(Modifier.fillMaxSize()) {
@@ -394,6 +401,7 @@ private fun ProfileHeader(
     onUnfollow: () -> Unit,
     onMessage: () -> Unit,
     onOpenProfile: (Account) -> Unit,
+    onEditProfile: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
@@ -478,7 +486,12 @@ private fun ProfileHeader(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (!isSelf && movedTo == null) {
+                if (isSelf && onEditProfile != null && state.editableSupported) {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = onEditProfile,
+                        modifier = Modifier.testTag("profile_edit_action"),
+                    ) { Text("Edit profile") }
+                } else if (!isSelf && movedTo == null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         androidx.compose.material3.OutlinedButton(
                             onClick = onMessage,

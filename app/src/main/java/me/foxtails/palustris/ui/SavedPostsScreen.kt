@@ -52,6 +52,7 @@ fun SavedPostsScreen(
     onOpenPost: (OwnedPost) -> Unit = {},
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
+    largeLayout: Boolean = false,
 ) {
     val title = if (state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites) "favourites" else "bookmarks"
     val refreshState = rememberPullToRefreshState()
@@ -111,9 +112,10 @@ fun SavedPostsScreen(
                             onOpenReactionBubble?.invoke(target, bounds)
                         },
                         onOpenReactionPicker = onOpenReactionPicker,
-                           onOpenMedia = onOpenMedia,
-                           onOpenPost = onOpenPost,
-                           onOpenUrl = onOpenUrl,
+                            onOpenMedia = onOpenMedia,
+                            onOpenPost = onOpenPost,
+                            largeLayout = largeLayout,
+                            onOpenUrl = onOpenUrl,
                            onOpenUsername = onOpenUsername,
                           modifier = Modifier.animateItem(
                              fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,

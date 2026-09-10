@@ -26,6 +26,7 @@ import me.foxtails.palustris.domain.ProfileTimelineTab
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.PalustrisTheme
+import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfilePageState
 import me.foxtails.palustris.ui.profile.ProfileScreen
@@ -101,6 +102,31 @@ class WideNavigationTest {
         assertTrue(categories.fetchSemanticsNode().boundsInRoot.top < field.fetchSemanticsNode().boundsInRoot.top)
     }
 
+    @Test
+    fun largeShortPostHasExplicitDetailAffordance() {
+        val account = wideProfile()
+        val post = Post(
+            id = EntityId(account.id.connection.origin, "wide-short-post"),
+            author = account,
+            text = "Short post",
+            publishedAtEpochMillis = 0,
+            audience = Audience.Public,
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(posts = listOf(post)),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Open post").performClick()
+        compose.onNodeWithContentDescription("Close post").assertIsDisplayed()
+        compose.onNodeWithText("Comments").assertIsDisplayed()
+    }
+
     @Test fun wideProfileUsesNormalChipFlowAndKeepsSelfActionReachable() {
         val profile = wideProfile()
         val post = Post(
@@ -148,6 +174,36 @@ class WideNavigationTest {
         }
     }
 
+    @Test
+    fun largeProfileDockStartsAtContentSpineAndShowsEditAction() {
+        val profile = wideProfile()
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisTheme {
+                    ProfileScreen(
+                        account = profile,
+                        profileState = ProfileUiState(
+                            targetId = profile.id,
+                            account = profile,
+                        ),
+                        compactLayout = false,
+                        largeLayout = true,
+                        authenticatedAccountId = profile.id,
+                        onEditProfile = {},
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        val dock = compose.onNodeWithContentDescription(
+            "Profile categories; swipe horizontally for more",
+        ).fetchSemanticsNode().boundsInRoot
+        val expectedMarginPx = 16f * compose.activity.resources.displayMetrics.density
+        assertTrue("large profile dock should start at the content spine", dock.left <= expectedMarginPx)
+        compose.onNodeWithText("Edit profile").assertIsDisplayed()
+    }
+
     private fun assertRailAndComposer() {
         compose.waitForIdle()
         compose.runOnIdle {
@@ -164,7 +220,8 @@ class WideNavigationTest {
         compose.onNodeWithContentDescription("Timeline Home").assertIsDisplayed()
         compose.onNodeWithContentDescription("Search").assertIsDisplayed()
         compose.onNodeWithContentDescription("Notifications").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Profile").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Current account; long press to switch account").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Profile").assertDoesNotExist()
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithText("New post").assertIsDisplayed()
     }

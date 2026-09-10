@@ -25,7 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -84,10 +84,12 @@ data class MediaOpenRequest(
 fun PostMediaCarousel(
     ownedPost: OwnedPost,
     onOpenMedia: (MediaOpenRequest) -> Unit,
+    attachmentIndices: List<Int>? = null,
     modifier: Modifier = Modifier,
 ) {
     val attachments = ownedPost.post.attachments
     if (attachments.isEmpty()) return
+    val visibleIndices = attachmentIndices ?: attachments.indices.toList()
     val context = LocalContext.current
     val density = LocalDensity.current
     val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
@@ -99,9 +101,11 @@ fun PostMediaCarousel(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            itemsIndexed(attachments, key = { index, attachment ->
+            items(visibleIndices, key = { index ->
+                val attachment = attachments[index]
                 "${ownedPost.fetchedBy.connection.origin}/${ownedPost.post.id.connection}/${ownedPost.post.id.value}/${attachment.id ?: index}"
-            }) { index, attachment ->
+            }) { index ->
+                val attachment = attachments[index]
                 val width = previewWidth(attachment)
                     .coerceIn(152.dp, minOf(320.dp, maxWidth * .78f))
                 MediaPreviewTile(

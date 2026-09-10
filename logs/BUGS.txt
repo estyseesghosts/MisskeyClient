@@ -3,3 +3,4 @@
 - Live-server metadata and decoded drawable dimensions were not available without adding sensitive diagnostics; the device record therefore contains rendered bounds only.
 - The device recording is evidence for the connected handset and reported photo, not proof of every server crop, device renderer, or reference-application spring configuration.
 - `connectedDebugAndroidTest` ran on the connected SM-G986W but failed the existing `SystemBarAppearanceInstrumentedTest.navigationBarModeUsesBlackViewerAndRestoresThemeAppearance` test because no Compose hierarchy was found; the other 7 instrumented tests passed. This is not a foldable-layout test.
+- A valid device screenshot of the foldable layout could not be captured because the connected device remained behind the keyguard/notification shade; visual verification is limited to Compose tests and the supplied reference screenshot.

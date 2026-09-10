@@ -35,6 +35,7 @@ fun NotificationDetailScreen(
     onSearchHashtag: ((String) -> Unit)? = null,
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     onOpenPost: (OwnedPost) -> Unit = {},
+    largeLayout: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -132,7 +133,8 @@ fun NotificationDetailScreen(
                             onSearchHashtag = onSearchHashtag,
                              onOpenHashtagBubble = onOpenHashtagBubble,
                              onOpenPost = onOpenPost,
-                         )
+                             largeLayout = largeLayout,
+                          )
                         ValidatedUrl.https(post.url.orEmpty())?.let { url ->
                             Button(
                                 onClick = { openExternal(context, url.value) },

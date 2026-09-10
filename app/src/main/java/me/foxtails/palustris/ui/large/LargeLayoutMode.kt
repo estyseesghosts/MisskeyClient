@@ -52,7 +52,10 @@ internal fun calculateLargePaneLayout(
     val minimumDetail = minimumDetailDp * scale
     val content = Rect(margin, 0f, max(margin, width - margin), max(0f, height))
 
-    val verticalFeatures = foldingFeatures.filter {
+    val structuralFeatures = foldingFeatures.filter {
+        (it.isSeparating || it.isOccluding) && it.bounds.overlaps(content)
+    }
+    val verticalFeatures = structuralFeatures.filter {
         it.isVertical && (it.isSeparating || it.isOccluding) && it.bounds.overlaps(content)
     }
     val safeRegions = verticalFeatures.fold(listOf(content)) { regions, feature ->
@@ -70,14 +73,30 @@ internal fun calculateLargePaneLayout(
         }
     }
 
-    val largestRegion = safeRegions.maxByOrNull { it.width } ?: content
-    if (mode != LargeLayoutMode.Expanded || foldingFeatures.any { !it.isVertical && (it.isSeparating || it.isOccluding) }) {
-        return LargePaneLayout(mode, safeRegions, largestRegion, null)
+    val horizontalFeatures = structuralFeatures.filter { !it.isVertical }
+    val postureRegions = horizontalFeatures.fold(safeRegions) { regions, feature ->
+        regions.flatMap { region ->
+            if (!feature.bounds.overlaps(region)) {
+                listOf(region)
+            } else {
+                listOfNotNull(
+                    Rect(region.left, region.top, region.right, min(region.bottom, feature.bounds.top))
+                        .takeIf { it.height > 0f },
+                    Rect(region.left, max(region.top, feature.bounds.bottom), region.right, region.bottom)
+                        .takeIf { it.height > 0f },
+                )
+            }
+        }
     }
 
-    if (safeRegions.size >= 2) {
-        val left = safeRegions.first()
-        val right = safeRegions.last()
+    val largestRegion = postureRegions.maxByOrNull { it.width * it.height } ?: content
+    if (mode != LargeLayoutMode.Expanded || horizontalFeatures.isNotEmpty()) {
+        return LargePaneLayout(mode, postureRegions, largestRegion, null)
+    }
+
+    if (postureRegions.size >= 2) {
+        val left = postureRegions.first()
+        val right = postureRegions.last()
         if (left.width >= minimumList && right.width >= minimumDetail) {
             return LargePaneLayout(mode, safeRegions, left, right)
         }

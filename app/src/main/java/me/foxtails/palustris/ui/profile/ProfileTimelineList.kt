@@ -88,6 +88,7 @@ internal fun ProfileTimelineList(
     listState: LazyListState? = null,
     showHeader: Boolean = true,
     showInlineCategories: Boolean = !compactLayout,
+    largeLayout: Boolean = false,
 ) {
     val list = listState ?: rememberLazyListState()
     val currentState by rememberUpdatedState(state)
@@ -186,7 +187,8 @@ internal fun ProfileTimelineList(
                       onOpenMedia = onOpenMedia,
                       onOpenPost = onOpenPost,
                       onOpenUrl = onOpenUrl,
-                      onOpenUsername = onOpenUsername,
+             onOpenUsername = onOpenUsername,
+                 largeLayout = largeLayout,
              )
             if (state.selectedTab == ProfileCategory.ShowMore) {
                 item(key = "profile-details") { details() }
@@ -210,7 +212,8 @@ internal fun ProfileTimelineList(
                       onOpenPost = onOpenPost,
                       onOpenUrl = onOpenUrl,
                       onOpenUsername = onOpenUsername,
-                 )
+             largeLayout = largeLayout,
+             )
             }
         }
     }
@@ -270,6 +273,7 @@ private fun LazyListScope.profilePinnedItems(
     onOpenPost: (OwnedPost) -> Unit,
     onOpenUrl: ((String) -> Unit)?,
     onOpenUsername: ((String) -> Unit)?,
+    largeLayout: Boolean,
 ) {
     if (state.pinnedLoading) item(key = "profile-pinned-loading") {
         Text("Featured posts", Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
@@ -304,8 +308,9 @@ private fun LazyListScope.profilePinnedItems(
                 onSearchHashtag = onSearchHashtag,
                      onOpenHashtagBubble = onOpenHashtagBubble,
                       onOpenMedia = onOpenMedia,
-                      onOpenPost = onOpenPost,
-                      onOpenUrl = onOpenUrl,
+                       onOpenPost = onOpenPost,
+                       largeLayout = largeLayout,
+                       onOpenUrl = onOpenUrl,
                       onOpenUsername = onOpenUsername,
                 modifier = Modifier.animateItem(
                     fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,
@@ -337,6 +342,7 @@ private fun LazyListScope.profilePageItems(
     onOpenPost: (OwnedPost) -> Unit,
     onOpenUrl: ((String) -> Unit)?,
     onOpenUsername: ((String) -> Unit)?,
+    largeLayout: Boolean,
 ) {
     if (page == null || page.initialLoading && page.posts.isEmpty()) {
         item(key = "profile-timeline-loading") {
@@ -382,8 +388,9 @@ private fun LazyListScope.profilePageItems(
             onSearchHashtag = onSearchHashtag,
                      onOpenHashtagBubble = onOpenHashtagBubble,
                       onOpenMedia = onOpenMedia,
-                      onOpenPost = onOpenPost,
-                      onOpenUrl = onOpenUrl,
+                       onOpenPost = onOpenPost,
+                       largeLayout = largeLayout,
+                       onOpenUrl = onOpenUrl,
                       onOpenUsername = onOpenUsername,
             modifier = Modifier.animateItem(
                 fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,

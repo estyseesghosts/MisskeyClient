@@ -2,6 +2,7 @@ package me.foxtails.palustris.ui.large
 
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -67,7 +68,7 @@ internal fun LargeNavigationRail(
                 modifier = Modifier.padding(bottom = 8.dp).size(28.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
-            LargeNavTarget.entries.forEach { target ->
+            LargeNavTarget.entries.filter { it != LargeNavTarget.Profile }.forEach { target ->
                 val selected = selectedTarget == target
                 IconButton(
                     onClick = { onTargetSelected(target) },
@@ -107,8 +108,24 @@ internal fun LargeNavigationRail(
                     onLongClick = onOpenAccounts,
                     onLongClickLabel = "Switch account",
                 )
-                .semantics { contentDescription = "Current account; long press to switch account" }
-            if (account != null) AccountAvatar(account, avatarModifier) else Avatar(avatarModifier)
+                .semantics {
+                    contentDescription = "Current account; long press to switch account"
+                    this.selected = selectedTarget == LargeNavTarget.Profile
+                    role = Role.Tab
+                }
+            Surface(
+                modifier = Modifier.size(56.dp),
+                shape = MaterialTheme.shapes.large,
+                color = if (selectedTarget == LargeNavTarget.Profile) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (account != null) AccountAvatar(account, avatarModifier) else Avatar(avatarModifier)
+                }
+            }
             FloatingActionButton(onClick = onCompose, modifier = Modifier.size(52.dp)) {
                 Icon(AppIcons.Edit, "Compose post")
             }

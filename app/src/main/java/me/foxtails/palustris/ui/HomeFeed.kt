@@ -227,6 +227,7 @@ fun HomeFeed(
                          onOpenReactionBubble = openReactionBubble,
                         onOpenMedia = onOpenMedia,
                         onOpenPost = onOpenPost,
+                        largeLayout = !compactLayout,
                         onOpenUrl = onOpenUrl,
                         onOpenUsername = onOpenUsername,
                     )
@@ -313,6 +314,7 @@ internal fun PostRow(
     modifier: Modifier = Modifier,
     truncateBody: Boolean = true,
     onOpenPost: (OwnedPost) -> Unit = {},
+    largeLayout: Boolean = false,
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
 ) {
@@ -413,6 +415,14 @@ internal fun PostRow(
                         Text("View quoted post", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
                 }
+            }
+        }
+        if (largeLayout && !bodyTruncated) {
+            TextButton(
+                onClick = { onOpenPost(ownedPost) },
+                modifier = Modifier.padding(horizontal = 8.dp),
+            ) {
+                Text("Open post")
             }
         }
         if (post.reactions.isNotEmpty()) {

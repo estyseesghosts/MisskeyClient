@@ -82,4 +82,21 @@ class LargeLayoutModeTest {
         assertEquals(1, layout.safeRegions.size)
         assertTrue(layout.detail != null)
     }
+
+    @Test
+    fun horizontalSeparatingFoldSplitsSafeRegionsWithoutDetailPane() {
+        val layout = calculateLargePaneLayout(
+            windowWidthDp = 840f,
+            contentWidthDp = 760f,
+            contentHeightDp = 900f,
+            density = 1f,
+            foldingFeatures = listOf(
+                LargeFoldingFeature(Rect(0f, 449f, 760f, 451f), isVertical = false, isSeparating = true, isOccluding = false),
+            ),
+        )
+
+        assertEquals(2, layout.safeRegions.size)
+        assertNull(layout.detail)
+        assertTrue(layout.primary.bottom <= 449f || layout.primary.top >= 451f)
+    }
 }
