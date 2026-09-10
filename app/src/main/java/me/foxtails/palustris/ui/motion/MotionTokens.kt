@@ -1,5 +1,7 @@
 package me.foxtails.palustris.ui.motion
 
+import android.animation.ValueAnimator
+import android.os.Build
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FiniteAnimationSpec
@@ -16,7 +18,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.semantics.SemanticsPropertyKey
-import android.animation.ValueAnimator
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 
@@ -96,7 +97,13 @@ val MotionScaleKey = SemanticsPropertyKey<Float>("MotionScale")
 
 @Composable
 fun palustrisMotionScheme(): PalustrisMotionScheme {
-    val durationScale = remember { ValueAnimator.getDurationScale() }
+    val durationScale = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ValueAnimator.getDurationScale()
+        } else {
+            1f
+        }
+    }
     val reducedMotion = durationScale == 0f
     return remember(reducedMotion) { PalustrisMotionScheme.standard(reducedMotion) }
 }

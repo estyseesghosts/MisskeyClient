@@ -2,6 +2,8 @@ package me.foxtails.palustris.data.media
 
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
+import android.os.Build
+import androidx.annotation.RequiresApi
 import coil.ImageLoader
 import coil.decode.DecodeResult
 import coil.decode.Decoder
@@ -57,19 +59,46 @@ internal class AvifDecoder(
         )
     }
 
-    private fun preferredColorConfig(options: Options): PreferredColorConfig = when (options.config) {
-        Bitmap.Config.ALPHA_8,
-        Bitmap.Config.ARGB_8888,
-        -> PreferredColorConfig.RGBA_8888
-        Bitmap.Config.RGB_565 -> if (options.allowRgb565) {
-            PreferredColorConfig.RGB_565
-        } else {
-            PreferredColorConfig.DEFAULT
+    private fun preferredColorConfig(options: Options): PreferredColorConfig {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            preferredTenBitConfig(options.config)?.let {
+                return it
+            }
         }
-        Bitmap.Config.RGBA_F16 -> PreferredColorConfig.RGBA_F16
-        Bitmap.Config.RGBA_1010102 -> PreferredColorConfig.RGBA_1010102
-        Bitmap.Config.HARDWARE -> PreferredColorConfig.HARDWARE
-        else -> PreferredColorConfig.DEFAULT
+
+        return when (options.config) {
+            Bitmap.Config.ALPHA_8,
+            Bitmap.Config.ARGB_8888,
+            -> PreferredColorConfig.RGBA_8888
+
+            Bitmap.Config.RGB_565 -> {
+                if (options.allowRgb565) {
+                    PreferredColorConfig.RGB_565
+                } else {
+                    PreferredColorConfig.DEFAULT
+                }
+            }
+
+            Bitmap.Config.RGBA_F16 ->
+                PreferredColorConfig.RGBA_F16
+
+            Bitmap.Config.HARDWARE ->
+                PreferredColorConfig.HARDWARE
+
+            else ->
+                PreferredColorConfig.DEFAULT
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun preferredTenBitConfig(
+        config: Bitmap.Config,
+    ): PreferredColorConfig? {
+        return if (config == Bitmap.Config.RGBA_1010102) {
+            PreferredColorConfig.RGBA_1010102
+        } else {
+            null
+        }
     }
 
     private fun requireReasonableDimensions(width: Int, height: Int) {

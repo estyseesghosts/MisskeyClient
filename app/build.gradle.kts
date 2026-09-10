@@ -1,4 +1,12 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.io.File
+
+val releaseStoreFilePath = providers.environmentVariable("RELEASE_STORE_FILE")
+    .orElse(File(System.getProperty("user.home"), "REALASSKEYS").absolutePath)
+val releaseKeyAlias = providers.environmentVariable("RELEASE_KEY_ALIAS")
+    .orElse("REALKEY")
+val releaseStorePassword = providers.environmentVariable("RELEASE_STORE_PASSWORD")
+val releaseKeyPassword = providers.environmentVariable("RELEASE_KEY_PASSWORD")
 
 plugins {
     alias(libs.plugins.android.application)
@@ -13,7 +21,7 @@ android {
     compileSdk { version = release(37) }
     defaultConfig {
         applicationId = "me.foxtails.palustris"
-        minSdk = 33
+        minSdk = 29
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
@@ -22,7 +30,20 @@ android {
     buildFeatures { compose = true }
     // *Test classes, including MisskeySourceContractTest, are discovered automatically.
     testOptions { unitTests.isIncludeAndroidResources = true }
-    buildTypes { release { optimization { enable = true } } }
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file(releaseStoreFilePath.get())
+            storePassword = releaseStorePassword.orNull
+            keyAlias = releaseKeyAlias.get()
+            keyPassword = releaseKeyPassword.orNull
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            optimization { enable = true }
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
