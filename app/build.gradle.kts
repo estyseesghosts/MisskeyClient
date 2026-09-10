@@ -3,12 +3,14 @@ import java.io.File
 
 val productName = "MisskeyClient"
 val productVersion = "0.1.0"
-val releaseStoreFilePath = providers.environmentVariable("RELEASE_STORE_FILE")
-    .orElse(File(System.getProperty("user.home"), "REALASSKEYS").absolutePath)
-val releaseKeyAlias = providers.environmentVariable("RELEASE_KEY_ALIAS")
-    .orElse("REALKEY")
+val releaseStoreFile = providers.environmentVariable("RELEASE_STORE_FILE").map { File(it) }
+val releaseSigningAvailable = providers.environmentVariable("RELEASE_STORE_FILE")
+    .zip(providers.environmentVariable("RELEASE_KEY_ALIAS")) { path, alias -> File(path).isFile && alias.isNotBlank() }
+    .zip(providers.environmentVariable("RELEASE_STORE_PASSWORD")) { configured, password -> configured && password.isNotEmpty() }
+    .zip(providers.environmentVariable("RELEASE_KEY_PASSWORD")) { configured, password -> configured && password.isNotEmpty() }
 val releaseStorePassword = providers.environmentVariable("RELEASE_STORE_PASSWORD")
 val releaseKeyPassword = providers.environmentVariable("RELEASE_KEY_PASSWORD")
+val releaseKeyAlias = providers.environmentVariable("RELEASE_KEY_ALIAS")
 
 plugins {
     alias(libs.plugins.android.application)
@@ -41,15 +43,18 @@ android {
     testOptions { unitTests.isIncludeAndroidResources = true }
     signingConfigs {
         create("release") {
-            storeFile = rootProject.file(releaseStoreFilePath.get())
+            storeFile = releaseStoreFile.orNull
             storePassword = releaseStorePassword.orNull
-            keyAlias = releaseKeyAlias.get()
+            keyAlias = releaseKeyAlias.orNull
             keyPassword = releaseKeyPassword.orNull
         }
     }
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Hosted CI compiles an unsigned release; protected release jobs provide all inputs.
+            if (releaseSigningAvailable.getOrElse(false)) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization { enable = true }
         }
     }
