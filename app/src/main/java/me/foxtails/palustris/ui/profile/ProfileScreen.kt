@@ -12,12 +12,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,6 +69,8 @@ import me.foxtails.palustris.ui.compactScrollEndClearance
 import me.foxtails.palustris.ui.openExternal
 import me.foxtails.palustris.ui.CompactFilterDockHeight
 import me.foxtails.palustris.ui.CompactOverlayHorizontalPadding
+import me.foxtails.palustris.ui.large.LargeBottomDock
+import me.foxtails.palustris.ui.large.LargeBottomDockClearance
 import me.foxtails.palustris.ui.components.FilterChipEntry
 import me.foxtails.palustris.ui.components.FilterChipRow
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
@@ -102,6 +108,9 @@ fun ProfileScreen(
     onOpenPost: (OwnedPost) -> Unit = {},
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
+    largeLayout: Boolean = false,
+    largeShowSummary: Boolean = true,
+    listState: LazyListState? = null,
 ) {
     LaunchedEffect(account?.id) {
         account?.let(onProfileShown)
@@ -122,7 +131,9 @@ fun ProfileScreen(
     }
 
     val isSelf = displayedAccount.id == authenticatedAccountId
-    val endContentClearance = if (compactLayout) {
+    val endContentClearance = if (largeLayout) {
+        LargeBottomDockClearance
+    } else if (compactLayout) {
         compactScrollEndClearance(
             controlStackHeight = CompactFilterDockHeight,
             navigationVisible = compactNavigationVisible,
@@ -130,6 +141,42 @@ fun ProfileScreen(
         )
     } else {
         0.dp
+    }
+
+    if (largeLayout) {
+        LargeProfilePresentation(
+            account = displayedAccount,
+            state = profileState,
+            isSelf = isSelf,
+            showSummary = largeShowSummary,
+            listState = listState,
+            endContentClearance = endContentClearance,
+            onCategorySelected = onCategorySelected,
+            onOpenDrafts = onOpenDrafts,
+            onOpenBookmarks = onOpenBookmarks,
+            onRefresh = onRefresh,
+            onLoadMore = onLoadMore,
+            onFollow = onFollow,
+            onUnfollow = onUnfollow,
+            onMessage = { onMessage(displayedAccount) },
+            onOpenProfile = onOpenProfile,
+            details = { ProfileDetails(displayedAccount) },
+            availableActions = availableActions,
+            onReact = onReact,
+            onReply = onReply,
+            onReshare = onReshare,
+            onBookmark = onBookmark,
+            onReaction = onReaction,
+            onOpenReactionBubble = onOpenReactionBubble,
+            onOpenReactionPicker = onOpenReactionPicker,
+            onOpenHashtagBubble = onOpenHashtagBubble,
+            onOpenMedia = onOpenMedia,
+            onOpenPost = onOpenPost,
+            onSearchHashtag = onSearchHashtag,
+            onOpenUrl = onOpenUrl,
+            onOpenUsername = onOpenUsername,
+        )
+        return
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -172,6 +219,7 @@ fun ProfileScreen(
                 )
             },
             details = { ProfileDetails(displayedAccount) },
+            listState = listState,
         )
 
         if (compactLayout) {
@@ -214,6 +262,124 @@ fun ProfileScreen(
                     rowContentDescription = "Profile categories; swipe horizontally for more",
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun LargeProfilePresentation(
+    account: Account,
+    state: ProfileUiState,
+    isSelf: Boolean,
+    showSummary: Boolean,
+    listState: LazyListState?,
+    endContentClearance: androidx.compose.ui.unit.Dp,
+    onCategorySelected: (ProfileCategory) -> Unit,
+    onOpenDrafts: () -> Unit,
+    onOpenBookmarks: () -> Unit,
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit,
+    onFollow: () -> Unit,
+    onUnfollow: () -> Unit,
+    onMessage: () -> Unit,
+    onOpenProfile: (Account) -> Unit,
+    details: @Composable () -> Unit,
+    availableActions: Set<PostAction>,
+    onReact: (OwnedPost) -> Unit,
+    onReply: (OwnedPost) -> Unit,
+    onReshare: (OwnedPost) -> Unit,
+    onBookmark: (OwnedPost) -> Unit,
+    onReaction: (OwnedPost, EmojiChoice) -> Unit,
+    onOpenReactionBubble: ((OwnedPost, Rect) -> Unit)?,
+    onOpenReactionPicker: (OwnedPost) -> Unit,
+    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
+    onOpenMedia: (MediaOpenRequest) -> Unit,
+    onOpenPost: (OwnedPost) -> Unit,
+    onSearchHashtag: (String) -> Unit,
+    onOpenUrl: ((String) -> Unit)?,
+    onOpenUsername: ((String) -> Unit)?,
+) {
+    @Composable
+    fun timeline() {
+        ProfileTimelineList(
+            account = account,
+            state = state,
+            compactLayout = false,
+            endContentClearance = endContentClearance,
+            isSelf = isSelf,
+            onCategorySelected = onCategorySelected,
+            onOpenDrafts = onOpenDrafts,
+            onOpenBookmarks = onOpenBookmarks,
+            onRefresh = onRefresh,
+            onLoadMore = onLoadMore,
+            onOpenProfile = onOpenProfile,
+            onSearchHashtag = onSearchHashtag,
+            availableActions = availableActions,
+            onReact = onReact,
+            onReply = onReply,
+            onReshare = onReshare,
+            onBookmark = onBookmark,
+            onReaction = onReaction,
+            onOpenReactionBubble = onOpenReactionBubble,
+            onOpenReactionPicker = onOpenReactionPicker,
+            onOpenHashtagBubble = onOpenHashtagBubble,
+            onOpenMedia = onOpenMedia,
+            onOpenPost = onOpenPost,
+            onOpenUrl = onOpenUrl,
+            onOpenUsername = onOpenUsername,
+            header = {},
+            details = details,
+            listState = listState,
+            showHeader = false,
+            showInlineCategories = false,
+        )
+    }
+
+    @Composable
+    fun dock(modifier: Modifier = Modifier) {
+        LargeBottomDock(
+            content = {
+                ProfileCategoryChips(
+                    selected = state.selectedTab,
+                    isSelf = isSelf,
+                    onCategorySelected = onCategorySelected,
+                    onOpenDrafts = onOpenDrafts,
+                    onOpenBookmarks = onOpenBookmarks,
+                )
+            },
+            modifier = modifier,
+        )
+    }
+
+    if (showSummary) {
+        Row(Modifier.fillMaxSize()) {
+            Column(
+                Modifier
+                    .weight(0.42f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                ProfileHeader(
+                    account = account,
+                    state = state,
+                    isSelf = isSelf,
+                    onRefresh = onRefresh,
+                    onFollow = onFollow,
+                    onUnfollow = onUnfollow,
+                    onMessage = onMessage,
+                    onOpenProfile = onOpenProfile,
+                )
+                details()
+            }
+            Box(Modifier.weight(0.58f).fillMaxHeight()) {
+                timeline()
+                dock(Modifier.align(Alignment.BottomStart))
+            }
+        }
+    } else {
+        Box(Modifier.fillMaxSize()) {
+            timeline()
+            dock(Modifier.align(Alignment.BottomStart))
         }
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -55,6 +56,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -75,6 +77,7 @@ import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.motion.PopEffect
 import me.foxtails.palustris.ui.motion.rememberSelectedColor
 import me.foxtails.palustris.ui.motion.springPress
+import me.foxtails.palustris.ui.large.LargeBottomDock
 
 internal fun openExternal(context: Context, url: String?) {
     val uri = url?.toUri() ?: return
@@ -112,8 +115,13 @@ fun HomeFeed(
     onOpenPost: (OwnedPost) -> Unit = {},
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
+    listState: LazyListState? = null,
+    topContentPadding: Dp? = null,
+    bottomContentClearance: Dp? = null,
+    refreshIndicatorTopPadding: Dp? = null,
+    bottomDock: (@Composable () -> Unit)? = null,
 ) {
-    val list = rememberLazyListState()
+    val list = listState ?: rememberLazyListState()
     val pullToRefreshState = rememberPullToRefreshState()
     var fallbackBubbleTarget by remember { mutableStateOf<PostActionBubbleTarget?>(null) }
     val openHashtagBubble: (OwnedPost, List<String>, Rect) -> Unit = { ownedPost, hashtags, bounds ->
@@ -156,29 +164,29 @@ fun HomeFeed(
             }
     }
     AnimatedStatePane(statePaneKey, Modifier.fillMaxSize()) {
-        PullToRefreshBox(
-            isRefreshing = state.loading,
-            onRefresh = onRefresh,
-            state = pullToRefreshState,
-            modifier = Modifier.fillMaxSize().testTag("home_feed_content"),
-            indicator = {
-                PullToRefreshDefaults.Indicator(
-                    state = pullToRefreshState,
-                    isRefreshing = state.loading,
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 96.dp),
-                )
-            },
-        ) {
-        LazyColumn(
-            state = list,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                top = 96.dp,
-                // Home is the compact overlay reference: the list stays full-size and
-                // only its scroll range receives clearance for the floating assembly.
-                bottom = if (compactLayout) compactHomeScrollEndClearance() else LegacyFeedBottomClearance,
-            ),
-        ) {
+        Box(Modifier.fillMaxSize()) {
+            PullToRefreshBox(
+                isRefreshing = state.loading,
+                onRefresh = onRefresh,
+                state = pullToRefreshState,
+                modifier = Modifier.fillMaxSize().testTag("home_feed_content"),
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = pullToRefreshState,
+                        isRefreshing = state.loading,
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = refreshIndicatorTopPadding ?: 96.dp),
+                    )
+                },
+            ) {
+            LazyColumn(
+                state = list,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    top = topContentPadding ?: 96.dp,
+                    // Floating controls clear the scroll range without shortening the viewport.
+                    bottom = bottomContentClearance ?: if (compactLayout) compactHomeScrollEndClearance() else LegacyFeedBottomClearance,
+                ),
+            ) {
             if (state.error != null) item {
                 Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth().padding(16.dp), shape = MaterialTheme.shapes.large) {
                     Column(Modifier.padding(16.dp)) {
@@ -234,6 +242,13 @@ fun HomeFeed(
                     else Text("You're up to date", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+                }
+            }
+            bottomDock?.let { dock ->
+                LargeBottomDock(
+                    content = dock,
+                    modifier = Modifier.align(Alignment.BottomStart),
+                )
             }
         }
     }
@@ -679,7 +694,7 @@ private fun ReactionRow(
 }
 
 @Composable
-private fun InteractionRow(
+internal fun InteractionRow(
     ownedPost: OwnedPost,
     availableActions: Set<PostAction>,
     onReply: (OwnedPost) -> Unit,

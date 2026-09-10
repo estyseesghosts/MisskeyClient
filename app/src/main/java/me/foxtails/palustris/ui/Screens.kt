@@ -48,6 +48,8 @@ import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.ExpandableContent
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.motion.springPress
+import me.foxtails.palustris.ui.large.LargeBottomDock
+import me.foxtails.palustris.ui.large.LargeBottomDockClearance
 
 private val exactHashtagQuery = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
 
@@ -79,14 +81,29 @@ fun SearchScreen(
     onOpenPost: (OwnedPost) -> Unit = {},
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
+    largeLayout: Boolean = false,
+    sharedQuery: String? = null,
+    sharedTab: Int? = null,
+    onSharedQueryChange: (String) -> Unit = {},
+    onSharedTabChange: (Int) -> Unit = {},
 ) {
     if (mode == SearchPanel.Alternate) {
         EmptyState(AppIcons.WaffleGrid, "Alternate search", "A second search surface will be available in a future update.")
         return
     }
-    var query by rememberSaveable { mutableStateOf("") }
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(initialQuery) { if (initialQuery.isNotBlank()) query = initialQuery }
+    var localQuery by rememberSaveable { mutableStateOf("") }
+    var localTab by rememberSaveable { mutableIntStateOf(0) }
+    val query = sharedQuery ?: localQuery
+    val tab = sharedTab ?: localTab
+    fun updateQuery(value: String) {
+        if (sharedQuery == null) localQuery = value else onSharedQueryChange(value)
+    }
+    fun updateTab(value: Int) {
+        if (sharedTab == null) localTab = value else onSharedTabChange(value)
+    }
+    LaunchedEffect(initialQuery, sharedQuery == null) {
+        if (sharedQuery == null && initialQuery.isNotBlank()) updateQuery(initialQuery)
+    }
     val hashtagSearchRequested = query.trim().matches(exactHashtagQuery)
     val sections = listOf("Profiles", "Hashtags", "News", "For you")
     fun submitSearch() {
@@ -108,10 +125,49 @@ fun SearchScreen(
         0.dp
     }
 
-    if (!compactLayout) {
+    if (largeLayout) {
+        Box(Modifier.fillMaxSize()) {
+            SearchContent(
+                modifier = Modifier.fillMaxSize(),
+                query = query,
+                tab = tab,
+                hashtagSearchRequested = hashtagSearchRequested,
+                accountSearch = accountSearch,
+                onAccountClick = onAccountClick,
+                availableActions = availableActions,
+                onReact = onReact,
+                onReply = onReply,
+                onReshare = onReshare,
+                onBookmark = onBookmark,
+                onReaction = onReaction,
+                onOpenReactionBubble = onOpenReactionBubble,
+                onOpenReactionPicker = onOpenReactionPicker,
+                quoteEnabled = quoteEnabled,
+                onQuote = onQuote,
+                onLoadMoreSearch = onLoadMoreSearch,
+                endClearance = LargeBottomDockClearance,
+                mediaOwner = mediaOwner,
+                onOpenMedia = onOpenMedia,
+                onOpenPost = onOpenPost,
+                onOpenUrl = onOpenUrl,
+                onOpenUsername = onOpenUsername,
+                onSearchHashtag = onSearchHashtag,
+                onOpenHashtagBubble = onOpenHashtagBubble,
+            )
+            LargeBottomDock(
+                content = {
+                    Column(Modifier.widthIn(max = 520.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(CompactSearchControlsSpacing)) {
+                        CategoryChips(sections, tab, "Search categories; swipe horizontally for more", ::updateTab)
+                        SearchField(query, ::submitSearch, ::updateQuery)
+                    }
+                },
+                modifier = Modifier.align(Alignment.BottomStart),
+            )
+        }
+    } else if (!compactLayout) {
         Column(Modifier.fillMaxSize()) {
-            SearchField(query, ::submitSearch) { query = it }
-            CategoryChips(sections, tab, "Search categories; swipe horizontally for more") { tab = it }
+            SearchField(query, ::submitSearch, ::updateQuery)
+            CategoryChips(sections, tab, "Search categories; swipe horizontally for more", ::updateTab)
             SearchContent(
                 modifier = Modifier.weight(1f),
                 query = query,
@@ -183,8 +239,8 @@ fun SearchScreen(
                         .windowInsetsPadding(controlsPositioningInsets),
                     verticalArrangement = Arrangement.spacedBy(CompactSearchControlsSpacing),
                 ) {
-                    CategoryChips(sections, tab, "Search categories; swipe horizontally for more") { tab = it }
-                    SearchField(query, ::submitSearch) { query = it }
+                    CategoryChips(sections, tab, "Search categories; swipe horizontally for more", ::updateTab)
+                    SearchField(query, ::submitSearch, ::updateQuery)
                 }
             }
         }

@@ -64,20 +64,24 @@ internal fun SinglePostScreen(
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
+    embedded: Boolean = false,
+    showCommentsPlaceholder: Boolean = false,
+    quoteEnabled: Boolean = false,
+    onQuote: (OwnedPost) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val post = ownedPost.post
     val photos = post.attachments.filter { it.kind == MediaKind.Image || it.kind == MediaKind.AnimatedImage }
 
     Column(
-        modifier = modifier
+            modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .testTag("single_post_content"),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(horizontal = 8.dp),
+            Row(
+             modifier = Modifier.fillMaxWidth().then(if (embedded) Modifier else Modifier.statusBarsPadding()).height(64.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ActionIcon(AppIcons.Back, "Close post", onClose)
@@ -153,9 +157,34 @@ internal fun SinglePostScreen(
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+            if (embedded) {
+                InteractionRow(
+                    ownedPost = ownedPost,
+                    availableActions = availableActions,
+                    onReply = onReply,
+                    onReact = onReact,
+                    onReshare = onReshare,
+                    onBookmark = onBookmark,
+                    onReaction = onReaction,
+                    quoteEnabled = quoteEnabled,
+                    onQuote = onQuote,
+                    onOpenReactionBubble = { _, _ -> },
+                    onShare = {},
+                )
+            }
+        }
+        if (showCommentsPlaceholder) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp)) {
+                Text("Comments", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Comments are not available in this view yet.",
+                    modifier = Modifier.padding(top = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
-    BackHandler(onBack = onClose)
+    if (!embedded) BackHandler(onBack = onClose)
 }
 
 @Composable

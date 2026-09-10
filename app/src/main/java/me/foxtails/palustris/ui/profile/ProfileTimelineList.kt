@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -84,8 +85,11 @@ internal fun ProfileTimelineList(
     onOpenUsername: ((String) -> Unit)?,
     header: @Composable () -> Unit,
     details: @Composable () -> Unit,
+    listState: LazyListState? = null,
+    showHeader: Boolean = true,
+    showInlineCategories: Boolean = !compactLayout,
 ) {
-    val list = rememberLazyListState()
+    val list = listState ?: rememberLazyListState()
     val currentState by rememberUpdatedState(state)
     val loadMore by rememberUpdatedState(onLoadMore)
     val selectedTab = state.selectedTab.timelineTab
@@ -103,11 +107,12 @@ internal fun ProfileTimelineList(
         previousTab = selectedTab
     }
 
-    LaunchedEffect(selectedTab, firstPostId, state.pinnedPosts.size, compactLayout, pendingTabReset) {
+    LaunchedEffect(selectedTab, firstPostId, state.pinnedPosts.size, showHeader, showInlineCategories, pendingTabReset) {
         if (pendingTabReset == selectedTab && firstPostId != null && !state.pinnedLoading) {
             list.scrollToItem(
                 firstTimelineItemIndex(
-                    compactLayout = compactLayout,
+                    showHeader = showHeader,
+                    showInlineCategories = showInlineCategories,
                     pinnedLoading = state.pinnedLoading,
                     pinnedError = state.pinnedError != null,
                     pinnedPostCount = state.pinnedPosts.size,
@@ -152,8 +157,8 @@ internal fun ProfileTimelineList(
             contentPadding = PaddingValues(bottom = endContentClearance + 24.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            item(key = "profile-header") { header() }
-            if (!compactLayout) {
+            if (showHeader) item(key = "profile-header") { header() }
+            if (showInlineCategories) {
                 item(key = "profile-categories") {
                     ProfileCategoryChips(
                         selected = state.selectedTab,
@@ -212,7 +217,7 @@ internal fun ProfileTimelineList(
 }
 
 @Composable
-private fun ProfileCategoryChips(
+internal fun ProfileCategoryChips(
     selected: ProfileCategory,
     isSelf: Boolean,
     onCategorySelected: (ProfileCategory) -> Unit,
@@ -432,15 +437,17 @@ private const val MAX_AUTOMATIC_EMPTY_PAGES = 3
 private const val PROFILE_CATEGORY_DESCRIPTION = "Profile categories; swipe horizontally for more"
 
 private fun firstTimelineItemIndex(
-    compactLayout: Boolean,
+    showHeader: Boolean,
+    showInlineCategories: Boolean,
     pinnedLoading: Boolean,
     pinnedError: Boolean,
     pinnedPostCount: Int,
     hasFirstPost: Boolean,
 ): Int {
     if (!hasFirstPost) return 0
-    var index = 1 // profile header
-    if (!compactLayout) index++
+    var index = 0
+    if (showHeader) index++
+    if (showInlineCategories) index++
     if (pinnedLoading) index++
     if (pinnedError) index++
     if (pinnedPostCount > 0) index += 1 + pinnedPostCount // title and pinned rows
