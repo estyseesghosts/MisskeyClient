@@ -102,3 +102,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Full unit tests, lintDebug, assembleDebug, and assembleRelease passed.
 - connectedDebugAndroidTest ran on the connected device; Room persistence, AVIF, and example tests passed, while the existing API-29 startup and system-bar tests failed with no Compose hierarchy found.
 - Pushed the six stabilization commits to `origin/feature/foldable-ui` through `d548130`.
+260910-131102 Release pipeline:
+- Added a tag-driven signed APK workflow with test and lint gates.
+- Added release tag version handling for `versionName` and `versionCode`.
+- Moved release signing values from environment variables to environment secrets.
+- Published signed prerelease `v0.1.0` to GitHub.
+- Kept API-29 emulator smoke tests in normal CI because the hosted release emulator reported an unknown API level.
