@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.auth.AccountRef
+import me.foxtails.palustris.R
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.auth.PreferencesDraftStore
 import me.foxtails.palustris.data.auth.toAccount
@@ -117,32 +118,6 @@ import me.foxtails.palustris.ui.large.LargeTimelineDockContent
 import me.foxtails.palustris.ui.large.largeLayoutMode
 import me.foxtails.palustris.ui.large.LargeLayoutMode
 
-private enum class Destination(val label: String, val icon: ImageVector) {
-    Home("Home", AppIcons.Home), Search("Search", AppIcons.Search),
-    Notifications("Notifications", AppIcons.Notifications), Profile("Profile", AppIcons.Person),
-}
-
-private enum class NotificationsPanel { Notifications, DirectMessages }
-private enum class LocalPage { SavedPosts, Drafts, About }
-enum class SearchPanel { Search, Alternate }
-private enum class LargePostOrigin { Home, Search, Profile, Saved, Notification, Other }
-private sealed interface Overlay {
-    data object Composer : Overlay
-    data object EditProfile : Overlay
-    data object NotificationSettings : Overlay
-}
-
-private fun largeTargetFor(
-    destination: Destination,
-    searchPanel: SearchPanel,
-    notificationsPanel: NotificationsPanel,
-): LargeNavTarget = when (destination) {
-    Destination.Home -> LargeNavTarget.Home
-    Destination.Search -> if (searchPanel == SearchPanel.Search) LargeNavTarget.Search else LargeNavTarget.AlternateSearch
-    Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) LargeNavTarget.Notifications else LargeNavTarget.DirectMessages
-    Destination.Profile -> LargeNavTarget.Profile
-}
-
 private const val COMPOSER_OVERLAY_KEY = "Composer"
 private const val EDIT_PROFILE_OVERLAY_KEY = "EditProfile"
 private const val NOTIFICATION_SETTINGS_OVERLAY_KEY = "NotificationSettings"
@@ -152,28 +127,6 @@ private data class ContextualBottomAction(
     val contentDescription: String,
     val enabled: Boolean,
     val onClick: () -> Unit,
-)
-
-private fun savedCollectionTitle(kind: SavedPostsKind?): String = when (kind) {
-    SavedPostsKind.Favourites -> "Favourites"
-    SavedPostsKind.Bookmarks, null -> "Bookmarks"
-}
-
-private fun editableProfilePatch(base: EditableProfile, edited: EditableProfile): EditableProfilePatch = EditableProfilePatch(
-    displayName = edited.displayName.takeIf { it != base.displayName },
-    biography = edited.biography.takeIf { it != base.biography },
-    fields = edited.fields.takeIf { it != base.fields },
-    avatarDescription = edited.avatarDescription.takeIf { it != base.avatarDescription },
-    headerDescription = edited.headerDescription.takeIf { it != base.headerDescription },
-    locked = edited.locked.takeIf { it != base.locked },
-    bot = edited.bot.takeIf { it != base.bot },
-    hideCollections = edited.hideCollections.takeIf { it != base.hideCollections },
-    discoverable = edited.discoverable.takeIf { it != base.discoverable },
-    indexable = edited.indexable.takeIf { it != base.indexable },
-    showMedia = edited.showMedia.takeIf { it != base.showMedia },
-    showMediaReplies = edited.showMediaReplies.takeIf { it != base.showMediaReplies },
-    showFeatured = edited.showFeatured.takeIf { it != base.showFeatured },
-    attributionDomains = edited.attributionDomains.takeIf { it != base.attributionDomains },
 )
 
 internal val CompactNavigationHeight = 60.dp
@@ -1122,8 +1075,12 @@ fun PalustrisApp(
                                               overlayKey = NOTIFICATION_SETTINGS_OVERLAY_KEY
                                          }
                                     },
-                                  ) else if (account == null) {
-                                      MessagesScreen()
+                                   ) else if (account == null) {
+                                       EmptyState(
+                                           AppIcons.Chat,
+                                           stringResource(R.string.direct_messages_connect_title),
+                                           stringResource(R.string.direct_messages_connect_subtitle),
+                                       )
                                   } else if (directMessageState.selectedConversationId != null || directMessageState.recipient != null) {
                                       DirectMessageConversationScreen(
                                           accountId = account.id,

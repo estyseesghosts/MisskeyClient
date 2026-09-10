@@ -1,12 +1,12 @@
-# an unnamed fediverse client for android.
+# MisskeyClient
 
-very loosely based on moshidon. made from scratch to work with both the misskey and mastodon apis from the jump. a continuation of the last experiment. 
+An Android fediverse client for Misskey-family servers and Mastodon. It is made from scratch with protocol-neutral domain models and adapters.
 
-An early Android client for Misskey-family servers and Mastodon. It currently supports authenticated home timelines, profile detail refresh, profile editing, and profile Posts/Media/Reposts/Replies views through protocol-neutral adapters. `Show more...` displays inline profile details without making a timeline request.
+MisskeyClient currently supports authenticated home timelines, profile detail refresh, profile editing, saved posts, direct-message surfaces, notifications, notification synchronization and delivery, and profile Posts/Media/Reposts/Replies views. `Show more...` displays inline profile details without making a timeline request.
 
 ![screenshots](https://files.catbox.moe/lygr0r.webp)
 
-TODO 
+## Verification TODO
 
 - verify live UnifiedPush notifications for Mastodon across the release/device matrix
 - verify or explicitly support a compatible Misskey/Sharkey push credential/server combination; current MiAuth secure-endpoint rejection uses REST/foreground fallback

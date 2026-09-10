@@ -1,6 +1,7 @@
 package me.foxtails.palustris.data.auth
 
 import me.foxtails.palustris.data.misskey.*
+import me.foxtails.palustris.ProductIdentity
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.AccessGrant
 import me.foxtails.palustris.domain.AccessScope
@@ -40,7 +41,7 @@ class MisskeyAuth(private val apiFor: (String) -> MisskeyApi) : AuthGateway {
     }
     override fun browserUrl(pending: PendingLogin): String = pending.origin.toHttpUrl().newBuilder()
         .addPathSegment("miauth").addPathSegment(pending.id)
-        .addQueryParameter("name", "Palustris")
+        .addQueryParameter("name", ProductIdentity.name)
         .addQueryParameter("callback", "palustris://auth/misskey")
         .addQueryParameter("permission", MISSKEY_PERMISSIONS).build().toString()
 

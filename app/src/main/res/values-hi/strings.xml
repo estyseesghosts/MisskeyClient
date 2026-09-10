@@ -1,0 +1,16 @@
+<resources>
+    <string name="notifications_title">सूचनाएं</string>
+    <string name="notifications_empty_title">सब कुछ देख लिया गया</string>
+    <string name="notifications_loading">सूचनाएं लोड हो रही हैं</string>
+    <string name="notifications_retry">पुनः प्रयास करें</string>
+    <string name="notifications_dismiss">खारिज करें</string>
+    <string name="direct_messages_connect_title">संदेश देखने के लिए खाता जोड़ें</string>
+    <string name="direct_messages_connect_subtitle">निजी बातचीत खोलने के लिए साइन इन करें।</string>
+    <string name="sign_in_title">स्वागत है!</string>
+    <string name="sign_in_button_next">अगला</string>
+    <string name="sign_in_cancel">रद्द करें</string>
+    <string name="notification_settings_sheet_title">सूचना सेटिंग</string>
+    <string name="notifications_settings_alerts">डिवाइस अलर्ट</string>
+    <string name="emoji_picker_title">इमोजी चुनें</string>
+    <string name="profile_editor_title">प्रोफ़ाइल संपादित करें</string>
+</resources>

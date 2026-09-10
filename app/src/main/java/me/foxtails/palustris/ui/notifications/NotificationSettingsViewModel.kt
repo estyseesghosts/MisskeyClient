@@ -29,6 +29,7 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
+import me.foxtails.palustris.ProductIdentity
 import me.foxtails.palustris.domain.NotificationSettings
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.domain.withCategoryEnabled
@@ -175,7 +176,7 @@ class NotificationSettingsViewModel @AssistedInject constructor(
     }
 
     fun runLocalPresentationTest() {
-        val actor = Account(accountId.copy(localId = "local-test"), "Palustris", "@palustris")
+        val actor = Account(accountId.copy(localId = "local-test"), ProductIdentity.name, "@local-test")
         val notification = Notification(
             id = EntityId(accountId.connection.origin, "local-presentation-test"),
             accountId = accountId,

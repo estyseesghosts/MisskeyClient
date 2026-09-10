@@ -528,11 +528,6 @@ private fun AccountSearchResults(
 }
 
 @Composable
-fun MessagesScreen() {
-    EmptyState(AppIcons.Chat, "Direct messages coming soon", "Private conversations will be available in a future update.")
-}
-
-@Composable
 fun ComposeScreen(
     text: String, onTextChange: (String) -> Unit,
     warning: String, onWarningChange: (String) -> Unit,

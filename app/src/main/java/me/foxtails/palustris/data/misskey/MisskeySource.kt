@@ -18,21 +18,14 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationAcknowledgement
-import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCapabilities
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationCursor
-import me.foxtails.palustris.domain.NotificationDestination
-import me.foxtails.palustris.domain.NotificationGroup
-import me.foxtails.palustris.domain.NotificationGroupId
 import me.foxtails.palustris.domain.NotificationPage
-import me.foxtails.palustris.domain.NotificationPageDirection
 import me.foxtails.palustris.domain.NotificationQuery
-import me.foxtails.palustris.domain.NotificationReaction
 import me.foxtails.palustris.domain.NotificationReadSemantics
 import me.foxtails.palustris.domain.NotificationUnreadPrecision
-import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
@@ -56,16 +49,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.channels.awaitClose
 import me.foxtails.palustris.domain.Event
-import me.foxtails.palustris.domain.SocialEvent
-import me.foxtails.palustris.domain.NotificationReadState
-import me.foxtails.palustris.domain.NotificationReadStatus
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.Base64
 
 class MisskeySource(
     private val origin: String,
@@ -81,6 +68,10 @@ class MisskeySource(
     private val _capabilities = MutableStateFlow(initialCapabilities)
     val capabilitiesFlow: StateFlow<ServerCapabilities> = _capabilities
     private val profileService = MisskeyProfileService(origin, token, api, accountId)
+    private val directMessageService = MisskeyDirectMessageService(origin, token, api, accountId) { id -> post(id) }
+    private val notificationService = MisskeyNotificationService(origin, token, api, accountId, clock)
+    private val pushService = MisskeyPushService(origin, token, api, accountId)
+    private val streamService = MisskeyStreamService(origin, token, api, accountId)
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request(invalidateCapabilitiesOnNotFound = true) {
@@ -193,149 +184,13 @@ class MisskeySource(
         MisskeyMapper.post(response.getJSONObject("createdNote"), origin)
     }
 
-    override suspend fun conversations(cursor: String?): Page<DirectConversation> = request {
-        val account = requireAccountId()
-        val untilId = cursor?.let { decodeDirectCursor(it, account) }
-        val requestBody = JSONObject().put("i", token).put("limit", DIRECT_PAGE_LIMIT)
-            .put("markAsRead", false)
-        untilId?.let { requestBody.put("untilId", it) }
+    override suspend fun conversations(cursor: String?): Page<DirectConversation> = request { directMessageService.conversations(cursor) }
 
-        val mentionedNotes = fetchMentionedNotes(requestBody)
-        val sentNotes = JSONArray(
-            api.post(
-                origin,
-                "users/notes",
-                JSONObject(requestBody.toString()).put("userId", account.localId).put("includeReplies", true),
-            ).body,
-        )
-        val posts = (mentionedNotes + directPosts(sentNotes)).distinctBy { it.id }
-        val byId = posts.associateBy { it.id }
-        val grouped = posts.groupBy { rootFor(it, byId) }
-        val items = grouped.map { (root, thread) ->
-            val latest = thread.maxByOrNull(Post::publishedAtEpochMillis) ?: thread.first()
-            DirectConversation(
-                id = ConversationId(origin, root.value),
-                participants = (thread.map(Post::author) + localAccount(account)).distinctBy { it.id },
-                lastPost = latest,
-                unread = latest.author.id != account,
-                rootPostId = root,
-            )
-        }.sortedByDescending { it.lastPost.publishedAtEpochMillis }
-        Page(
-            items = items,
-            nextCursor = posts.minByOrNull(Post::publishedAtEpochMillis)?.id?.value
-                ?.let { encodeDirectCursor(account, it) },
-        )
-    }
+    override suspend fun conversationThread(id: ConversationId): List<Post> = request { directMessageService.conversationThread(id) }
 
-    override suspend fun conversationThread(id: ConversationId): List<Post> = request {
-        validateConversationId(id, "direct.thread")
-        thread(EntityId(origin, id.value)).filter { it.audience == Audience.Direct }
-    }
+    override suspend fun sendDirectMessage(request: DirectMessageRequest): Post = request { directMessageService.send(request) }
 
-    override suspend fun sendDirectMessage(message: DirectMessageRequest): Post = request {
-        validateDirectMessageRequest(message)
-        val body = JSONObject()
-            .put("i", token)
-            .put("text", message.text.trim())
-            .put("visibility", "specified")
-            .put("visibleUserIds", JSONArray(message.recipients.map(AccountId::localId)))
-        message.replyTo?.let { body.put("replyId", it.value) }
-        val response = JSONObject(api.post(origin, "notes/create", body).body)
-        MisskeyMapper.post(response.getJSONObject("createdNote"), origin)
-    }
-
-    override suspend fun markConversationRead(id: ConversationId) = request {
-        validateConversationId(id, "direct.read")
-        // Misskey specified notes have no conversation-level read endpoint.
-        Unit
-    }
-
-    private suspend fun fetchMentionedNotes(body: JSONObject): List<Post> {
-        val response = try {
-            api.post(origin, "notes/mentions", body)
-        } catch (error: ApiFailure) {
-            if (error.status != 404) throw error
-            val notificationsBody = JSONObject(body.toString())
-                .put("includeTypes", JSONArray(listOf("mention", "reply")))
-            api.post(origin, "i/notifications", notificationsBody)
-        }
-        val values = JSONArray(response.body)
-        val notes = if (response.body.trimStart().startsWith("[")) {
-            (0 until values.length()).mapNotNull { index ->
-                val value = values.optJSONObject(index) ?: return@mapNotNull null
-                value.optJSONObject("note") ?: value
-            }
-        } else {
-            emptyList()
-        }
-        return notes.mapNotNull { note ->
-            runCatching { MisskeyMapper.post(note, origin) }
-                .getOrNull()
-                ?.takeIf { it.audience == Audience.Direct }
-        }
-    }
-
-    private fun directPosts(values: JSONArray): List<Post> = (0 until values.length()).mapNotNull { index ->
-        val note = values.optJSONObject(index) ?: return@mapNotNull null
-        runCatching { MisskeyMapper.post(note, origin) }.getOrNull()
-            ?.takeIf { it.audience == Audience.Direct }
-    }
-
-    private fun rootFor(post: Post, posts: Map<EntityId, Post>): EntityId {
-        var current = post
-        val visited = mutableSetOf<EntityId>()
-        while (current.replyTo != null && visited.add(current.id)) {
-            current = posts[current.replyTo] ?: break
-        }
-        return current.id
-    }
-
-    private fun localAccount(account: AccountId): Account {
-        val host = java.net.URI(origin).host.orEmpty()
-        return Account(account, account.localId, "@${account.localId}@$host")
-    }
-
-    private fun validateDirectMessageRequest(message: DirectMessageRequest) {
-        if (message.recipients.isEmpty() || message.text.isBlank()) {
-            throw SourceError.Unsupported("direct.send")
-        }
-        if (message.recipients.any { recipient ->
-                recipient.connection != Connection(origin, Protocol.MISSKEY) || recipient.localId.isBlank()
-            }
-        ) {
-            throw SourceError.Unsupported("direct.recipient")
-        }
-        message.replyTo?.let { reply ->
-            if (reply.connection != origin || reply.value.isBlank()) throw SourceError.Unsupported("direct.reply")
-        }
-    }
-
-    private fun validateConversationId(id: ConversationId, feature: String) {
-        if (id.connection != origin || id.value.isBlank()) throw SourceError.Unsupported(feature)
-    }
-
-    private fun encodeDirectCursor(account: AccountId, untilId: String): String = Base64.getUrlEncoder()
-        .withoutPadding()
-        .encodeToString(
-            JSONObject()
-                .put("origin", account.connection.origin)
-                .put("account", account.localId)
-                .put("untilId", untilId)
-                .toString()
-                .toByteArray(Charsets.UTF_8),
-        )
-
-    private fun decodeDirectCursor(cursor: String, account: AccountId): String {
-        val json = runCatching {
-            JSONObject(String(Base64.getUrlDecoder().decode(cursor), Charsets.UTF_8))
-        }.getOrElse { throw SourceError.Unsupported("direct.pagination") }
-        if (json.optString("origin") != account.connection.origin ||
-            json.optString("account") != account.localId
-        ) throw SourceError.Unsupported("direct.pagination")
-        return json.optString("untilId").takeIf(String::isNotBlank)
-            ?: throw SourceError.Unsupported("direct.pagination")
-    }
+    override suspend fun markConversationRead(id: ConversationId) = request { directMessageService.markConversationRead(id) }
 
     override suspend fun react(id: EntityId, emoji: String) = request {
         validatePostId(id, "react")
@@ -494,333 +349,45 @@ class MisskeySource(
         Unit
     }
 
-    override fun streamEvents(): Flow<Event> = callbackFlow {
-        val account = requireAccountId()
-        val socket = api.webSocket(
-            origin,
-            "/streaming",
-            headers = mapOf("Authorization" to "Bearer $token"),
-            listener = object : okhttp3.WebSocketListener() {
-            override fun onOpen(webSocket: okhttp3.WebSocket, response: okhttp3.Response) {
-                webSocket.send(JSONObject()
-                    .put("type", "connect")
-                    .put("body", JSONObject()
-                        .put("channel", "main")
-                        .put("id", "notifications")
-                        .put("params", JSONObject().put("i", token)))
-                    .toString())
-            }
+    override fun streamEvents(): Flow<Event> = streamService.events()
 
-            override fun onMessage(webSocket: okhttp3.WebSocket, text: String) {
-                runCatching {
-                    val message = JSONObject(text)
-                    when (message.optString("type")) {
-                        "connected" -> {
-                            if (message.optJSONObject("body")?.optString("id") == "notifications") {
-                                trySend(Event(account, SocialEvent.Other("stream.ready")))
-                            }
-                            return@runCatching
-                        }
-                        "channel" -> Unit
-                        else -> return@runCatching
-                    }
-                    val body = message.optJSONObject("body") ?: return@runCatching
-                    when (body.optString("type")) {
-                        "notification" -> {
-                            val payload = body.optJSONObject("body") ?: return@runCatching
-                            trySend(Event(account, SocialEvent.NotificationReceived(
-                                MisskeyNotificationMapper.notification(payload, origin, account),
-                            )))
-                        }
-                        "readAllNotifications" -> trySend(Event(account, SocialEvent.NotificationReadChanged(
-                            account,
-                            NotificationReadState(NotificationReadStatus.Read, serverAcknowledged = true),
-                        )))
-                        else -> trySend(Event(account, SocialEvent.Other("notification.refresh")))
-                    }
-                }.onFailure { trySend(Event(account, SocialEvent.Other("notification.refresh"))) }
-            }
+    override suspend fun notifications(cursor: String?): Page<Notification> = request { notificationService.notifications(cursor) }
 
-            override fun onFailure(webSocket: okhttp3.WebSocket, t: Throwable, response: okhttp3.Response?) {
-                close(t)
-            }
+    override suspend fun notifications(query: NotificationQuery, cursor: NotificationCursor?): NotificationPage = request { notificationService.notifications(query, cursor) }
 
-            override fun onClosed(webSocket: okhttp3.WebSocket, code: Int, reason: String) {
-                close()
-            }
-            },
-        )
-        awaitClose { socket.cancel() }
+    override suspend fun fetchNewerNotifications(query: NotificationQuery, checkpoint: NotificationCheckpoint): NotificationPage = request {
+        notificationService.fetchNewer(query, checkpoint)
     }
 
-    override suspend fun notifications(cursor: String?): Page<Notification> {
-        val page = notifications(NotificationQuery(), cursor?.let(::NotificationCursor))
-        return Page(page.items, page.olderCursor?.value)
+    override suspend fun fetchOlderNotifications(query: NotificationQuery, checkpoint: NotificationCheckpoint): NotificationPage = request {
+        notificationService.fetchOlder(query, checkpoint)
     }
 
-    override suspend fun notifications(query: NotificationQuery, cursor: NotificationCursor?): NotificationPage = request {
-        loadNotifications(query, cursor, NotificationCursorDirection.Older)
-    }
+    override suspend fun notificationUnreadState(): NotificationUnreadState = request { notificationService.unreadState() }
 
-    override suspend fun fetchNewerNotifications(
-        query: NotificationQuery,
-        checkpoint: NotificationCheckpoint,
-    ): NotificationPage = request {
-        validateCheckpoint(query, checkpoint)
-        val stableSinceId = checkpoint.newest?.let {
-            MisskeyNotificationCursorCodec.decode(it, requireAccountId(), query, NotificationCursorDirection.Newer).rawId
-        }
-        val cursor = checkpoint.newerContinuation ?: checkpoint.newest ?: return@request emptyNotificationPage(query)
-        loadNotifications(query, cursor, NotificationCursorDirection.Newer, stableSinceId)
-    }
+    override suspend fun pushProviderInfo(): PushProviderInfo = request { pushService.providerInfo() }
 
-    override suspend fun fetchOlderNotifications(
-        query: NotificationQuery,
-        checkpoint: NotificationCheckpoint,
-    ): NotificationPage = request {
-        validateCheckpoint(query, checkpoint)
-        val cursor = checkpoint.oldest ?: return@request emptyNotificationPage(query)
-        loadNotifications(query, cursor, NotificationCursorDirection.Older)
-    }
+    override suspend fun acknowledgeNotifications(): NotificationAcknowledgement = request { notificationService.acknowledge() }
 
-    override suspend fun notificationUnreadState(): NotificationUnreadState = request {
-        val json = JSONObject(api.post(origin, "i", JSONObject().put("i", token)).body)
-        when {
-            json.has("notificationCount") && !json.isNull("notificationCount") ->
-                NotificationUnreadState.Exact(json.optInt("notificationCount").coerceAtLeast(0))
-            json.has("hasUnreadNotification") && !json.isNull("hasUnreadNotification") ->
-                if (json.optBoolean("hasUnreadNotification")) NotificationUnreadState.Present else NotificationUnreadState.None
-            else -> NotificationUnreadState.Unknown
-        }
-    }
-
-    override suspend fun pushProviderInfo(): PushProviderInfo = request {
-        val meta = JSONObject(api.post(origin, "meta").body)
-        val key = meta.optString("swPublickey").takeIf(String::isNotBlank)
-        PushProviderInfo(
-            status = if (key == null) CapabilityStatus.Unsupported else CapabilityStatus.Supported,
-            vapidPublicKey = key,
-        )
-    }
-
-    override suspend fun acknowledgeNotifications(): NotificationAcknowledgement = request {
-        val account = requireAccountId()
-        api.post(origin, "notifications/mark-all-as-read", JSONObject().put("i", token))
-        NotificationAcknowledgement(account, NotificationUnreadState.None, clock())
-    }
-
-    override suspend fun queryOwnedPushSubscription(knownEndpoint: ValidatedUrl?): PushSubscription? = request {
-        val endpoint = knownEndpoint ?: return@request null
-        readPushSubscription(endpoint)
-    }
+    override suspend fun queryOwnedPushSubscription(knownEndpoint: ValidatedUrl?): PushSubscription? = request { pushService.query(knownEndpoint) }
 
     override suspend fun createOrReplacePushSubscription(
         spec: PushSubscriptionSpec,
         previous: PushSubscription?,
-    ): PushSubscription = request {
-        validatePushSpec(spec)
-        previous?.let(::validatePushSubscription)
-        val created = confirmedPushSubscription(
-            pushApiCall {
-                api.post(origin, "sw/register", JSONObject()
-                    .put("i", token)
-                    .put("endpoint", spec.endpoint.value)
-                    .put("auth", spec.authSecret)
-                    .put("publickey", spec.publicKey)
-                    .put("sendReadMessage", false))
-            }.body,
-            expectedEndpoint = spec.endpoint,
-        )
-        if (previous != null && previous.endpoint != created.endpoint) {
-            removePushSubscriptionRaw(previous)
-        }
-        created
-    }
+    ): PushSubscription = request { pushService.createOrReplace(spec, previous) }
 
     override suspend fun updatePushAlertPolicy(
         subscription: PushSubscription,
         alerts: Set<NotificationCategory>,
-    ): PushSubscription = request {
-        validatePushSubscription(subscription)
-        val confirmed = confirmedPushSubscription(
-            pushApiCall {
-                api.post(origin, "sw/update-registration", JSONObject()
-                    .put("i", token)
-                    .put("endpoint", subscription.endpoint.value)
-                    .put("sendReadMessage", false))
-            }.body,
-            expectedEndpoint = subscription.endpoint,
-        )
-        confirmed.copy(remoteId = subscription.remoteId ?: confirmed.remoteId)
-    }
+    ): PushSubscription = request { pushService.updatePolicy(subscription, alerts) }
 
-    override suspend fun removePushSubscription(subscription: PushSubscription) = request {
-        validatePushSubscription(subscription)
-        removePushSubscriptionRaw(subscription)
-    }
+    override suspend fun removePushSubscription(subscription: PushSubscription) = request { pushService.remove(subscription) }
 
     override suspend fun respondToFollowRequest(targetAccountId: AccountId, accept: Boolean) = request {
-        validateFollowRequestTarget(targetAccountId)
-        val endpoint = if (accept) "following/requests/accept" else "following/requests/reject"
-        api.post(origin, endpoint, JSONObject().put("i", token).put("userId", targetAccountId.localId))
-        Unit
-    }
-
-    private fun validateFollowRequestTarget(targetAccountId: AccountId) {
-        if (targetAccountId.connection != Connection(origin, Protocol.MISSKEY) || targetAccountId.localId.isBlank()) {
-            throw SourceError.Unsupported("notifications.followRequest")
-        }
-    }
-
-    private fun validatePushSpec(spec: PushSubscriptionSpec) {
-        if (spec.accountId != requireAccountId() || spec.publicKey.isBlank() || spec.authSecret.isBlank()) {
-            throw SourceError.Unsupported("notifications.push.spec")
-        }
-    }
-
-    private fun validatePushSubscription(subscription: PushSubscription) {
-        if (subscription.accountId != requireAccountId() || subscription.endpoint.value.isBlank()) {
-            throw SourceError.AccountMismatch
-        }
-    }
-
-    private suspend fun readPushSubscription(endpoint: ValidatedUrl): PushSubscription? = try {
-        confirmedPushSubscription(
-            pushApiCall {
-                api.post(origin, "sw/show-registration", JSONObject()
-                    .put("i", token)
-                    .put("endpoint", endpoint.value))
-            }.body,
-            expectedEndpoint = endpoint,
-        )
-    } catch (error: ApiFailure) {
-        if (isMissingPushRegistration(error)) null else throw error
-    }
-
-    private suspend fun removePushSubscriptionRaw(subscription: PushSubscription) {
-        val current = readPushSubscription(subscription.endpoint) ?: return
-        if (current.endpoint != subscription.endpoint) {
-            throw SourceError.ServerError("notifications.push.identity-changed")
-        }
-        try {
-            pushApiCall {
-                api.post(origin, "sw/unregister", JSONObject()
-                    .put("i", token)
-                    .put("endpoint", subscription.endpoint.value))
-            }
-        } catch (error: ApiFailure) {
-            if (!isMissingPushRegistration(error)) throw error
-        }
-    }
-
-    private fun confirmedPushSubscription(body: String, expectedEndpoint: ValidatedUrl): PushSubscription {
-        val json = JSONObject(body)
-        val endpoint = ValidatedUrl.https(json.optString("endpoint"))
-            ?: throw SourceError.ServerError("notifications.push.confirmation")
-        if (endpoint != expectedEndpoint) throw SourceError.ServerError("notifications.push.confirmation")
-        return PushSubscription(
-            accountId = requireAccountId(),
-            endpoint = endpoint,
-            remoteId = json.optString("key").takeIf { it.isNotBlank() },
-        )
-    }
-
-    private suspend fun pushApiCall(call: suspend () -> me.foxtails.palustris.data.misskey.HttpResponse) = try {
-        call()
-    } catch (error: ApiFailure) {
-        if (error.status == 403 && error.code in SECURE_CREDENTIAL_FAILURE_CODES) {
-            throw SourceError.UnsupportedCredential("notifications.push.secure-credential")
-        }
-        throw error
-    }
-
-    private fun isMissingPushRegistration(error: ApiFailure): Boolean =
-        error.status == 404 || error.code in MISSING_PUSH_REGISTRATION_CODES
-
-    private suspend fun loadNotifications(
-        query: NotificationQuery,
-        cursor: NotificationCursor?,
-        direction: NotificationCursorDirection,
-        stableSinceId: String? = null,
-    ): NotificationPage {
-        val account = requireAccountId()
-        val types = query.misskeyTypes()
-        if (!query.isAll && types.isEmpty()) return emptyNotificationPage(query)
-        val decoded = cursor?.let { MisskeyNotificationCursorCodec.decode(it, account, query, direction) }
-        val body = JSONObject()
-            .put("i", token)
-            .put("limit", query.limit)
-            // Misskey defaults this to true and performs account-wide acknowledgement.
-            .put("markAsRead", false)
-        if (!query.isAll) body.put("includeTypes", JSONArray(types))
-        decoded?.rawId?.let {
-            if (direction == NotificationCursorDirection.Newer) {
-                body.put("sinceId", stableSinceId ?: it)
-                if (stableSinceId != null && stableSinceId != it) body.put("untilId", it)
-            } else {
-                body.put("untilId", it)
-            }
-        }
-        val endpoint = if (query.grouped) "i/notifications-grouped" else "i/notifications"
-        val values = JSONArray(api.post(origin, endpoint, body).body)
-        val items = (0 until values.length()).map { index ->
-            MisskeyNotificationMapper.notification(values.getJSONObject(index), origin, account)
-        }
-        val newest = items.firstOrNull()?.let {
-            MisskeyNotificationCursorCodec.encode(account, query, NotificationCursorDirection.Newer, it.id.value)
-        } ?: if (direction == NotificationCursorDirection.Newer) cursor else null
-        val newerContinuation = if (direction == NotificationCursorDirection.Newer && items.size >= query.limit) {
-            items.lastOrNull()?.let {
-                MisskeyNotificationCursorCodec.encode(account, query, NotificationCursorDirection.Newer, it.id.value)
-            }
-        } else {
-            null
-        }
-        val oldest = items.lastOrNull()?.let {
-            if (it.id.value == decoded?.rawId && direction == NotificationCursorDirection.Older) null
-            else MisskeyNotificationCursorCodec.encode(account, query, NotificationCursorDirection.Older, it.id.value)
-        }
-        return NotificationPage(
-            items = items,
-            olderCursor = if (direction == NotificationCursorDirection.Older) oldest else null,
-            newerCursor = if (direction == NotificationCursorDirection.Newer) newerContinuation else newest,
-            checkpoint = NotificationCheckpoint(
-                accountId = account,
-                query = query,
-                newest = newest,
-                oldest = oldest ?: if (direction == NotificationCursorDirection.Older) cursor else null,
-                capturedAtEpochMillis = clock(),
-                newerContinuation = newerContinuation,
-            ),
-            direction = if (cursor == null) NotificationPageDirection.Initial else when (direction) {
-                NotificationCursorDirection.Older -> NotificationPageDirection.Older
-                NotificationCursorDirection.Newer -> NotificationPageDirection.Newer
-            },
-            continuation = when (direction) {
-                NotificationCursorDirection.Older -> oldest
-                NotificationCursorDirection.Newer -> newerContinuation
-            },
-            newestBoundary = newest,
-            oldestBoundary = oldest,
-            reachedBoundary = when (direction) {
-                NotificationCursorDirection.Older -> oldest == null
-                NotificationCursorDirection.Newer -> newerContinuation == null
-            },
-        )
+        notificationService.respondToFollowRequest(targetAccountId, accept)
     }
 
     private fun requireAccountId(): AccountId = accountId ?: throw SourceError.Unsupported("notifications.account")
-
-    private fun validateCheckpoint(query: NotificationQuery, checkpoint: NotificationCheckpoint) {
-        if (checkpoint.accountId != requireAccountId() || checkpoint.query != query) {
-            throw SourceError.Unsupported("notifications.checkpoint")
-        }
-    }
-
-    private fun emptyNotificationPage(query: NotificationQuery) = NotificationPage(
-        items = emptyList(),
-        checkpoint = NotificationCheckpoint(requireAccountId(), query, capturedAtEpochMillis = clock()),
-    )
 
     private suspend fun <T> request(
         invalidateCapabilitiesOnNotFound: Boolean = false,
@@ -920,73 +487,6 @@ private fun NotificationUnreadPrecision.takeKnown(
 
 private fun ProfileCapabilities.takeVerifiedOr(previous: ProfileCapabilities): ProfileCapabilities =
     if (this == ProfileCapabilities()) previous else this
-
-private enum class NotificationCursorDirection { Older, Newer }
-
-private object MisskeyNotificationCursorCodec {
-    data class Decoded(val rawId: String)
-
-    fun encode(
-        accountId: AccountId,
-        query: NotificationQuery,
-        direction: NotificationCursorDirection,
-        rawId: String,
-    ): NotificationCursor {
-        val payload = JSONObject()
-            .put("origin", accountId.connection.origin)
-            .put("account", accountId.localId)
-            .put("query", query.fingerprint())
-            .put("direction", direction.name)
-            .put("id", rawId)
-        return NotificationCursor(Base64.getUrlEncoder().withoutPadding()
-            .encodeToString(payload.toString().toByteArray(Charsets.UTF_8)))
-    }
-
-    fun decode(
-        cursor: NotificationCursor,
-        accountId: AccountId,
-        query: NotificationQuery,
-        direction: NotificationCursorDirection,
-    ): Decoded {
-        val json = runCatching {
-            JSONObject(String(Base64.getUrlDecoder().decode(cursor.value), Charsets.UTF_8))
-        }.getOrElse { throw SourceError.Unsupported("notifications.cursor") }
-        if (json.optString("origin") != accountId.connection.origin ||
-            json.optString("account") != accountId.localId ||
-            json.optString("query") != query.fingerprint() ||
-            json.optString("direction") != direction.name
-        ) {
-            throw SourceError.Unsupported("notifications.cursor")
-        }
-        return Decoded(json.optString("id").takeIf(String::isNotBlank)
-            ?: throw SourceError.Unsupported("notifications.cursor"))
-    }
-}
-
-private fun NotificationQuery.fingerprint(): String = buildString {
-    append(categories.map { it.name }.sorted().joinToString(","))
-    append('|').append(limit).append('|').append(grouped)
-}
-
-private fun NotificationQuery.misskeyTypes(): List<String> {
-    if (isAll) return emptyList()
-    return categories.flatMap { category ->
-        when (category) {
-            NotificationCategory.All -> emptyList()
-            NotificationCategory.Mentions -> listOf("mention", "reply")
-            NotificationCategory.Replies -> listOf("reply")
-            NotificationCategory.Quotes -> listOf("quote")
-            NotificationCategory.Social -> listOf(
-                "note", "renote", "reaction", "follow", "receiveFollowRequest", "followRequestAccepted",
-            )
-            NotificationCategory.Polls -> listOf("pollEnded")
-            NotificationCategory.System -> listOf(
-                "scheduledNotePosted", "scheduledNotePostFailed", "roleAssigned", "achievementEarned",
-                "exportCompleted", "login", "createToken", "app", "test", "chatRoomInvitationReceived",
-            )
-        }
-    }.distinct()
-}
 
 private fun Audience.toMisskeyVisibility(): String = when (this) {
     Audience.Public -> "public"

@@ -1,0 +1,16 @@
+<resources>
+    <string name="notifications_title">Benachrichtigungen</string>
+    <string name="notifications_empty_title">Alles gesehen</string>
+    <string name="notifications_loading">Benachrichtigungen werden geladen</string>
+    <string name="notifications_retry">Erneut versuchen</string>
+    <string name="notifications_dismiss">Verwerfen</string>
+    <string name="direct_messages_connect_title">Konto verbinden, um Nachrichten zu sehen</string>
+    <string name="direct_messages_connect_subtitle">Melde dich an, um private Unterhaltungen zu öffnen.</string>
+    <string name="sign_in_title">Willkommen!</string>
+    <string name="sign_in_button_next">Weiter</string>
+    <string name="sign_in_cancel">Abbrechen</string>
+    <string name="notification_settings_sheet_title">Benachrichtigungseinstellungen</string>
+    <string name="notifications_settings_alerts">Gerätebenachrichtigungen</string>
+    <string name="emoji_picker_title">Emoji auswählen</string>
+    <string name="profile_editor_title">Profil bearbeiten</string>
+</resources>

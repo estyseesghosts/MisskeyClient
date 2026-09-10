@@ -796,7 +796,7 @@ class NavigationTest {
 
         compose.onNodeWithContentDescription("Notifications").performClick()
         compose.onNodeWithContentDescription("Direct messages").assertIsEnabled().performClick()
-        compose.onNodeWithText("Direct messages coming soon").assertIsDisplayed()
+        compose.onNodeWithText("Connect an account to view messages").assertIsDisplayed()
         compose.onAllNodesWithContentDescription("Notifications").onLast().assertIsEnabled().performClick()
         compose.onNodeWithText("All caught up").assertIsDisplayed()
 

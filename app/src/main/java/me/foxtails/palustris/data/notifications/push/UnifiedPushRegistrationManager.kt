@@ -22,6 +22,8 @@ import me.foxtails.palustris.data.notifications.NotificationPermissionController
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.work.NotificationWorkScheduler
 import me.foxtails.palustris.data.misskey.MisskeyNotificationMapper
+import me.foxtails.palustris.ProductIdentity
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.AccessScope
 import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.AccountId
@@ -187,7 +189,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 connector = connector,
                 distributorPackage = distributor,
                 instanceName = registering.instanceName,
-                messageForDistributor = "Palustris notifications",
+                messageForDistributor = context.getString(R.string.notifications_distributor_message, ProductIdentity.name),
                 vapidPublicKey = providerInfo.vapidPublicKey,
             )
         } catch (error: SourceError) {

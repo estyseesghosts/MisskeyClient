@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name">MisskeyClient</string>
     <string name="notifications_title">Notifications</string>
     <string name="notifications_empty_title">All caught up</string>
     <string name="notifications_empty_subtitle">Activity from people you follow will appear here.</string>
@@ -15,8 +14,26 @@
     <string name="notifications_actorless">Activity from your server</string>
     <string name="notifications_content_warning">Content warning</string>
     <string name="notifications_content_warning_with_text">Content warning: %1$s</string>
-    <string name="notifications_public_title">Palustris notification</string>
-    <string name="notifications_public_text">Open Palustris to view this notification.</string>
+    <string name="notifications_public_title">%1$s notification</string>
+    <string name="notifications_public_text">Open %1$s to view this notification.</string>
+    <string name="notifications_distributor_message">%1$s notifications</string>
+    <string name="direct_messages_connect_title">Connect an account to view messages</string>
+    <string name="direct_messages_connect_subtitle">Sign in to an account to open private conversations.</string>
+    <string name="sign_in_button_next">Next</string>
+    <string name="sign_in_button_authorized">I\'ve authorized access</string>
+    <string name="sign_in_title">Welcome!</string>
+    <string name="sign_in_add_account_title">Add another account</string>
+    <string name="sign_in_pending_title">One more step</string>
+    <string name="sign_in_description">To get started, enter your home instance\'s domain name below.</string>
+    <string name="sign_in_add_account_description">Sign in to another account. Your current account will stay connected.</string>
+    <string name="sign_in_pending_description">Approve %1$s in your browser on %2$s. Then return here to open your home feed.</string>
+    <string name="sign_in_instance_url">Instance URL</string>
+    <string name="sign_in_instance_placeholder">example.social</string>
+    <string name="sign_in_popular_instances">Popular instances</string>
+    <string name="sign_in_choose_instance">Choose the instance where you already have an account.</string>
+    <string name="sign_in_open_browser_again">Open browser again</string>
+    <string name="sign_in_cancel">Cancel</string>
+    <string name="sign_in_different_instance">Use a different instance</string>
     <string name="notifications_grouped_actors">%1$s and %2$d others</string>
     <string name="notifications_grouped_two_actors">%1$s and %2$s</string>
     <string name="notifications_grouped_many_actors">%1$s, %2$s, and %3$d others</string>

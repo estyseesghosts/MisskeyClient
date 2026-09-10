@@ -1,0 +1,16 @@
+<resources>
+    <string name="notifications_title">通知</string>
+    <string name="notifications_empty_title">すべて確認しました</string>
+    <string name="notifications_loading">通知を読み込み中</string>
+    <string name="notifications_retry">再試行</string>
+    <string name="notifications_dismiss">閉じる</string>
+    <string name="direct_messages_connect_title">アカウントを接続してメッセージを表示</string>
+    <string name="direct_messages_connect_subtitle">サインインしてプライベートな会話を開きます。</string>
+    <string name="sign_in_title">ようこそ！</string>
+    <string name="sign_in_button_next">次へ</string>
+    <string name="sign_in_cancel">キャンセル</string>
+    <string name="notification_settings_sheet_title">通知設定</string>
+    <string name="notifications_settings_alerts">端末の通知</string>
+    <string name="emoji_picker_title">絵文字を選択</string>
+    <string name="profile_editor_title">プロフィールを編集</string>
+</resources>

@@ -1,6 +1,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.io.File
 
+val productName = "MisskeyClient"
+val productVersion = "0.1.0"
 val releaseStoreFilePath = providers.environmentVariable("RELEASE_STORE_FILE")
     .orElse(File(System.getProperty("user.home"), "REALASSKEYS").absolutePath)
 val releaseKeyAlias = providers.environmentVariable("RELEASE_KEY_ALIAS")
@@ -24,10 +26,17 @@ android {
         minSdk = 29
         targetSdk = 37
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = productVersion
+        resValue("string", "app_name", productName)
+        buildConfigField("String", "PRODUCT_NAME", "\"$productName\"")
+        buildConfigField("String", "PRODUCT_VERSION", "\"$productVersion\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+        resValues = true
+    }
     // *Test classes, including MisskeySourceContractTest, are discovered automatically.
     testOptions { unitTests.isIncludeAndroidResources = true }
     signingConfigs {
@@ -43,6 +52,10 @@ android {
             signingConfig = signingConfigs.getByName("release")
             optimization { enable = true }
         }
+    }
+    lint {
+        // Locales intentionally fall back to the default for strings not yet translated.
+        disable += "MissingTranslation"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

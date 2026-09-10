@@ -51,3 +51,25 @@
 - `connectedDebugAndroidTest` ran on the connected SM-G986W: 7 tests passed and the existing system-bar appearance test failed because no Compose hierarchy was found; details are in `logs/BUGS.txt`.
 - Corrected compact-search regression by keeping the shared search list state limited to large presentation; renamed the horizontal-fold test to match its behavior.
 - Final verification passed: focused foldable/navigation UI tests, full `test`, `lintDebug`, and `assembleRelease`.
+
+260910-021040: Started the Android API 29 compatibility audit.
+Read docs/sdk29_subagent2.md and importantdocs/writing_style.md.
+Confirmed that the worktree already contains unrelated changes. No existing files will be reverted.
+260910-021041: Build review confirmed minSdk 29, targetSdk 37, compileSdk 37, Java 11, Kotlin 2.2.10, and Compose UI 1.9.5 as declared.
+260910-021041: Resolved debug runtime dependencies passed AAR metadata validation. No dependency minimum SDK above API 29 was confirmed.
+260910-021041: lintDebug failed with five NewApi errors from three unique defects: Theme.kt, MotionTokens.kt, and AvifDecoder.kt.
+260910-021041: The focused unit-test task passed after a separate retry. The first parallel attempt exceeded its shell timeout.
+260910-021041: Static source review found no additional unguarded Android framework APIs above API 29.
+260910-021041: Wrote the required report to `docs/sdk29_compatibilityreport.md` with startup path, findings, safe uses, dependency status, and fix order.
+260910-021041: Report distinguishes confirmed API mismatches from runtime and device test gaps.
+260910-030220 API 29 compatibility fix task:
+- Read `docs/sdk29_compatibilityreport.md` and `docs/sdk29_logcatreport.md` before implementation.
+- Added API 31 static Material color fallbacks, an API 33 animation-scale guard, and an API 33 AVIF ten-bit helper.
+- Added API 29 Robolectric coverage for light/dark theme startup, normal motion fallback, and AVIF configuration routing; retained API 35 ten-bit coverage.
+- Verified `lintDebug` with no `NewApi` findings, `:app:testDebugUnitTest`, and `:app:assembleDebug`.
+- Installed the signed debug APK and launched it from a stopped process on the API 29 `SM-T813`; no fatal exception, missing resource, or method-resolution failure was observed.
+- `:app:connectedDebugAndroidTest` ran on API 29 and API 33. All 8 API 29 tests passed, including 6 native AVIF tests; all 6 API 33 AVIF tests passed.
+- The final connected rerun had one pre-existing `SystemBarAppearanceInstrumentedTest` failure on each device because no Compose hierarchy was found; all 6 AVIF tests still passed on both devices.
+260910-000000 Mastodon and Misskey source split:
+- Extracted protocol-local DM, notification/cursor, push, and stream services while preserving source APIs and request wrappers.
+- Focused verification passed: Mastodon/Misskey integration and contract tests, Mastodon notification sync, notification adapter, and direct-message tests.

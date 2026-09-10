@@ -1,0 +1,16 @@
+<resources>
+    <string name="notifications_title">通知</string>
+    <string name="notifications_empty_title">已全部查看</string>
+    <string name="notifications_loading">正在加载通知</string>
+    <string name="notifications_retry">重试</string>
+    <string name="notifications_dismiss">忽略</string>
+    <string name="direct_messages_connect_title">连接账号以查看消息</string>
+    <string name="direct_messages_connect_subtitle">登录账号以打开私密对话。</string>
+    <string name="sign_in_title">欢迎！</string>
+    <string name="sign_in_button_next">下一步</string>
+    <string name="sign_in_cancel">取消</string>
+    <string name="notification_settings_sheet_title">通知设置</string>
+    <string name="notifications_settings_alerts">设备提醒</string>
+    <string name="emoji_picker_title">选择表情</string>
+    <string name="profile_editor_title">编辑个人资料</string>
+</resources>

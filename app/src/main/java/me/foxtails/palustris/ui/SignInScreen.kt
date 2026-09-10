@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -33,6 +34,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import me.foxtails.palustris.data.AccountSourceRegistry
+import me.foxtails.palustris.R
 import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
@@ -325,7 +327,7 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
                             label = "signInButtonContent",
                         ) { (busy, pending) ->
                             if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                            else Text(if (pending) "I've authorized access" else "Next")
+                            else Text(stringResource(if (pending) R.string.sign_in_button_authorized else R.string.sign_in_button_next))
                         }
                     }
                 }
@@ -335,7 +337,7 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 560.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
                 Spacer(Modifier.height(32.dp))
-                Text("Palustris", Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.headlineLarge)
+                Text(stringResource(R.string.app_name), Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.headlineLarge)
                 Spacer(Modifier.height(40.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer) {
@@ -351,30 +353,35 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
                 AnimatedStatePane(stateKey = state.pending, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         when {
-                            state.pending -> "One more step"
-                            state.addingAccount -> "Add another account"
-                            else -> "Welcome!"
+                            state.pending -> stringResource(R.string.sign_in_pending_title)
+                            state.addingAccount -> stringResource(R.string.sign_in_add_account_title)
+                            else -> stringResource(R.string.sign_in_title)
                         },
                         style = MaterialTheme.typography.headlineLarge,
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        if (state.pending) "Approve Palustris in your browser on ${state.origin?.removePrefix("https://")}. Then return here to open your home feed."
-                        else if (state.addingAccount) "Sign in to another account. Your current account will stay connected."
-                        else "To get started, enter your home instance’s domain name below.",
+                        if (state.pending) stringResource(
+                            R.string.sign_in_pending_description,
+                            stringResource(R.string.app_name),
+                            state.origin?.removePrefix("https://").orEmpty(),
+                        )
+                        else if (state.addingAccount) stringResource(R.string.sign_in_add_account_description)
+                        else stringResource(R.string.sign_in_description),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
                 Spacer(Modifier.height(24.dp))
                     if (!state.pending) {
                     OutlinedTextField(value = domain, onValueChange = { domain = it }, enabled = !state.busy,
-                        label = { Text("Instance URL") }, placeholder = { Text("example.social") },
+                        label = { Text(stringResource(R.string.sign_in_instance_url)) },
+                        placeholder = { Text(stringResource(R.string.sign_in_instance_placeholder)) },
                         leadingIcon = { Icon(AppIcons.Globe, null) }, singleLine = true, shape = CircleShape,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(28.dp))
-                    Text("Popular instances", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.sign_in_popular_instances), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
-                    Text("Choose the instance where you already have an account.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.sign_in_choose_instance), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
                     suggestedInstances.chunked(2).forEach { pair ->
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -415,9 +422,9 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
                         Spacer(Modifier.height(8.dp))
                     }
                     } else {
-                        OutlinedButton(onClick = onReopen, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Open browser again") }
+                        OutlinedButton(onClick = onReopen, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_in_open_browser_again)) }
                     TextButton(onClick = onCancel, enabled = !state.busy) {
-                        Text(if (state.addingAccount) "Cancel" else "Use a different instance")
+                        Text(stringResource(if (state.addingAccount) R.string.sign_in_cancel else R.string.sign_in_different_instance))
                     }
                     }
                 AnimatedStatePane(stateKey = state.error != null, modifier = Modifier.fillMaxWidth()) {

@@ -1,6 +1,7 @@
 package me.foxtails.palustris.data.misskey
 
 import kotlinx.coroutines.Dispatchers
+import me.foxtails.palustris.ProductIdentity
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -40,7 +41,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
     suspend fun post(origin: String, endpoint: String, body: JSONObject = JSONObject()): HttpResponse =
         execute(Request.Builder().url("$origin/api/$endpoint")
             .header("Accept", "application/json")
-            .header("User-Agent", "Palustris/0.1 (Android)")
+            .header("User-Agent", ProductIdentity.userAgent)
             .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build())
 
     suspend fun postForm(
@@ -71,7 +72,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
     ): HttpResponse =
         execute(Request.Builder().url(endpointUrl)
             .header("Accept", "application/json")
-            .header("User-Agent", "Palustris/0.1 (Android)")
+            .header("User-Agent", ProductIdentity.userAgent)
             .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
             .post(FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build())
             .build())
@@ -83,7 +84,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
         bearerToken: String? = null,
     ): HttpResponse = execute(Request.Builder().url("$origin/$endpoint")
         .header("Accept", "application/json")
-        .header("User-Agent", "Palustris/0.1 (Android)")
+        .header("User-Agent", ProductIdentity.userAgent)
         .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
         .patch(FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build())
         .build())
@@ -95,7 +96,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
         bearerToken: String? = null,
     ): HttpResponse = execute(Request.Builder().url("$origin/$endpoint")
         .header("Accept", "application/json")
-        .header("User-Agent", "Palustris/0.1 (Android)")
+        .header("User-Agent", ProductIdentity.userAgent)
         .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
         .put(FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build())
         .build())
@@ -106,7 +107,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
         bearerToken: String? = null,
     ): HttpResponse = execute(Request.Builder().url("$origin/$endpoint")
         .header("Accept", "application/json")
-        .header("User-Agent", "Palustris/0.1 (Android)")
+        .header("User-Agent", ProductIdentity.userAgent)
         .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
         .delete()
         .build())
@@ -120,7 +121,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
         bearerToken: String? = null,
     ): HttpResponse = execute(Request.Builder().url("$origin/$endpoint")
         .header("Accept", "application/json")
-        .header("User-Agent", "Palustris/0.1 (Android)")
+        .header("User-Agent", ProductIdentity.userAgent)
         .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
         .post(MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("file", fileName, file.readBytes().toRequestBody(mimeType.toMediaType()))
@@ -141,7 +142,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
         }.build()
         return execute(Request.Builder().url("$origin/$endpoint")
             .header("Accept", "application/json")
-            .header("User-Agent", "Palustris/0.1 (Android)")
+            .header("User-Agent", ProductIdentity.userAgent)
             .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
             .patch(body)
             .build())
@@ -150,7 +151,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
     suspend fun get(origin: String, endpoint: String, bearerToken: String? = null): HttpResponse =
         execute(Request.Builder().url("$origin/api/$endpoint")
             .header("Accept", "application/json")
-            .header("User-Agent", "Palustris/0.1 (Android)")
+            .header("User-Agent", ProductIdentity.userAgent)
             .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
             .get().build())
 

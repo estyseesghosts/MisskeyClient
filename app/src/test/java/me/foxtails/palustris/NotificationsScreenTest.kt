@@ -3,7 +3,6 @@ package me.foxtails.palustris
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import me.foxtails.palustris.ui.MessagesScreen
 import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.domain.Account
@@ -55,10 +54,6 @@ class NotificationsScreenTest {
         compose.waitForIdle()
     }
 
-    private fun showMessages() {
-        compose.activity.runOnUiThread { compose.activity.setContent { MessagesScreen() } }
-        compose.waitForIdle()
-    }
 
     @Test fun defaultStateShowsAllNotificationsAndRequiredChipOrder() {
         showNotifications()
@@ -260,13 +255,4 @@ class NotificationsScreenTest {
         assertTrue("empty notification inbox should support pull-to-refresh", refreshes > 0)
     }
 
-    @Test fun directMessagesDoesNotRenderNotificationFilters() {
-        showMessages()
-
-        compose.onNodeWithText("Direct messages coming soon").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Notification filters; swipe horizontally for more").assertDoesNotExist()
-        listOf("Replies", "Reposts", "Followers", "Likes").forEach { label ->
-            compose.onNodeWithText(label).assertDoesNotExist()
-        }
-    }
 }

@@ -14,7 +14,7 @@ class UnifiedPushConnectorTest {
             connector = connector,
             distributorPackage = "org.unifiedpush.distributor.sunup",
             instanceName = "account-instance",
-            messageForDistributor = "Palustris notifications",
+            messageForDistributor = "MisskeyClient notifications",
         )
 
         assertEquals(

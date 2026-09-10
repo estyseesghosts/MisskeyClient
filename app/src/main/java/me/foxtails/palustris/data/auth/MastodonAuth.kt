@@ -4,6 +4,7 @@ import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.misskey.ServerAddress
 import me.foxtails.palustris.data.mastodon.MastodonCapabilityProbe
+import me.foxtails.palustris.ProductIdentity
 import me.foxtails.palustris.data.mastodon.MastodonErrorMapper
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.AccessGrant
@@ -120,7 +121,7 @@ class MastodonAuth(
 
     private suspend fun registerApp(origin: String, api: MisskeyApi, scopes: Set<String>): AppRegistration {
         val response = api.postForm(origin, "api/v1/apps", mapOf(
-            "client_name" to "Palustris",
+            "client_name" to ProductIdentity.name,
             "redirect_uris" to REDIRECT_URI,
             "scopes" to scopes.joinToString(" "),
         ))
