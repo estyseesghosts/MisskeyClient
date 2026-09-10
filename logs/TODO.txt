@@ -5,4 +5,4 @@
 - [x] Clean obsolete adaptive-navigation branches
 - [x] Expand notification repository and protocol service coverage
 - [x] Complete localization extraction and regression checks
-- [ ] Push logical commits after preserving unrelated worktree changes
+- [x] Push logical commits after preserving unrelated worktree changes

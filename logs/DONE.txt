@@ -101,3 +101,4 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Restored the large timeline dock accessibility label and replaced Compose-invalid LocalContext resource reads with stringResource calls.
 - Full unit tests, lintDebug, assembleDebug, and assembleRelease passed.
 - connectedDebugAndroidTest ran on the connected device; Room persistence, AVIF, and example tests passed, while the existing API-29 startup and system-bar tests failed with no Compose hierarchy found.
+- Pushed the six stabilization commits to `origin/feature/foldable-ui` through `d548130`.
