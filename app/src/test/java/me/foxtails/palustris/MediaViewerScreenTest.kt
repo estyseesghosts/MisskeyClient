@@ -168,6 +168,14 @@ class MediaViewerScreenTest {
 
         assertEquals(0, closeCount)
         compose.onNodeWithText("2 / 2").assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("Media viewer").performTouchInput {
+            swipe(center, center + Offset(1_200f, 0f), durationMillis = 180)
+        }
+        compose.waitForIdle()
+
+        assertEquals(0, closeCount)
+        compose.onNodeWithText("1 / 2").assertIsDisplayed()
     }
 
     @Test

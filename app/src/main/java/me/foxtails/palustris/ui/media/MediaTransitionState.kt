@@ -105,14 +105,6 @@ class MediaTransitionRegistry {
         return owner
     }
 
-    fun end(key: MediaTransitionKey) {
-        hiddenSources.remove(key)
-        if (activeOwner.value?.key == key) {
-            activeOwner.value = null
-            activeKey.value = null
-        }
-    }
-
     fun end(owner: MediaTransitionOwner) {
         if (activeOwner.value != owner) return
         hiddenSources.remove(owner.key)

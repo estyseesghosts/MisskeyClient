@@ -3,6 +3,7 @@ package me.foxtails.palustris
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Offset
 import me.foxtails.palustris.ui.media.MediaTransitionKey
+import me.foxtails.palustris.ui.media.MediaTransitionFrame
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionSource
 import me.foxtails.palustris.ui.media.MediaViewerPhase
@@ -54,6 +55,25 @@ class MediaTransitionStateTest {
     }
 
     @Test
+    fun frameInterpolationHasExactEndpointsForEveryGeometryComponent() {
+        val start = MediaTransitionFrame(
+            imageBounds = Rect(-40f, 20f, 280f, 260f),
+            clipBounds = Rect(0f, 40f, 240f, 240f),
+            visibleBounds = Rect(0f, 80f, 180f, 240f),
+            cornerRadiusPx = 18f,
+        )
+        val end = MediaTransitionFrame(
+            imageBounds = Rect(12f, 34f, 412f, 334f),
+            clipBounds = Rect(12f, 34f, 412f, 334f),
+            visibleBounds = Rect(12f, 34f, 412f, 334f),
+            cornerRadiusPx = 0f,
+        )
+
+        assertEquals(start, me.foxtails.palustris.ui.media.lerpFrame(start, end, 0f))
+        assertEquals(end, me.foxtails.palustris.ui.media.lerpFrame(start, end, 1f))
+    }
+
+    @Test
     fun distanceAndVelocityShareDismissThresholds() {
         assertFalse(shouldDismiss(100f, 0f, 1_000f))
         assertTrue(shouldDismiss(200f, 0f, 1_000f))
@@ -69,9 +89,9 @@ class MediaTransitionStateTest {
         registry.update(key, bounds)
         assertEquals(bounds, registry.boundsFor(key))
         assertFalse(registry.isActive(key))
-        registry.begin(key)
+        val owner = registry.begin(key)
         assertTrue(registry.isActive(key))
-        registry.end(key)
+        registry.end(owner)
         assertNull(registry.currentActiveKey)
         registry.remove(key)
         assertNull(registry.boundsFor(key))

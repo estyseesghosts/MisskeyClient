@@ -583,7 +583,7 @@ fun PalustrisApp(
     LaunchedEffect(feedState?.timeline, account?.id) { feedState?.timeline?.let { timeline = it } }
     LaunchedEffect(destination, page, overlayKey) { navigationVisible = true }
     LaunchedEffect(account?.id) {
-        mediaRequest?.transitionKey?.let(mediaTransitionRegistry::end)
+        mediaTransitionRegistry.endActive()
         viewedProfile = null
         page = null
         composerTarget = null
