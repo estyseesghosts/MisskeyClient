@@ -13,8 +13,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.HingeInfo
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
@@ -72,7 +75,11 @@ internal fun LargeScreenShell(
             )
             val showDetail = hasDetail && twoPane && layout.detail != null
             Box(Modifier.fillMaxSize()) {
-                PaneSlot(layout.primary, density, if (hasDetail && !showDetail) detailContent else primaryContent)
+                PaneSlot(
+                    primaryPaneBounds(layout, twoPane),
+                    density,
+                    if (hasDetail && !showDetail) detailContent else primaryContent,
+                )
                 if (showDetail) {
                     layout.detail?.let { detail -> PaneSlot(detail, density, detailContent) }
                 } else if (twoPane && !hasDetail) {
@@ -82,6 +89,15 @@ internal fun LargeScreenShell(
         }
     }
 }
+
+internal fun primaryPaneBounds(layout: LargePaneLayout, twoPane: Boolean): Rect =
+    if (layout.mode == LargeLayoutMode.Expanded && !twoPane && layout.detail != null &&
+        layout.safeRegions.size == 1
+    ) {
+        layout.safeRegions.single()
+    } else {
+        layout.primary
+    }
 
 @Composable
 private fun PaneSlot(
@@ -93,12 +109,14 @@ private fun PaneSlot(
     val top = with(density) { bounds.top.toDp() }
     val width = with(density) { bounds.width.toDp() }
     val height = with(density) { bounds.height.toDp() }
-    content(
-        Modifier
-            .offset(left, top)
-            .width(width)
-            .height(height),
-    )
+    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+        content(
+            Modifier
+                .offset(left, top)
+                .width(width)
+                .height(height),
+        )
+    }
 }
 
 private fun HingeInfo.toLargeFeature(railPx: Float, insetLeftPx: Float, insetTopPx: Float): LargeFoldingFeature {

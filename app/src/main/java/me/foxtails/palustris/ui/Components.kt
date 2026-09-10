@@ -46,7 +46,12 @@ fun EmptyState(
                     Icon(icon, null, Modifier.padding(22.dp).size(36.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
                 Spacer(Modifier.height(24.dp))
-                Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                )
                 Spacer(Modifier.height(8.dp))
                 Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }

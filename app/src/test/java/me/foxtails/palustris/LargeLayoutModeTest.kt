@@ -5,6 +5,7 @@ import me.foxtails.palustris.ui.large.LargeFoldingFeature
 import me.foxtails.palustris.ui.large.LargeLayoutMode
 import me.foxtails.palustris.ui.large.calculateLargePaneLayout
 import me.foxtails.palustris.ui.large.largeLayoutMode
+import me.foxtails.palustris.ui.large.primaryPaneBounds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -47,6 +48,21 @@ class LargeLayoutModeTest {
         assertTrue(layout.primary.width >= 320f)
         assertTrue((layout.detail?.width ?: 0f) >= 360f)
         assertEquals(727f, layout.primary.width + (layout.detail?.width ?: 0f), 0.001f)
+    }
+
+    @Test
+    fun expandedWindowUsesFullSafeRegionWhenDetailIsDisabled() {
+        val layout = calculateLargePaneLayout(
+            windowWidthDp = 840f,
+            contentWidthDp = 760f,
+            contentHeightDp = 600f,
+            density = 1f,
+        )
+
+        val primary = primaryPaneBounds(layout, twoPane = false)
+
+        assertEquals(layout.safeRegions.single(), primary)
+        assertTrue(primary.width > layout.primary.width)
     }
 
     @Test

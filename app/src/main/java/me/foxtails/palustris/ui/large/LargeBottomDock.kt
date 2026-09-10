@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.ui.CompactSearchChipRowHeight
 import me.foxtails.palustris.ui.timelineLabelRes
 
 internal val LargeBottomDockClearance = 88.dp
@@ -62,10 +64,12 @@ internal fun LargeTimelineDockContent(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                 ),
-                 shape = RoundedCornerShape(50),
-                 modifier = Modifier.semantics {
-                     contentDescription = description
-                 },
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .height(CompactSearchChipRowHeight)
+                    .semantics {
+                        contentDescription = description
+                    },
             )
         }
     }
