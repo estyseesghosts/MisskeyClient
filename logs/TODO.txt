@@ -1,4 +1,1 @@
-# Foldable UI verification
-- Add remaining large-screen route and resize regression coverage.
-- Run lintDebug, full unit tests, release assembly, and configured device checks.
-- Record failures, environmental blockers, and final verification status.
+# Foldable UI

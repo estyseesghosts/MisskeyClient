@@ -47,3 +47,5 @@
 - Added width policy, minimum-pane clamping, separating/occluding hinge exclusion, and crease/horizontal-fold fallback tests.
 - Added a current-account large navigation rail, deterministic target routing, pane-local docks, stable Home/Profile/Search state, and selected-post detail routing with comments placeholder.
 - Compact-facing tests and the updated wide shell tests pass.
+- `lintDebug`, full `test`, and `assembleRelease` pass after replacing notification-settings `Context.getString` calls with `stringResource`.
+- `connectedDebugAndroidTest` ran on the connected SM-G986W: 7 tests passed and the existing system-bar appearance test failed because no Compose hierarchy was found; details are in `logs/BUGS.txt`.
