@@ -13,4 +13,15 @@
     <string name="notifications_settings_alerts">设备提醒</string>
     <string name="emoji_picker_title">选择表情</string>
     <string name="profile_editor_title">编辑个人资料</string>
+    <string name="nav_home">首页</string>
+    <string name="nav_search">搜索</string>
+    <string name="nav_notifications">通知</string>
+    <string name="nav_profile">个人资料</string>
+    <string name="nav_compose">发布帖子</string>
+    <string name="collection_favourites">收藏</string>
+    <string name="collection_bookmarks">书签</string>
+    <string name="profile_tab_posts">帖子</string>
+    <string name="profile_tab_media">媒体</string>
+    <string name="profile_tab_reposts">转发</string>
+    <string name="profile_tab_replies">回复</string>
 </resources>

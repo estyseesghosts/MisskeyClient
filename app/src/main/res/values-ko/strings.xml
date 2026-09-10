@@ -13,4 +13,15 @@
     <string name="notifications_settings_alerts">기기 알림</string>
     <string name="emoji_picker_title">이모지 선택</string>
     <string name="profile_editor_title">프로필 편집</string>
+    <string name="nav_home">홈</string>
+    <string name="nav_search">검색</string>
+    <string name="nav_notifications">알림</string>
+    <string name="nav_profile">프로필</string>
+    <string name="nav_compose">게시물 작성</string>
+    <string name="collection_favourites">즐겨찾기</string>
+    <string name="collection_bookmarks">북마크</string>
+    <string name="profile_tab_posts">게시물</string>
+    <string name="profile_tab_media">미디어</string>
+    <string name="profile_tab_reposts">리포스트</string>
+    <string name="profile_tab_replies">답글</string>
 </resources>

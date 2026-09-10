@@ -13,4 +13,15 @@
     <string name="notifications_settings_alerts">Alertes de l’appareil</string>
     <string name="emoji_picker_title">Choisir un emoji</string>
     <string name="profile_editor_title">Modifier le profil</string>
+    <string name="nav_home">Accueil</string>
+    <string name="nav_search">Rechercher</string>
+    <string name="nav_notifications">Notifications</string>
+    <string name="nav_profile">Profil</string>
+    <string name="nav_compose">Publier</string>
+    <string name="collection_favourites">Favoris</string>
+    <string name="collection_bookmarks">Signets</string>
+    <string name="profile_tab_posts">Publications</string>
+    <string name="profile_tab_media">Médias</string>
+    <string name="profile_tab_reposts">Reposts</string>
+    <string name="profile_tab_replies">Réponses</string>
 </resources>

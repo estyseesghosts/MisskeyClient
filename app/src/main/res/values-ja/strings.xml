@@ -13,4 +13,15 @@
     <string name="notifications_settings_alerts">端末の通知</string>
     <string name="emoji_picker_title">絵文字を選択</string>
     <string name="profile_editor_title">プロフィールを編集</string>
+    <string name="nav_home">ホーム</string>
+    <string name="nav_search">検索</string>
+    <string name="nav_notifications">通知</string>
+    <string name="nav_profile">プロフィール</string>
+    <string name="nav_compose">投稿を作成</string>
+    <string name="collection_favourites">お気に入り</string>
+    <string name="collection_bookmarks">ブックマーク</string>
+    <string name="profile_tab_posts">投稿</string>
+    <string name="profile_tab_media">メディア</string>
+    <string name="profile_tab_reposts">リポスト</string>
+    <string name="profile_tab_replies">返信</string>
 </resources>

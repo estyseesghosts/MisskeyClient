@@ -13,4 +13,15 @@
     <string name="notifications_settings_alerts">Gerätebenachrichtigungen</string>
     <string name="emoji_picker_title">Emoji auswählen</string>
     <string name="profile_editor_title">Profil bearbeiten</string>
+    <string name="nav_home">Startseite</string>
+    <string name="nav_search">Suche</string>
+    <string name="nav_notifications">Benachrichtigungen</string>
+    <string name="nav_profile">Profil</string>
+    <string name="nav_compose">Beitrag verfassen</string>
+    <string name="collection_favourites">Favoriten</string>
+    <string name="collection_bookmarks">Lesezeichen</string>
+    <string name="profile_tab_posts">Beiträge</string>
+    <string name="profile_tab_media">Medien</string>
+    <string name="profile_tab_reposts">Reposts</string>
+    <string name="profile_tab_replies">Antworten</string>
 </resources>

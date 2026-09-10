@@ -13,4 +13,15 @@
     <string name="notifications_settings_alerts">डिवाइस अलर्ट</string>
     <string name="emoji_picker_title">इमोजी चुनें</string>
     <string name="profile_editor_title">प्रोफ़ाइल संपादित करें</string>
+    <string name="nav_home">होम</string>
+    <string name="nav_search">खोज</string>
+    <string name="nav_notifications">सूचनाएं</string>
+    <string name="nav_profile">प्रोफ़ाइल</string>
+    <string name="nav_compose">पोस्ट लिखें</string>
+    <string name="collection_favourites">पसंदीदा</string>
+    <string name="collection_bookmarks">बुकमार्क</string>
+    <string name="profile_tab_posts">पोस्ट</string>
+    <string name="profile_tab_media">मीडिया</string>
+    <string name="profile_tab_reposts">रीपोस्ट</string>
+    <string name="profile_tab_replies">जवाब</string>
 </resources>
