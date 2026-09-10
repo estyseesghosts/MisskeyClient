@@ -24,6 +24,7 @@ import me.foxtails.palustris.ui.media.MediaTransitionKey
 import me.foxtails.palustris.ui.media.MediaViewerScreen
 import me.foxtails.palustris.ui.media.PostMediaCarousel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -69,7 +70,10 @@ class MediaViewerScreenTest {
         compose.waitForIdle()
 
         assertEquals(1, request?.attachmentIndex)
-        assertEquals(MediaTransitionKey.forAttachment(OwnedPost(account.id, post), 1), request?.transitionKey)
+        val transitionKey = request?.transitionKey
+        assertTrue(transitionKey != null)
+        assertEquals(MediaTransitionKey.forAttachment(OwnedPost(account.id, post), 1).copy(occurrence = transitionKey!!.occurrence), transitionKey)
+        assertNotEquals("default", transitionKey.occurrence)
         assertTrue(request?.initialSourceBounds?.width ?: 0f > 0f)
     }
 

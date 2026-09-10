@@ -24,6 +24,16 @@ import me.foxtails.palustris.domain.MediaRequestDecision
 import me.foxtails.palustris.domain.MediaRequestPolicy
 import me.foxtails.palustris.domain.MediaRequestRole
 
+internal val MediaPageHorizontalPadding = 8.dp
+
+internal fun mediaPageContentBounds(viewport: androidx.compose.ui.geometry.Rect, paddingPx: Float): androidx.compose.ui.geometry.Rect =
+    androidx.compose.ui.geometry.Rect(
+        left = viewport.left + paddingPx,
+        top = viewport.top,
+        right = (viewport.right - paddingPx).coerceAtLeast(viewport.left),
+        bottom = viewport.bottom,
+    )
+
 @Composable
 internal fun MediaPage(
     attachment: Attachment,
@@ -73,7 +83,7 @@ internal fun MediaPage(
                  contentDescription = attachment.description ?: "Media ${index + 1}",
                  state = zoomState,
                  onImageReady = onImageReady,
-                 modifier = Modifier.fillMaxWidth().then(if (edgeToEdge) Modifier else Modifier.padding(horizontal = 8.dp)),
+                  modifier = Modifier.fillMaxWidth().then(if (edgeToEdge) Modifier else Modifier.padding(horizontal = MediaPageHorizontalPadding)),
             )
             is MediaRequestDecision.NoRequest -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator()

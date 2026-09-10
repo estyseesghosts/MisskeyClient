@@ -67,6 +67,7 @@ import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.motion.springPress
+import java.util.UUID
 
 data class MediaOpenRequest(
     val ownedPost: OwnedPost,
@@ -74,6 +75,8 @@ data class MediaOpenRequest(
     val revealed: Boolean,
     val transitionKey: MediaTransitionKey = MediaTransitionKey.forAttachment(ownedPost, attachmentIndex),
     val initialSourceBounds: androidx.compose.ui.geometry.Rect = androidx.compose.ui.geometry.Rect.Zero,
+    val initialSource: MediaTransitionSource? = null,
+    val sourceKeys: List<MediaTransitionKey> = emptyList(),
 )
 
 @Composable
@@ -87,8 +90,11 @@ fun PostMediaCarousel(
     val context = LocalContext.current
     val density = LocalDensity.current
     val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
+    val sourceGroup = remember { UUID.randomUUID().toString() }
+    var visibleViewport by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     BoxWithConstraints(modifier.fillMaxWidth()) {
         LazyRow(
+            modifier = Modifier.onGloballyPositioned { visibleViewport = it.boundsInRoot() },
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -105,6 +111,10 @@ fun PostMediaCarousel(
                     decodeHeightPx = with(density) { 240.dp.roundToPx() },
                     mediaImageLoader = mediaImageLoader,
                     onOpenMedia = onOpenMedia,
+                    visibleViewport = visibleViewport,
+                    sourceKeys = attachments.indices.map { attachmentIndex ->
+                        MediaTransitionKey.forAttachment(ownedPost, attachmentIndex, "$sourceGroup-$attachmentIndex")
+                    },
                     modifier = Modifier
                         .width(width)
                         .height(240.dp),
@@ -123,9 +133,12 @@ private fun MediaPreviewTile(
     decodeHeightPx: Int,
     mediaImageLoader: MediaImageLoader,
     onOpenMedia: (MediaOpenRequest) -> Unit,
+    visibleViewport: androidx.compose.ui.geometry.Rect?,
+    sourceKeys: List<MediaTransitionKey>,
     modifier: Modifier,
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
     val registry = LocalMediaTransitionRegistry.current
     var revealed by rememberSaveable(
         ownedPost.fetchedBy,
@@ -133,10 +146,36 @@ private fun MediaPreviewTile(
         ownedPost.post.id.value,
         attachment.id ?: index,
     ) { mutableStateOf(!attachment.sensitive) }
-    val transitionKey = remember(ownedPost.fetchedBy, ownedPost.post.id, attachment.id, index) {
-        MediaTransitionKey.forAttachment(ownedPost, index)
-    }
+    val transitionKey = sourceKeys.getOrNull(index) ?: MediaTransitionKey.forAttachment(ownedPost, index)
     val active = registry.isSourceHidden(transitionKey)
+    val visibleDecision = MediaRequestPolicy.resolve(
+        attachment,
+        MediaRequestRole.Preview,
+        revealed = revealed,
+        explicitlyOpened = false,
+    )
+    val imageRequest = remember(
+        visibleDecision,
+        ownedPost.fetchedBy,
+        ownedPost.post.id,
+        attachment,
+        index,
+        decodeWidthPx,
+        decodeHeightPx,
+    ) {
+        (visibleDecision as? MediaRequestDecision.Request)?.let {
+            mediaImageLoader.request(
+                context = context,
+                decision = it,
+                accountIdentity = ownedPost.fetchedBy.toString(),
+                postIdentity = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}",
+                attachment = attachment,
+                attachmentIndex = index,
+                decodeWidthPx = decodeWidthPx,
+                decodeHeightPx = decodeHeightPx,
+            )
+        }
+    }
     val open = {
         onOpenMedia(
             MediaOpenRequest(
@@ -146,6 +185,8 @@ private fun MediaPreviewTile(
                 transitionKey = transitionKey,
                 initialSourceBounds = registry.boundsFor(transitionKey)
                     ?: androidx.compose.ui.geometry.Rect.Zero,
+                initialSource = registry.sourceFor(transitionKey),
+                sourceKeys = sourceKeys,
             ),
         )
     }
@@ -157,7 +198,18 @@ private fun MediaPreviewTile(
     Surface(
         modifier = modifier
             .onGloballyPositioned { coordinates ->
-                registry.updateIfVisible(transitionKey, coordinates.boundsInRoot())
+                val fullBounds = coordinates.boundsInRoot()
+                registry.updateIfVisible(
+                    transitionKey,
+                    MediaTransitionSource(
+                        fullBounds = fullBounds,
+                        visibleBounds = fullBounds.visiblePartIn(visibleViewport),
+                        cornerRadiusPx = with(density) { 12.dp.toPx() },
+                        previewRequest = imageRequest,
+                        imageWidth = (attachment.previewWidth ?: attachment.width ?: 4).toFloat(),
+                        imageHeight = (attachment.previewHeight ?: attachment.height ?: 3).toFloat(),
+                    ),
+                )
             }
             .clip(RoundedCornerShape(12.dp))
             .then(if (revealed) {
@@ -196,35 +248,9 @@ private fun MediaPreviewTile(
             if (!isRevealed) {
                 SensitiveMediaTile(onReveal = { revealed = true })
             } else {
-                val visibleDecision = MediaRequestPolicy.resolve(
-                    attachment,
-                    MediaRequestRole.Preview,
-                    revealed = true,
-                    explicitlyOpened = false,
-                )
                 when {
                     attachment.kind !in setOf(MediaKind.Image, MediaKind.AnimatedImage) -> UnsupportedMediaTile(attachment)
                     visibleDecision is MediaRequestDecision.Request -> {
-                        val imageRequest = remember(
-                            visibleDecision,
-                            ownedPost.fetchedBy,
-                            ownedPost.post.id,
-                            attachment,
-                            index,
-                            decodeWidthPx,
-                            decodeHeightPx,
-                        ) {
-                            mediaImageLoader.request(
-                                context = context,
-                                decision = visibleDecision,
-                                accountIdentity = ownedPost.fetchedBy.toString(),
-                                postIdentity = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}",
-                                attachment = attachment,
-                                attachmentIndex = index,
-                                decodeWidthPx = decodeWidthPx,
-                                decodeHeightPx = decodeHeightPx,
-                            )
-                        }
                         AsyncImage(
                             model = imageRequest,
                             imageLoader = mediaImageLoader.imageLoader,

@@ -849,7 +849,6 @@ fun PalustrisApp(
         if (account?.id != null && request.ownedPost.fetchedBy != account.id) return
         if (request.attachmentIndex !in request.ownedPost.post.attachments.indices) return
         clearPostActionBubble()
-        mediaTransitionRegistry.begin(request.transitionKey)
         mediaRequest = request
     }
 
