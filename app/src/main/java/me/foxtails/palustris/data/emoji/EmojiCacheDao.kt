@@ -58,6 +58,9 @@ interface EmojiCacheDao {
     @Query("SELECT * FROM emoji_asset WHERE contentHash = :contentHash")
     fun asset(contentHash: String): EmojiAssetEntity?
 
+    @Query("SELECT * FROM emoji_asset")
+    fun assets(): List<EmojiAssetEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAsset(asset: EmojiAssetEntity)
 
