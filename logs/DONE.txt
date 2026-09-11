@@ -97,7 +97,16 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added confident navigation, collection, and profile-tab translations to German, Spanish, French, Hindi, Japanese, Korean, and Chinese resources.
 - Left uncertain long-form strings on English fallback.
 260910-091500 Final stabilization verification:
-- Fixed Home reply routing so the shell opens the composer through its guarded reply state transition.
+ - Fixed Home reply routing so the shell opens the composer through its guarded reply state transition.
+20260911-021500 Post detail media polish task:
+ - Made SinglePostScreen header/default content color explicit through Material 3 onSurface content color.
+ - Added the interaction row below photo attachments and above the post body, including share behavior.
+ - Changed the multi-image pager indicator to a 32dp circular bottom-right indicator with 12dp padding.
+ - Retained full-quality media mode for every attachment selected during one viewer session.
+ - Added post-detail ordering and media swipe-retention regression coverage.
+ - Focused SinglePostScreen and MediaViewerScreen tests passed.
+ - Full test, lintDebug, and assembleRelease passed.
+ - Signed APK verified with apksigner and written to C:\Users\julie\newmisskeyclientprojectdirectory\app-release.apk.
 - Restored the large timeline dock accessibility label and replaced Compose-invalid LocalContext resource reads with stringResource calls.
 - Full unit tests, lintDebug, assembleDebug, and assembleRelease passed.
 - connectedDebugAndroidTest ran on the connected device; Room persistence, AVIF, and example tests passed, while the existing API-29 startup and system-bar tests failed with no Compose hierarchy found.

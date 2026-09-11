@@ -3,6 +3,7 @@ package me.foxtails.palustris
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
@@ -16,9 +17,11 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.SinglePostScreen
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -90,6 +93,35 @@ class SinglePostScreenTest {
 
         compose.onNodeWithText(body, substring = false).assertIsDisplayed()
         compose.onNodeWithText("View full post").assertDoesNotExist()
+    }
+
+    @Test fun photoPostShowsInteractionsBetweenMediaAndBody() {
+        val post = Post(
+            EntityId("https://example.org", "photo-actions"),
+            account,
+            "Body below the action row",
+            0,
+            Audience.Public,
+            attachments = listOf(image("actions")),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SinglePostScreen(
+                    ownedPost = OwnedPost(account.id, post),
+                    onClose = {},
+                    availableActions = PostAction.entries.toSet(),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        val actions = compose.onNodeWithContentDescription("Post actions", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val body = compose.onNodeWithText("Body below the action row")
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(actions.bottom <= body.top)
+        compose.onNodeWithContentDescription("Reply").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Favorite").assertIsDisplayed()
     }
 
     private fun image(id: String) = Attachment(

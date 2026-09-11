@@ -49,6 +49,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w411dp-h891dp-420dpi")
@@ -208,6 +209,73 @@ class MediaViewerScreenTest {
 
         compose.onNodeWithText("1 / 1").assertIsDisplayed()
         compose.onNodeWithContentDescription("Close media viewer").assertIsDisplayed()
+    }
+
+    @Test
+    fun selectedAttachmentsRemainOnFullQualityAfterSwipingBack() {
+        val image = markerPng(android.graphics.Color.RED, android.graphics.Color.BLUE)
+        val firstFullRequests = AtomicInteger()
+        val secondFullRequests = AtomicInteger()
+        val server = MockWebServer()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                when (request.requestUrl?.encodedPath) {
+                    "/first-full.png" -> firstFullRequests.incrementAndGet()
+                    "/second-full.png" -> secondFullRequests.incrementAndGet()
+                }
+                return MockResponse().setBody(Buffer().write(image))
+            }
+        }
+        server.start()
+        val firstFull = server.url("/first-full.png").toString()
+        val secondFull = server.url("/second-full.png").toString()
+        val stablePost = post.copy(
+            id = EntityId("https://example.org", "stable-full-quality"),
+            attachments = listOf(
+                post.attachments[0].copy(url = firstFull, previewUrl = server.url("/first-preview.png").toString()),
+                post.attachments[1].copy(url = secondFull, previewUrl = server.url("/second-preview.png").toString()),
+            ),
+        )
+
+        try {
+            compose.activity.runOnUiThread {
+                compose.activity.setContent {
+                    MediaViewerScreen(
+                        request = MediaOpenRequest(OwnedPost(account.id, stablePost), attachmentIndex = 0, revealed = true),
+                        onClose = {},
+                    )
+                }
+            }
+            repeat(15) {
+                compose.waitForIdle()
+                Thread.sleep(100)
+            }
+            val firstRequestsBeforeSwipes = firstFullRequests.get()
+            compose.onNodeWithContentDescription("Media viewer").performTouchInput {
+                swipe(center, center + Offset(-1_200f, 0f), durationMillis = 180)
+            }
+            repeat(15) {
+                compose.waitForIdle()
+                Thread.sleep(100)
+            }
+            val firstRequestsAfterForwardSwipe = firstFullRequests.get()
+            val secondRequestsAfterForwardSwipe = secondFullRequests.get()
+            compose.onNodeWithContentDescription("Media viewer").performTouchInput {
+                swipe(center, center + Offset(1_200f, 0f), durationMillis = 180)
+            }
+            repeat(15) {
+                compose.waitForIdle()
+                Thread.sleep(100)
+            }
+
+            assertEquals(firstRequestsAfterForwardSwipe, firstFullRequests.get())
+            assertEquals(secondRequestsAfterForwardSwipe, secondFullRequests.get())
+            assertEquals(firstRequestsBeforeSwipes, firstRequestsAfterForwardSwipe)
+            assertTrue(secondRequestsAfterForwardSwipe > 0)
+            compose.onNodeWithText("Full-size media unavailable").assertDoesNotExist()
+        } finally {
+            server.shutdown()
+        }
     }
 
     @Test

@@ -93,6 +93,7 @@ fun MediaViewerScreen(
     val revealedPages = remember {
         mutableStateMapOf<Int, Boolean>().apply { if (request.revealed) put(request.attachmentIndex, true) }
     }
+    val fullQualityPages = remember(request.transitionKey) { mutableStateMapOf<Int, Boolean>() }
     val fullReadyPages = remember(request.transitionKey) { mutableStateMapOf<Int, Boolean>() }
     val fullDimensions = remember(request.transitionKey) { mutableStateMapOf<Int, Size>() }
     var menuVisible by rememberSaveable { mutableStateOf(false) }
@@ -116,6 +117,10 @@ fun MediaViewerScreen(
     val latestDescriptionVisible by rememberUpdatedState(descriptionVisible)
     val latestZoomScale by rememberUpdatedState(selectedZoomScale)
     val mediaViewerDescription = stringResource(R.string.media_viewer)
+
+    LaunchedEffect(pagerState.currentPage) {
+        fullQualityPages[pagerState.currentPage] = true
+    }
 
     DisposableEffect(request.transitionKey) {
         onDispose { transitionOwner?.let { registry.end(it) } }
@@ -315,6 +320,7 @@ fun MediaViewerScreen(
                 val attachment = attachments[page]
                 val zoomState = zoomStates.getOrPut(page) { ZoomableMediaState() }
                 val selected = page == pagerState.currentPage
+                val fullQuality = selected || fullQualityPages[page] == true
                 val pageModifier = if (selected && transitionLayerVisible) {
                     Modifier.graphicsLayer { alpha = 0f }
                 } else {
@@ -324,6 +330,7 @@ fun MediaViewerScreen(
                     attachment = attachment,
                     index = page,
                     selected = selected,
+                    fullQuality = fullQuality,
                     revealed = !attachment.sensitive || revealedPages[page] == true,
                     accountIdentity = request.ownedPost.fetchedBy.toString(),
                     postIdentity = "${request.ownedPost.post.id.connection}/${request.ownedPost.post.id.value}",

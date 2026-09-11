@@ -5,6 +5,7 @@ package me.foxtails.palustris.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -20,12 +22,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -84,13 +88,14 @@ internal fun SinglePostScreen(
     val photos = post.attachments.filter { it.kind == MediaKind.Image || it.kind == MediaKind.AnimatedImage }
 
     key(ownedPost.fetchedBy, post.id.connection, post.id.value) {
-        Column(
-            modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .testTag("single_post_content"),
-    ) {
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .verticalScroll(rememberScrollState())
+                    .testTag("single_post_content"),
+            ) {
             Row(
              modifier = Modifier.fillMaxWidth().then(if (embedded) Modifier else Modifier.statusBarsPadding()).height(64.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -136,15 +141,29 @@ internal fun SinglePostScreen(
              val remainingAttachmentIndices = post.attachments.indices.filter { index ->
                  post.attachments[index].kind != MediaKind.Image && post.attachments[index].kind != MediaKind.AnimatedImage
              }
-             if (remainingAttachmentIndices.isNotEmpty()) {
-                 PostMediaCarousel(
+              if (remainingAttachmentIndices.isNotEmpty()) {
+                  PostMediaCarousel(
                      ownedPost = ownedPost,
                      onOpenMedia = onOpenMedia,
                      attachmentIndices = remainingAttachmentIndices,
-                     modifier = Modifier.padding(top = 12.dp),
-                 )
-             }
-            if (post.contentWarning != null) {
+                      modifier = Modifier.padding(top = 12.dp),
+                  )
+              }
+             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+             InteractionRow(
+                 ownedPost = ownedPost,
+                 availableActions = availableActions,
+                 onReply = onReply,
+                 onReact = onReact,
+                 onReshare = onReshare,
+                 onBookmark = onBookmark,
+                 onReaction = onReaction,
+                 quoteEnabled = quoteEnabled,
+                 onQuote = onQuote,
+                 onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
+                 onShare = { sharePost(context, post) },
+             )
+             if (post.contentWarning != null) {
                 InlineEmojiText(
                     post.contentWarning.ifBlank { stringResource(R.string.content_warning) },
                     post.emoji,
@@ -211,22 +230,6 @@ internal fun SinglePostScreen(
                     }
                 }
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
-            if (embedded) {
-                InteractionRow(
-                    ownedPost = ownedPost,
-                    availableActions = availableActions,
-                    onReply = onReply,
-                    onReact = onReact,
-                    onReshare = onReshare,
-                    onBookmark = onBookmark,
-                    onReaction = onReaction,
-                    quoteEnabled = quoteEnabled,
-                    onQuote = onQuote,
-                    onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
-                    onShare = {},
-                )
-            }
             }
             if (showCommentsPlaceholder) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp)) {
@@ -238,6 +241,7 @@ internal fun SinglePostScreen(
                     )
                 }
             }
+        }
         }
     }
     if (!embedded) BackHandler(onBack = onClose)
@@ -269,12 +273,17 @@ private fun PhotoPager(ownedPost: OwnedPost, photos: List<Attachment>) {
         }
         if (photos.size > 1) {
             Surface(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).size(32.dp),
                 color = Color.Black.copy(alpha = .6f),
                 contentColor = Color.White,
-                shape = MaterialTheme.shapes.small,
+                shape = CircleShape,
             ) {
-                Text(stringResource(R.string.media_page_count, pagerState.settledPage + 1, photos.size), Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        stringResource(R.string.media_page_count, pagerState.settledPage + 1, photos.size),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
             }
         }
     }

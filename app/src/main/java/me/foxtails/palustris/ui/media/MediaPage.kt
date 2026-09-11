@@ -42,6 +42,7 @@ internal fun MediaPage(
     attachment: Attachment,
     index: Int,
     selected: Boolean,
+    fullQuality: Boolean = selected,
     revealed: Boolean,
     accountIdentity: String,
     postIdentity: String,
@@ -68,8 +69,8 @@ internal fun MediaPage(
     }
     val context = LocalContext.current
     val mediaLoader = MediaImageLoader.get(context)
-    val role = if (selected) MediaRequestRole.Full else MediaRequestRole.Preview
-    val decision = MediaRequestPolicy.resolve(attachment, role, revealed = true, explicitlyOpened = selected)
+    val role = if (fullQuality) MediaRequestRole.Full else MediaRequestRole.Preview
+    val decision = MediaRequestPolicy.resolve(attachment, role, revealed = true, explicitlyOpened = fullQuality)
     BoxWithConstraints(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when (decision) {
             is MediaRequestDecision.Request -> ZoomableMediaImage(
