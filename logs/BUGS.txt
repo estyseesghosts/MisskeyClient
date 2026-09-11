@@ -5,6 +5,8 @@
 - `connectedDebugAndroidTest` ran on the connected SM-G986W but failed the existing `SystemBarAppearanceInstrumentedTest.navigationBarModeUsesBlackViewerAndRestoresThemeAppearance` test because no Compose hierarchy was found; the other 7 instrumented tests passed. This is not a foldable-layout test.
 - A valid device screenshot of the foldable layout could not be captured because the connected device remained behind the keyguard/notification shade; visual verification is limited to Compose tests and the supplied reference screenshot.
 
+260910-230057: The first emoji-cache test attempt could not locate the Android SDK because this shell did not export `ANDROID_HOME`; the installed SDK is `/Users/terezi/Library/Android/sdk`. Subsequent Gradle verification will use that environment variable without adding machine-specific `local.properties`.
+
 260910-021041: Confirmed API 29 findings: unguarded API 31 dynamic Material colors in `ui/Theme.kt:17`, unguarded API 33 `ValueAnimator.getDurationScale()` in `ui/motion/MotionTokens.kt:99`, and unguarded API 33 `Bitmap.Config.RGBA_1010102` in `data/media/AvifDecoder.kt:70`.
 260910-021041: The current tablet logcat confirms the dynamic color `Resources$NotFoundException`. The separate motion runtime failure is not confirmed by the available logcat.
 260910-021041: Release verification in this shell stopped at `validateSigningRelease` because no release keystore was configured. This is not an API 29 finding.

@@ -114,3 +114,8 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Replaced hardcoded URL labels with parsed hosts and updated entity/truncation coverage.
 - Commits created: `19c5984`, `945aa14`, `ca6c459`, `98cdf8f`, `d962fd3`.
 - Verification passed: focused presentation, layout, profile, adapter, navigation, and saved-post tests; `lintDebug`, full `testDebugUnitTest` (522 tests), and `assembleRelease`.
+260910-230057 Emoji cache slice 1:
+- Added the final four-table Room schema for account catalogs, URL mappings, and content-addressed assets.
+- Added transactional catalog replacement, account deletion, asset lookup, and unreferenced-asset queries.
+- Registered `noBackupFilesDir/emoji/emoji-cache.db` in the storage module and added Robolectric Room coverage.
+- Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.EmojiCacheDatabaseTest` and `lintDebug`.

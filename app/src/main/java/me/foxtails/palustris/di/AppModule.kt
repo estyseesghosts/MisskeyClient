@@ -49,6 +49,7 @@ import me.foxtails.palustris.data.notifications.db.NOTIFICATION_MIGRATIONS
 import me.foxtails.palustris.data.directmessages.DirectMessageDatabase
 import me.foxtails.palustris.data.directmessages.DirectMessageStore
 import me.foxtails.palustris.data.directmessages.RoomDirectMessageStore
+import me.foxtails.palustris.data.emoji.EmojiCacheDatabase
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PostPreferencesRepository
@@ -138,6 +139,17 @@ object StorageModule {
             DirectMessageDatabase::class.java,
             File(context.noBackupFilesDir, "directmessages.db").absolutePath,
         ).build()
+
+    @Provides
+    @Singleton
+    fun provideEmojiCacheDatabase(@ApplicationContext context: Context): EmojiCacheDatabase {
+        val directory = File(context.noBackupFilesDir, "emoji").apply { mkdirs() }
+        return Room.databaseBuilder(
+            context,
+            EmojiCacheDatabase::class.java,
+            File(directory, "emoji-cache.db").absolutePath,
+        ).build()
+    }
 
     @Provides
     @Singleton
