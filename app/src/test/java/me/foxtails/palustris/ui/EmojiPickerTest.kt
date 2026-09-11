@@ -154,7 +154,7 @@ class EmojiPickerTest {
 
     @Test
     fun loadingAndEmptyStatesRemainReadable() {
-        show(target = EmojiPickerTarget.Composer(ComposerField.Warning), catalog = EmojiCatalogState(loading = true))
+        show(target = EmojiPickerTarget.Composer(ComposerField.Warning), catalog = EmojiCatalogState(initialLoading = true))
         compose.onNodeWithTag("emoji_picker_sheet").assertIsDisplayed()
         show(target = EmojiPickerTarget.Composer(ComposerField.Warning), catalog = EmojiCatalogState(empty = true))
         compose.onNodeWithTag("emoji_picker_sheet").assertIsDisplayed()

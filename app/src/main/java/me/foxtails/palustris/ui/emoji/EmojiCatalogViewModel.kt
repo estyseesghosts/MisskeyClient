@@ -6,12 +6,15 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Clock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.EmojiCatalogRepository
+import me.foxtails.palustris.domain.EmojiCatalogSnapshot
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.ui.sourceErrorMessage
@@ -24,6 +27,8 @@ import me.foxtails.palustris.ui.sourceErrorMessage
 class EmojiCatalogViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted private val source: SocialSource,
+    private val repository: EmojiCatalogRepository,
+    private val clock: Clock,
 ) : ViewModel() {
     private val _state = MutableStateFlow(EmojiCatalogState())
     val state = _state.asStateFlow()
@@ -31,10 +36,12 @@ class EmojiCatalogViewModel @AssistedInject constructor(
     private var stopped = false
 
     fun loadIfNeeded() {
-        if (_state.value.items.isEmpty() && !_state.value.loading &&
-            !_state.value.unsupported && _state.value.error == null
-        ) {
-            load()
+        if (stopped || loadJob?.isActive == true || _state.value.unsupported) return
+        loadJob = viewModelScope.launch {
+            val cached = runCatching { repository.read(accountId) }.getOrNull()
+            if (cached != null) publishSnapshot(cached)
+            if (cached != null && isFresh(cached)) return@launch
+            refreshInternal(cached != null)
         }
     }
 
@@ -42,21 +49,7 @@ class EmojiCatalogViewModel @AssistedInject constructor(
         if (stopped) return
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            _state.value = EmojiCatalogState(loading = true)
-            try {
-                val items = source.customEmojis()
-                _state.value = EmojiCatalogState(
-                    items = items.filter { it.visibleInPicker },
-                    empty = items.isEmpty(),
-                )
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                _state.value = if (e is SourceError.Unsupported) {
-                    EmojiCatalogState(unsupported = true)
-                } else {
-                    EmojiCatalogState(error = sourceErrorMessage(e))
-                }
-            }
+            refreshInternal(_state.value.hasSnapshot)
         }
     }
 
@@ -67,6 +60,44 @@ class EmojiCatalogViewModel @AssistedInject constructor(
         loadJob?.cancel()
     }
 
+    private suspend fun refreshInternal(hasCachedSnapshot: Boolean) {
+        val previous = _state.value
+        _state.value = previous.copy(
+            initialLoading = !hasCachedSnapshot,
+            refreshing = hasCachedSnapshot,
+            error = null,
+            unsupported = false,
+        )
+        try {
+            publishSnapshot(repository.refresh(accountId, source))
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            _state.value = _state.value.copy(
+                initialLoading = false,
+                refreshing = false,
+                error = if (e is SourceError.Unsupported) null else sourceErrorMessage(e),
+                unsupported = e is SourceError.Unsupported,
+                items = if (e is SourceError.Unsupported) emptyList() else _state.value.items,
+                hasSnapshot = if (e is SourceError.Unsupported) false else _state.value.hasSnapshot,
+            )
+        }
+    }
+
+    private fun publishSnapshot(snapshot: EmojiCatalogSnapshot) {
+        _state.value = _state.value.copy(
+            items = snapshot.items.filter { it.visibleInPicker },
+            initialLoading = false,
+            refreshing = false,
+            error = null,
+            empty = snapshot.items.isEmpty(),
+            unsupported = false,
+            hasSnapshot = true,
+        )
+    }
+
+    private fun isFresh(snapshot: EmojiCatalogSnapshot): Boolean =
+        clock.millis() - snapshot.refreshedAtEpochMillis < FRESHNESS_MILLIS
+
     override fun onCleared() {
         stop()
         super.onCleared()
@@ -75,5 +106,9 @@ class EmojiCatalogViewModel @AssistedInject constructor(
     @AssistedFactory
     interface Factory {
         fun create(accountId: AccountId, source: SocialSource): EmojiCatalogViewModel
+    }
+
+    private companion object {
+        const val FRESHNESS_MILLIS = 24L * 60L * 60L * 1000L
     }
 }

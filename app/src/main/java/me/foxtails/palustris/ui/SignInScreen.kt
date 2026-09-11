@@ -175,6 +175,9 @@ fun ConnectedApp(
     }
     val emojiCatalogState by if (emojiCatalogModel != null) emojiCatalogModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(EmojiCatalogState()) }
+    DisposableEffect(state.sessionGeneration, emojiCatalogModel) {
+        onDispose { emojiCatalogModel?.stop() }
+    }
     LaunchedEffect(profileState.account, state.account) {
         profileState.account
             ?.takeIf { it.id == state.account?.id && it != state.account }

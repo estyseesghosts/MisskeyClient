@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -20,6 +21,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -132,27 +135,60 @@ fun EmojiPickerHost(
         modifier = Modifier.testTag("emoji_picker_sheet"),
     ) {
         Column(Modifier.fillMaxWidth().heightIn(min = 320.dp).padding(horizontal = 16.dp)) {
-            Text(
-                stringResource(
-                    if (target is EmojiPickerTarget.Reaction) R.string.emoji_add_reaction
-                    else R.string.emoji_picker_title,
-                ),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(vertical = 4.dp),
-            )
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    stringResource(
+                        if (target is EmojiPickerTarget.Reaction) R.string.emoji_add_reaction
+                        else R.string.emoji_picker_title,
+                    ),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                IconButton(
+                    onClick = onRetryCatalog,
+                    enabled = !catalog.initialLoading && !catalog.refreshing,
+                    modifier = Modifier.testTag("emoji_picker_refresh"),
+                ) {
+                    Text(stringResource(R.string.common_refresh), style = MaterialTheme.typography.labelLarge)
+                }
+            }
             when {
                 readOnlyReactions -> ReadOnlyReactions(target as EmojiPickerTarget.Reaction)
-                catalog.loading -> Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(Modifier.size(28.dp))
-                    Text(stringResource(R.string.emoji_picker_loading), Modifier.padding(top = 12.dp))
-                }
-                catalog.unsupported -> PickerMessage(stringResource(R.string.emoji_picker_unsupported))
-                catalog.error != null -> Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(catalog.error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-                    TextButton(onClick = onRetryCatalog) { Text(stringResource(R.string.emoji_picker_retry)) }
-                }
-                catalog.empty && catalog.items.isEmpty() -> PickerMessage(stringResource(R.string.emoji_picker_empty))
-                else -> EmojiChoiceGrid(
+                else -> Column(Modifier.fillMaxWidth()) {
+                    if (catalog.initialLoading || catalog.refreshing) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text(
+                                stringResource(
+                                    if (catalog.initialLoading) R.string.emoji_picker_loading
+                                    else R.string.emoji_picker_refreshing,
+                                ),
+                                Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
+                    if (catalog.unsupported) {
+                        PickerMessage(stringResource(R.string.emoji_picker_unsupported))
+                    }
+                    catalog.error?.let { error ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                            TextButton(onClick = onRetryCatalog) { Text(stringResource(R.string.emoji_picker_retry)) }
+                        }
+                    }
+                    EmojiChoiceGrid(
                     catalogItems = catalog.items,
                     additionalChoices = (target as? EmojiPickerTarget.Reaction)?.post?.post?.reactions?.map { reaction ->
                         EmojiChoice(reaction.emoji, reaction.emoji, reaction.emojiMetadata)
@@ -168,7 +204,8 @@ fun EmojiPickerHost(
                         onEmojiSelected(choice)
                         onDismiss()
                     },
-                )
+                    )
+                }
             }
             Box(Modifier.size(24.dp))
         }

@@ -124,3 +124,8 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Preserved snapshots across failed refreshes, created durable empty snapshots, and added account-scoped removal.
 - Integrated catalog cleanup into `AccountManager` and supplied an in-memory repository for constructor-based tests.
 - Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.EmojiCatalogRepositoryTest --tests me.foxtails.palustris.SessionViewModelTest` and `lintDebug`.
+260910-231700 Emoji cache slice 3:
+- Added 24-hour stale-while-refresh loading with injected clock, separate initial-loading and refresh state, cached failure handling, and unsupported handling.
+- Kept static picker groups available without a catalog and added a modal header refresh control plus disposal on account changes.
+- Added deterministic ViewModel freshness, stale-cache, failure, and unsupported tests.
+- Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.ui.EmojiCatalogViewModelTest --tests me.foxtails.palustris.ui.EmojiPickerTest` and `lintDebug`.

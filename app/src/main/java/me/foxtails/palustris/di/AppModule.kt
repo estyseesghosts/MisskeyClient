@@ -3,6 +3,7 @@ package me.foxtails.palustris.di
 import android.content.Context
 import androidx.room.Room
 import java.io.File
+import java.time.Clock
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -101,6 +102,10 @@ object NetworkModule {
 @Module
 @InstallIn(SingletonComponent::class)
 object StorageModule {
+    @Provides
+    @Singleton
+    fun provideEmojiCatalogClock(): Clock = Clock.systemUTC()
+
     @Provides
     @Singleton
     fun provideSessionStore(@ApplicationContext context: Context): SessionStore = EncryptedSessionStore(context)
