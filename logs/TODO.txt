@@ -1,1 +1,6 @@
 # Active tasks
+
+- [ ] Implement Photo Grid screen, media filtering, pagination, and independent scroll state.
+- [ ] Add Photo Grid navigation and presentation tests.
+- [ ] Run verification and document results.
+- [ ] Commit focused slices, push GitHub, and produce signed release APK.

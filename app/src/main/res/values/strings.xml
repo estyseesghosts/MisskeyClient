@@ -3,7 +3,7 @@
     <string name="nav_search">Search</string>
     <string name="nav_notifications">Notifications</string>
     <string name="nav_profile">Profile</string>
-    <string name="nav_alternate_search">Alternate search</string>
+    <string name="nav_photo_grid">Photo grid</string>
     <string name="nav_direct_messages">Private messages</string>
     <string name="nav_switch_account">Switch account</string>
     <string name="nav_compose">Compose post</string>
@@ -306,8 +306,8 @@
     <string name="dm_empty_title">No private messages yet</string>
     <string name="dm_empty_subtitle">Start a private conversation from someone\'s profile.</string>
     <string name="dm_private_post">Private post</string>
-    <string name="search_alternate_title">Alternate search</string>
-    <string name="search_alternate_subtitle">A second search surface will be available in a future update.</string>
+    <string name="search_photo_grid_title">Photo grid</string>
+    <string name="search_photo_grid_subtitle">Media posts from your timeline will appear here.</string>
     <string name="search_field">Search field</string>
     <string name="search_placeholder_handle">Search by @handle@server</string>
     <string name="search_hashtag_failed">Hashtag search failed</string>

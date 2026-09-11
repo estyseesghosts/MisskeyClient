@@ -94,8 +94,8 @@ fun SearchScreen(
     onSharedTabChange: (Int) -> Unit = {},
     listState: LazyListState? = null,
 ) {
-    if (mode == SearchPanel.Alternate) {
-        EmptyState(AppIcons.WaffleGrid, stringResource(R.string.search_alternate_title), stringResource(R.string.search_alternate_subtitle))
+    if (mode == SearchPanel.PhotoGrid) {
+        EmptyState(AppIcons.WaffleGrid, stringResource(R.string.search_photo_grid_title), stringResource(R.string.search_photo_grid_subtitle))
         return
     }
     var localQuery by rememberSaveable { mutableStateOf("") }

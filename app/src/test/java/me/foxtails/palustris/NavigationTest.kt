@@ -325,7 +325,7 @@ class NavigationTest {
 
         val field = bounds("Search field")
         val chips = bounds("Search categories; swipe horizontally for more")
-        val action = bounds("Alternate search")
+        val action = bounds("Photo grid")
         assertTrue("search field should be above navigation", field.bottom < action.top)
         assertTrue("search chips should be above the search field", chips.bottom <= field.top)
         val density = compose.activity.resources.displayMetrics.density
@@ -689,7 +689,7 @@ class NavigationTest {
                 assertEquals("IME motion must not resize the Search content viewport", initialViewportTop, viewport.top, 0.5f)
                 assertEquals("IME motion must not resize the Search content viewport", initialViewportBottom, viewport.bottom, 0.5f)
             }
-            val navigation = bounds("Alternate search")
+            val navigation = bounds("Photo grid")
             assertTrue("field crossed navigation at IME height $keyboardDp", field.bottom < navigation.top)
             assertTrue("field bounced upward at IME height $keyboardDp", field.bottom >= previousBottom)
             if (keyboardDp == 360) {
@@ -791,8 +791,8 @@ class NavigationTest {
         compose.onNodeWithContentDescription("Edit profile").assertDoesNotExist()
 
         compose.onNodeWithContentDescription("Search").performClick()
-        compose.onNodeWithContentDescription("Alternate search").assertIsEnabled().performClick()
-        compose.onNodeWithText("Alternate search").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Photo grid").assertIsEnabled().performClick()
+        compose.onNodeWithText("Photo grid").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("Notifications").performClick()
         compose.onNodeWithContentDescription("Direct messages").assertIsEnabled().performClick()

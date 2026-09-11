@@ -218,7 +218,7 @@ private fun contextualActionFor(
 ): ContextualBottomAction? = when (destination) {
     Destination.Home -> ContextualBottomAction(AppIcons.Compose, "Compose post", true, onCompose)
     Destination.Search -> if (searchPanel == SearchPanel.Search) {
-        ContextualBottomAction(AppIcons.WaffleGrid, "Alternate search", true, onSearchToggle)
+        ContextualBottomAction(AppIcons.WaffleGrid, "Photo grid", true, onSearchToggle)
     } else {
         ContextualBottomAction(AppIcons.Search, "Search", true, onSearchToggle)
     }
@@ -284,6 +284,7 @@ private fun TimelineSelector(
 @Composable
 private fun CompactContextualNavigationBar(
     destination: Destination,
+    searchPanel: SearchPanel,
     action: ContextualBottomAction?,
     account: Account?,
     onOpenAccounts: () -> Unit,
@@ -302,7 +303,9 @@ private fun CompactContextualNavigationBar(
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                     Destination.entries.forEach { item ->
                         val selected = destination == item
-                        val label = stringResource(item.labelRes)
+                        val photoGridSelected = item == Destination.Search && searchPanel == SearchPanel.PhotoGrid
+                        val label = stringResource(if (photoGridSelected) R.string.nav_photo_grid else item.labelRes)
+                        val icon = if (photoGridSelected) AppIcons.WaffleGrid else item.icon
                         val interactionSource = remember(item) { MutableInteractionSource() }
                         val pressed by interactionSource.collectIsPressedAsState()
                         val selectedTint = rememberSelectedColor(selected, MaterialTheme.colorScheme.onSecondaryContainer, MaterialTheme.colorScheme.onSurfaceVariant)
@@ -346,7 +349,7 @@ private fun CompactContextualNavigationBar(
                                 }
                                 if (account != null) AccountAvatar(account, avatarModifier, exposeSemantics = false) else Avatar(avatarModifier, description = null)
                             } else Icon(
-                                item.icon,
+                                icon,
                                 null,
                                 Modifier.graphicsLayer {
                                     scaleX = selectedScale
@@ -803,8 +806,8 @@ fun PalustrisApp(
                 searchPanelName = SearchPanel.Search.name
                 selectDestination(Destination.Search)
             }
-            LargeNavTarget.AlternateSearch -> {
-                searchPanelName = SearchPanel.Alternate.name
+            LargeNavTarget.PhotoGrid -> {
+                searchPanelName = SearchPanel.PhotoGrid.name
                 selectDestination(Destination.Search)
             }
             LargeNavTarget.Notifications -> {
@@ -1284,6 +1287,7 @@ fun PalustrisApp(
                                 }
                                 CompactContextualNavigationBar(
                                     destination = destination,
+                                    searchPanel = searchPanel,
                                     action = contextualActionFor(
                                         destination = destination,
                                         searchPanel = searchPanel,
@@ -1294,7 +1298,7 @@ fun PalustrisApp(
                                         onCompose = ::openComposer,
                                         onSearchToggle = {
                                             searchPanelName = if (searchPanel == SearchPanel.Search) {
-                                                SearchPanel.Alternate.name
+                                                SearchPanel.PhotoGrid.name
                                             } else {
                                                 SearchPanel.Search.name
                                             }

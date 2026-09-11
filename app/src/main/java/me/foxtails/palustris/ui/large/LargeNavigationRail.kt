@@ -37,7 +37,7 @@ import me.foxtails.palustris.ui.Avatar
 internal enum class LargeNavTarget(@StringRes val labelRes: Int) {
     Home(R.string.nav_home),
     Search(R.string.nav_search),
-    AlternateSearch(R.string.nav_alternate_search),
+    PhotoGrid(R.string.nav_photo_grid),
     Notifications(R.string.nav_notifications),
     DirectMessages(R.string.nav_direct_messages),
     Profile(R.string.nav_profile),
@@ -92,7 +92,7 @@ internal fun LargeNavigationRail(
                             imageVector = when (target) {
                                 LargeNavTarget.Home -> AppIcons.Home
                                 LargeNavTarget.Search -> AppIcons.Search
-                                LargeNavTarget.AlternateSearch -> AppIcons.WaffleGrid
+                                LargeNavTarget.PhotoGrid -> AppIcons.WaffleGrid
                                 LargeNavTarget.Notifications -> AppIcons.Notifications
                                 LargeNavTarget.DirectMessages -> AppIcons.Chat
                                 LargeNavTarget.Profile -> AppIcons.Person

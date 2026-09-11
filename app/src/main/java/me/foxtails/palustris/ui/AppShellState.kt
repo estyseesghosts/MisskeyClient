@@ -18,7 +18,7 @@ internal enum class Destination(@StringRes val labelRes: Int, val icon: ImageVec
 
 internal enum class NotificationsPanel { Notifications, DirectMessages }
 internal enum class LocalPage { SavedPosts, Likes, Drafts, About }
-enum class SearchPanel { Search, Alternate }
+enum class SearchPanel { Search, PhotoGrid }
 internal enum class LargePostOrigin { Home, Search, Profile, Saved, Liked, Notification, Other }
 internal sealed interface Overlay {
     data object Composer : Overlay
@@ -32,7 +32,7 @@ internal fun largeTargetFor(
     notificationsPanel: NotificationsPanel,
 ): LargeNavTarget = when (destination) {
     Destination.Home -> LargeNavTarget.Home
-    Destination.Search -> if (searchPanel == SearchPanel.Search) LargeNavTarget.Search else LargeNavTarget.AlternateSearch
+    Destination.Search -> if (searchPanel == SearchPanel.Search) LargeNavTarget.Search else LargeNavTarget.PhotoGrid
     Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) LargeNavTarget.Notifications else LargeNavTarget.DirectMessages
     Destination.Profile -> LargeNavTarget.Profile
 }
