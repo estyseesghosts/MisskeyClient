@@ -792,7 +792,7 @@ class NavigationTest {
 
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onNodeWithContentDescription("Photo grid").assertIsEnabled().performClick()
-        compose.onNodeWithText("Photo grid").assertIsDisplayed()
+        compose.onNodeWithText("No media posts available").assertIsDisplayed()
 
         compose.onNodeWithContentDescription("Notifications").performClick()
         compose.onNodeWithContentDescription("Direct messages").assertIsEnabled().performClick()
@@ -804,6 +804,54 @@ class NavigationTest {
         compose.onNodeWithContentDescription("Edit profile").assertDoesNotExist()
         compose.onAllNodesWithText("Your profile").onLast().assertIsDisplayed()
         compose.onNodeWithContentDescription("Profile").assertIsSelected()
+    }
+
+    @Test fun photoGridModeSurvivesTabSwitchingAndUpdatesNavigationIcon() {
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.onNodeWithContentDescription("Photo grid").assertIsEnabled().performClick()
+        compose.onNodeWithContentDescription("Photo grid").assertIsSelected()
+        compose.onNodeWithText("No media posts available").assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("Home").performClick()
+        compose.onNodeWithContentDescription("Search").performClick()
+
+        compose.onNodeWithContentDescription("Photo grid").assertIsSelected()
+        compose.onNodeWithText("No media posts available").assertIsDisplayed()
+    }
+
+    @Test fun hashtagNavigationLeavesPhotoGridModeInSearchState() {
+        val taggedPost = fixturePost("tagged-navigation", fixtureAccount(), "Body #photos #travel")
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(feedState = FeedState(posts = listOf(taggedPost)))
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.onNodeWithContentDescription("Photo grid").performClick()
+        compose.onNodeWithContentDescription("Home").performClick()
+        compose.onNodeWithContentDescription("2 hashtags: #photos and #travel").performClick()
+        compose.onNodeWithContentDescription("Hashtag #travel").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Search").assertIsSelected()
+    }
+
+    @Test fun accountNavigationLeavesPhotoGridModeInSearchState() {
+        val accountPost = fixturePost("account-navigation", fixtureAccount(), "Body @target@fixture.example")
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(feedState = FeedState(posts = listOf(accountPost)))
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.onNodeWithContentDescription("Photo grid").performClick()
+        compose.onNodeWithContentDescription("Home").performClick()
+        compose.onNode(hasContentDescription("Username @target", substring = true)).performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Search").assertIsSelected()
     }
 
     @Test fun profileRedirectActionUsesExistingInAppProfileSelection() {

@@ -16,7 +16,8 @@
 - Keep new UI in Compose Material 3.
 - Existing XML resources support the manifest, platform theme, and backup rules.
 - Do not confuse those resources with XML layouts.
-- Direct messages and alternate search remain placeholder surfaces.
+- Direct messages remain a placeholder surface.
+- Photo Grid is the media presentation state of the Search destination.
 - Do not describe placeholder surfaces as supported features.
 
 ## Source Of Truth

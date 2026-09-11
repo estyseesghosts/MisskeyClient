@@ -304,7 +304,8 @@ private fun CompactContextualNavigationBar(
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                     Destination.entries.forEach { item ->
                         val selected = destination == item
-                        val photoGridSelected = item == Destination.Search && searchPanel == SearchPanel.PhotoGrid
+                        val photoGridSelected = destination == Destination.Search &&
+                            item == Destination.Search && searchPanel == SearchPanel.PhotoGrid
                         val label = stringResource(if (photoGridSelected) R.string.nav_photo_grid else item.labelRes)
                         val icon = if (photoGridSelected) AppIcons.WaffleGrid else item.icon
                         val interactionSource = remember(item) { MutableInteractionSource() }
@@ -1098,7 +1099,8 @@ fun PalustrisApp(
                                            )
                                            SearchPanel.PhotoGrid -> PhotoGridScreen(
                                                state = feedState ?: FeedState(),
-                                               posts = ownedPosts ?: feedState?.ownedPosts?.takeIf { it.isNotEmpty() }
+                                               posts = ownedPosts?.takeIf { it.isNotEmpty() }
+                                                   ?: feedState?.ownedPosts?.takeIf { it.isNotEmpty() }
                                                    ?: feedState?.posts.orEmpty().map { OwnedPost(it.author.id, it) },
                                                onRefresh = { onRefresh(timeline) },
                                                onLoadMore = { onLoadMore(timeline) },
