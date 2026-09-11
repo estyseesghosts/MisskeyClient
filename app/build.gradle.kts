@@ -2,9 +2,9 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.io.File
 
 val productName = "MisskeyClient"
-val productVersion = "0.1.0"
+val productVersion = "0.1.1"
 val configuredVersionName = providers.gradleProperty("versionName").orElse(productVersion).get()
-val configuredVersionCode = providers.gradleProperty("versionCode").map { it.toInt() }.getOrElse(1)
+val configuredVersionCode = providers.gradleProperty("versionCode").map { it.toInt() }.getOrElse(1001)
 val releaseStoreFile = providers.environmentVariable("RELEASE_STORE_FILE").map { File(it) }
 val releaseSigningAvailable = providers.environmentVariable("RELEASE_STORE_FILE")
     .zip(providers.environmentVariable("RELEASE_KEY_ALIAS")) { path, alias -> File(path).isFile && alias.isNotBlank() }

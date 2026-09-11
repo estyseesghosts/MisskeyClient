@@ -196,3 +196,6 @@ Confirmed that the worktree already contains unrelated changes. No existing file
  - Preserved truthful Misskey thumbnail mapping and documented optional preview URLs on Attachment.
  - Split render cache keys from account/source URL disk-cache keys to reuse encoded full-URL fallbacks.
  - Added policy, loader, Misskey mapper, and timeline fallback regression coverage.
+20260911-024000 Version 0.1.1 release task:
+ - Updated the default app version to `0.1.1` and default Android version code to `1001`.
+ - Pushed the version commit and `v0.1.1` tag to GitHub.
