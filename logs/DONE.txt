@@ -176,6 +176,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Signed `assembleRelease` passed using a temporary keystore outside the workspace; `apksigner` verified one v2 signer.
 - Moved the signed APK to `C:\Users\julie\newmisskeyclientprojectdirectory\app-release.apk`.
 - Implementation commits: `0df8bc6`, `d107665`, `7ff8e38`.
+- Pushed `main` successfully to GitHub, including the four Photo Grid commits.
 20260911-021025 Photo Grid slice 2:
 - Added PhotoGridScreen with adaptive 150dp staggered cells, tight spacing, source-ratio tiles, and first-displayable-attachment filtering.
 - Reused MediaRequestPolicy, MediaImageLoader, and sensitive-media reveal behavior without wrapping cells in post cards or action rows.
