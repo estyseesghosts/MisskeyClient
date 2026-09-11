@@ -1,6 +1,7 @@
 package me.foxtails.palustris.ui.emoji
 
 import me.foxtails.palustris.domain.CustomEmoji
+import java.net.URI
 
 internal sealed interface RichTextSegment {
     val range: IntRange
@@ -111,7 +112,7 @@ internal object EmojiTextParser {
                 if (urlEnd > cursor) {
                     val sourceRange = cursor until urlEnd
                     segments += RichTextSegment.Link(
-                        label = listOf(RichTextSegment.Text("url.xyz", sourceRange)),
+                        label = listOf(RichTextSegment.Text(urlHost(text.substring(sourceRange)), sourceRange)),
                         url = text.substring(sourceRange),
                         range = sourceRange,
                         plainUrl = true,
@@ -179,6 +180,10 @@ internal object EmojiTextParser {
         while (end > 0 && text[end - 1] in ".,!?;:") end--
         return end
     }
+
+    private fun urlHost(url: String): String = runCatching {
+        URI(url).host?.takeIf(String::isNotBlank)
+    }.getOrNull() ?: url
 
     private fun entityBoundaryBefore(text: String, start: Int): Boolean {
         if (start == 0) return true

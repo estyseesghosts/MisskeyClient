@@ -47,7 +47,7 @@ class LocalizationResourceTest {
     fun commonPresentationCallsDoNotEmbedUserVisibleEnglishLiterals() {
         val uiRoot = locateUiRoot()
         val exclusions = setOf(
-            "URL", "USERNAME", "HASHTAG", "SHA-256", "url.xyz", "Composer", "EditProfile", "NotificationSettings",
+            "URL", "USERNAME", "HASHTAG", "SHA-256", "Composer", "EditProfile", "NotificationSettings",
         )
         val literalPattern = Regex("""(?:Text|BasicTextField|EmptyState)\s*\(\s*"([^"]+)"""")
         val violations = uiRoot.walkTopDown()

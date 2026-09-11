@@ -431,6 +431,11 @@ fun PalustrisApp(
     onLoadMoreSavedPosts: () -> Unit = {},
     onUnsaveSavedPost: (OwnedPost) -> Unit = {},
     onUpgradeSavedPermissions: () -> Unit = {},
+    likedPostsState: SavedPostsUiState? = null,
+    onRefreshLikedPosts: () -> Unit = {},
+    onLoadMoreLikedPosts: () -> Unit = {},
+    onUnsaveLikedPost: (OwnedPost) -> Unit = {},
+    onLikedPostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     notificationState: NotificationsUiState = NotificationsUiState(),
     onRefreshNotifications: () -> Unit = {},
     onLoadMoreNotifications: () -> Unit = {},
@@ -885,6 +890,7 @@ fun PalustrisApp(
         val candidates = ownedPosts.orEmpty() +
             feedState?.ownedPosts.orEmpty() +
             savedPostsState?.posts.orEmpty() +
+            likedPostsState?.posts.orEmpty() +
             profileState.pinnedPosts +
             profileState.pages.values.flatMap { it.posts }
         return candidates.firstOrNull { it.post.id == selected.post.id } ?: selected
@@ -931,7 +937,15 @@ fun PalustrisApp(
                     topBar = {
                     when {
                         page != null -> TopAppBar(
-                             title = { Text(if (page == LocalPage.SavedPosts) stringResource(savedTitle) else page!!.name) },
+                             title = {
+                                 Text(
+                                     when (page) {
+                                         LocalPage.SavedPosts -> stringResource(savedTitle)
+                                         LocalPage.Likes -> stringResource(likedCollectionTitle())
+                                         else -> page!!.name
+                                     },
+                                 )
+                             },
                              navigationIcon = { ActionIcon(AppIcons.Back, "Back") { clearPostActionBubble(); page = null } },
                          )
                           notificationRoute != null -> TopAppBar(title = { Text(stringResource(R.string.app_notification)) }, navigationIcon = { ActionIcon(AppIcons.Back, stringResource(R.string.app_back)) { clearPostActionBubble(); notificationRoute = null } })
@@ -986,8 +1000,34 @@ fun PalustrisApp(
                                       onOpenHashtagBubble = ::openHashtagBubble,
                                       onOpenUsername = ::openAccountSearch,
                                   )
-                             } ?: EmptyState(AppIcons.Bookmark, stringResource(R.string.saved_posts_empty_title), stringResource(R.string.saved_posts_empty_subtitle))
-                             LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
+                              } ?: EmptyState(AppIcons.Bookmark, stringResource(R.string.saved_posts_empty_title), stringResource(R.string.saved_posts_empty_subtitle))
+                              LocalPage.Likes -> likedPostsState?.let { likedState ->
+                                  SavedPostsScreen(
+                                      state = likedState,
+                                      onRefresh = onRefreshLikedPosts,
+                                      onLoadMore = onLoadMoreLikedPosts,
+                                      onUnsave = onUnsaveLikedPost,
+                                      onBookmark = onBookmark,
+                                      onSignIn = onUpgradeSavedPermissions,
+                                      onUpgradePermissions = onUpgradeSavedPermissions,
+                                      onReact = onUnsaveLikedPost,
+                                      onReply = handleReply,
+                                      onReshare = onReshare,
+                                      onReaction = onLikedPostReaction,
+                                      onOpenReactionBubble = { ownedPost, bounds ->
+                                          openReactionBubble(ownedPost, bounds, onLikedPostReaction)
+                                      },
+                                      onOpenMedia = ::openMedia,
+                                      onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Liked) },
+                                      largeLayout = largePresentation,
+                                      availableActions = (feedState?.actions ?: emptySet()) + PostAction.Favorite,
+                                      onOpenProfile = ::openProfile,
+                                      onSearchHashtag = ::openHashtagSearch,
+                                      onOpenHashtagBubble = ::openHashtagBubble,
+                                      onOpenUsername = ::openAccountSearch,
+                                  )
+                              } ?: EmptyState(AppIcons.Heart, stringResource(R.string.liked_posts_empty_title), stringResource(R.string.liked_posts_empty_subtitle))
+                              LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
                              LocalPage.About -> EmptyState(AppIcons.Globe, stringResource(R.string.about_empty_title), stringResource(R.string.about_empty_subtitle))
                               else -> when (animatedDestination) {
                                     Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !largePresentation, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, listState = homeListState, topContentPadding = if (largePresentation) 16.dp else null, bottomContentClearance = if (largePresentation) LargeBottomDockClearance else null, refreshIndicatorTopPadding = if (largePresentation) 16.dp else null, bottomDock = if (largePresentation) ({
@@ -1020,8 +1060,8 @@ fun PalustrisApp(
                                        accountSearch = feedState?.accountSearch ?: AccountSearchState(),
                                        onSearchAccounts = onSearchAccounts,
                                        onAccountClick = ::openProfile,
-                                       availableActions = feedState?.actions ?: emptySet(),
-                                       onReact = onReact,
+                                        availableActions = feedState?.actions ?: emptySet(),
+                                        onReact = onReact,
                                        onReply = handleReply,
                                        onReshare = onReshare,
                                        onBookmark = onBookmark,
@@ -1124,15 +1164,19 @@ fun PalustrisApp(
                          if (largePresentation) clearSelectedPost()
                          if (account != null && displayedProfile?.id == account.id) page = LocalPage.Drafts
                      },
-                     onOpenBookmarks = {
-                         if (largePresentation) clearSelectedPost()
-                         if (account != null && displayedProfile?.id == account.id) page = LocalPage.SavedPosts
-                    },
-                    onOpenProfile = ::openProfile,
+                      onOpenBookmarks = {
+                          if (largePresentation) clearSelectedPost()
+                          if (account != null && displayedProfile?.id == account.id) page = LocalPage.SavedPosts
+                     },
+                      onOpenLikes = {
+                          if (largePresentation) clearSelectedPost()
+                          if (account != null && displayedProfile?.id == account.id) page = LocalPage.Likes
+                      },
+                     onOpenProfile = ::openProfile,
                      onSearchHashtag = ::openHashtagSearch,
                      onOpenHashtagBubble = ::openHashtagBubble,
-                    availableActions = feedState?.actions ?: emptySet(),
-                    onReact = onReact,
+                       availableActions = feedState?.actions ?: emptySet(),
+                       onReact = onReact,
                      onReply = handleReply,
                     onReshare = onReshare,
                     onBookmark = onBookmark,
@@ -1167,18 +1211,20 @@ fun PalustrisApp(
                         detailContent = { paneModifier ->
                             val selected = latestSelectedPost()
                             if (selected != null) {
-                                SinglePostScreen(
-                                    ownedPost = selected,
-                                    onClose = { singlePost = null },
-                                    availableActions = feedState?.actions ?: emptySet(),
-                                    onReact = onReact,
+                                 SinglePostScreen(
+                                     ownedPost = selected,
+                                     onClose = { singlePost = null },
+                                     availableActions = (feedState?.actions ?: emptySet()) +
+                                         if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
+                                     onReact = if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
                                     onReply = handleReply,
                                     onReshare = onReshare,
                                     onBookmark = onBookmark,
-                                    onReaction = when (singlePostOrigin) {
-                                        LargePostOrigin.Profile -> onProfilePostReaction
-                                        LargePostOrigin.Saved -> onSavedPostReaction
-                                        else -> onReaction
+                                     onReaction = when (singlePostOrigin) {
+                                         LargePostOrigin.Profile -> onProfilePostReaction
+                                         LargePostOrigin.Saved -> onSavedPostReaction
+                                         LargePostOrigin.Liked -> onLikedPostReaction
+                                         else -> onReaction
                                     },
                                     onOpenProfile = ::openProfile,
                                     onSearchHashtag = ::openHashtagSearch,
@@ -1187,10 +1233,11 @@ fun PalustrisApp(
                                         openReactionBubble(
                                             post,
                                             bounds,
-                                            when (singlePostOrigin) {
-                                                LargePostOrigin.Profile -> onProfilePostReaction
-                                                LargePostOrigin.Saved -> onSavedPostReaction
-                                                else -> onReaction
+                                             when (singlePostOrigin) {
+                                                 LargePostOrigin.Profile -> onProfilePostReaction
+                                                 LargePostOrigin.Saved -> onSavedPostReaction
+                                                 LargePostOrigin.Liked -> onLikedPostReaction
+                                                 else -> onReaction
                                             },
                                         )
                                     },
@@ -1314,12 +1361,16 @@ fun PalustrisApp(
                  SinglePostScreen(
                      ownedPost = post,
                      onClose = { singlePost = null },
-                     availableActions = feedState?.actions ?: emptySet(),
-                     onReact = onReact,
+                      availableActions = (feedState?.actions ?: emptySet()) +
+                          if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
+                      onReact = if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
                      onReply = handleReply,
                      onReshare = onReshare,
                      onBookmark = onBookmark,
-                     onReaction = onReaction,
+                      onReaction = when (singlePostOrigin) {
+                          LargePostOrigin.Liked -> onLikedPostReaction
+                          else -> onReaction
+                      },
                      onOpenProfile = ::openProfile,
                      onSearchHashtag = ::openHashtagSearch,
                      onOpenHashtagBubble = ::openHashtagBubble,

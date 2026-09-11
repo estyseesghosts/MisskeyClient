@@ -23,8 +23,9 @@ import me.foxtails.palustris.domain.SourceError
 class SavedPostsViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted private val source: SocialSource,
+    @Assisted private val collection: SavedPostsCollection = SavedPostsCollection.Bookmarks,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(SavedPostsUiState())
+    private val _state = MutableStateFlow(SavedPostsUiState(collection = collection))
     val state = _state.asStateFlow()
     private var requestJob: Job? = null
     private val unsaveJobs = mutableMapOf<String, Job>()
@@ -43,15 +44,20 @@ class SavedPostsViewModel @AssistedInject constructor(
         requestJob = viewModelScope.launch {
             val capability = source.capabilities.savedPosts
             val kind = capability?.kind ?: SavedPostsKind.Bookmarks
-            if (capability?.status == CapabilityStatus.Unsupported) {
-                _state.value = SavedPostsUiState(kind = kind, error = "Saved posts are not supported by this server.")
+            val status = when (collection) {
+                SavedPostsCollection.Bookmarks -> capability?.status
+                SavedPostsCollection.Likes -> source.capabilities.likedPosts
+            }
+            if (status == CapabilityStatus.Unsupported) {
+                val label = if (collection == SavedPostsCollection.Likes) "Likes" else "Saved posts"
+                _state.value = SavedPostsUiState(collection, kind, error = "$label are not supported by this server.")
                 return@launch
             }
-            if (capability?.status == CapabilityStatus.Denied) {
-                _state.value = SavedPostsUiState(kind = kind, permissionRequired = true)
+            if (status == CapabilityStatus.Denied) {
+                _state.value = SavedPostsUiState(collection = collection, kind = kind, permissionRequired = true)
                 return@launch
             }
-            _state.value = SavedPostsUiState(kind = kind, loading = true)
+            _state.value = SavedPostsUiState(collection = collection, kind = kind, loading = true)
             load(kind, null, replace = true)
         }
     }
@@ -74,6 +80,7 @@ class SavedPostsViewModel @AssistedInject constructor(
     }
 
     fun unsave(ownedPost: OwnedPost) {
+        if (collection != SavedPostsCollection.Bookmarks) return
         if (stopped || ownedPost.fetchedBy != accountId) return
         val key = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}"
         unsaveJobs[key]?.cancel()
@@ -83,6 +90,32 @@ class SavedPostsViewModel @AssistedInject constructor(
                 _state.value = _state.value.copy(posts = _state.value.posts.filterNot { it.post.id == ownedPost.post.id })
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
+                _state.value = _state.value.copy(error = sourceErrorMessage(error), needsSignIn = requiresSignIn(error))
+            } finally {
+                if (unsaveJobs[key] === coroutineContext[Job]) unsaveJobs.remove(key)
+            }
+        }
+        unsaveJobs[key] = job
+    }
+
+    fun toggleFavourite(ownedPost: OwnedPost) {
+        if (collection != SavedPostsCollection.Likes) return
+        if (stopped || ownedPost.fetchedBy != accountId) return
+        val key = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}"
+        unsaveJobs[key]?.cancel()
+        val before = ownedPost.post
+        val selected = before.favourited
+        updatePost(before.id) { it.copy(favourited = !selected) }
+        val job = viewModelScope.launch {
+            try {
+                val target = before.actionTargetId ?: before.id
+                if (selected) source.unfavorite(target) else source.favorite(target)
+                if (selected) {
+                    _state.value = _state.value.copy(posts = _state.value.posts.filterNot { it.post.id == before.id })
+                }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                updatePost(before.id) { before }
                 _state.value = _state.value.copy(error = sourceErrorMessage(error), needsSignIn = requiresSignIn(error))
             } finally {
                 if (unsaveJobs[key] === coroutineContext[Job]) unsaveJobs.remove(key)
@@ -151,9 +184,20 @@ class SavedPostsViewModel @AssistedInject constructor(
 
     private suspend fun load(kind: SavedPostsKind, cursor: String?, replace: Boolean) {
         try {
-            val page = source.savedPosts(cursor)
+            val page = when (collection) {
+                SavedPostsCollection.Bookmarks -> source.savedPosts(cursor)
+                SavedPostsCollection.Likes -> source.likedPosts(cursor)
+            }
             if (stopped) return
-            val rows = page.items.map { OwnedPost(accountId, it.copy(saved = true)) }
+            val rows = page.items.map { post ->
+                OwnedPost(
+                    accountId,
+                    post.copy(
+                        saved = collection == SavedPostsCollection.Bookmarks,
+                        favourited = post.favourited || collection == SavedPostsCollection.Likes,
+                    ),
+                )
+            }
             val current = _state.value
             val combined = if (replace) rows else (current.posts + rows).distinctBy { it.post.id }
             _state.value = current.copy(
@@ -188,6 +232,10 @@ class SavedPostsViewModel @AssistedInject constructor(
 
     @AssistedFactory
     interface Factory {
-        fun create(accountId: AccountId, source: SocialSource): SavedPostsViewModel
+        fun create(
+            accountId: AccountId,
+            source: SocialSource,
+            collection: SavedPostsCollection,
+        ): SavedPostsViewModel
     }
 }

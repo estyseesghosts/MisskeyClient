@@ -14,6 +14,7 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.SavedPostsScreen
+import me.foxtails.palustris.ui.SavedPostsCollection
 import me.foxtails.palustris.ui.SavedPostsUiState
 import org.junit.Rule
 import org.junit.Test
@@ -36,7 +37,7 @@ class SavedPostsScreenTest {
             "@person@example.org",
         )
         val url = "https://example.org/a-very-long-path"
-        val text = "x".repeat(340) + " " + url + " tail"
+        val text = "x".repeat(334) + " " + url + " tail"
         val post = Post(
             EntityId("https://example.org", "saved-link"),
             account,
@@ -56,7 +57,25 @@ class SavedPostsScreenTest {
         }
         compose.waitForIdle()
 
-        compose.onNodeWithContentDescription("Link url.xyz").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Link example.org").assertIsDisplayed()
         compose.onNodeWithText(url, substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun likesUseTheirOwnEmptyState() {
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SavedPostsScreen(
+                    state = SavedPostsUiState(collection = SavedPostsCollection.Likes),
+                    onRefresh = {},
+                    onLoadMore = {},
+                    onUnsave = {},
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("No likes yet").assertIsDisplayed()
+        compose.onNodeWithText("Posts you like will appear here.").assertIsDisplayed()
     }
 }

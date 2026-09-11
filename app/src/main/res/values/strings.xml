@@ -11,6 +11,7 @@
     <string name="a11y_current_account">Current account; long press to switch account</string>
     <string name="collection_favourites">Favourites</string>
     <string name="collection_bookmarks">Bookmarks</string>
+    <string name="collection_likes">Likes</string>
     <string name="profile_tab_posts">Posts</string>
     <string name="profile_tab_media">Media</string>
     <string name="profile_tab_reposts">Reposts</string>
@@ -219,6 +220,8 @@
     <string name="feed_empty_subtitle">Posts from accounts you follow will appear here. Pull down to refresh.</string>
     <string name="feed_load_older">Load older posts</string>
     <string name="feed_up_to_date">You\'re up to date</string>
+    <string name="liked_posts_empty_title">No likes yet</string>
+    <string name="liked_posts_empty_subtitle">Posts you like will appear here.</string>
     <string name="feed_timeline_empty_title">Your timeline starts here</string>
     <string name="feed_timeline_empty_subtitle">%1$s posts will appear here when an account is connected.</string>
     <string name="post_reshared"> reshared</string>

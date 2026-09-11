@@ -495,10 +495,10 @@ private fun show(
 
     @Test fun linkAwareTruncationUsesTheShortLabelAndKeepsTheLinkBubbleIntact() {
         val url = "https://example.org/a-very-long-path"
-        val text = "x".repeat(340) + " " + url + " tail"
+        val text = "x".repeat(334) + " " + url + " tail"
         show(Post(postId("link-truncation"), account, text, 0, Audience.Public))
 
-        compose.onNodeWithContentDescription("Link url.xyz").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Link example.org").assertIsDisplayed()
         compose.onNodeWithText(url, substring = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("View full post").assertIsDisplayed()
     }
@@ -513,7 +513,7 @@ private fun show(
 
     @Test fun searchRowsUseTheSameLinkAwareTruncationAsHomeRows() {
         val url = "https://example.org/a-very-long-path"
-        val text = "x".repeat(340) + " " + url + " tail"
+        val text = "x".repeat(334) + " " + url + " tail"
         val post = Post(postId("search-link-truncation"), account, text, 0, Audience.Public)
         compose.activity.runOnUiThread {
             compose.activity.setContent {
@@ -529,7 +529,7 @@ private fun show(
         }
         compose.waitForIdle()
 
-        compose.onNodeWithContentDescription("Link url.xyz").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Link example.org").assertIsDisplayed()
         compose.onNodeWithText(url, substring = true).assertDoesNotExist()
     }
 

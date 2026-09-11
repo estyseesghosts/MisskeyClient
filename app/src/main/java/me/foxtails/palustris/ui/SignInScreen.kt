@@ -118,7 +118,17 @@ fun ConnectedApp(
     val savedPostsModel = activeSession?.let { session ->
         hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
             key = "saved-posts-${session.accountId}-${state.sessionGeneration}",
-            creationCallback = { factory -> factory.create(session.accountId, sharedSource!!) },
+            creationCallback = { factory ->
+                factory.create(session.accountId, sharedSource!!, SavedPostsCollection.Bookmarks)
+            },
+        )
+    }
+    val likedPostsModel = activeSession?.let { session ->
+        hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
+            key = "liked-posts-${session.accountId}-${state.sessionGeneration}",
+            creationCallback = { factory ->
+                factory.create(session.accountId, sharedSource!!, SavedPostsCollection.Likes)
+            },
         )
     }
     val notificationSettingsModel = activeSession?.let { session ->
@@ -127,10 +137,11 @@ fun ConnectedApp(
             creationCallback = { factory -> factory.create(session.accountId) },
         )
     }
-    DisposableEffect(state.sessionGeneration, feedModel, savedPostsModel) {
+    DisposableEffect(state.sessionGeneration, feedModel, savedPostsModel, likedPostsModel) {
         onDispose {
             feedModel?.stop()
             savedPostsModel?.stop()
+            likedPostsModel?.stop()
         }
     }
     val feed by if (feedModel != null) feedModel.feed.collectAsStateWithLifecycle()
@@ -140,6 +151,8 @@ fun ConnectedApp(
     val directMessageState by if (directMessagesModel != null) directMessagesModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(DirectMessageUiState()) }
     val savedPostsState by if (savedPostsModel != null) savedPostsModel.state.collectAsStateWithLifecycle()
+    else remember { mutableStateOf<SavedPostsUiState?>(null) }
+    val likedPostsState by if (likedPostsModel != null) likedPostsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf<SavedPostsUiState?>(null) }
     val notificationSettingsState by if (notificationSettingsModel != null) notificationSettingsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationSettingsUiState()) }
@@ -243,8 +256,13 @@ fun ConnectedApp(
                 savedPostsState = savedPostsState,
                 onRefreshSavedPosts = { savedPostsModel?.refresh() },
                 onLoadMoreSavedPosts = { savedPostsModel?.loadMore() },
-                onUnsaveSavedPost = { ownedPost -> savedPostsModel?.unsave(ownedPost) },
-                onUpgradeSavedPermissions = { state.account?.id?.let(accountManager::upgradePermissions) },
+                 onUnsaveSavedPost = { ownedPost -> savedPostsModel?.unsave(ownedPost) },
+                 onUpgradeSavedPermissions = { state.account?.id?.let(accountManager::upgradePermissions) },
+                 likedPostsState = likedPostsState,
+                 onRefreshLikedPosts = { likedPostsModel?.refresh() },
+                 onLoadMoreLikedPosts = { likedPostsModel?.loadMore() },
+                 onUnsaveLikedPost = { ownedPost -> likedPostsModel?.toggleFavourite(ownedPost) },
+                 onLikedPostReaction = { ownedPost, choice -> likedPostsModel?.react(ownedPost, choice) },
                 notificationState = notificationState,
                 onRefreshNotifications = { notificationsModel?.refresh() },
                 onLoadMoreNotifications = { notificationsModel?.loadOlder() },
@@ -294,7 +312,7 @@ fun ConnectedApp(
                 emojiCapabilities = sharedSource?.capabilities?.emoji ?: EmojiCapabilities(),
                  onLoadEmojiCatalog = { emojiCatalogModel?.loadIfNeeded() },
                  onRetryEmojiCatalog = { emojiCatalogModel?.retry() },
-                onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
+                 onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
                 onProfilePostReaction = { ownedPost, choice -> profileModel?.react(ownedPost, choice) },
             )
             }

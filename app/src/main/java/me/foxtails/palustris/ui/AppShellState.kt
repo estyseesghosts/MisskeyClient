@@ -17,9 +17,9 @@ internal enum class Destination(@StringRes val labelRes: Int, val icon: ImageVec
 }
 
 internal enum class NotificationsPanel { Notifications, DirectMessages }
-internal enum class LocalPage { SavedPosts, Drafts, About }
+internal enum class LocalPage { SavedPosts, Likes, Drafts, About }
 enum class SearchPanel { Search, Alternate }
-internal enum class LargePostOrigin { Home, Search, Profile, Saved, Notification, Other }
+internal enum class LargePostOrigin { Home, Search, Profile, Saved, Liked, Notification, Other }
 internal sealed interface Overlay {
     data object Composer : Overlay
     data object EditProfile : Overlay
@@ -42,6 +42,9 @@ internal fun savedCollectionTitle(kind: SavedPostsKind?): Int = when (kind) {
     SavedPostsKind.Favourites -> R.string.collection_favourites
     SavedPostsKind.Bookmarks, null -> R.string.collection_bookmarks
 }
+
+@StringRes
+internal fun likedCollectionTitle(): Int = R.string.collection_likes
 
 @StringRes
 internal fun timelineLabelRes(timeline: Timeline): Int = when (timeline) {

@@ -134,7 +134,7 @@ class InlineEmojiTextTest {
             )
         }
 
-        compose.onNodeWithContentDescription("Link url.xyz").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("Link example.org").assertIsDisplayed().performClick()
         compose.onNodeWithContentDescription("Username @handle").assertIsDisplayed().performClick()
         compose.onNodeWithContentDescription("Hashtag #Zurich").assertIsDisplayed().performClick()
 

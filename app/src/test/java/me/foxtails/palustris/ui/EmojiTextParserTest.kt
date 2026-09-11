@@ -109,9 +109,19 @@ class EmojiTextParserTest {
         val model = EmojiTextParser.parse("read https://example.org/a-very-long-path", emptyMap())
         val link = model.segments.filterIsInstance<RichTextSegment.Link>().single()
 
-        assertEquals("url.xyz", link.displayLabel)
+        assertEquals("example.org", link.displayLabel)
         assertEquals("https://example.org/a-very-long-path", link.target)
         assertTrue(link.plainUrl)
+    }
+
+    @Test
+    fun plainUrlUsesHostAndLeavesTrailingPunctuationOutsideTheTarget() {
+        val model = EmojiTextParser.parse("See https://example.org/path?q=1.", emptyMap())
+        val link = model.segments.filterIsInstance<RichTextSegment.Link>().single()
+
+        assertEquals("example.org", link.displayLabel)
+        assertEquals("https://example.org/path?q=1", link.target)
+        assertEquals(".", model.source.substring(link.range.last + 1))
     }
 
     @Test

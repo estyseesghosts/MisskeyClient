@@ -18,6 +18,7 @@ import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.ui.SavedPostsCollection
 import me.foxtails.palustris.ui.SavedPostsViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -67,24 +68,52 @@ class SavedPostsViewModelTest {
         }
     }
 
+    @Test
+    fun likesAndBookmarksKeepIndependentCursors() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = SavedSource(account, author, failOlderPage = false, paged = true)
+            val bookmarks = SavedPostsViewModel(account, source, SavedPostsCollection.Bookmarks)
+            val likes = SavedPostsViewModel(account, source, SavedPostsCollection.Likes)
+            advanceUntilIdle()
+
+            bookmarks.loadMore()
+            likes.loadMore()
+            advanceUntilIdle()
+
+            assertEquals(listOf(null, "page-2"), source.savedCursors)
+            assertEquals(listOf(null, "likes-2"), source.likedCursors)
+            assertEquals(listOf("first", "second"), bookmarks.state.value.posts.map { it.post.id.value })
+            assertEquals(listOf("liked-first", "liked-second"), likes.state.value.posts.map { it.post.id.value })
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private class SavedSource(
         private val account: AccountId,
         private val author: Account,
         private val failOlderPage: Boolean = true,
+        private val paged: Boolean = false,
     ) : SocialSource {
         override val capabilities = ServerCapabilities(
             savedPosts = me.foxtails.palustris.domain.SavedPostsCapability(
                 me.foxtails.palustris.domain.CapabilityStatus.Supported,
                 SavedPostsKind.Bookmarks,
             ),
+            likedPosts = me.foxtails.palustris.domain.CapabilityStatus.Supported,
         )
         var olderAttempts = 0
         val unsavedIds = mutableSetOf<String>()
+        val savedCursors = mutableListOf<String?>()
+        val likedCursors = mutableListOf<String?>()
 
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
 
-        override suspend fun savedPosts(cursor: String?): Page<Post> = when (cursor) {
-            null -> if (failOlderPage) {
+        override suspend fun savedPosts(cursor: String?): Page<Post> {
+            savedCursors += cursor
+            return when (cursor) {
+                null -> if (failOlderPage || paged) {
                 Page(listOf(post("first")), "page-2")
             } else {
                 Page(listOf(post("first"), post("second")), null)
@@ -92,7 +121,16 @@ class SavedPostsViewModelTest {
             else -> {
                 olderAttempts += 1
                 if (failOlderPage && olderAttempts == 1) error("temporary page failure")
-                Page(listOf(post("second")), null)
+                    Page(listOf(post("second")), null)
+                }
+            }
+        }
+
+        override suspend fun likedPosts(cursor: String?): Page<Post> {
+            likedCursors += cursor
+            return when (cursor) {
+                null -> Page(listOf(post("liked-first")), "likes-2")
+                else -> Page(listOf(post("liked-second")), null)
             }
         }
 

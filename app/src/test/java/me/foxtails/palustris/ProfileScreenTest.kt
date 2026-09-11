@@ -30,9 +30,11 @@ import me.foxtails.palustris.domain.ProfileTimelineTab
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.PalustrisTheme
 import me.foxtails.palustris.ui.profile.ProfileCategory
+import me.foxtails.palustris.ui.profile.ProfileChipEntry
 import me.foxtails.palustris.ui.profile.ProfilePageState
 import me.foxtails.palustris.ui.profile.ProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
+import me.foxtails.palustris.ui.profile.profileChipEntries
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -50,6 +52,37 @@ class ProfileScreenTest {
 
     private val connection = Connection("https://example.org", Protocol.MASTODON)
     private val self = account("self", "Self")
+
+    @Test
+    fun largeProfileChipModelKeepsSelfActionsInTheRequestedOrder() {
+        assertEquals(
+            listOf(
+                ProfileChipEntry.Timeline(ProfileCategory.Posts),
+                ProfileChipEntry.Timeline(ProfileCategory.Media),
+                ProfileChipEntry.Timeline(ProfileCategory.Reposts),
+                ProfileChipEntry.Timeline(ProfileCategory.Replies),
+                ProfileChipEntry.Drafts,
+                ProfileChipEntry.Bookmarks,
+                ProfileChipEntry.Likes,
+                ProfileChipEntry.EditProfile,
+            ),
+            profileChipEntries(
+                isSelf = true,
+                includeLikes = true,
+                includeShowMore = false,
+                includeEditProfile = true,
+            ),
+        )
+        assertEquals(
+            listOf(
+                ProfileChipEntry.Timeline(ProfileCategory.Posts),
+                ProfileChipEntry.Timeline(ProfileCategory.Media),
+                ProfileChipEntry.Timeline(ProfileCategory.Reposts),
+                ProfileChipEntry.Timeline(ProfileCategory.Replies),
+            ),
+            profileChipEntries(isSelf = false, includeLikes = true, includeShowMore = false, includeEditProfile = true),
+        )
+    }
 
     @Test
     fun rendersRichHeaderAndInlineDetailsInTheTypedCategoryOrder() {

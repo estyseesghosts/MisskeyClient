@@ -38,6 +38,7 @@ fun SavedPostsScreen(
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onUnsave: (OwnedPost) -> Unit,
+    onBookmark: ((OwnedPost) -> Unit)? = null,
     onSignIn: () -> Unit = {},
     onUpgradePermissions: () -> Unit = {},
     onReact: (OwnedPost) -> Unit = {},
@@ -56,7 +57,12 @@ fun SavedPostsScreen(
     onOpenUsername: ((String) -> Unit)? = null,
     largeLayout: Boolean = false,
 ) {
-    val title = if (state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites) "favourites" else "bookmarks"
+    val likes = state.collection == SavedPostsCollection.Likes
+    val title = when {
+        likes -> stringResource(R.string.collection_likes)
+        state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites -> stringResource(R.string.collection_favourites)
+        else -> stringResource(R.string.collection_bookmarks)
+    }
     val refreshState = rememberPullToRefreshState()
     PullToRefreshBox(
         isRefreshing = state.loading,
@@ -88,9 +94,13 @@ fun SavedPostsScreen(
                 onAction = if (state.needsSignIn) onSignIn else onRefresh,
             )
             state.posts.isEmpty() -> EmptyState(
-                AppIcons.Bookmark,
-                if (state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites) "No favourites yet" else "No bookmarks yet",
-                "Posts you save will appear here.",
+                if (likes) AppIcons.Heart else AppIcons.Bookmark,
+                when {
+                    likes -> stringResource(R.string.liked_posts_empty_title)
+                    state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites -> "No favourites yet"
+                    else -> "No bookmarks yet"
+                },
+                if (likes) stringResource(R.string.liked_posts_empty_subtitle) else "Posts you save will appear here.",
             )
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -105,7 +115,7 @@ fun SavedPostsScreen(
                         onReact = onReact,
                         onReply = onReply,
                         onReshare = onReshare,
-                        onBookmark = onUnsave,
+                        onBookmark = onBookmark ?: onUnsave,
                         onReaction = onReaction,
                         onOpenProfile = onOpenProfile,
                         onSearchHashtag = onSearchHashtag,
