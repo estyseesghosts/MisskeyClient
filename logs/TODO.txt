@@ -1,4 +1,1 @@
 # Active tasks
-
-- [ ] Run verification and document results.
-- [ ] Commit focused slices, push GitHub, and produce signed release APK.
