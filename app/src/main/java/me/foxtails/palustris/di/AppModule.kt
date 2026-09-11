@@ -19,6 +19,7 @@ import me.foxtails.palustris.data.auth.AuthGateway
 import me.foxtails.palustris.data.auth.DetectingAuthGateway
 import me.foxtails.palustris.data.auth.EncryptedSessionStore
 import me.foxtails.palustris.data.preferences.EncryptedPostPreferencesRepository
+import me.foxtails.palustris.data.preferences.FileEmojiPickerPreferencesRepository
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.auth.EncryptedDraftStore
 import me.foxtails.palustris.data.auth.MastodonAuth
@@ -54,6 +55,7 @@ import me.foxtails.palustris.data.emoji.EmojiCacheDatabase
 import me.foxtails.palustris.data.emoji.RoomEmojiCatalogRepository
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EmojiCatalogRepository
+import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PostPreferencesRepository
 import org.json.JSONObject
@@ -105,6 +107,12 @@ object StorageModule {
     @Provides
     @Singleton
     fun provideEmojiCatalogClock(): Clock = Clock.systemUTC()
+
+    @Provides
+    @Singleton
+    fun provideEmojiPickerPreferencesRepository(
+        repository: FileEmojiPickerPreferencesRepository,
+    ): EmojiPickerPreferencesRepository = repository
 
     @Provides
     @Singleton

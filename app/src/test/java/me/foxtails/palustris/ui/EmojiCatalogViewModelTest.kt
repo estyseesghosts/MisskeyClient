@@ -17,6 +17,8 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.EmojiCatalogSnapshot
+import me.foxtails.palustris.domain.EmojiPickerPreferences
+import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
@@ -122,6 +124,7 @@ class EmojiCatalogViewModelTest {
         source = Source(),
         repository = repository,
         clock = Clock.fixed(Instant.ofEpochMilli(now), ZoneOffset.UTC),
+        preferencesRepository = FakePreferencesRepository(),
     )
 
     private fun emoji(shortcode: String) = CustomEmoji(
@@ -164,6 +167,15 @@ class EmojiCatalogViewModelTest {
     private class Source : SocialSource {
         override val capabilities = ServerCapabilities()
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
+    }
+
+    private class FakePreferencesRepository : EmojiPickerPreferencesRepository {
+        override fun observe(accountId: AccountId) = kotlinx.coroutines.flow.flowOf(EmojiPickerPreferences())
+        override suspend fun update(
+            accountId: AccountId,
+            transform: (EmojiPickerPreferences) -> EmojiPickerPreferences,
+        ) = Unit
+        override suspend fun remove(accountId: AccountId) = Unit
     }
 
     private companion object {

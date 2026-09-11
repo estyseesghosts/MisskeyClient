@@ -11,10 +11,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.EmojiCatalogSnapshot
+import me.foxtails.palustris.domain.EmojiPickerGroupIds
+import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.ui.sourceErrorMessage
@@ -29,17 +33,27 @@ class EmojiCatalogViewModel @AssistedInject constructor(
     @Assisted private val source: SocialSource,
     private val repository: EmojiCatalogRepository,
     private val clock: Clock,
+    private val preferencesRepository: EmojiPickerPreferencesRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(EmojiCatalogState())
     val state = _state.asStateFlow()
     private var loadJob: Job? = null
+    private var preferencesJob: Job? = null
     private var stopped = false
+
+    init {
+        preferencesJob = viewModelScope.launch {
+            preferencesRepository.observe(accountId).collect { preferences ->
+                _state.value = _state.value.copy(preferences = preferences)
+            }
+        }
+    }
 
     fun loadIfNeeded() {
         if (stopped || loadJob?.isActive == true || _state.value.unsupported) return
         loadJob = viewModelScope.launch {
             val cached = runCatching { repository.read(accountId) }.getOrNull()
-            if (cached != null) publishSnapshot(cached)
+            if (cached != null) publishSnapshot(cached, refreshed = false)
             if (cached != null && isFresh(cached)) return@launch
             refreshInternal(cached != null)
         }
@@ -55,9 +69,40 @@ class EmojiCatalogViewModel @AssistedInject constructor(
 
     fun retry() = load()
 
+    fun toggleGroupCollapsed(groupId: String) {
+        if (stopped) return
+        viewModelScope.launch {
+            preferencesRepository.update(accountId) { current ->
+                current.copy(
+                    collapsedGroups = if (groupId in current.collapsedGroups) {
+                        current.collapsedGroups - groupId
+                    } else {
+                        current.collapsedGroups + groupId
+                    },
+                )
+            }
+        }
+    }
+
+    fun toggleGroupPinned(groupId: String) {
+        if (stopped || !EmojiPickerGroupIds.isServer(groupId)) return
+        viewModelScope.launch {
+            preferencesRepository.update(accountId) { current ->
+                current.copy(
+                    pinnedGroups = if (groupId in current.pinnedGroups) {
+                        current.pinnedGroups.filterNot { it == groupId }
+                    } else {
+                        current.pinnedGroups + groupId
+                    },
+                )
+            }
+        }
+    }
+
     fun stop() {
         stopped = true
         loadJob?.cancel()
+        preferencesJob?.cancel()
     }
 
     private suspend fun refreshInternal(hasCachedSnapshot: Boolean) {
@@ -69,7 +114,7 @@ class EmojiCatalogViewModel @AssistedInject constructor(
             unsupported = false,
         )
         try {
-            publishSnapshot(repository.refresh(accountId, source))
+            publishSnapshot(repository.refresh(accountId, source), refreshed = true)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             _state.value = _state.value.copy(
@@ -83,7 +128,7 @@ class EmojiCatalogViewModel @AssistedInject constructor(
         }
     }
 
-    private fun publishSnapshot(snapshot: EmojiCatalogSnapshot) {
+    private fun publishSnapshot(snapshot: EmojiCatalogSnapshot, refreshed: Boolean) {
         _state.value = _state.value.copy(
             items = snapshot.items.filter { it.visibleInPicker },
             initialLoading = false,
@@ -93,6 +138,22 @@ class EmojiCatalogViewModel @AssistedInject constructor(
             unsupported = false,
             hasSnapshot = true,
         )
+        if (refreshed) pruneMissingServerGroups(snapshot.items)
+    }
+
+    private fun pruneMissingServerGroups(items: List<CustomEmoji>) {
+        val groups = items.filter { it.visibleInPicker }
+            .mapTo(mutableSetOf()) { EmojiPickerGroupIds.server(it.category) }
+        viewModelScope.launch {
+            preferencesRepository.update(accountId) { current ->
+                current.copy(
+                    collapsedGroups = current.collapsedGroups.filterNot { group ->
+                        EmojiPickerGroupIds.isServer(group) && group !in groups
+                    }.toSet(),
+                    pinnedGroups = current.pinnedGroups.filter { it in groups },
+                )
+            }
+        }
     }
 
     private fun isFresh(snapshot: EmojiCatalogSnapshot): Boolean =

@@ -129,3 +129,8 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Kept static picker groups available without a catalog and added a modal header refresh control plus disposal on account changes.
 - Added deterministic ViewModel freshness, stale-cache, failure, and unsupported tests.
 - Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.ui.EmojiCatalogViewModelTest --tests me.foxtails.palustris.ui.EmojiPickerTest` and `lintDebug`.
+260910-232500 Emoji cache slice 4:
+- Added atomic, no-backup, account-scoped picker preference storage with normalization, ordered five-pin enforcement, and repository recreation coverage.
+- Added immutable preferences to catalog state, collected them in the ViewModel, exposed collapse/pin actions, pruned missing server groups after successful refreshes, and removed preferences during account deletion.
+- Added in-memory preference storage for constructor-based tests.
+- Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.EmojiPickerPreferencesRepositoryTest --rerun-tasks` and `lintDebug`.

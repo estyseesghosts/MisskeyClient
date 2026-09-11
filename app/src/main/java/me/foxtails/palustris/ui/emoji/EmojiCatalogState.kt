@@ -1,6 +1,7 @@
 package me.foxtails.palustris.ui.emoji
 
 import me.foxtails.palustris.domain.CustomEmoji
+import me.foxtails.palustris.domain.EmojiPickerPreferences
 
 /** Compose-friendly catalog state; only server-supplied picker-visible entries appear. */
 data class EmojiCatalogState(
@@ -11,4 +12,5 @@ data class EmojiCatalogState(
     val empty: Boolean = false,
     val unsupported: Boolean = false,
     val hasSnapshot: Boolean = false,
+    val preferences: EmojiPickerPreferences = EmojiPickerPreferences(),
 )
