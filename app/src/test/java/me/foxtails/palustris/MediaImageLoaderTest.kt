@@ -1,6 +1,7 @@
 package me.foxtails.palustris
 
 import coil.decode.BitmapFactoryDecoder
+import me.foxtails.palustris.data.emoji.EmojiAssetFetcher
 import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.data.media.AvifDecoder
 import me.foxtails.palustris.domain.Attachment
@@ -84,5 +85,14 @@ class MediaImageLoaderTest {
 
         assertTrue(factories.first() is AvifDecoder.Factory)
         assertTrue(factories.last() is BitmapFactoryDecoder.Factory)
+    }
+
+    @Test
+    fun emojiLoaderUsesPersistentFetcherAndNoCoilDiskCache() {
+        val loader = MediaImageLoader.get(RuntimeEnvironment.getApplication()).emojiImageLoader
+
+        assertTrue(loader.diskCache == null)
+        assertTrue(loader.components.fetcherFactories.any { it.first is EmojiAssetFetcher.Factory })
+        assertTrue(loader.components.decoderFactories.first() is AvifDecoder.Factory)
     }
 }

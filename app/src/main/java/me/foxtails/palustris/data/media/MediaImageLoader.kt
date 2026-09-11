@@ -2,12 +2,17 @@ package me.foxtails.palustris.data.media
 
 import android.content.Context
 import coil.ImageLoader
+import coil.memory.MemoryCache
+import coil.request.CachePolicy
 import coil.request.ImageRequest
 import coil.size.Size
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.EmojiImageRequest
 import me.foxtails.palustris.domain.MediaRequestDecision
 import me.foxtails.palustris.domain.MediaRequestRole
+import me.foxtails.palustris.data.emoji.EmojiAssetFetcher
+import me.foxtails.palustris.data.emoji.EmojiAssetRequest
+import me.foxtails.palustris.data.emoji.EmojiAssetStore
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import java.io.File
@@ -42,6 +47,19 @@ class MediaImageLoader private constructor(context: Context) {
         }
         .build()
 
+    val emojiImageLoader: ImageLoader = ImageLoader.Builder(context)
+        .memoryCache {
+            MemoryCache.Builder(context)
+                .maxSizePercent(0.05)
+                .build()
+        }
+        .diskCache(null)
+        .components {
+            add(EmojiAssetFetcher.Factory(EmojiAssetStore.get(context)))
+            add(AvifDecoder.Factory())
+        }
+        .build()
+
     fun request(
         context: Context,
         decision: MediaRequestDecision.Request,
@@ -65,9 +83,10 @@ class MediaImageLoader private constructor(context: Context) {
         request: EmojiImageRequest,
         decodeSizePx: Int,
     ): ImageRequest = ImageRequest.Builder(context)
-        .data(request.url.value)
+        .data(EmojiAssetRequest(request.url.value))
         .memoryCacheKey(emojiCacheKey(request.url.value, decodeSizePx))
         .diskCacheKey(emojiCacheKey(request.url.value, decodeSizePx))
+        .diskCachePolicy(CachePolicy.DISABLED)
         .size(decodeSizePx.coerceAtLeast(1), decodeSizePx.coerceAtLeast(1))
         .crossfade(false)
         .build()

@@ -213,7 +213,7 @@ fun CustomEmojiImage(
             }
             AsyncImage(
                 model = imageRequest,
-                imageLoader = mediaImageLoader.imageLoader,
+                imageLoader = mediaImageLoader.emojiImageLoader,
                 contentDescription = null,
                 contentScale = contentScale,
                 modifier = Modifier.fillMaxSize().clearAndSetSemantics {},

@@ -52,6 +52,7 @@ import me.foxtails.palustris.data.directmessages.DirectMessageDatabase
 import me.foxtails.palustris.data.directmessages.DirectMessageStore
 import me.foxtails.palustris.data.directmessages.RoomDirectMessageStore
 import me.foxtails.palustris.data.emoji.EmojiCacheDatabase
+import me.foxtails.palustris.data.emoji.EmojiAssetStore
 import me.foxtails.palustris.data.emoji.RoomEmojiCatalogRepository
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EmojiCatalogRepository
@@ -158,13 +159,13 @@ object StorageModule {
     @Provides
     @Singleton
     fun provideEmojiCacheDatabase(@ApplicationContext context: Context): EmojiCacheDatabase {
-        val directory = File(context.noBackupFilesDir, "emoji").apply { mkdirs() }
-        return Room.databaseBuilder(
-            context,
-            EmojiCacheDatabase::class.java,
-            File(directory, "emoji-cache.db").absolutePath,
-        ).build()
+        return EmojiCacheDatabase.get(context)
     }
+
+    @Provides
+    @Singleton
+    fun provideEmojiAssetStore(@ApplicationContext context: Context): EmojiAssetStore =
+        EmojiAssetStore.get(context)
 
     @Provides
     @Singleton
