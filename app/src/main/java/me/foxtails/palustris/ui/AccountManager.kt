@@ -20,6 +20,7 @@ import me.foxtails.palustris.data.auth.PendingLogin
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.directmessages.DirectMessageStore
 import me.foxtails.palustris.data.directmessages.InMemoryDirectMessageStore
+import me.foxtails.palustris.data.emoji.InMemoryEmojiCatalogRepository
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
@@ -30,6 +31,7 @@ import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.domain.PushSessionState
 import me.foxtails.palustris.domain.ServerCapabilities
@@ -60,6 +62,7 @@ class AccountManager @Inject constructor(
     private val notificationStreamController: NotificationStreamController,
     private val postPreferencesRepository: PostPreferencesRepository,
     private val directMessageStore: DirectMessageStore,
+    private val emojiCatalogRepository: EmojiCatalogRepository,
 ) : ViewModel() {
     constructor(
         store: SessionStore,
@@ -75,6 +78,7 @@ class AccountManager @Inject constructor(
         NoOpNotificationStreamController(),
         InMemoryPostPreferencesRepository(),
         InMemoryDirectMessageStore(),
+        InMemoryEmojiCatalogRepository(),
     )
     private val _session = MutableStateFlow(SessionUi())
     val session = _session.asStateFlow()
@@ -293,6 +297,7 @@ class AccountManager @Inject constructor(
                 val replacement = withContext(ioDispatcher) {
                     postPreferencesRepository.remove(accountId)
                     directMessageStore.delete(accountId)
+                    emojiCatalogRepository.remove(accountId)
                     store.transaction {
                         store.delete(accountId)
                     val index = store.readIndex()

@@ -119,3 +119,8 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added transactional catalog replacement, account deletion, asset lookup, and unreferenced-asset queries.
 - Registered `noBackupFilesDir/emoji/emoji-cache.db` in the storage module and added Robolectric Room coverage.
 - Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.EmojiCacheDatabaseTest` and `lintDebug`.
+260910-231100 Emoji cache slice 2:
+- Added the protocol-neutral catalog repository and Room-backed mapping for aliases, hidden entries, URLs, and server order.
+- Preserved snapshots across failed refreshes, created durable empty snapshots, and added account-scoped removal.
+- Integrated catalog cleanup into `AccountManager` and supplied an in-memory repository for constructor-based tests.
+- Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.EmojiCatalogRepositoryTest --tests me.foxtails.palustris.SessionViewModelTest` and `lintDebug`.

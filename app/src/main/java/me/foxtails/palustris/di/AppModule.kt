@@ -50,7 +50,9 @@ import me.foxtails.palustris.data.directmessages.DirectMessageDatabase
 import me.foxtails.palustris.data.directmessages.DirectMessageStore
 import me.foxtails.palustris.data.directmessages.RoomDirectMessageStore
 import me.foxtails.palustris.data.emoji.EmojiCacheDatabase
+import me.foxtails.palustris.data.emoji.RoomEmojiCatalogRepository
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PostPreferencesRepository
 import org.json.JSONObject
@@ -150,6 +152,10 @@ object StorageModule {
             File(directory, "emoji-cache.db").absolutePath,
         ).build()
     }
+
+    @Provides
+    @Singleton
+    fun provideEmojiCatalogRepository(repository: RoomEmojiCatalogRepository): EmojiCatalogRepository = repository
 
     @Provides
     @Singleton
