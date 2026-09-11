@@ -6,6 +6,7 @@ import me.foxtails.palustris.data.media.AvifDecoder
 import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.MediaRequestRole
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -57,6 +58,23 @@ class MediaImageLoaderTest {
             "account-a", "post-b", attachment, 0, MediaRequestRole.Preview, 320, 240,
         )
         assertNotEquals(otherAccount, otherPost)
+    }
+
+    @Test
+    fun emojiKeysShareAcrossAccountsAndIdentitiesForOneCanonicalUrl() {
+        val first = MediaImageLoader.emojiCacheKey("https://CDN.example:443/emoji/../blob.png#fragment", 96)
+        val second = MediaImageLoader.emojiCacheKey("https://cdn.example/blob.png", 96)
+
+        assertEquals(first, second)
+        assertTrue(first.startsWith("emoji-v2\u0000https://cdn.example/blob.png\u0000"))
+    }
+
+    @Test
+    fun emojiDecodeSizesRemainSeparateMemoryEntries() {
+        val small = MediaImageLoader.emojiCacheKey("https://cdn.example/blob.png", 48)
+        val large = MediaImageLoader.emojiCacheKey("https://cdn.example/blob.png", 96)
+
+        assertNotEquals(small, large)
     }
 
     @Test

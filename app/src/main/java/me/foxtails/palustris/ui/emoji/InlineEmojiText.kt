@@ -14,12 +14,10 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,18 +45,11 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import coil.compose.AsyncImage
 import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.domain.Account
-import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.MediaRequestPolicy
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.openExternal
-
-/** Cache scope for emoji image requests; account-scoped wrappers provide a real identity. */
-internal val LocalEmojiAccountScope = staticCompositionLocalOf { "emoji-global" }
-
-internal fun emojiScopeFor(accountId: AccountId): String =
-    "${accountId.connection.origin}\u0000${accountId.localId}"
 
 /**
  * One annotated rich-text renderer for emoji-aware text. Post callers can opt into inline
@@ -161,9 +152,7 @@ fun AccountDisplayName(
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
 ) {
-    CompositionLocalProvider(LocalEmojiAccountScope provides emojiScopeFor(account.id)) {
-        InlineEmojiText(account.displayName, account.emoji, modifier, style, maxLines, overflow)
-    }
+    InlineEmojiText(account.displayName, account.emoji, modifier, style, maxLines, overflow)
 }
 
 @Composable
@@ -177,20 +166,18 @@ fun PostText(
     onOpenUsername: ((String) -> Unit)? = null,
     onSearchHashtag: ((String) -> Unit)? = null,
 ) {
-    CompositionLocalProvider(LocalEmojiAccountScope provides emojiScopeFor(post.author.id)) {
-        InlineEmojiText(
-            text = post.text,
-            emoji = post.emoji,
-            modifier = modifier,
-            style = style,
-            maxLines = maxLines,
-            overflow = overflow,
-            enableInlineEntities = true,
-            onOpenUrl = onOpenUrl,
-            onOpenUsername = onOpenUsername,
-            onSearchHashtag = onSearchHashtag,
-        )
-    }
+    InlineEmojiText(
+        text = post.text,
+        emoji = post.emoji,
+        modifier = modifier,
+        style = style,
+        maxLines = maxLines,
+        overflow = overflow,
+        enableInlineEntities = true,
+        onOpenUrl = onOpenUrl,
+        onOpenUsername = onOpenUsername,
+        onSearchHashtag = onSearchHashtag,
+    )
 }
 
 /**
@@ -216,15 +203,11 @@ fun CustomEmojiImage(
         )
         if (emoji != null && request != null) {
             val context = LocalContext.current
-            val scope = LocalEmojiAccountScope.current
             val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
-            val imageRequest = remember(emoji, request, scope, mediaImageLoader) {
+            val imageRequest = remember(emoji, request, mediaImageLoader) {
                 mediaImageLoader.emojiRequest(
                     context = context,
-                    emoji = emoji,
                     request = request,
-                    accountIdentity = scope,
-                    emojiIdentity = emoji.submissionValue,
                     decodeSizePx = 96,
                 )
             }

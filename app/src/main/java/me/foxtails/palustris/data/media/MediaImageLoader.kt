@@ -5,10 +5,10 @@ import coil.ImageLoader
 import coil.request.ImageRequest
 import coil.size.Size
 import me.foxtails.palustris.domain.Attachment
-import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.EmojiImageRequest
 import me.foxtails.palustris.domain.MediaRequestDecision
 import me.foxtails.palustris.domain.MediaRequestRole
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -59,22 +59,15 @@ class MediaImageLoader private constructor(context: Context) {
         .crossfade(false)
         .build()
 
-    /**
-     * Credential-free, constrained custom-emoji requests. Cache keys are scoped to the
-     * account/origin that owns the entity plus the emoji URL and identity, so identical
-     * shortcodes from different servers never share a cached image.
-     */
+    /** Credential-free, constrained custom-emoji requests keyed by canonical URL and size. */
     fun emojiRequest(
         context: Context,
-        emoji: CustomEmoji,
         request: EmojiImageRequest,
-        accountIdentity: String,
-        emojiIdentity: String,
         decodeSizePx: Int,
     ): ImageRequest = ImageRequest.Builder(context)
         .data(request.url.value)
-        .memoryCacheKey(emojiCacheKey(accountIdentity, emojiIdentity, request.url.value, decodeSizePx))
-        .diskCacheKey(emojiCacheKey(accountIdentity, emojiIdentity, request.url.value, decodeSizePx))
+        .memoryCacheKey(emojiCacheKey(request.url.value, decodeSizePx))
+        .diskCacheKey(emojiCacheKey(request.url.value, decodeSizePx))
         .size(decodeSizePx.coerceAtLeast(1), decodeSizePx.coerceAtLeast(1))
         .crossfade(false)
         .build()
@@ -106,16 +99,20 @@ class MediaImageLoader private constructor(context: Context) {
         ).joinToString("\u0000")
 
         fun emojiCacheKey(
-            accountIdentity: String,
-            emojiIdentity: String,
             url: String,
             decodeSizePx: Int,
         ): String = listOf(
-            "emoji-v1",
-            accountIdentity,
-            emojiIdentity,
-            url,
+            "emoji-v2",
+            canonicalEmojiUrl(url),
             decodeSizePx.coerceAtLeast(1).toString(),
         ).joinToString("\u0000")
+
+        fun canonicalEmojiUrl(url: String): String = url.toHttpUrl()
+            .newBuilder()
+            .username("")
+            .password("")
+            .fragment(null)
+            .build()
+            .toString()
     }
 }
