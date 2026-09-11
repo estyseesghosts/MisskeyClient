@@ -142,3 +142,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added full-width group headers with independent pin and collapse controls, caret direction, accessibility descriptions, and disabled sixth-pin behavior.
 - Threaded account-scoped preference actions through the modal picker and expanded reaction bubble; compact reaction bubbles remain unchanged.
 - Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.ui.emoji.EmojiPickerTest --console=plain --rerun-tasks`, `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.HomeFeedTest --console=plain --rerun-tasks`, and `lintDebug`.
+260910-235500 Emoji cache slice 7:
+- Added a single remembered lazy-grid state and decorative full-grid scrollbar thumb based on visible and total grid items.
+- Added minimum thumb sizing, fit hiding, scroll-progress opacity, and pure scrollbar calculation coverage.
+- Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.ui.emoji.EmojiGridScrollbarTest --console=plain --rerun-tasks`, `EmojiPickerTest`, `HomeFeedTest`, and `lintDebug`.

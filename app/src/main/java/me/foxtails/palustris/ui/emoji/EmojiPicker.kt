@@ -4,6 +4,7 @@ package me.foxtails.palustris.ui.emoji
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -12,12 +13,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +35,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -111,6 +117,32 @@ private data class PickerChoice(
 )
 
 private enum class PickerSection { Recent, Unicode, Server }
+
+internal data class EmojiGridScrollbarThumb(
+    val topPx: Float,
+    val heightPx: Float,
+)
+
+internal fun calculateEmojiGridScrollbarThumb(
+    firstVisibleItemIndex: Int,
+    visibleItemCount: Int,
+    totalItemCount: Int,
+    viewportHeightPx: Float,
+    minimumThumbHeightPx: Float,
+): EmojiGridScrollbarThumb? {
+    if (visibleItemCount <= 0 || totalItemCount <= visibleItemCount || viewportHeightPx <= 0f) return null
+    val visible = visibleItemCount.toFloat()
+    val total = totalItemCount.toFloat()
+    val thumbHeight = (viewportHeightPx * visible / total)
+        .coerceAtLeast(minimumThumbHeightPx)
+        .coerceAtMost(viewportHeightPx)
+    val maximumIndex = (totalItemCount - visibleItemCount).coerceAtLeast(1)
+    val progress = firstVisibleItemIndex.coerceIn(0, maximumIndex).toFloat() / maximumIndex
+    return EmojiGridScrollbarThumb(
+        topPx = (viewportHeightPx - thumbHeight) * progress,
+        heightPx = thumbHeight,
+    )
+}
 
 internal data class EmojiPickerGroup(
     val id: String,
@@ -438,6 +470,7 @@ fun EmojiChoiceGrid(
     val unicodeChoices = remember {
         DefaultUnicodeEmojis.map { EmojiChoice(it, it) }
     }
+    val gridState = rememberLazyGridState()
     val recentChoices = remember(recents) {
         recents.map { EmojiChoice(it, it) }
     }
@@ -469,6 +502,7 @@ fun EmojiChoiceGrid(
     if (compact) {
         LazyVerticalGrid(
             columns = GridCells.Adaptive(48.dp),
+            state = gridState,
             modifier = modifier.fillMaxWidth().heightIn(max = 160.dp).testTag(testTag),
             contentPadding = PaddingValues(vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -498,6 +532,21 @@ fun EmojiChoiceGrid(
             preferences = preferences,
         )
     }
+    val layoutInfo by remember { derivedStateOf { gridState.layoutInfo } }
+    val density = LocalDensity.current
+    val viewportHeightPx = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).toFloat()
+    val scrollbarThumb = remember(layoutInfo) {
+        calculateEmojiGridScrollbarThumb(
+            firstVisibleItemIndex = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0,
+            visibleItemCount = layoutInfo.visibleItemsInfo.size,
+            totalItemCount = layoutInfo.totalItemsCount,
+            viewportHeightPx = viewportHeightPx,
+            minimumThumbHeightPx = with(density) { 48.dp.toPx() },
+        )
+    }
+    val scrollbarColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+        alpha = if (gridState.isScrollInProgress) 0.85f else 0.45f,
+    )
     Column(Modifier.fillMaxWidth()) {
         TextField(
             value = query,
@@ -514,35 +563,57 @@ fun EmojiChoiceGrid(
                 unfocusedIndicatorColor = Color.Transparent,
             ),
         )
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(48.dp),
-            modifier = modifier
-                .fillMaxWidth()
-                .testTag(testTag),
-            contentPadding = PaddingValues(vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            groups.forEach { group ->
-                item(key = "header-${group.id}", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                    EmojiGroupHeader(
-                        group = group,
-                        onToggleCollapsed = onToggleGroupCollapsed,
-                        onTogglePinned = onToggleGroupPinned,
-                    )
-                }
-                group.choices.forEach { choice ->
-                    item(key = "${group.id}-${choice.submissionValue}") {
-                        PickerCell(
-                            choice = choice,
-                            selected = choice.submissionValue in selectedIdentities,
-                            onClick = {
-                                recents = (listOf(choice.submissionValue) +
-                                    recents.filterNot { it == choice.submissionValue }).take(RECENT_LIMIT)
-                                onEmojiSelected(choice)
-                            },
+        Box(modifier.fillMaxWidth()) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(48.dp),
+                state = gridState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(testTag),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                groups.forEach { group ->
+                    item(key = "header-${group.id}", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        EmojiGroupHeader(
+                            group = group,
+                            onToggleCollapsed = onToggleGroupCollapsed,
+                            onTogglePinned = onToggleGroupPinned,
                         )
                     }
+                    group.choices.forEach { choice ->
+                        item(key = "${group.id}-${choice.submissionValue}") {
+                            PickerCell(
+                                choice = choice,
+                                selected = choice.submissionValue in selectedIdentities,
+                                onClick = {
+                                    recents = (listOf(choice.submissionValue) +
+                                        recents.filterNot { it == choice.submissionValue }).take(RECENT_LIMIT)
+                                    onEmojiSelected(choice)
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            scrollbarThumb?.let { thumb ->
+                Canvas(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .width(4.dp)
+                        .testTag("emoji_picker_scrollbar"),
+                ) {
+                    val thumbHeight = thumb.heightPx.coerceAtMost(size.height)
+                    val top = thumb.topPx
+                        .coerceIn(0f, (size.height - thumbHeight).coerceAtLeast(0f))
+                    drawRoundRect(
+                        color = scrollbarColor,
+                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
+                        size = androidx.compose.ui.geometry.Size(size.width, thumbHeight),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width / 2f),
+                    )
                 }
             }
         }

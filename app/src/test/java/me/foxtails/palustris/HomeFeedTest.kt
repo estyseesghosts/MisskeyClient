@@ -715,6 +715,7 @@ private fun show(
             .performTouchInput { swipeUp() }
         compose.onNodeWithTag("reaction_bubble_expanded", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("reaction_bubble_grid", useUnmergedTree = true).assert(hasScrollAction())
+        compose.onNodeWithTag("emoji_picker_scrollbar", useUnmergedTree = true).assertIsDisplayed()
         assertNull(selected)
     }
 

@@ -114,6 +114,7 @@ class EmojiPickerTest {
         show(target = EmojiPickerTarget.Reaction(OwnedPost(account.id, post)))
 
         compose.onNodeWithTag("emoji_picker_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("emoji_picker_scrollbar").assertIsDisplayed()
         compose.onNodeWithTag("emoji_picker_cell_:blob:", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).assertIsDisplayed()
     }
