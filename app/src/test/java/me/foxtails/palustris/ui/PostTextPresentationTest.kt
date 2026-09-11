@@ -130,16 +130,16 @@ class PostTextPresentationTest {
     }
 
     @Test fun hiddenEntityTextDoesNotCountTowardPostLimit() {
-        assertEquals(7, postBodyCharacterCount("https://example.org/a-very-long-path"))
+        assertEquals(11, postBodyCharacterCount("https://example.org/a-very-long-path"))
         assertEquals(7, postBodyCharacterCount("@handle@mastodon.social"))
         assertEquals(9, postBodyCharacterCount("[Read this](https://example.org/a-very-long-path)"))
     }
 
     @Test fun truncationKeepsACompleteUrlEntityInsteadOfSplittingItsSourceSyntax() {
         val url = "https://example.org/a-very-long-path"
-        val text = "x".repeat(340) + " " + url + " tail"
+        val text = "x".repeat(338) + " " + url + " tail"
 
-        assertEquals("x".repeat(340) + " " + url + " t…", truncatedPostBody(text))
+        assertEquals("x".repeat(338) + " " + url + "…", truncatedPostBody(text))
     }
 
     @Test fun blankLinesCreatedByRemovedBlocksCollapseWithoutChangingParagraphSpacing() {
