@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.sp
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.EmojiChoice
+import me.foxtails.palustris.domain.EmojiPickerGroupIds
+import me.foxtails.palustris.domain.EmojiPickerPreferences
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.ReactionSelectionMode
 
@@ -108,6 +110,118 @@ private data class PickerChoice(
 )
 
 private enum class PickerSection { Recent, Unicode, Server }
+
+internal data class EmojiPickerGroup(
+    val id: String,
+    val title: String,
+    val choices: List<EmojiChoice>,
+    val pinnable: Boolean,
+    val collapsed: Boolean,
+    val pinned: Boolean,
+    val pinEnabled: Boolean,
+)
+
+internal fun buildEmojiPickerGroups(
+    catalogItems: List<CustomEmoji>,
+    additionalChoices: List<EmojiChoice>,
+    recentIdentities: List<String>,
+    selectedIdentities: Set<String>,
+    searchQuery: String,
+    preferences: EmojiPickerPreferences,
+): List<EmojiPickerGroup> {
+    val catalogChoices = linkedMapOf<String, EmojiChoice>()
+    catalogItems.filter { it.visibleInPicker }.forEach { emoji ->
+        catalogChoices.putIfAbsent(
+            emoji.submissionValue,
+            EmojiChoice(emoji.submissionValue, emoji.token, emoji),
+        )
+    }
+    val unicodeChoices = DefaultUnicodeEmojis.map { EmojiChoice(it, it) }
+    val resolvedAdditional = additionalChoices.map { choice ->
+        val emoji = choice.emoji ?: catalogChoices[choice.submissionValue]?.emoji
+        choice.copy(
+            displayText = emoji?.token ?: choice.displayText,
+            emoji = emoji,
+        )
+    }.distinctBy { it.submissionValue }
+    val postSpecificChoices = resolvedAdditional.filter {
+        it.isCustomIdentity() && it.submissionValue !in catalogChoices
+    }
+    val standardChoices = (unicodeChoices + resolvedAdditional.filterNot { it.isCustomIdentity() })
+        .distinctBy { it.submissionValue }
+    val choiceMap = linkedMapOf<String, EmojiChoice>().apply {
+        catalogChoices.forEach { (identity, choice) -> putIfAbsent(identity, choice) }
+        postSpecificChoices.forEach { putIfAbsent(it.submissionValue, it) }
+        standardChoices.forEach { putIfAbsent(it.submissionValue, it) }
+    }
+    val recentChoices = recentIdentities.mapNotNull { identity ->
+        choiceMap[identity] ?: identity.takeUnless(String::isCustomIdentity).let { value ->
+            value?.let { EmojiChoice(it, it) }
+        }
+    }.distinctBy { it.submissionValue }
+
+    val groups = linkedMapOf<String, Pair<String, MutableList<EmojiChoice>>>()
+    catalogItems.filter { it.visibleInPicker }.forEach { emoji ->
+        val id = EmojiPickerGroupIds.server(emoji.category?.takeIf(String::isNotBlank))
+        val title = emoji.category?.takeIf(String::isNotBlank) ?: "Custom emoji"
+        groups.getOrPut(id) { title to mutableListOf() }.second +=
+            (catalogChoices[emoji.submissionValue] ?: EmojiChoice(emoji.submissionValue, emoji.token, emoji))
+    }
+
+    val pinnedIds = preferences.pinnedGroups.filter { it in groups }
+    val customIds = groups.keys.toList()
+    val orderedCustomIds = pinnedIds + customIds.filterNot { it in pinnedIds }
+    val query = searchQuery.trim()
+    val pinCount = preferences.pinnedGroups.count(EmojiPickerGroupIds::isServer)
+
+    fun matches(choice: EmojiChoice): Boolean = query.isEmpty() ||
+        choice.submissionValue.contains(query, ignoreCase = true) ||
+        choice.displayText.contains(query, ignoreCase = true) ||
+        choice.emoji?.shortcode?.contains(query, ignoreCase = true) == true ||
+        choice.emoji?.aliases?.any { it.contains(query, ignoreCase = true) } == true
+
+    fun createGroup(
+        id: String,
+        title: String,
+        choices: List<EmojiChoice>,
+        pinnable: Boolean,
+    ): EmojiPickerGroup {
+        val collapsed = id in preferences.collapsedGroups
+        val pinned = id in preferences.pinnedGroups
+        return EmojiPickerGroup(
+            id = id,
+            title = title,
+            choices = if (collapsed) emptyList() else choices.filter(::matches),
+            pinnable = pinnable,
+            collapsed = collapsed,
+            pinned = pinned,
+            pinEnabled = pinnable && (pinned || pinCount < 5),
+        )
+    }
+
+    return buildList {
+        add(createGroup(EmojiPickerGroupIds.Favorite, "Favorite Emoji", emptyList(), pinnable = false))
+        orderedCustomIds.takeWhile { it in pinnedIds }.forEach { id ->
+            val (title, choices) = groups.getValue(id)
+            add(createGroup(id, title, choices, pinnable = true))
+        }
+        if (recentChoices.isNotEmpty()) {
+            add(createGroup(EmojiPickerGroupIds.Recent, "Recent", recentChoices, pinnable = false))
+        }
+        if (postSpecificChoices.isNotEmpty()) {
+            add(createGroup(EmojiPickerGroupIds.PostSpecific, "Post-specific custom emoji", postSpecificChoices, pinnable = false))
+        }
+        orderedCustomIds.drop(pinnedIds.size).forEach { id ->
+            val (title, choices) = groups.getValue(id)
+            add(createGroup(id, title, choices, pinnable = true))
+        }
+        add(createGroup(EmojiPickerGroupIds.Unicode, "Standard emoji", standardChoices, pinnable = false))
+    }
+}
+
+private fun EmojiChoice.isCustomIdentity(): Boolean = emoji != null || submissionValue.startsWith(":")
+
+private fun String.isCustomIdentity(): Boolean = startsWith(":")
 
 /**
  * Reusable picker body and modal-sheet wrapper for reaction selection and composer
@@ -190,6 +304,7 @@ fun EmojiPickerHost(
                     }
                     EmojiChoiceGrid(
                     catalogItems = catalog.items,
+                    preferences = catalog.preferences,
                     additionalChoices = (target as? EmojiPickerTarget.Reaction)?.post?.post?.reactions?.map { reaction ->
                         EmojiChoice(reaction.emoji, reaction.emoji, reaction.emojiMetadata)
                     }.orEmpty(),
@@ -257,6 +372,7 @@ fun EmojiChoiceGrid(
     catalogItems: List<CustomEmoji>,
     additionalChoices: List<EmojiChoice> = emptyList(),
     selectedIdentities: Set<String> = emptySet(),
+    preferences: EmojiPickerPreferences = EmojiPickerPreferences(),
     compact: Boolean = false,
     modifier: Modifier = Modifier,
     testTag: String = "emoji_picker_grid",
@@ -279,8 +395,6 @@ fun EmojiChoiceGrid(
             )
         } + additionalChoices).distinctBy { it.submissionValue }
     }
-    val recentHeader = stringResource(R.string.emoji_recent_section)
-    val unicodeHeader = stringResource(R.string.emoji_unicode_section)
     val allChoices = remember(recentChoices, unicodeChoices, serverChoices, selectedIdentities) {
         buildList {
             recentChoices.forEach { add(PickerChoice(it, null, PickerSection.Recent, false)) }
@@ -288,19 +402,6 @@ fun EmojiChoiceGrid(
             serverChoices.forEach { add(PickerChoice(it, it.emoji?.category, PickerSection.Server, false)) }
         }.distinctBy { it.choice.submissionValue }
             .map { it.copy(selected = it.choice.submissionValue in selectedIdentities) }
-    }
-    val filtered = remember(allChoices, query) {
-        val needle = query.trim()
-        if (needle.isEmpty()) {
-            allChoices
-        } else {
-            allChoices.filter { picker ->
-                picker.choice.submissionValue.contains(needle, ignoreCase = true) ||
-                    picker.choice.displayText.contains(needle, ignoreCase = true) ||
-                    picker.choice.emoji?.shortcode?.contains(needle, ignoreCase = true) == true ||
-                    picker.choice.emoji?.aliases?.any { it.contains(needle, ignoreCase = true) } == true
-            }
-        }
     }
     val compactChoices = remember(allChoices) {
         buildList {
@@ -332,6 +433,16 @@ fun EmojiChoiceGrid(
         }
         return
     }
+    val groups = remember(catalogItems, additionalChoices, recents, selectedIdentities, query, preferences) {
+        buildEmojiPickerGroups(
+            catalogItems = catalogItems,
+            additionalChoices = additionalChoices,
+            recentIdentities = recents,
+            selectedIdentities = selectedIdentities,
+            searchQuery = query,
+            preferences = preferences,
+        )
+    }
     Column(Modifier.fillMaxWidth()) {
         TextField(
             value = query,
@@ -357,60 +468,26 @@ fun EmojiChoiceGrid(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val sections = filtered.groupBy { it.section }
-            val serverChoices = sections[PickerSection.Server].orEmpty()
-            serverChoices.groupBy { it.category }.forEach { (category, categoryChoices) ->
-                if (category != null) {
-                    item(key = "category-$category", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            category,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-                        )
-                    }
+            groups.forEach { group ->
+                item(key = "header-${group.id}", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        group.title,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                    )
                 }
-                categoryChoices.forEach { picker ->
-                    item(key = "server-${picker.choice.submissionValue}") {
+                group.choices.forEach { choice ->
+                    item(key = "${group.id}-${choice.submissionValue}") {
                         PickerCell(
-                            choice = picker.choice,
-                            selected = picker.selected,
+                            choice = choice,
+                            selected = choice.submissionValue in selectedIdentities,
                             onClick = {
-                                recents = (listOf(picker.choice.submissionValue) +
-                                    recents.filterNot { it == picker.choice.submissionValue }).take(RECENT_LIMIT)
-                                onEmojiSelected(picker.choice)
+                                recents = (listOf(choice.submissionValue) +
+                                    recents.filterNot { it == choice.submissionValue }).take(RECENT_LIMIT)
+                                onEmojiSelected(choice)
                             },
                         )
-                    }
-                }
-            }
-            val sectionHeaders = listOf(
-                PickerSection.Recent to recentHeader,
-                PickerSection.Unicode to unicodeHeader,
-            )
-            sectionHeaders.forEach { (section, header) ->
-                val sectionChoices = sections[section].orEmpty()
-                if (sectionChoices.isNotEmpty()) {
-                    item(key = "header-$section", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            header,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-                        )
-                    }
-                    sectionChoices.forEach { picker ->
-                        item(key = "${section}-${picker.choice.submissionValue}") {
-                            PickerCell(
-                                choice = picker.choice,
-                                selected = picker.selected,
-                                onClick = {
-                                    recents = (listOf(picker.choice.submissionValue) +
-                                        recents.filterNot { it == picker.choice.submissionValue }).take(RECENT_LIMIT)
-                                    onEmojiSelected(picker.choice)
-                                },
-                            )
-                        }
                     }
                 }
             }

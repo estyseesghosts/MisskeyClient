@@ -134,3 +134,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added immutable preferences to catalog state, collected them in the ViewModel, exposed collapse/pin actions, pruned missing server groups after successful refreshes, and removed preferences during account deletion.
 - Added in-memory preference storage for constructor-based tests.
 - Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.EmojiPickerPreferencesRepositoryTest --rerun-tasks` and `lintDebug`.
+260910-233500 Emoji cache slice 5:
+- Added ordered full-picker group construction for favorites, pinned server groups, recents, post-specific custom emoji, remaining server groups, and standard emoji.
+- Added search filtering, collapsed-group behavior, five-pin availability state, and regression coverage for ordering and duplicate reaction metadata.
+- Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.ui.emoji.EmojiPickerTest --console=plain --rerun-tasks` and `lintDebug`.

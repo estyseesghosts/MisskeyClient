@@ -17,6 +17,8 @@ import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.EmojiChoice
+import me.foxtails.palustris.domain.EmojiPickerGroupIds
+import me.foxtails.palustris.domain.EmojiPickerPreferences
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
@@ -203,5 +205,52 @@ class EmojiPickerTest {
         compose.waitForIdle()
         compose.onNodeWithTag("emoji_picker_cell_:blob:", useUnmergedTree = true).assertIsSelected()
         compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun fullGroupsFollowPinnedRecentPostSpecificServerAndUnicodeOrder() {
+        val groups = buildEmojiPickerGroups(
+            catalogItems = catalogEmoji + catalogEmoji.first().copy(shortcode = "other", submissionValue = ":other:", category = "other"),
+            additionalChoices = listOf(
+                EmojiChoice(":missing:", ":missing:"),
+                EmojiChoice("🎈", "🎈"),
+            ),
+            recentIdentities = listOf(":blob:", "🎈"),
+            selectedIdentities = setOf(":blob:"),
+            searchQuery = "",
+            preferences = EmojiPickerPreferences(pinnedGroups = listOf("server:blobs")),
+        )
+
+        assertEquals(
+            listOf(
+                EmojiPickerGroupIds.Favorite,
+                "server:blobs",
+                EmojiPickerGroupIds.Recent,
+                EmojiPickerGroupIds.PostSpecific,
+                "server:",
+                "server:other",
+                EmojiPickerGroupIds.Unicode,
+            ),
+            groups.map { it.id },
+        )
+        assertEquals("blob", groups[2].choices.first().emoji?.shortcode)
+        assertEquals(":missing:", groups[3].choices.first().submissionValue)
+        assertEquals(":blob:", groups[1].choices.first().submissionValue)
+    }
+
+    @Test
+    fun collapsedGroupsStayCollapsedWhenSearching() {
+        val groups = buildEmojiPickerGroups(
+            catalogItems = catalogEmoji,
+            additionalChoices = emptyList(),
+            recentIdentities = emptyList(),
+            selectedIdentities = emptySet(),
+            searchQuery = "blob",
+            preferences = EmojiPickerPreferences(collapsedGroups = setOf("server:blobs")),
+        )
+
+        val blobs = groups.first { it.id == "server:blobs" }
+        assertTrue(blobs.collapsed)
+        assertTrue(blobs.choices.isEmpty())
     }
 }
