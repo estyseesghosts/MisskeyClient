@@ -108,3 +108,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved release signing values from environment variables to environment secrets.
 - Published signed prerelease `v0.1.0` to GitHub.
 - Kept API-29 emulator smoke tests in normal CI because the hosted release emulator reported an unknown API level.
+260910-193928 Large-screen profile, Likes, and URL host task:
+- Added large-screen pane sizing/color fixes, profile summary actions, and dock chip sizing while preserving compact behavior and existing breakpoints.
+- Added protocol-neutral Likes support with persisted capabilities, Mastodon favourites paging, Misskey reaction-history paging, separate saved-post state, navigation, and localized empty states.
+- Replaced hardcoded URL labels with parsed hosts and updated entity/truncation coverage.
+- Commits created: `19c5984`, `945aa14`, `ca6c459`, `98cdf8f`, `d962fd3`.
+- Verification passed: focused presentation, layout, profile, adapter, navigation, and saved-post tests; `lintDebug`, full `testDebugUnitTest` (522 tests), and `assembleRelease`.

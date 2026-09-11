@@ -1,16 +1,1 @@
-# Stabilization task
-
-- [x] Add safe CI and release compilation
-- [x] Prove API-29 guarded paths and instrumentation startup
-- [x] Clean obsolete adaptive-navigation branches
-- [x] Expand notification repository and protocol service coverage
-- [x] Complete localization extraction and regression checks
-- [x] Push logical commits after preserving unrelated worktree changes
-
-# Large-screen profile and Likes task
-
-- [ ] Verify branch state and inspect relevant implementations
-- [ ] Implement large-screen layout, profile, and dock fixes
-- [ ] Implement Likes domain, adapters, state, and navigation
-- [ ] Fix URL host rendering and add focused tests
-- [ ] Run verification, commit slices, and push the branch
+# Active tasks
