@@ -17,6 +17,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.EmojiCatalogSnapshot
+import me.foxtails.palustris.domain.EmojiPickerGroupIds
 import me.foxtails.palustris.domain.EmojiPickerPreferences
 import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
 import me.foxtails.palustris.domain.Page
@@ -119,12 +120,56 @@ class EmojiCatalogViewModelTest {
         assertFalse(model.state.value.initialLoading)
     }
 
-    private fun model(repository: EmojiCatalogRepository) = EmojiCatalogViewModel(
+    @Test
+    fun successfulRefreshPrunesOnlyMissingServerGroups() = runTest {
+        val preferences = FakePreferencesRepository(
+            EmojiPickerPreferences(
+                collapsedGroups = setOf("server:missing", EmojiPickerGroupIds.server(null)),
+                pinnedGroups = listOf("server:missing", EmojiPickerGroupIds.server(null)),
+            ),
+        )
+        val model = model(
+            FakeRepository(EmojiCatalogSnapshot(listOf(oldEmoji), now - DAY - HOUR)),
+            preferences,
+        )
+
+        model.loadIfNeeded()
+        advanceUntilIdle()
+
+        assertEquals(setOf(EmojiPickerGroupIds.server(null)), preferences.preferences.collapsedGroups)
+        assertEquals(listOf(EmojiPickerGroupIds.server(null)), preferences.preferences.pinnedGroups)
+    }
+
+    @Test
+    fun failedRefreshDoesNotPruneServerGroups() = runTest {
+        val initial = EmojiPickerPreferences(
+            collapsedGroups = setOf("server:missing"),
+            pinnedGroups = listOf("server:missing"),
+        )
+        val preferences = FakePreferencesRepository(initial)
+        val model = model(
+            FakeRepository(
+                EmojiCatalogSnapshot(listOf(oldEmoji), now - DAY - HOUR),
+                failure = IllegalStateException("offline"),
+            ),
+            preferences,
+        )
+
+        model.loadIfNeeded()
+        advanceUntilIdle()
+
+        assertEquals(initial, preferences.preferences)
+    }
+
+    private fun model(
+        repository: EmojiCatalogRepository,
+        preferences: FakePreferencesRepository = FakePreferencesRepository(),
+    ) = EmojiCatalogViewModel(
         accountId = account,
         source = Source(),
         repository = repository,
         clock = Clock.fixed(Instant.ofEpochMilli(now), ZoneOffset.UTC),
-        preferencesRepository = FakePreferencesRepository(),
+        preferencesRepository = preferences,
     )
 
     private fun emoji(shortcode: String) = CustomEmoji(
@@ -169,12 +214,20 @@ class EmojiCatalogViewModelTest {
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
     }
 
-    private class FakePreferencesRepository : EmojiPickerPreferencesRepository {
-        override fun observe(accountId: AccountId) = kotlinx.coroutines.flow.flowOf(EmojiPickerPreferences())
+    private class FakePreferencesRepository(
+        initial: EmojiPickerPreferences = EmojiPickerPreferences(),
+    ) : EmojiPickerPreferencesRepository {
+        var preferences = initial
+
+        override fun observe(accountId: AccountId) = kotlinx.coroutines.flow.flowOf(preferences)
+
         override suspend fun update(
             accountId: AccountId,
             transform: (EmojiPickerPreferences) -> EmojiPickerPreferences,
-        ) = Unit
+        ) {
+            preferences = transform(preferences)
+        }
+
         override suspend fun remove(accountId: AccountId) = Unit
     }
 

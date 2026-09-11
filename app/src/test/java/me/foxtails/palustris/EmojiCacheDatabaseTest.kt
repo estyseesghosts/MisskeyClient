@@ -86,6 +86,19 @@ class EmojiCacheDatabaseTest {
         assertEquals(listOf("b"), dao.catalogEntries("account-b").map { it.shortcode })
     }
 
+    @Test
+    fun accountCatalogRemovalDoesNotDeleteSharedAssetStorage() {
+        val dao = database.emojiCacheDao()
+        dao.replaceCatalog("account-a", 10L, listOf(entry("account-a", "a", 0)))
+        dao.insertAsset(EmojiAssetEntity("shared", "emoji/assets/sh/shared", "image/png", 3L, 1L))
+        dao.insertAssetUrl(EmojiAssetUrlEntity("https://cdn.example/shared", "shared", null, null, 1L))
+
+        dao.deleteAccountCatalog("account-a")
+
+        assertNotNull(dao.asset("shared"))
+        assertEquals("shared", dao.assetUrl("https://cdn.example/shared")?.contentHash)
+    }
+
     private fun entry(accountKey: String, shortcode: String, position: Int) = EmojiCatalogEntryEntity(
         accountKey = accountKey,
         emojiIdentity = ":$shortcode:",

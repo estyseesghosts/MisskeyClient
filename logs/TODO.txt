@@ -1,5 +1,1 @@
 # Active tasks
-
-- [ ] Implement slice 11 from docs/fixemojis.md on feature/emoji-cache.
-- [ ] Commit each remaining documented slice independently.
-- [ ] Run required final verification and push feature/emoji-cache.

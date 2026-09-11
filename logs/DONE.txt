@@ -158,3 +158,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added the dedicated emoji Coil fetcher and memory-only emoji image loader backed by the persistent asset store, with AVIF decoder registration and disabled Coil disk caching.
 - Updated custom-emoji requests and rendering to use persisted asset files while keeping timeline media on the existing account-scoped loader.
 - Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.MediaImageLoaderTest --console=plain --rerun-tasks`, `me.foxtails.palustris.ui.emoji.InlineEmojiTextTest`, and `lintDebug`.
+260910-003000 Emoji cache slice 11:
+- Added lifecycle/regression coverage for shared assets, successful-only server-group pruning, failed-refresh preservation, account isolation/removal, preference recreation/removal, compact picker behavior, and expanded reaction picker behavior.
+- Completed the documented eleven-slice implementation and task tracking.
+- Focused verification passed: 72 tests across database, repository, preferences, catalog ViewModel, picker, HomeFeed, and SessionViewModel suites.
