@@ -22,6 +22,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.CircleShape
@@ -511,6 +512,7 @@ fun PalustrisApp(
     var singlePostOrigin by remember { mutableStateOf(LargePostOrigin.Other) }
     val homeListState = rememberLazyListState()
     val searchListState = rememberLazyListState()
+    val photoGridState = rememberLazyStaggeredGridState()
     val profileListState = rememberLazyListState()
     var emojiPickerTarget by remember { mutableStateOf<EmojiPickerTarget?>(null) }
     var postActionBubbleTarget by remember { mutableStateOf<PostActionBubbleTarget?>(null) }
@@ -1057,42 +1059,56 @@ fun PalustrisApp(
                                            })
                                        }
                                    }
-                                 Destination.Search -> AnimatedStatePane(
-                                     stateKey = searchPanel,
-                                     modifier = Modifier.fillMaxSize(),
-                                  ) { panel -> SearchScreen(
-                                        mode = panel,
-                                       accountSearch = feedState?.accountSearch ?: AccountSearchState(),
-                                       onSearchAccounts = onSearchAccounts,
-                                       onAccountClick = ::openProfile,
-                                        availableActions = feedState?.actions ?: emptySet(),
-                                        onReact = onReact,
-                                       onReply = handleReply,
-                                       onReshare = onReshare,
-                                       onBookmark = onBookmark,
-                                       onReaction = onReaction,
-                                       onOpenReactionBubble = { ownedPost, bounds ->
-                                           openReactionBubble(ownedPost, bounds, onReaction)
-                                       },
-                                       quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
-                                       onQuote = ::openQuote,
-                                       onSearchHashtag = ::openHashtagSearch,
-                                       onOpenHashtagBubble = ::openHashtagBubble,
-                                       onLoadMoreSearch = onLoadMoreSearch,
-                                       initialQuery = searchPrefill,
-                                       sharedQuery = searchQuery,
-                                       sharedTab = searchCategory,
-                                       onSharedQueryChange = { searchQuery = it },
-                                        onSharedTabChange = { searchCategory = it },
-                                       listState = searchListState.takeIf { largePresentation },
-                                        largeLayout = largePresentation,
-                                        compactLayout = !largePresentation,
-                                       compactNavigationVisible = !largePresentation,
-                                        mediaOwner = account?.id,
-                                        onOpenMedia = ::openMedia,
-                                         onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
-                                        onOpenUsername = ::openAccountSearch,
-                                     ) }
+                                  Destination.Search -> AnimatedStatePane(
+                                      stateKey = searchPanel,
+                                      modifier = Modifier.fillMaxSize(),
+                                   ) { panel ->
+                                       when (panel) {
+                                           SearchPanel.Search -> SearchScreen(
+                                               accountSearch = feedState?.accountSearch ?: AccountSearchState(),
+                                               onSearchAccounts = onSearchAccounts,
+                                               onAccountClick = ::openProfile,
+                                               availableActions = feedState?.actions ?: emptySet(),
+                                               onReact = onReact,
+                                               onReply = handleReply,
+                                               onReshare = onReshare,
+                                               onBookmark = onBookmark,
+                                               onReaction = onReaction,
+                                               onOpenReactionBubble = { ownedPost, bounds ->
+                                                   openReactionBubble(ownedPost, bounds, onReaction)
+                                               },
+                                               quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
+                                               onQuote = ::openQuote,
+                                               onSearchHashtag = ::openHashtagSearch,
+                                               onOpenHashtagBubble = ::openHashtagBubble,
+                                               onLoadMoreSearch = onLoadMoreSearch,
+                                               initialQuery = searchPrefill,
+                                               sharedQuery = searchQuery,
+                                               sharedTab = searchCategory,
+                                               onSharedQueryChange = { searchQuery = it },
+                                               onSharedTabChange = { searchCategory = it },
+                                               listState = searchListState.takeIf { largePresentation },
+                                               largeLayout = largePresentation,
+                                               compactLayout = !largePresentation,
+                                               compactNavigationVisible = !largePresentation,
+                                               mediaOwner = account?.id,
+                                               onOpenMedia = ::openMedia,
+                                               onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
+                                               onOpenUsername = ::openAccountSearch,
+                                           )
+                                           SearchPanel.PhotoGrid -> PhotoGridScreen(
+                                               state = feedState ?: FeedState(),
+                                               posts = ownedPosts ?: feedState?.ownedPosts?.takeIf { it.isNotEmpty() }
+                                                   ?: feedState?.posts.orEmpty().map { OwnedPost(it.author.id, it) },
+                                               onRefresh = { onRefresh(timeline) },
+                                               onLoadMore = { onLoadMore(timeline) },
+                                               onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
+                                               compactLayout = !largePresentation,
+                                               compactNavigationVisible = !largePresentation,
+                                               gridState = photoGridState,
+                                           )
+                                       }
+                                   }
                                  Destination.Notifications -> AnimatedStatePane(
                                      stateKey = notificationsPanel,
                                      modifier = Modifier.fillMaxSize(),

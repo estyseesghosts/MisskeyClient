@@ -289,7 +289,7 @@ private fun MediaPreviewTile(
 }
 
 @Composable
-private fun SensitiveMediaTile(onReveal: () -> Unit) {
+internal fun SensitiveMediaTile(onReveal: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(AppIcons.Image, null)
         TextButton(onClick = onReveal) { Text(stringResource(R.string.media_show_sensitive)) }

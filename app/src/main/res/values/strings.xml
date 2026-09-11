@@ -306,8 +306,11 @@
     <string name="dm_empty_title">No private messages yet</string>
     <string name="dm_empty_subtitle">Start a private conversation from someone\'s profile.</string>
     <string name="dm_private_post">Private post</string>
-    <string name="search_photo_grid_title">Photo grid</string>
-    <string name="search_photo_grid_subtitle">Media posts from your timeline will appear here.</string>
+    <string name="photo_grid_empty_title">No media posts available</string>
+    <string name="photo_grid_empty_subtitle">Posts with photos from your timeline will appear here.</string>
+    <string name="photo_grid_load_older">Load older media</string>
+    <string name="photo_grid_up_to_date">You\'re up to date</string>
+    <string name="photo_grid_paging_error">Couldn\'t load more photos</string>
     <string name="search_field">Search field</string>
     <string name="search_placeholder_handle">Search by @handle@server</string>
     <string name="search_hashtag_failed">Hashtag search failed</string>

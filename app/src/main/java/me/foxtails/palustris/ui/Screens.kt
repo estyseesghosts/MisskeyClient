@@ -62,7 +62,6 @@ private val exactHashtagQuery = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
 fun SearchScreen(
-    mode: SearchPanel = SearchPanel.Search,
     accountSearch: AccountSearchState = AccountSearchState(),
     onSearchAccounts: (String) -> Unit = {},
     onAccountClick: (Account) -> Unit = {},
@@ -94,10 +93,6 @@ fun SearchScreen(
     onSharedTabChange: (Int) -> Unit = {},
     listState: LazyListState? = null,
 ) {
-    if (mode == SearchPanel.PhotoGrid) {
-        EmptyState(AppIcons.WaffleGrid, stringResource(R.string.search_photo_grid_title), stringResource(R.string.search_photo_grid_subtitle))
-        return
-    }
     var localQuery by rememberSaveable { mutableStateOf("") }
     var localTab by rememberSaveable { mutableIntStateOf(0) }
     var largeDockHeightPx by remember { mutableIntStateOf(0) }
