@@ -133,6 +133,7 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
                 quotes = quotes,
                 primaryFavourite = PrimaryFavouriteCapability(CapabilityStatus.Supported, PrimaryFavouriteMode.Native),
                 savedPosts = SavedPostsCapability(CapabilityStatus.Supported, SavedPostsKind.Bookmarks),
+                likedPosts = CapabilityStatus.Supported,
                 capabilitiesLastUpdated = System.currentTimeMillis(),
                 capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
             )

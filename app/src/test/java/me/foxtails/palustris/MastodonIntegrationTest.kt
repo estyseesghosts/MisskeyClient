@@ -21,6 +21,7 @@ import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileCapabilities
 import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.ProfileTimelineTab
+import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SourceError
 import okhttp3.mockwebserver.MockResponse
@@ -71,6 +72,31 @@ class MastodonIntegrationTest {
     @After
     fun stopServer() {
         server.shutdown()
+    }
+
+    @Test
+    fun likedPostsUsesMastodonFavouritesEndpointAndOpaqueLinkCursor() = runBlocking {
+        val next = "$origin/api/v1/favourites?limit=40&max_id=favourite-1"
+        server.enqueue(
+            MockResponse()
+                .setBody("[${status("favourite-1")}]")
+                .addHeader("Link", "<$next>; rel=\"next\""),
+        )
+        server.enqueue(MockResponse().setBody("[${status("favourite-2")}]"))
+        val source = MastodonSource(
+            origin = origin,
+            token = "test-token",
+            api = MisskeyApi(),
+            accountId = AccountId(Connection(origin, Protocol.MASTODON), "local-user"),
+        )
+
+        val first = source.likedPosts()
+        val second = source.likedPosts(first.nextCursor)
+
+        assertEquals("favourite-1", first.items.single().id.value)
+        assertEquals("favourite-2", second.items.single().id.value)
+        assertEquals("/api/v1/favourites?limit=40", server.takeRequest().path)
+        assertEquals("/api/v1/favourites?limit=40&max_id=favourite-1", server.takeRequest().path)
     }
 
     @Test

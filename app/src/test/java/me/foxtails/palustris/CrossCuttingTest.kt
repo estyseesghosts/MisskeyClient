@@ -118,10 +118,11 @@ class CrossCuttingTest {
         store.clear()
         val accountId = AccountId(Connection("https://capabilities.example", Protocol.MASTODON), "account")
         val access = AccessGrant(
-            requested = setOf(AccessScope.NotificationsRead, AccessScope.Push),
+            requested = setOf(AccessScope.NotificationsRead, AccessScope.Push, AccessScope.LikedPostsRead),
             known = mapOf(
                 AccessScope.NotificationsRead to AccessStatus.Granted,
                 AccessScope.Push to AccessStatus.Unknown,
+                AccessScope.LikedPostsRead to AccessStatus.Granted,
             ),
         )
         val capabilities = ServerCapabilities(
@@ -146,6 +147,7 @@ class CrossCuttingTest {
                 reactionMutation = me.foxtails.palustris.domain.CapabilityStatus.Unsupported,
                 selectionMode = me.foxtails.palustris.domain.ReactionSelectionMode.Independent,
             ),
+            likedPosts = CapabilityStatus.Supported,
             capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
             notifications = me.foxtails.palustris.domain.NotificationCapabilities(
                 listing = me.foxtails.palustris.domain.CapabilityStatus.Supported,

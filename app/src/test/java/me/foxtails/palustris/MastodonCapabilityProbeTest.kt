@@ -129,6 +129,7 @@ class MastodonCapabilityProbeTest {
         assertEquals(CapabilityStatus.Unsupported, capabilities.emoji.reactionMutation)
         assertFalse(PostAction.React in capabilities.actions)
         assertTrue(PostAction.Favorite in capabilities.actions)
+        assertEquals(CapabilityStatus.Supported, capabilities.likedPosts)
     }
 
     @Test

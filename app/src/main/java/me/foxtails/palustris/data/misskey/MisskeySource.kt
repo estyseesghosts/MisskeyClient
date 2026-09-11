@@ -306,6 +306,23 @@ class MisskeySource(
         Page(items, nextCursor)
     }
 
+    override suspend fun likedPosts(cursor: String?): Page<Post> = request {
+        val body = JSONObject()
+            .put("i", token)
+            .put("userId", requireAccountId().localId)
+            .put("limit", 30)
+        cursor?.takeIf(String::isNotBlank)?.let { body.put("untilId", it) }
+        val values = JSONArray(api.post(origin, "users/reactions", body).body)
+        val items = (0 until values.length()).mapNotNull { index ->
+            val wrapper = values.optJSONObject(index) ?: return@mapNotNull null
+            val note = wrapper.optJSONObject("note") ?: return@mapNotNull null
+            runCatching { MisskeyMapper.post(note, origin).copy(favourited = true) }.getOrNull()
+        }
+        val nextCursor = values.optJSONObject(values.length() - 1)?.optString("id")
+            ?.takeIf { it.isNotBlank() }
+        Page(items, nextCursor)
+    }
+
     private fun validatePostId(id: EntityId, feature: String) {
         if (id.connection != origin || id.value.isBlank()) throw SourceError.Unsupported(feature)
     }

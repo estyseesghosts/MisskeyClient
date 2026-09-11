@@ -9,6 +9,7 @@ enum class AccessScope {
     PrimaryFavouriteWrite,
     SavedPostsRead,
     SavedPostsWrite,
+    LikedPostsRead,
 }
 
 enum class AccessStatus { Granted, Denied, Unknown }

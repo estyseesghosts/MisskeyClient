@@ -228,10 +228,11 @@ private fun ServerCapabilities.toJson(): JSONObject = JSONObject()
     .put("primaryFavourite", JSONObject()
         .put("status", primaryFavourite.status.name)
         .put("mode", primaryFavourite.mode.name))
-    .put("savedPosts", savedPosts?.let {
-        JSONObject().put("status", it.status.name).put("kind", it.kind.name)
-    })
-    .put("capabilitiesLastUpdated", capabilitiesLastUpdated)
+     .put("savedPosts", savedPosts?.let {
+         JSONObject().put("status", it.status.name).put("kind", it.kind.name)
+     })
+     .put("likedPosts", likedPosts.name)
+     .put("capabilitiesLastUpdated", capabilitiesLastUpdated)
     .put("capabilitySchemaVersion", capabilitySchemaVersion)
 
 private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities(
@@ -250,13 +251,14 @@ private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities
             mode = it.enumOrDefault("mode", PrimaryFavouriteMode.Unavailable),
         )
     } ?: PrimaryFavouriteCapability(),
-    savedPosts = optJSONObject("savedPosts")?.let {
-        SavedPostsCapability(
+     savedPosts = optJSONObject("savedPosts")?.let {
+         SavedPostsCapability(
             status = it.enumOrDefault("status", CapabilityStatus.Unknown),
             kind = it.enumOrDefault("kind", SavedPostsKind.Bookmarks),
-        )
-    },
-    capabilitiesLastUpdated = optLong("capabilitiesLastUpdated"),
+         )
+     },
+     likedPosts = enumOrDefault("likedPosts", CapabilityStatus.Unknown),
+     capabilitiesLastUpdated = optLong("capabilitiesLastUpdated"),
     capabilitySchemaVersion = optInt("capabilitySchemaVersion", 0),
 )
 

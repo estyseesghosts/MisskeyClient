@@ -32,6 +32,7 @@ interface SocialSource {
     suspend fun save(id: EntityId) = unsupported<Unit>("save")
     suspend fun unsave(id: EntityId) = unsupported<Unit>("save")
     suspend fun savedPosts(cursor: String? = null): Page<Post> = unsupported("savedPosts")
+    suspend fun likedPosts(cursor: String? = null): Page<Post> = unsupported("likedPosts")
     suspend fun setPrimaryFavourite(
         id: EntityId,
         favouriteEmoji: String,
