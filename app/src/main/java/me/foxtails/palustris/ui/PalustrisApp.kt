@@ -426,6 +426,8 @@ fun PalustrisApp(
     emojiCapabilities: EmojiCapabilities = EmojiCapabilities(),
     onLoadEmojiCatalog: () -> Unit = {},
     onRetryEmojiCatalog: () -> Unit = {},
+    onToggleEmojiGroupCollapsed: (String) -> Unit = {},
+    onToggleEmojiGroupPinned: (String) -> Unit = {},
     savedPostsState: SavedPostsUiState? = null,
     onRefreshSavedPosts: () -> Unit = {},
     onLoadMoreSavedPosts: () -> Unit = {},
@@ -1337,10 +1339,12 @@ fun PalustrisApp(
         PostActionBubbleHost(
             target = postActionBubbleTarget,
             emojiCatalog = emojiCatalogState,
-            emojiCapabilities = emojiCapabilities,
-            onLoadEmojiCatalog = onLoadEmojiCatalog,
-            onRetryEmojiCatalog = onRetryEmojiCatalog,
-            onDismiss = ::clearPostActionBubble,
+             emojiCapabilities = emojiCapabilities,
+             onLoadEmojiCatalog = onLoadEmojiCatalog,
+             onRetryEmojiCatalog = onRetryEmojiCatalog,
+             onToggleEmojiGroupCollapsed = onToggleEmojiGroupCollapsed,
+             onToggleEmojiGroupPinned = onToggleEmojiGroupPinned,
+             onDismiss = ::clearPostActionBubble,
             onHashtagSelected = { hashtag ->
                 clearPostActionBubble()
                 openHashtagSearch(hashtag)
@@ -1476,6 +1480,8 @@ fun PalustrisApp(
             mutationSupported = emojiCapabilities.reactionMutation == CapabilityStatus.Supported,
             onLoadCatalog = onLoadEmojiCatalog,
             onRetryCatalog = onRetryEmojiCatalog,
+            onToggleGroupCollapsed = onToggleEmojiGroupCollapsed,
+            onToggleGroupPinned = onToggleEmojiGroupPinned,
             onDismiss = {
                 emojiPickerTarget = null
             },

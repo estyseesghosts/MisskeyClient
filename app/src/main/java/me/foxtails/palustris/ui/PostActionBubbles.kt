@@ -99,6 +99,8 @@ fun PostActionBubbleHost(
     emojiCapabilities: EmojiCapabilities,
     onLoadEmojiCatalog: () -> Unit = {},
     onRetryEmojiCatalog: () -> Unit = {},
+    onToggleEmojiGroupCollapsed: (String) -> Unit = {},
+    onToggleEmojiGroupPinned: (String) -> Unit = {},
     onDismiss: () -> Unit,
     onHashtagSelected: (String) -> Unit,
     onReactionSelected: (OwnedPost, EmojiChoice) -> Unit,
@@ -172,6 +174,8 @@ fun PostActionBubbleHost(
                     target = current.copy(mode = localReactionMode),
                     catalog = emojiCatalog,
                     openedAtMillis = reactionOpenedAtMillis,
+                    onToggleGroupCollapsed = onToggleEmojiGroupCollapsed,
+                    onToggleGroupPinned = onToggleEmojiGroupPinned,
                     onSelected = { choice ->
                         onReactionSelected(current.ownedPost, choice)
                         dismiss()
@@ -244,6 +248,8 @@ private fun ReactionBubble(
     target: PostActionBubbleTarget.Reaction,
     catalog: EmojiCatalogState,
     openedAtMillis: Long,
+    onToggleGroupCollapsed: (String) -> Unit,
+    onToggleGroupPinned: (String) -> Unit,
     onSelected: (EmojiChoice) -> Unit,
     onExpanded: () -> Unit,
 ) {
@@ -318,11 +324,14 @@ private fun ReactionBubble(
                         emoji = reaction.emojiMetadata,
                     )
                 },
-                selectedIdentities = selectedIdentities,
-                compact = false,
-                modifier = Modifier.heightIn(max = 520.dp).padding(horizontal = 8.dp, vertical = 8.dp),
-                testTag = "reaction_bubble_grid",
-                onEmojiSelected = onSelected,
+                 selectedIdentities = selectedIdentities,
+                 preferences = catalog.preferences,
+                 compact = false,
+                 modifier = Modifier.heightIn(max = 520.dp).padding(horizontal = 8.dp, vertical = 8.dp),
+                 testTag = "reaction_bubble_grid",
+                 onToggleGroupCollapsed = onToggleGroupCollapsed,
+                 onToggleGroupPinned = onToggleGroupPinned,
+                 onEmojiSelected = onSelected,
             )
         } else {
             EmojiChoiceGrid(

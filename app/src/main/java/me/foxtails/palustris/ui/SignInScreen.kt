@@ -313,9 +313,11 @@ fun ConnectedApp(
                 onCloseEditor = { profileModel?.closeEditor() },
                 emojiCatalogState = emojiCatalogState,
                 emojiCapabilities = sharedSource?.capabilities?.emoji ?: EmojiCapabilities(),
-                 onLoadEmojiCatalog = { emojiCatalogModel?.loadIfNeeded() },
-                 onRetryEmojiCatalog = { emojiCatalogModel?.retry() },
-                 onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
+                  onLoadEmojiCatalog = { emojiCatalogModel?.loadIfNeeded() },
+                  onRetryEmojiCatalog = { emojiCatalogModel?.retry() },
+                  onToggleEmojiGroupCollapsed = { groupId -> emojiCatalogModel?.toggleGroupCollapsed(groupId) },
+                  onToggleEmojiGroupPinned = { groupId -> emojiCatalogModel?.toggleGroupPinned(groupId) },
+                  onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
                 onProfilePostReaction = { ownedPost, choice -> profileModel?.react(ownedPost, choice) },
             )
             }

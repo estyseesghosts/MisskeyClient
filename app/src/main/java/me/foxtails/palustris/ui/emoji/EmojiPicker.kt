@@ -57,6 +57,7 @@ import me.foxtails.palustris.domain.EmojiPickerGroupIds
 import me.foxtails.palustris.domain.EmojiPickerPreferences
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.ReactionSelectionMode
+import me.foxtails.palustris.ui.AppIcons
 
 enum class ComposerField { Text, Warning }
 
@@ -223,6 +224,54 @@ private fun EmojiChoice.isCustomIdentity(): Boolean = emoji != null || submissio
 
 private fun String.isCustomIdentity(): Boolean = startsWith(":")
 
+@Composable
+private fun EmojiGroupHeader(
+    group: EmojiPickerGroup,
+    onToggleCollapsed: (String) -> Unit,
+    onTogglePinned: (String) -> Unit,
+) {
+    val collapseDescription = stringResource(
+        if (group.collapsed) R.string.emoji_expand_group else R.string.emoji_collapse_group,
+        group.title,
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            group.title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (group.pinnable) {
+            val pinDescription = when {
+                group.pinned -> stringResource(R.string.emoji_unpin_group, group.title)
+                group.pinEnabled -> stringResource(R.string.emoji_pin_group, group.title)
+                else -> stringResource(R.string.emoji_pin_limit_group, group.title)
+            }
+            IconButton(
+                onClick = { onTogglePinned(group.id) },
+                enabled = group.pinEnabled,
+                modifier = Modifier.testTag("emoji_picker_pin_${group.id}"),
+            ) {
+                Icon(AppIcons.Pin, contentDescription = pinDescription)
+            }
+        }
+        IconButton(
+            onClick = { onToggleCollapsed(group.id) },
+            modifier = Modifier.testTag("emoji_picker_collapse_${group.id}"),
+        ) {
+            Icon(
+                if (group.collapsed) AppIcons.CaretUp else AppIcons.CaretDown,
+                contentDescription = collapseDescription,
+            )
+        }
+    }
+}
+
 /**
  * Reusable picker body and modal-sheet wrapper for reaction selection and composer
  * insertion. The grid container stays transparent; only the Material sheet and
@@ -239,6 +288,8 @@ fun EmojiPickerHost(
     onRetryCatalog: () -> Unit,
     onDismiss: () -> Unit,
     onEmojiSelected: (EmojiChoice) -> Unit,
+    onToggleGroupCollapsed: (String) -> Unit = {},
+    onToggleGroupPinned: (String) -> Unit = {},
 ) {
     if (target == null) return
     LaunchedEffect(target) { onLoadCatalog() }
@@ -303,22 +354,24 @@ fun EmojiPickerHost(
                         }
                     }
                     EmojiChoiceGrid(
-                    catalogItems = catalog.items,
-                    preferences = catalog.preferences,
-                    additionalChoices = (target as? EmojiPickerTarget.Reaction)?.post?.post?.reactions?.map { reaction ->
-                        EmojiChoice(reaction.emoji, reaction.emoji, reaction.emojiMetadata)
-                    }.orEmpty(),
-                    selectedIdentities = (target as? EmojiPickerTarget.Reaction)?.post?.post?.let { post ->
-                        buildSet {
-                            post.selectedReactions.forEach { add(it.submissionValue) }
-                            post.reactions.filter { it.selected }.forEach { add(it.emoji) }
-                            post.myReaction?.let(::add)
-                        }
-                    }.orEmpty(),
-                    onEmojiSelected = { choice ->
-                        onEmojiSelected(choice)
-                        onDismiss()
-                    },
+                        catalogItems = catalog.items,
+                        preferences = catalog.preferences,
+                        additionalChoices = (target as? EmojiPickerTarget.Reaction)?.post?.post?.reactions?.map { reaction ->
+                            EmojiChoice(reaction.emoji, reaction.emoji, reaction.emojiMetadata)
+                        }.orEmpty(),
+                        selectedIdentities = (target as? EmojiPickerTarget.Reaction)?.post?.post?.let { post ->
+                            buildSet {
+                                post.selectedReactions.forEach { add(it.submissionValue) }
+                                post.reactions.filter { it.selected }.forEach { add(it.emoji) }
+                                post.myReaction?.let(::add)
+                            }
+                        }.orEmpty(),
+                        onToggleGroupCollapsed = onToggleGroupCollapsed,
+                        onToggleGroupPinned = onToggleGroupPinned,
+                        onEmojiSelected = { choice ->
+                            onEmojiSelected(choice)
+                            onDismiss()
+                        },
                     )
                 }
             }
@@ -376,6 +429,8 @@ fun EmojiChoiceGrid(
     compact: Boolean = false,
     modifier: Modifier = Modifier,
     testTag: String = "emoji_picker_grid",
+    onToggleGroupCollapsed: (String) -> Unit = {},
+    onToggleGroupPinned: (String) -> Unit = {},
     onEmojiSelected: (EmojiChoice) -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -470,11 +525,10 @@ fun EmojiChoiceGrid(
         ) {
             groups.forEach { group ->
                 item(key = "header-${group.id}", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                    Text(
-                        group.title,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                    EmojiGroupHeader(
+                        group = group,
+                        onToggleCollapsed = onToggleGroupCollapsed,
+                        onTogglePinned = onToggleGroupPinned,
                     )
                 }
                 group.choices.forEach { choice ->

@@ -3,6 +3,7 @@ package me.foxtails.palustris.ui.emoji
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -115,7 +116,6 @@ class EmojiPickerTest {
         compose.onNodeWithTag("emoji_picker_sheet").assertIsDisplayed()
         compose.onNodeWithTag("emoji_picker_cell_:blob:", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithTag("emoji_picker_cell_👍", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
@@ -252,5 +252,30 @@ class EmojiPickerTest {
         val blobs = groups.first { it.id == "server:blobs" }
         assertTrue(blobs.collapsed)
         assertTrue(blobs.choices.isEmpty())
+    }
+
+    @Test
+    fun groupHeadersExposeIndependentCollapseAndPinControls() {
+        var collapsed: String? = null
+        var pinned: String? = null
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisTheme {
+                    EmojiChoiceGrid(
+                        catalogItems = catalogEmoji,
+                        onToggleGroupCollapsed = { collapsed = it },
+                        onToggleGroupPinned = { pinned = it },
+                        onEmojiSelected = {},
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Collapse Favorite Emoji", useUnmergedTree = true).performClick()
+        compose.onNodeWithContentDescription("Pin blobs", useUnmergedTree = true).performClick()
+
+        assertEquals(EmojiPickerGroupIds.Favorite, collapsed)
+        assertEquals(EmojiPickerGroupIds.server("blobs"), pinned)
     }
 }

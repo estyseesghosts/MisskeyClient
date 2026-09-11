@@ -168,6 +168,11 @@
     <string name="emoji_picker_unsupported">This server does not provide a custom emoji catalog.</string>
     <string name="emoji_unicode_section">Standard emoji</string>
     <string name="emoji_recent_section">Recent</string>
+    <string name="emoji_collapse_group">Collapse %1$s</string>
+    <string name="emoji_expand_group">Expand %1$s</string>
+    <string name="emoji_pin_group">Pin %1$s</string>
+    <string name="emoji_unpin_group">Unpin %1$s</string>
+    <string name="emoji_pin_limit_group">Cannot pin %1$s; five groups are already pinned</string>
     <string name="custom_emoji_image_description">Custom emoji %1$s</string>
     <string name="emoji_open_picker">Open the emoji picker</string>
     <plurals name="reaction_count">

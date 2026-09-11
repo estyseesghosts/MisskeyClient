@@ -138,3 +138,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added ordered full-picker group construction for favorites, pinned server groups, recents, post-specific custom emoji, remaining server groups, and standard emoji.
 - Added search filtering, collapsed-group behavior, five-pin availability state, and regression coverage for ordering and duplicate reaction metadata.
 - Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.ui.emoji.EmojiPickerTest --console=plain --rerun-tasks` and `lintDebug`.
+260910-234500 Emoji cache slice 6:
+- Added full-width group headers with independent pin and collapse controls, caret direction, accessibility descriptions, and disabled sixth-pin behavior.
+- Threaded account-scoped preference actions through the modal picker and expanded reaction bubble; compact reaction bubbles remain unchanged.
+- Verification passed: `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.ui.emoji.EmojiPickerTest --console=plain --rerun-tasks`, `ANDROID_HOME=/Users/terezi/Library/Android/sdk ./gradlew :app:testDebugUnitTest --tests me.foxtails.palustris.HomeFeedTest --console=plain --rerun-tasks`, and `lintDebug`.
