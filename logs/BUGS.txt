@@ -19,3 +19,4 @@
 260910-091500: The current connected device run reproduced no-Compose-hierarchy failures in `Api29StartupInstrumentedTest` and `SystemBarAppearanceInstrumentedTest`; 8 of 10 instrumented tests passed. The device was reachable over ADB, but the affected test activities did not expose a Compose hierarchy.
 20260911-021025: Photo Grid was verified with Robolectric Compose tests and release signing checks; live-server media loading and physical-device rendering were not run.
 20260911-021500: Post-detail media polish was verified with Robolectric Compose tests; live-server loading and physical-device dark-theme/rendering checks remain unverified.
+20260911-023000: AVIF fallback cache changes were verified with Robolectric/MockWebServer tests; live-server full-URL fallback behavior and physical-device AVIF rendering remain unverified.

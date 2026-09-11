@@ -33,8 +33,9 @@ data class SavedPostsCapability(
 )
 
 /**
- * `url` is the best full-view resource supplied by the server, not a guaranteed original upload.
- * `previewUrl` is a separate, preview-quality resource and must not be substituted for `url`.
+ * `url` is the best full image resource supplied by the server.
+ * `previewUrl` is an optional server-supplied preview resource. It can be absent even when
+ * `url` is usable; the media request policy can use `url` at a size-limited preview resolution.
  */
 data class Attachment(
     val url: String? = null,

@@ -29,10 +29,10 @@ class MediaImageLoaderTest {
 
     @Test
     fun previewAndFullUseDifferentCacheRoles() {
-        val preview = MediaImageLoader.cacheKey(
+        val preview = MediaImageLoader.renderCacheKey(
             "account-a", "post-a", attachment, 0, MediaRequestRole.Preview, 320, 240,
         )
-        val full = MediaImageLoader.cacheKey(
+        val full = MediaImageLoader.renderCacheKey(
             "account-a", "post-a", attachment, 0, MediaRequestRole.Full, 320, 240,
         )
         assertNotEquals(preview, full)
@@ -40,10 +40,10 @@ class MediaImageLoaderTest {
 
     @Test
     fun duplicateUrlsStillUseDifferentAttachmentPositions() {
-        val first = MediaImageLoader.cacheKey(
+        val first = MediaImageLoader.renderCacheKey(
             "account-a", "post-a", attachment.copy(id = null), 0, MediaRequestRole.Preview, 320, 240,
         )
-        val second = MediaImageLoader.cacheKey(
+        val second = MediaImageLoader.renderCacheKey(
             "account-a", "post-a", attachment.copy(id = null), 1, MediaRequestRole.Preview, 320, 240,
         )
         assertNotEquals(first, second)
@@ -52,13 +52,22 @@ class MediaImageLoaderTest {
 
     @Test
     fun accountAndPostOwnershipArePartOfKey() {
-        val otherAccount = MediaImageLoader.cacheKey(
+        val otherAccount = MediaImageLoader.renderCacheKey(
             "account-b", "post-a", attachment, 0, MediaRequestRole.Preview, 320, 240,
         )
-        val otherPost = MediaImageLoader.cacheKey(
+        val otherPost = MediaImageLoader.renderCacheKey(
             "account-a", "post-b", attachment, 0, MediaRequestRole.Preview, 320, 240,
         )
         assertNotEquals(otherAccount, otherPost)
+    }
+
+    @Test
+    fun sourceKeysReuseOneEncodedResourceAcrossRenderRolesAndSizes() {
+        val first = MediaImageLoader.sourceCacheKey("account-a", attachment.url!!)
+        val second = MediaImageLoader.sourceCacheKey("account-a", attachment.url!!)
+
+        assertEquals(first, second)
+        assertTrue(first.startsWith("media-source-v1\u0000account-a\u0000https://cdn.example/full.jpg"))
     }
 
     @Test

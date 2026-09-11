@@ -49,12 +49,11 @@ object MediaRequestPolicy {
 
         val preview = validWebUrl(attachment.previewUrl)
         val full = validWebUrl(attachment.url)
-        val distinctPreview = preview != null && preview != full
         return when (role) {
             MediaRequestRole.Preview -> when {
-                distinctPreview -> MediaRequestDecision.Request(preview, role, fullResourceAvailable = full != null)
-                preview == null -> MediaRequestDecision.NoRequest(MediaRequestReason.MissingPreview)
-                else -> MediaRequestDecision.NoRequest(MediaRequestReason.AmbiguousPreview)
+                preview != null -> MediaRequestDecision.Request(preview, role, fullResourceAvailable = full != null)
+                full != null -> MediaRequestDecision.Request(full, role, fullResourceAvailable = true)
+                else -> MediaRequestDecision.NoRequest(MediaRequestReason.MissingPreview)
             }
             MediaRequestRole.Full -> {
                 if (!explicitlyOpened) return MediaRequestDecision.NoRequest(MediaRequestReason.MissingFullResource)

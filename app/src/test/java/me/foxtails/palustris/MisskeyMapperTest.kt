@@ -1,6 +1,7 @@
 package me.foxtails.palustris
 
 import me.foxtails.palustris.data.misskey.MisskeyMapper
+import me.foxtails.palustris.domain.MediaKind
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -141,4 +142,35 @@ class MisskeyMapperTest {
         assertTrue(post.emoji.containsKey("inner_blob"))
         assertTrue(post.emoji.keys.none { it.contains("outer") })
     }
+
+    @Test
+    fun misskeyAvifImagePreservesMissingThumbnail() {
+        val attachment = MisskeyMapper.post(noteWithFile("image/avif", "image.avif"), origin).attachments.single()
+
+        assertEquals("https://example.org/image.avif", attachment.url)
+        assertNull(attachment.previewUrl)
+        assertEquals(MediaKind.Image, attachment.kind)
+    }
+
+    @Test
+    fun misskeyJpegImagePreservesMissingThumbnail() {
+        val attachment = MisskeyMapper.post(noteWithFile("image/jpeg", "image.jpg"), origin).attachments.single()
+
+        assertEquals("https://example.org/image.jpg", attachment.url)
+        assertNull(attachment.previewUrl)
+        assertEquals(MediaKind.Image, attachment.kind)
+    }
+
+    private fun noteWithFile(type: String, fileName: String): JSONObject = JSONObject()
+        .put("id", "note-$fileName")
+        .put("createdAt", "2026-09-06T10:00:00Z")
+        .put("text", "image")
+        .put("user", JSONObject().put("id", "user-file").put("username", "fileuser").put("name", "File User"))
+        .put("files", org.json.JSONArray().put(
+            JSONObject()
+                .put("id", "file-$fileName")
+                .put("url", "https://example.org/$fileName")
+                .put("type", type)
+                .put("thumbnailUrl", JSONObject.NULL),
+        ))
 }

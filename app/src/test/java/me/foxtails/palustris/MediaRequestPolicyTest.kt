@@ -20,17 +20,26 @@ class MediaRequestPolicyTest {
     )
 
     @Test
-    fun timelineRequestsOnlyDistinctPreview() {
+    fun timelinePrefersServerPreviewWhenAvailable() {
         val result = MediaRequestPolicy.resolve(attachment, MediaRequestRole.Preview, revealed = true, explicitlyOpened = false)
         assertEquals(MediaRequestDecision.Request("https://cdn.example/preview.jpg", MediaRequestRole.Preview, true), result)
     }
 
     @Test
-    fun timelineNeverFallsBackToFull() {
+    fun timelineFallsBackToFullImageWhenPreviewMissing() {
         val noPreview = attachment.copy(previewUrl = null)
         assertEquals(
-            MediaRequestDecision.NoRequest(MediaRequestReason.MissingPreview),
+            MediaRequestDecision.Request(attachment.url!!, MediaRequestRole.Preview, true),
             MediaRequestPolicy.resolve(noPreview, MediaRequestRole.Preview, revealed = true, explicitlyOpened = false),
+        )
+    }
+
+    @Test
+    fun timelineFallsBackToFullImageWhenPreviewInvalid() {
+        val invalidPreview = attachment.copy(previewUrl = "not-a-url")
+        assertEquals(
+            MediaRequestDecision.Request(attachment.url!!, MediaRequestRole.Preview, true),
+            MediaRequestPolicy.resolve(invalidPreview, MediaRequestRole.Preview, revealed = true, explicitlyOpened = false),
         )
     }
 
@@ -56,10 +65,10 @@ class MediaRequestPolicyTest {
     }
 
     @Test
-    fun equalPreviewAndFullFailsClosedForTimeline() {
+    fun timelineAllowsEqualPreviewAndFullUrls() {
         val equal = attachment.copy(previewUrl = attachment.url)
         assertEquals(
-            MediaRequestDecision.NoRequest(MediaRequestReason.AmbiguousPreview),
+            MediaRequestDecision.Request(attachment.url!!, MediaRequestRole.Preview, true),
             MediaRequestPolicy.resolve(equal, MediaRequestRole.Preview, revealed = true, explicitlyOpened = false),
         )
     }
@@ -70,6 +79,33 @@ class MediaRequestPolicyTest {
         val result = MediaRequestPolicy.resolve(previewOnly, MediaRequestRole.Full, revealed = true, explicitlyOpened = true)
         assertTrue(result is MediaRequestDecision.Request)
         assertEquals(false, (result as MediaRequestDecision.Request).fullResourceAvailable)
+    }
+
+    @Test
+    fun timelineUsesPreviewWhenFullIsMissing() {
+        val previewOnly = attachment.copy(url = null)
+        assertEquals(
+            MediaRequestDecision.Request(attachment.previewUrl!!, MediaRequestRole.Preview, false),
+            MediaRequestPolicy.resolve(previewOnly, MediaRequestRole.Preview, revealed = true, explicitlyOpened = false),
+        )
+    }
+
+    @Test
+    fun timelineRejectsAttachmentWhenBothUrlsAreMissing() {
+        val missing = attachment.copy(url = null, previewUrl = null)
+        assertEquals(
+            MediaRequestDecision.NoRequest(MediaRequestReason.MissingPreview),
+            MediaRequestPolicy.resolve(missing, MediaRequestRole.Preview, revealed = true, explicitlyOpened = false),
+        )
+    }
+
+    @Test
+    fun timelineDoesNotUseFullUrlForUnsupportedMediaKinds() {
+        val video = attachment.copy(kind = MediaKind.Video, mimeType = "video/mp4", previewUrl = null)
+        assertEquals(
+            MediaRequestDecision.NoRequest(MediaRequestReason.UnsupportedKind),
+            MediaRequestPolicy.resolve(video, MediaRequestRole.Preview, revealed = true, explicitlyOpened = false),
+        )
     }
 
     @Test

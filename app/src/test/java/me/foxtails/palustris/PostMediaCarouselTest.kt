@@ -22,6 +22,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okio.Buffer
 import java.io.ByteArrayOutputStream
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -149,6 +150,25 @@ class PostMediaCarouselTest {
 
         assertEquals(240f, bounds.height / compose.activity.resources.displayMetrics.density, 1f)
         assertTrue(bounds.width > 0f)
+    }
+
+    @Test
+    fun imageWithoutPreviewRequestsItsFullUrlAtTimelineSize() {
+        val fixture = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+        val png = ByteArrayOutputStream().also { fixture.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+        fixture.recycle()
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody(Buffer().write(png)))
+        server.start()
+
+        try {
+            show(post("missing-preview", listOf(image("fallback").copy(url = server.url("/fallback.png").toString(), previewUrl = null))))
+            val request = server.takeRequest(5, java.util.concurrent.TimeUnit.SECONDS)
+            assertNotNull(request)
+            assertTrue(request!!.path!!.endsWith("/fallback.png"))
+        } finally {
+            server.shutdown()
+        }
     }
 
     private fun show(vararg posts: Post) {

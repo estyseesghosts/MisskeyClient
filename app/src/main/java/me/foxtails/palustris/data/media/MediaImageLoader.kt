@@ -71,8 +71,8 @@ class MediaImageLoader private constructor(context: Context) {
         decodeHeightPx: Int,
     ): ImageRequest = ImageRequest.Builder(context)
         .data(decision.url)
-        .memoryCacheKey(cacheKey(accountIdentity, postIdentity, attachment, attachmentIndex, decision.role, decodeWidthPx, decodeHeightPx))
-        .diskCacheKey(cacheKey(accountIdentity, postIdentity, attachment, attachmentIndex, decision.role, decodeWidthPx, decodeHeightPx))
+        .memoryCacheKey(renderCacheKey(accountIdentity, postIdentity, attachment, attachmentIndex, decision.role, decodeWidthPx, decodeHeightPx))
+        .diskCacheKey(sourceCacheKey(accountIdentity, decision.url))
         .size(decodeWidthPx.coerceAtLeast(1), decodeHeightPx.coerceAtLeast(1))
         .crossfade(false)
         .build()
@@ -98,7 +98,7 @@ class MediaImageLoader private constructor(context: Context) {
             instance ?: MediaImageLoader(context.applicationContext).also { instance = it }
         }
 
-        fun cacheKey(
+        fun renderCacheKey(
             accountIdentity: String,
             postIdentity: String,
             attachment: Attachment,
@@ -115,6 +115,12 @@ class MediaImageLoader private constructor(context: Context) {
             attachment.previewUrl.orEmpty(),
             role.name,
             "${decodeWidthPx.coerceAtLeast(1)}x${decodeHeightPx.coerceAtLeast(1)}",
+        ).joinToString("\u0000")
+
+        fun sourceCacheKey(accountIdentity: String, selectedUrl: String): String = listOf(
+            "media-source-v1",
+            accountIdentity,
+            selectedUrl,
         ).joinToString("\u0000")
 
         fun emojiCacheKey(
