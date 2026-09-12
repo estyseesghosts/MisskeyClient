@@ -66,4 +66,11 @@
     <string name="content_warning_show">Inhalt anzeigen</string>
     <string name="timeline_home">Startseite</string>
     <string name="timeline_bubble">Bubble</string>
+    <string name="photo_grid_add_hashtag">Hashtag hinzufügen</string>
+    <string name="photo_grid_add_hashtag_title">Photo-Grid-Hashtag hinzufügen</string>
+    <string name="photo_grid_hashtag_hint">Hashtag</string>
+    <string name="photo_grid_invalid_hashtag">Gib einen einzelnen Hashtag ein, z. B. #fotografie.</string>
+    <string name="photo_grid_preference_save_failed">Der Hashtag konnte nicht gespeichert werden. Versuche es erneut.</string>
+    <string name="photo_grid_filter_description">Photo-Grid-Feeds; für weitere horizontal wischen</string>
+    <string name="dialog_add">Hinzufügen</string>
 </resources>

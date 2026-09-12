@@ -66,4 +66,11 @@
     <string name="content_warning_show">Afficher le contenu</string>
     <string name="timeline_home">Accueil</string>
     <string name="timeline_bubble">Bulle</string>
+    <string name="photo_grid_add_hashtag">Ajouter un hashtag</string>
+    <string name="photo_grid_add_hashtag_title">Ajouter un hashtag à la grille photo</string>
+    <string name="photo_grid_hashtag_hint">Hashtag</string>
+    <string name="photo_grid_invalid_hashtag">Saisissez un hashtag exact, par exemple #photographie.</string>
+    <string name="photo_grid_preference_save_failed">Le hashtag n’a pas pu être enregistré. Réessayez.</string>
+    <string name="photo_grid_filter_description">Flux de grille photo ; balayez horizontalement</string>
+    <string name="dialog_add">Ajouter</string>
 </resources>

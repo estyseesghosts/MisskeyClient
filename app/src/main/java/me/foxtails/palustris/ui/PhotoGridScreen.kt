@@ -22,10 +22,12 @@ import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,6 +60,11 @@ import me.foxtails.palustris.domain.MediaRequestDecision
 import me.foxtails.palustris.domain.MediaRequestPolicy
 import me.foxtails.palustris.domain.MediaRequestRole
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.isExactHashtag
+import me.foxtails.palustris.domain.timelineDisplayOrder
+import me.foxtails.palustris.ui.components.FilterChipEntry
+import me.foxtails.palustris.ui.components.FilterChipRow
 import me.foxtails.palustris.ui.media.SensitiveMediaTile
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -75,6 +82,7 @@ internal fun photoGridItems(posts: List<OwnedPost>): List<PhotoGridItem> = posts
 }
 
 private fun Attachment.isPhotoGridDisplayable(): Boolean =
+    (kind == MediaKind.Image || kind == MediaKind.AnimatedImage) &&
     MediaRequestPolicy.resolve(
         attachment = this,
         role = MediaRequestRole.Preview,
@@ -94,16 +102,20 @@ internal fun photoGridAspectRatio(attachment: Attachment): Float {
 
 @Composable
 fun PhotoGridScreen(
-    state: FeedState = FeedState(),
-    posts: List<OwnedPost>? = null,
+    state: PhotoGridFeedState = PhotoGridFeedState(),
     onRefresh: () -> Unit = {},
     onLoadMore: () -> Unit = {},
+    onSelectFeed: (PhotoGridFeed) -> Unit = {},
+    onAddHashtag: (String, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
+    onClearPreferenceError: () -> Unit = {},
     onOpenPost: (OwnedPost) -> Unit = {},
     compactLayout: Boolean = true,
     compactNavigationVisible: Boolean = false,
     gridState: LazyStaggeredGridState? = null,
 ) {
-    val rows = posts ?: state.ownedPosts.ifEmpty { state.posts.map { OwnedPost(it.author.id, it) } }
+    var addHashtagDialog by rememberSaveable { mutableStateOf(false) }
+    var hashtagInput by rememberSaveable { mutableStateOf("") }
+    val rows = state.posts
     val mediaItems = remember(rows) { photoGridItems(rows) }
     val list = gridState ?: rememberLazyStaggeredGridState()
     val loadMore by rememberUpdatedState(onLoadMore)
@@ -117,7 +129,7 @@ fun PhotoGridScreen(
         0.dp
     }
 
-    LaunchedEffect(state.nextCursor) {
+    LaunchedEffect(state.selectedFeed, state.initialLoadComplete) {
         requestedCursor = null
     }
     LaunchedEffect(list, mediaItems.size, state.nextCursor, state.loading, state.loadingMore, state.error) {
@@ -139,64 +151,146 @@ fun PhotoGridScreen(
         }
     }
 
-    when {
-        state.loading && mediaItems.isEmpty() -> PhotoGridLoading(Modifier.fillMaxSize().testTag("photo_grid_content"))
-        state.error != null && mediaItems.isEmpty() -> PhotoGridError(
-            message = state.error,
-            onRetry = if (state.nextCursor != null) onLoadMore else onRefresh,
-            modifier = Modifier.fillMaxSize().testTag("photo_grid_content"),
+    val selectedTimeline = (state.selectedFeed as? PhotoGridFeed.TimelineFeed)?.timeline
+    val chipEntries = buildList {
+        timelineDisplayOrder.filter { it in state.availableTimelines }.forEach { timeline ->
+            add(
+                FilterChipEntry(
+                    label = stringResource(timelineLabelRes(timeline)),
+                    selected = selectedTimeline == timeline,
+                    onClick = { onSelectFeed(PhotoGridFeed.TimelineFeed(timeline)) },
+                    contentDescription = stringResource(timelineLabelRes(timeline)),
+                ),
+            )
+        }
+        state.savedHashtags.forEach { tag ->
+            add(
+                FilterChipEntry(
+                    label = "#$tag".removePrefix("##"),
+                    selected = (state.selectedFeed as? PhotoGridFeed.Hashtag)?.tag == tag,
+                    onClick = { onSelectFeed(PhotoGridFeed.Hashtag(tag)) },
+                    contentDescription = tag,
+                ),
+            )
+        }
+        add(
+            FilterChipEntry(
+                label = stringResource(R.string.photo_grid_add_hashtag),
+                onClick = {
+                    hashtagInput = ""
+                    onClearPreferenceError()
+                    addHashtagDialog = true
+                },
+                role = Role.Button,
+                contentDescription = stringResource(R.string.photo_grid_add_hashtag),
+                testTag = "photo_grid_add_hashtag",
+            ),
         )
-        else -> LazyVerticalStaggeredGrid(
-            columns = StaggeredGridCells.Adaptive(150.dp),
-            state = list,
-            modifier = Modifier.fillMaxSize().testTag("photo_grid_content"),
-            verticalItemSpacing = 3.dp,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-            contentPadding = PaddingValues(bottom = bottomClearance + 3.dp),
-        ) {
-            items(
-                items = mediaItems,
-                key = { item -> photoGridItemKey(item) },
-            ) { item ->
-                PhotoGridTile(item = item, onOpenPost = onOpenPost)
-            }
-            if (state.loadingMore) {
-                item(key = "photo-grid-loading-more", span = StaggeredGridItemSpan.FullLine) {
-                    Box(
-                        Modifier.fillMaxWidth().padding(20.dp),
-                        contentAlignment = Alignment.Center,
-                    ) { CircularProgressIndicator(Modifier.size(24.dp)) }
-                }
-            } else if (state.error != null && mediaItems.isNotEmpty()) {
-                item(key = "photo-grid-paging-error", span = StaggeredGridItemSpan.FullLine) {
-                    PhotoGridPagingError(state.error, onLoadMore)
-                }
-            } else if (state.nextCursor != null) {
-                item(key = "photo-grid-load-more", span = StaggeredGridItemSpan.FullLine) {
-                    TextButton(onClick = onLoadMore, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.photo_grid_load_older))
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        FilterChipRow(chipEntries, stringResource(R.string.photo_grid_filter_description))
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when {
+                state.loading && mediaItems.isEmpty() -> PhotoGridLoading(Modifier.fillMaxSize().testTag("photo_grid_content"))
+                state.error != null && mediaItems.isEmpty() -> PhotoGridError(
+                    message = state.error,
+                    onRetry = if (state.nextCursor != null) onLoadMore else onRefresh,
+                    modifier = Modifier.fillMaxSize().testTag("photo_grid_content"),
+                )
+                else -> LazyVerticalStaggeredGrid(
+                    columns = StaggeredGridCells.Adaptive(150.dp),
+                    state = list,
+                    modifier = Modifier.fillMaxSize().testTag("photo_grid_content"),
+                    verticalItemSpacing = 3.dp,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    contentPadding = PaddingValues(bottom = bottomClearance + 3.dp),
+                ) {
+                    items(
+                        items = mediaItems,
+                        key = { item -> photoGridItemKey(item) },
+                    ) { item ->
+                        PhotoGridTile(item = item, onOpenPost = onOpenPost)
                     }
-                }
-            } else if (mediaItems.isNotEmpty()) {
-                item(key = "photo-grid-up-to-date", span = StaggeredGridItemSpan.FullLine) {
-                    Text(
-                        stringResource(R.string.photo_grid_up_to_date),
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-                item(key = "photo-grid-empty", span = StaggeredGridItemSpan.FullLine) {
-                    EmptyState(
-                        AppIcons.WaffleGrid,
-                        stringResource(R.string.photo_grid_empty_title),
-                        stringResource(R.string.photo_grid_empty_subtitle),
-                        modifier = Modifier.fillMaxWidth().height(300.dp),
-                    )
+                    if (state.loadingMore) {
+                        item(key = "photo-grid-loading-more", span = StaggeredGridItemSpan.FullLine) {
+                            Box(
+                                Modifier.fillMaxWidth().padding(20.dp),
+                                contentAlignment = Alignment.Center,
+                            ) { CircularProgressIndicator(Modifier.size(24.dp)) }
+                        }
+                    } else if (state.error != null && mediaItems.isNotEmpty()) {
+                        item(key = "photo-grid-paging-error", span = StaggeredGridItemSpan.FullLine) {
+                            PhotoGridPagingError(state.error, onLoadMore)
+                        }
+                    } else if (state.nextCursor != null) {
+                        item(key = "photo-grid-load-more", span = StaggeredGridItemSpan.FullLine) {
+                            TextButton(onClick = onLoadMore, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.photo_grid_load_older))
+                            }
+                        }
+                    } else if (mediaItems.isNotEmpty()) {
+                        item(key = "photo-grid-up-to-date", span = StaggeredGridItemSpan.FullLine) {
+                            Text(
+                                stringResource(R.string.photo_grid_up_to_date),
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        item(key = "photo-grid-empty", span = StaggeredGridItemSpan.FullLine) {
+                            EmptyState(
+                                AppIcons.WaffleGrid,
+                                stringResource(R.string.photo_grid_empty_title),
+                                stringResource(R.string.photo_grid_empty_subtitle),
+                                modifier = Modifier.fillMaxWidth().height(300.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
+    }
+
+    if (addHashtagDialog) {
+        val validInput = isExactHashtag(hashtagInput)
+        AlertDialog(
+            onDismissRequest = {
+                if (!state.preferenceSaving) {
+                    addHashtagDialog = false
+                    onClearPreferenceError()
+                }
+            },
+            title = { Text(stringResource(R.string.photo_grid_add_hashtag_title)) },
+            text = {
+                OutlinedTextField(
+                    value = hashtagInput,
+                    onValueChange = { hashtagInput = it; onClearPreferenceError() },
+                    enabled = !state.preferenceSaving,
+                    label = { Text(stringResource(R.string.photo_grid_hashtag_hint)) },
+                    singleLine = true,
+                    isError = hashtagInput.isNotEmpty() && !validInput,
+                    supportingText = {
+                        when {
+                            hashtagInput.isNotEmpty() && !validInput -> Text(stringResource(R.string.photo_grid_invalid_hashtag))
+                            state.preferenceError == "save" -> Text(stringResource(R.string.photo_grid_preference_save_failed))
+                        }
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = validInput && !state.preferenceSaving,
+                    onClick = { onAddHashtag(hashtagInput) { addHashtagDialog = false; hashtagInput = "" } },
+                ) { Text(stringResource(R.string.dialog_add)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { addHashtagDialog = false; onClearPreferenceError() }) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
+            },
+        )
     }
 }
 

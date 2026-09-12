@@ -313,6 +313,13 @@
     <string name="photo_grid_load_older">Load older media</string>
     <string name="photo_grid_up_to_date">You\'re up to date</string>
     <string name="photo_grid_paging_error">Couldn\'t load more photos</string>
+    <string name="photo_grid_add_hashtag">Add hashtag</string>
+    <string name="photo_grid_add_hashtag_title">Add a Photo Grid hashtag</string>
+    <string name="photo_grid_hashtag_hint">Hashtag</string>
+    <string name="photo_grid_invalid_hashtag">Enter one exact hashtag, such as #photography.</string>
+    <string name="photo_grid_preference_save_failed">The hashtag could not be saved. Try again.</string>
+    <string name="photo_grid_filter_description">Photo Grid feeds; swipe horizontally for more</string>
+    <string name="dialog_add">Add</string>
     <string name="search_field">Search field</string>
     <string name="search_placeholder_handle">Search by @handle@server</string>
     <string name="search_hashtag_failed">Hashtag search failed</string>

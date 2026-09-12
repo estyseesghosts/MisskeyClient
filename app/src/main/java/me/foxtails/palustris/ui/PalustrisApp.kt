@@ -400,7 +400,9 @@ private fun CompactContextualNavigationBar(
 @Composable
 fun PalustrisApp(
     account: Account? = null,
+    sessionGeneration: Long = 0L,
     feedState: FeedState? = null,
+    photoGridFeed: PhotoGridFeedState = PhotoGridFeedState(),
     profileState: ProfileUiState = ProfileUiState(),
     onProfileShown: (Account) -> Unit = {},
     onProfileCategorySelected: (ProfileCategory) -> Unit = {},
@@ -410,6 +412,12 @@ fun PalustrisApp(
     onUnfollowProfile: () -> Unit = {},
     onRefresh: (Timeline) -> Unit = {},
     onLoadMore: (Timeline) -> Unit = {},
+    onEnsurePhotoGridLoaded: () -> Unit = {},
+    onSelectPhotoGridFeed: (PhotoGridFeed) -> Unit = {},
+    onRefreshPhotoGrid: () -> Unit = {},
+    onLoadMorePhotoGrid: () -> Unit = {},
+    onAddPhotoGridHashtag: (String, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
+    onClearPhotoGridPreferenceError: () -> Unit = {},
     onSignOut: () -> Unit = {},
     accounts: List<AccountRef> = emptyList(),
     onSwitchAccount: (AccountId) -> Unit = {},
@@ -524,7 +532,7 @@ fun PalustrisApp(
     var singlePostOrigin by remember { mutableStateOf(LargePostOrigin.Other) }
     val homeListState = rememberLazyListState()
     val searchListState = rememberLazyListState()
-    val photoGridState = rememberLazyStaggeredGridState()
+    val photoGridScrollState = rememberLazyStaggeredGridState()
     val profileListState = rememberLazyListState()
     var emojiPickerTarget by remember { mutableStateOf<EmojiPickerTarget?>(null) }
     var postActionBubbleTarget by remember { mutableStateOf<PostActionBubbleTarget?>(null) }
@@ -613,6 +621,15 @@ fun PalustrisApp(
         postReactionHandler = null
         pendingEmojiInsertion = null
         onThreadDeactivate()
+    }
+    LaunchedEffect(destination, searchPanel, account?.id, sessionGeneration) {
+        if (destination == Destination.Search && searchPanel == SearchPanel.PhotoGrid) {
+            onEnsurePhotoGridLoaded()
+        }
+    }
+    LaunchedEffect(photoGridFeed.selectedFeed, account?.id, sessionGeneration) {
+        photoGridScrollState.scrollToItem(0)
+        if (singlePostOrigin == LargePostOrigin.PhotoGrid) clearSelectedPost()
     }
     LaunchedEffect(singlePost?.post?.id, singlePostOrigin) {
         onThreadActivate(singlePost, singlePostOrigin.supportsComments())
@@ -912,11 +929,16 @@ fun PalustrisApp(
         val selected = singlePost ?: return null
         val candidates = ownedPosts.orEmpty() +
             feedState?.ownedPosts.orEmpty() +
+            photoGridFeed.posts +
             savedPostsState?.posts.orEmpty() +
             likedPostsState?.posts.orEmpty() +
             profileState.pinnedPosts +
             profileState.pages.values.flatMap { it.posts }
-        return candidates.firstOrNull { it.post.id == selected.post.id } ?: selected
+        return candidates.firstOrNull {
+            it.fetchedBy == selected.fetchedBy &&
+                it.sessionRevision == selected.sessionRevision &&
+                it.post.id == selected.post.id
+        } ?: selected
     }
 
     val selectedThreadState = threadState?.takeIf { state ->
@@ -1117,17 +1139,17 @@ fun PalustrisApp(
                                                 onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
                                                onOpenUsername = ::openAccountSearch,
                                            )
-                                           SearchPanel.PhotoGrid -> PhotoGridScreen(
-                                               state = feedState ?: FeedState(),
-                                               posts = ownedPosts?.takeIf { it.isNotEmpty() }
-                                                   ?: feedState?.ownedPosts?.takeIf { it.isNotEmpty() }
-                                                   ?: feedState?.posts.orEmpty().map { OwnedPost(it.author.id, it) },
-                                               onRefresh = { onRefresh(timeline) },
-                                               onLoadMore = { onLoadMore(timeline) },
-                                                onOpenPost = { post -> openSinglePost(post, LargePostOrigin.PhotoGrid) },
+                                            SearchPanel.PhotoGrid -> PhotoGridScreen(
+                                                state = photoGridFeed,
+                                                onRefresh = onRefreshPhotoGrid,
+                                                onLoadMore = onLoadMorePhotoGrid,
+                                                onSelectFeed = onSelectPhotoGridFeed,
+                                                onAddHashtag = onAddPhotoGridHashtag,
+                                                onClearPreferenceError = onClearPhotoGridPreferenceError,
+                                                 onOpenPost = { post -> openSinglePost(post, LargePostOrigin.PhotoGrid) },
                                                compactLayout = !largePresentation,
                                                compactNavigationVisible = !largePresentation,
-                                               gridState = photoGridState,
+                                                gridState = photoGridScrollState,
                                            )
                                        }
                                    }

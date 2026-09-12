@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
+import me.foxtails.palustris.data.preferences.InMemoryPhotoGridPreferencesRepository
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.CreatePostRequest
@@ -24,6 +25,8 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PostActionResult
 import me.foxtails.palustris.domain.PostPreferencesRepository
+import me.foxtails.palustris.domain.PhotoGridPreferencesRepository
+import me.foxtails.palustris.domain.PhotoGridPreferences
 import me.foxtails.palustris.domain.PostReactionReducer
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
 import me.foxtails.palustris.domain.ReactionSelectionMode
@@ -31,6 +34,10 @@ import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.isExactHashtag
+import me.foxtails.palustris.domain.hashtagIdentity
+import me.foxtails.palustris.domain.validateExactHashtag
+import me.foxtails.palustris.domain.timelineDisplayOrder
+import me.foxtails.palustris.domain.timelineStatus
 
 @HiltViewModel(assistedFactory = FeedViewModel.Factory::class)
 class FeedViewModel @AssistedInject constructor(
@@ -38,13 +45,21 @@ class FeedViewModel @AssistedInject constructor(
     @Assisted private val source: SocialSource,
     private val syncCoordinator: AccountSyncCoordinator,
     private val postPreferencesRepository: PostPreferencesRepository,
+    private val photoGridPreferencesRepository: PhotoGridPreferencesRepository,
     @Assisted private val sessionRevision: Long,
 ) : ViewModel() {
     constructor(
         accountId: AccountId,
         source: SocialSource,
         syncCoordinator: AccountSyncCoordinator,
-    ) : this(accountId, source, syncCoordinator, InMemoryPostPreferencesRepository(), 0L)
+    ) : this(
+        accountId,
+        source,
+        syncCoordinator,
+        InMemoryPostPreferencesRepository(),
+        InMemoryPhotoGridPreferencesRepository(),
+        0L,
+    )
 
     private val _feed = MutableStateFlow(FeedState())
     val feed = _feed.asStateFlow()
@@ -54,6 +69,12 @@ class FeedViewModel @AssistedInject constructor(
     private var searchJob: Job? = null
     private var publishJob: Job? = null
     private var preferencesJob: Job? = null
+    private var photoGridPreferencesJob: Job? = null
+    private var photoGridJob: Job? = null
+    private var photoGridGeneration = 0L
+    private val consumedPhotoGridCursors = mutableSetOf<String>()
+    private val _photoGridFeed = MutableStateFlow(PhotoGridFeedState())
+    val photoGridFeed = _photoGridFeed.asStateFlow()
     private val actionJobs = mutableMapOf<ActionKey, Job>()
     private var favouriteEmoji = DEFAULT_FAVOURITE_EMOJI
     private var stopped = false
@@ -77,6 +98,16 @@ class FeedViewModel @AssistedInject constructor(
                 _feed.value = _feed.value.copy(favouriteEmoji = favouriteEmoji)
             }
         }
+        photoGridPreferencesJob = viewModelScope.launch {
+            photoGridPreferencesRepository.observe(accountId).collectLatest { preferences ->
+                if (!stopped) {
+                    _photoGridFeed.value = _photoGridFeed.value.copy(
+                        savedHashtags = preferences.hashtags,
+                        preferenceLoading = false,
+                    )
+                }
+            }
+        }
     }
 
     fun refresh(timeline: Timeline = _feed.value.timeline) {
@@ -98,7 +129,7 @@ class FeedViewModel @AssistedInject constructor(
                 val posts = page.items.distinctBy { it.id }.map(::applyFavouritePreference)
                 _feed.value = FeedState(
                     posts = posts,
-                    ownedPosts = posts.map { OwnedPost(accountId, it) },
+                    ownedPosts = posts.map { OwnedPost(accountId, it, sessionRevision) },
                     accountSearch = _feed.value.accountSearch,
                     timeline = timeline,
                     timelines = source.capabilities.timelines,
@@ -131,13 +162,170 @@ class FeedViewModel @AssistedInject constructor(
                 val newPosts = page.items.map(::applyFavouritePreference)
                 _feed.value = _feed.value.copy(
                     posts = (state.posts + newPosts).distinctBy { it.id },
-                    ownedPosts = (state.ownedPosts + newPosts.map { OwnedPost(accountId, it) })
+                    ownedPosts = (state.ownedPosts + newPosts.map { OwnedPost(accountId, it, sessionRevision) })
                         .distinctBy { it.post.id },
                     loadingMore = false,
                     nextCursor = page.nextCursor?.takeUnless { it == cursor },
                 )
             } catch (e: Exception) {
                 feedFailure(e)
+            }
+        }
+    }
+
+    fun ensurePhotoGridLoaded() {
+        if (stopped || _photoGridFeed.value.initialLoadComplete || photoGridJob?.isActive == true) return
+        val selected = _photoGridFeed.value.selectedFeed
+        _photoGridFeed.value = _photoGridFeed.value.copy(availableTimelines = availablePhotoGridTimelines())
+        startPhotoGridRequest(selected, ++photoGridGeneration, cursor = null)
+    }
+
+    fun selectPhotoGridFeed(feed: PhotoGridFeed) {
+        if (stopped || !isValidPhotoGridFeed(feed)) return
+        val current = _photoGridFeed.value
+        if (current.selectedFeed == feed && (current.loading || current.initialLoadComplete)) return
+        photoGridJob?.cancel()
+        consumedPhotoGridCursors.clear()
+        val generation = ++photoGridGeneration
+        _photoGridFeed.value = current.copy(
+            selectedFeed = feed,
+            posts = emptyList(),
+            initialLoadComplete = false,
+            loading = true,
+            loadingMore = false,
+            nextCursor = null,
+            error = null,
+            needsSignIn = false,
+        )
+        startPhotoGridRequest(feed, generation, cursor = null)
+    }
+
+    fun refreshPhotoGrid() {
+        if (stopped) return
+        val selected = _photoGridFeed.value.selectedFeed
+        photoGridJob?.cancel()
+        consumedPhotoGridCursors.clear()
+        val generation = ++photoGridGeneration
+        _photoGridFeed.value = _photoGridFeed.value.copy(
+            posts = emptyList(),
+            initialLoadComplete = false,
+            loading = true,
+            loadingMore = false,
+            nextCursor = null,
+            error = null,
+            needsSignIn = false,
+        )
+        startPhotoGridRequest(selected, generation, cursor = null)
+    }
+
+    fun loadMorePhotoGrid() {
+        if (stopped) return
+        val state = _photoGridFeed.value
+        val cursor = state.nextCursor ?: return
+        if (state.loading || state.loadingMore || state.needsSignIn || !consumedPhotoGridCursors.add(cursor)) return
+        startPhotoGridRequest(state.selectedFeed, photoGridGeneration, cursor)
+    }
+
+    fun addPhotoGridHashtag(value: String, onSuccess: () -> Unit = {}) {
+        if (stopped || _photoGridFeed.value.preferenceSaving) return
+        val accepted = runCatching { validateExactHashtag(value) }.getOrElse {
+            _photoGridFeed.value = _photoGridFeed.value.copy(preferenceError = "invalid")
+            return
+        }
+        val existing = _photoGridFeed.value.savedHashtags.firstOrNull {
+            hashtagIdentity(it) == hashtagIdentity(accepted)
+        }
+        if (existing != null) {
+            _photoGridFeed.value = _photoGridFeed.value.copy(preferenceError = null)
+            selectPhotoGridFeed(PhotoGridFeed.Hashtag(existing))
+            onSuccess()
+            return
+        }
+        viewModelScope.launch {
+            _photoGridFeed.value = _photoGridFeed.value.copy(preferenceSaving = true, preferenceError = null)
+            try {
+                photoGridPreferencesRepository.update(accountId) { preferences ->
+                    preferences.copy(hashtags = preferences.hashtags + accepted)
+                }
+                val saved = (_photoGridFeed.value.savedHashtags + accepted).distinctBy(::hashtagIdentity)
+                _photoGridFeed.value = _photoGridFeed.value.copy(
+                    savedHashtags = saved,
+                    preferenceSaving = false,
+                    preferenceError = null,
+                )
+                selectPhotoGridFeed(PhotoGridFeed.Hashtag(accepted))
+                onSuccess()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _photoGridFeed.value = _photoGridFeed.value.copy(
+                    preferenceSaving = false,
+                    preferenceError = "save",
+                )
+            }
+        }
+    }
+
+    fun clearPhotoGridPreferenceError() {
+        _photoGridFeed.value = _photoGridFeed.value.copy(preferenceError = null)
+    }
+
+    private fun isValidPhotoGridFeed(feed: PhotoGridFeed): Boolean = when (feed) {
+        is PhotoGridFeed.TimelineFeed -> feed.timeline in availablePhotoGridTimelines()
+        is PhotoGridFeed.Hashtag -> _photoGridFeed.value.savedHashtags.any {
+            hashtagIdentity(it) == runCatching { hashtagIdentity(feed.tag) }.getOrNull()
+        }
+    }
+
+    private fun availablePhotoGridTimelines(): List<Timeline> {
+        val available = timelineDisplayOrder.filter {
+            it in source.capabilities.timelines && source.capabilities.timelineStatus(it) == CapabilityStatus.Supported
+        }
+        return available.ifEmpty { listOf(Timeline.Home) }
+    }
+
+    private fun startPhotoGridRequest(feed: PhotoGridFeed, generation: Long, cursor: String?) {
+        photoGridJob = viewModelScope.launch {
+            if (stopped || generation != photoGridGeneration || _photoGridFeed.value.selectedFeed != feed) return@launch
+            _photoGridFeed.value = _photoGridFeed.value.copy(
+                loading = cursor == null,
+                loadingMore = cursor != null,
+                error = null,
+                needsSignIn = false,
+            )
+            try {
+                val page = when (feed) {
+                    is PhotoGridFeed.TimelineFeed -> source.timeline(feed.timeline, cursor)
+                    is PhotoGridFeed.Hashtag -> source.searchHashtag(feed.tag, cursor)
+                }
+                if (stopped || generation != photoGridGeneration || _photoGridFeed.value.selectedFeed != feed) return@launch
+                val fetched = page.items.distinctBy { it.id }.map { OwnedPost(accountId, applyFavouritePreference(it), sessionRevision) }
+                val current = _photoGridFeed.value
+                val merged = if (cursor == null) fetched else (current.posts + fetched).distinctBy { it.post.id }
+                val nextCursor = page.nextCursor?.takeUnless {
+                    it == cursor || it in consumedPhotoGridCursors
+                }
+                _photoGridFeed.value = current.copy(
+                    posts = merged,
+                    availableTimelines = availablePhotoGridTimelines(),
+                    initialLoadComplete = true,
+                    loading = false,
+                    loadingMore = false,
+                    nextCursor = nextCursor,
+                    error = null,
+                    needsSignIn = false,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (stopped || generation != photoGridGeneration || _photoGridFeed.value.selectedFeed != feed) return@launch
+                if (cursor != null) consumedPhotoGridCursors.remove(cursor)
+                _photoGridFeed.value = _photoGridFeed.value.copy(
+                    loading = false,
+                    loadingMore = false,
+                    error = sourceErrorMessage(e),
+                    needsSignIn = requiresSignIn(e),
+                )
             }
         }
     }
@@ -336,6 +524,9 @@ class FeedViewModel @AssistedInject constructor(
         searchJob?.cancel()
         publishJob?.cancel()
         preferencesJob?.cancel()
+        photoGridPreferencesJob?.cancel()
+        photoGridJob?.cancel()
+        photoGridGeneration++
         actionJobs.values.forEach { it.cancel() }
         actionJobs.clear()
     }
@@ -427,6 +618,13 @@ class FeedViewModel @AssistedInject constructor(
                 posts = _feed.value.accountSearch.posts.map { if (it.id == id) transform(it) else it },
             ),
         )
+        _photoGridFeed.value = _photoGridFeed.value.copy(
+            posts = _photoGridFeed.value.posts.map { owned ->
+                if (owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision && owned.post.id == id) {
+                    owned.copy(post = transform(owned.post))
+                } else owned
+            },
+        )
     }
 
     private fun updateExternalPost(target: EntityId, incoming: Post) {
@@ -444,6 +642,15 @@ class FeedViewModel @AssistedInject constructor(
                     if (post.id == target || post.actionTargetId == target) mergeExternalActionFields(post, incoming) else post
                 },
             ),
+        )
+        _photoGridFeed.value = _photoGridFeed.value.copy(
+            posts = _photoGridFeed.value.posts.map { owned ->
+                if (owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision &&
+                    (owned.post.id == target || owned.effectiveTargetId() == target)
+                ) {
+                    owned.copy(post = mergeExternalActionFields(owned.post, incoming))
+                } else owned
+            },
         )
     }
 
@@ -468,6 +675,13 @@ class FeedViewModel @AssistedInject constructor(
             accountSearch = _feed.value.accountSearch.copy(
                 posts = _feed.value.accountSearch.posts.map(transform),
             ),
+        )
+        _photoGridFeed.value = _photoGridFeed.value.copy(
+            posts = _photoGridFeed.value.posts.map { owned ->
+                if (owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision) {
+                    owned.copy(post = transform(owned.post))
+                } else owned
+            },
         )
     }
 

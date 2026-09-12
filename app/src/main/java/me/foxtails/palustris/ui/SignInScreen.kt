@@ -148,6 +148,8 @@ fun ConnectedApp(
     }
     val feed by if (feedModel != null) feedModel.feed.collectAsStateWithLifecycle()
     else remember { mutableStateOf(FeedState()) }
+    val photoGridFeed by if (feedModel != null) feedModel.photoGridFeed.collectAsStateWithLifecycle()
+    else remember { mutableStateOf(PhotoGridFeedState()) }
     val notificationState by if (notificationsModel != null) notificationsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationsUiState()) }
     val directMessageState by if (directMessagesModel != null) directMessagesModel.state.collectAsStateWithLifecycle()
@@ -273,10 +275,18 @@ fun ConnectedApp(
             }
             else -> key(state.account!!.id) {
             PalustrisApp(
-                account = state.account,
-                feedState = feed,
-                onRefresh = { timeline -> feedModel?.refresh(timeline) },
-                onLoadMore = { timeline -> feedModel?.loadMore(timeline) },
+                 account = state.account,
+                 sessionGeneration = state.sessionGeneration,
+                 feedState = feed,
+                 photoGridFeed = photoGridFeed,
+                 onRefresh = { timeline -> feedModel?.refresh(timeline) },
+                 onLoadMore = { timeline -> feedModel?.loadMore(timeline) },
+                 onEnsurePhotoGridLoaded = { feedModel?.ensurePhotoGridLoaded() },
+                 onSelectPhotoGridFeed = { selected -> feedModel?.selectPhotoGridFeed(selected) },
+                 onRefreshPhotoGrid = { feedModel?.refreshPhotoGrid() },
+                 onLoadMorePhotoGrid = { feedModel?.loadMorePhotoGrid() },
+                 onAddPhotoGridHashtag = { value, onSuccess -> feedModel?.addPhotoGridHashtag(value, onSuccess) },
+                 onClearPhotoGridPreferenceError = { feedModel?.clearPhotoGridPreferenceError() },
                 onSignOut = accountManager::signOut,
                 accounts = accountIndex.accounts,
                 onSwitchAccount = accountManager::switchAccount,

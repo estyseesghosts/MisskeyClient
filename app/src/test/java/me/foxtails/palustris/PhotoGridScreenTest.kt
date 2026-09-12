@@ -19,8 +19,8 @@ import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
-import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.PalustrisTheme
+import me.foxtails.palustris.ui.PhotoGridFeedState
 import me.foxtails.palustris.ui.PhotoGridScreen
 import me.foxtails.palustris.ui.Destination
 import me.foxtails.palustris.ui.SearchPanel
@@ -105,7 +105,9 @@ class PhotoGridScreenTest {
     fun tileTapOpensTheCompletePost() {
         var opened: OwnedPost? = null
         show(
-            state = FeedState(posts = listOf(post("tap", listOf(image("tap-image"))))),
+            state = PhotoGridFeedState(
+                posts = listOf(OwnedPost(account.id, post("tap", listOf(image("tap-image"))))),
+            ),
             onOpenPost = { opened = it },
         )
 
@@ -118,7 +120,9 @@ class PhotoGridScreenTest {
     fun sensitiveTileRequiresRevealBeforeOpening() {
         var opened: OwnedPost? = null
         show(
-            state = FeedState(posts = listOf(post("sensitive", listOf(image("sensitive").copy(sensitive = true))))),
+            state = PhotoGridFeedState(
+                posts = listOf(OwnedPost(account.id, post("sensitive", listOf(image("sensitive").copy(sensitive = true))))),
+            ),
             onOpenPost = { opened = it },
         )
 
@@ -132,8 +136,8 @@ class PhotoGridScreenTest {
     fun pagingErrorKeepsAlreadyLoadedTiles() {
         val loaded = post("loaded", listOf(image("loaded-image")))
         show(
-            state = FeedState(
-                posts = listOf(loaded),
+            state = PhotoGridFeedState(
+                posts = listOf(OwnedPost(account.id, loaded)),
                 error = "Connection failed",
                 nextCursor = "older",
             ),
@@ -147,10 +151,9 @@ class PhotoGridScreenTest {
     fun textOnlyPageContinuesToItsNextCursor() {
         val textOnly = post("text-only")
         val loadedMedia = post("loaded-media", listOf(image("loaded-image")))
-        var state by mutableStateOf(
-            FeedState(
-                posts = listOf(textOnly),
-                ownedPosts = listOf(OwnedPost(account.id, textOnly)),
+            var state by mutableStateOf(
+            PhotoGridFeedState(
+                posts = listOf(OwnedPost(account.id, textOnly)),
                 nextCursor = "first-page",
             ),
         )
@@ -162,9 +165,8 @@ class PhotoGridScreenTest {
                         state = state,
                         onLoadMore = {
                             loadCount++
-                            state = FeedState(
-                                posts = listOf(loadedMedia),
-                                ownedPosts = listOf(OwnedPost(account.id, loadedMedia)),
+                            state = PhotoGridFeedState(
+                                posts = listOf(OwnedPost(account.id, loadedMedia)),
                             )
                         },
                     )
@@ -177,7 +179,7 @@ class PhotoGridScreenTest {
         compose.onNodeWithContentDescription("Open post").assertIsDisplayed()
     }
 
-    private fun show(state: FeedState, onOpenPost: (OwnedPost) -> Unit = {}) {
+    private fun show(state: PhotoGridFeedState, onOpenPost: (OwnedPost) -> Unit = {}) {
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 PalustrisTheme {

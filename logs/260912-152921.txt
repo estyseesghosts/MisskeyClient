@@ -39,3 +39,10 @@ Slice 2 result:
 - Bound the repository in Hilt and removed account preferences during account removal.
 - Updated Search and both adapters to use the shared validator.
 - Focused verification passed: PhotoGridPreferencesRepositoryTest and SessionViewModelTest.
+
+Slice 3 result:
+- Added independent PhotoGridFeedState and PhotoGridFeed selection model.
+- Added dedicated Photo Grid request job, generation fencing, cursor-cycle protection, retry behavior, account/session ownership, and preference actions to FeedViewModel.
+- Wired state and callbacks through ConnectedApp and PalustrisApp without reusing Home refresh/paging callbacks.
+- Reworked PhotoGridScreen around dedicated state, ordered timeline/hashtag chips, add-hashtag dialog, in-scroll clearance, and still-image-only media filtering.
+- Focused verification passed: PhotoGridFeedViewModelTest, PhotoGridScreenTest, and FeedViewModelReactionTest.
