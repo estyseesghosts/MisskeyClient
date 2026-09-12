@@ -4,3 +4,6 @@ Body tap opens threaded post detail task:
 - Correct Search and Photo Grid detail-origin routing.
 - Add focused Compose regression coverage and run required verification.
 - Affected files: ui/emoji/InlineEmojiText.kt, ui/HomeFeed.kt, ui/PalustrisApp.kt, and related tests/logs.
+- Slice 1 committed as `e5cdeb5`; focused HomeFeed and InlineEmojiText tests passed.
+- Slice 2 committed as `68cec1a`; compact, wide, and Search threaded-detail tests passed.
+- Final verification passed: `:app:testDebugUnitTest`, `lintDebug`, and `test assembleRelease`.

@@ -1,4 +1,1 @@
 # Active tasks
-- Implement body tap and threaded post detail behavior.
-- Correct search detail origin routing.
-- Add regression tests and complete verification.

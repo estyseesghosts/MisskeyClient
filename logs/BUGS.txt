@@ -20,3 +20,5 @@
 20260911-021025: Photo Grid was verified with Robolectric Compose tests and release signing checks; live-server media loading and physical-device rendering were not run.
 20260911-021500: Post-detail media polish was verified with Robolectric Compose tests; live-server loading and physical-device dark-theme/rendering checks remain unverified.
 20260911-023000: AVIF fallback cache changes were verified with Robolectric/MockWebServer tests; live-server full-URL fallback behavior and physical-device AVIF rendering remain unverified.
+260912-142523: The first full unit-test invocation exceeded the 120-second shell timeout; the same task passed when rerun with a 300-second timeout.
+260912-142523: The initial focused test filter used the wrong package name and found no tests; the corrected `me.foxtails.palustris.ui.emoji.InlineEmojiTextTest` filter passed.

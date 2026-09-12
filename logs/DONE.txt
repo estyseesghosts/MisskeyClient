@@ -209,3 +209,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
  - Added ViewModel and Mastodon context regression coverage; hardened capability checks, response-size handling, and one-use Misskey continuations.
  - Verification passed: focused 122-test thread/navigation/adapter suite, `lintDebug`, and `test assembleRelease`.
  - Live-server, device-rendering, and supported Misskey/Sharkey release checks remain unverified.
+260912-142523 Body tap threaded detail task:
+- Added ordinary post-body taps that open the existing full-post detail while preserving inline URL, username, and hashtag actions.
+- Kept media, metadata, polls, quotes, and action controls independent; retained the explicit truncated-post and wide-layout affordances.
+- Corrected regular Search and Photo Grid detail-origin routing so Search can load replies.
+- Added compact Home, Search, wide-layout, and rich-text interaction regression coverage.
+- Commits created: `e5cdeb5`, `68cec1a`.
+- Verification passed: focused UI tests, full `:app:testDebugUnitTest`, `lintDebug`, and `test assembleRelease`.
