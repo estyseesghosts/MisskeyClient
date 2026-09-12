@@ -128,7 +128,8 @@ class WideNavigationTest {
         }
         compose.waitForIdle()
 
-        compose.onNodeWithText("Open post").performClick()
+        compose.onNodeWithText("Open post").assertIsDisplayed()
+        compose.onNodeWithText("Short post").performClick()
         compose.onNodeWithContentDescription("Close post").assertIsDisplayed()
         compose.onNodeWithText("Replies").assertIsDisplayed()
     }

@@ -1114,7 +1114,7 @@ fun PalustrisApp(
                                                compactNavigationVisible = !largePresentation,
                                                mediaOwner = account?.id,
                                                onOpenMedia = ::openMedia,
-                                                onOpenPost = { post -> openSinglePost(post, LargePostOrigin.PhotoGrid) },
+                                                onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
                                                onOpenUsername = ::openAccountSearch,
                                            )
                                            SearchPanel.PhotoGrid -> PhotoGridScreen(
@@ -1124,7 +1124,7 @@ fun PalustrisApp(
                                                    ?: feedState?.posts.orEmpty().map { OwnedPost(it.author.id, it) },
                                                onRefresh = { onRefresh(timeline) },
                                                onLoadMore = { onLoadMore(timeline) },
-                                               onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
+                                                onOpenPost = { post -> openSinglePost(post, LargePostOrigin.PhotoGrid) },
                                                compactLayout = !largePresentation,
                                                compactNavigationVisible = !largePresentation,
                                                gridState = photoGridState,

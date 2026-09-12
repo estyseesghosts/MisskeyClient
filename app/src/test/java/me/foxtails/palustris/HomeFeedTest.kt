@@ -20,11 +20,14 @@ import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Reaction
+import me.foxtails.palustris.domain.ThreadTreeBuilder
 import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.SearchScreen
 import me.foxtails.palustris.ui.AccountSearchState
 import me.foxtails.palustris.ui.profile.ProfileUiState
+import me.foxtails.palustris.ui.thread.PostThreadPhase
+import me.foxtails.palustris.ui.thread.PostThreadUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -483,6 +486,85 @@ private fun show(
         compose.onNodeWithContentDescription("View full post").assertIsDisplayed().performClick()
         compose.onNodeWithText("Post").assertIsDisplayed()
         compose.onNodeWithText(text).assertIsDisplayed()
+    }
+
+    @Test fun tappingTextBodyOpensFullPostWithReplies() {
+        val post = Post(postId("body-open"), account, "Tap this post body", 0, Audience.Public)
+        val reply = Post(
+            postId("body-reply"),
+            account,
+            "A reply loaded in the detail view",
+            0,
+            Audience.Public,
+            replyTo = post.id,
+        )
+        val ownedPost = OwnedPost(account.id, post)
+        val thread = ThreadTreeBuilder.build(ownedPost, descendants = listOf(OwnedPost(account.id, reply)))
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(posts = listOf(post)),
+                    threadState = PostThreadUiState(
+                        phase = PostThreadPhase.Content,
+                        focal = ownedPost,
+                        rows = thread.replies,
+                    ),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Tap this post body").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Close post").assertIsDisplayed()
+        compose.onNodeWithText("Replies").assertIsDisplayed()
+        compose.onNodeWithText("A reply loaded in the detail view").assertIsDisplayed()
+    }
+
+    @Test fun tappingSearchTextBodyOpensThreadedDetail() {
+        val post = Post(postId("search-body-open"), account, "Tap this search result", 0, Audience.Public)
+        val reply = Post(
+            postId("search-body-reply"),
+            account,
+            "A reply on the search result",
+            0,
+            Audience.Public,
+            replyTo = post.id,
+        )
+        val ownedPost = OwnedPost(account.id, post)
+        val thread = ThreadTreeBuilder.build(ownedPost, descendants = listOf(OwnedPost(account.id, reply)))
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(
+                        accountSearch = AccountSearchState(
+                            query = "#cats",
+                            tagQuery = "cats",
+                            posts = listOf(post),
+                        ),
+                    ),
+                    threadState = PostThreadUiState(
+                        phase = PostThreadPhase.Content,
+                        focal = ownedPost,
+                        rows = thread.replies,
+                    ),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Search").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("#cats")
+        compose.waitForIdle()
+        compose.onNodeWithText("Tap this search result").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Close post").assertIsDisplayed()
+        compose.onNodeWithText("Replies").assertIsDisplayed()
+        compose.onNodeWithText("A reply on the search result").assertIsDisplayed()
     }
 
     @Test fun postsWith350OrFewerCharactersRemainUntruncated() {
