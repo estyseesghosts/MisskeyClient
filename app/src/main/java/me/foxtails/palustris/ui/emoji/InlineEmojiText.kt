@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -67,6 +68,7 @@ fun InlineEmojiText(
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
     onSearchHashtag: ((String) -> Unit)? = null,
+    onTextTap: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val resolvedStyle = style.copy(
@@ -105,10 +107,30 @@ fun InlineEmojiText(
             (enableInlineEntities && annotated.getStringAnnotations(USERNAME_ANNOTATION, 0, annotated.length).isNotEmpty()) ||
             (enableInlineEntities && annotated.getStringAnnotations(HASHTAG_ANNOTATION, 0, annotated.length).isNotEmpty())
     }
+    val textTapSemantics = if (onTextTap != null) {
+        Modifier.semantics {
+            onClick {
+                onTextTap()
+                true
+            }
+        }
+    } else {
+        Modifier
+    }
     if (!hasInteractiveEntities) {
         BasicText(
             text = annotated,
-            modifier = modifier,
+            modifier = modifier
+                .then(textTapSemantics)
+                .then(
+                    if (onTextTap != null) {
+                        Modifier.pointerInput(annotated) {
+                            detectTapGestures { onTextTap() }
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
             style = resolvedStyle,
             maxLines = maxLines,
             overflow = overflow,
@@ -120,7 +142,7 @@ fun InlineEmojiText(
     var layoutResult: TextLayoutResult? by remember { mutableStateOf(null) }
     BasicText(
         text = annotated,
-        modifier = modifier.pointerInput(annotated, enableInlineEntities) {
+        modifier = modifier.then(textTapSemantics).pointerInput(annotated, enableInlineEntities) {
             detectTapGestures { offset ->
                 val position = layoutResult?.getOffsetForPosition(offset) ?: return@detectTapGestures
                 annotated.getStringAnnotations(URL_ANNOTATION, position, position)
@@ -130,10 +152,17 @@ fun InlineEmojiText(
                     }
                 if (enableInlineEntities) {
                     annotated.getStringAnnotations(USERNAME_ANNOTATION, position, position)
-                        .firstOrNull()?.let { onOpenUsername?.invoke(it.item) }
+                        .firstOrNull()?.let {
+                            onOpenUsername?.invoke(it.item)
+                            return@detectTapGestures
+                        }
                     annotated.getStringAnnotations(HASHTAG_ANNOTATION, position, position)
-                        .firstOrNull()?.let { onSearchHashtag?.invoke(it.item) }
+                        .firstOrNull()?.let {
+                            onSearchHashtag?.invoke(it.item)
+                            return@detectTapGestures
+                        }
                 }
+                onTextTap?.invoke()
             }
         },
         style = resolvedStyle,

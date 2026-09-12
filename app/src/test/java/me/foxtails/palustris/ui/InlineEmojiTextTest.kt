@@ -17,6 +17,8 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ValidatedUrl
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -141,5 +143,41 @@ class InlineEmojiTextTest {
         assertEquals("https://example.org/guide", openedUrl)
         assertEquals("@handle@mastodon.social", openedUsername)
         assertEquals("#Zurich", searchedHashtag)
+    }
+
+    @Test
+    fun ordinaryTextTapUsesTheFallbackCallback() {
+        var tapped = false
+        show {
+            InlineEmojiText(
+                "plain post body",
+                emptyMap(),
+                onTextTap = { tapped = true },
+            )
+        }
+
+        compose.onNodeWithText("plain post body").performClick()
+
+        assertTrue(tapped)
+    }
+
+    @Test
+    fun entityTapDoesNotAlsoUseTheFallbackCallback() {
+        var tapped = false
+        var openedUrl = ""
+        show {
+            InlineEmojiText(
+                "read https://example.org/guide from the post",
+                emptyMap(),
+                enableInlineEntities = true,
+                onOpenUrl = { openedUrl = it },
+                onTextTap = { tapped = true },
+            )
+        }
+
+        compose.onNodeWithContentDescription("Link example.org").performClick()
+
+        assertEquals("https://example.org/guide", openedUrl)
+        assertFalse(tapped)
     }
 }

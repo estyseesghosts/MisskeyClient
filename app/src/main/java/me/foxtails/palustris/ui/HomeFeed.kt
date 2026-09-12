@@ -112,7 +112,7 @@ fun HomeFeed(
     onSearchHashtag: (String) -> Unit = {},
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
-    onOpenPost: (OwnedPost) -> Unit = {},
+    onOpenPost: ((OwnedPost) -> Unit)? = null,
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
     listState: LazyListState? = null,
@@ -314,7 +314,7 @@ internal fun PostRow(
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
     modifier: Modifier = Modifier,
     truncateBody: Boolean = true,
-    onOpenPost: (OwnedPost) -> Unit = {},
+    onOpenPost: ((OwnedPost) -> Unit)? = null,
     largeLayout: Boolean = false,
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
@@ -377,17 +377,19 @@ internal fun PostRow(
                                 PostBodyText(
                                     text = bodyText,
                                     emoji = post.emoji,
+                                    onTextTap = onOpenPost?.let { callback -> { callback(ownedPost) } },
                                     onOpenUrl = onOpenUrl,
                                     onOpenUsername = onOpenUsername,
                                     onSearchHashtag = onSearchHashtag,
                                     style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                                 )
-                                ViewFullPostBubble { onOpenPost(ownedPost) }
+                                onOpenPost?.let { callback -> ViewFullPostBubble { callback(ownedPost) } }
                             }
                         } else {
                             PostBodyText(
                                 text = bodyText,
                                 emoji = post.emoji,
+                                onTextTap = onOpenPost?.let { callback -> { callback(ownedPost) } },
                                 onOpenUrl = onOpenUrl,
                                 onOpenUsername = onOpenUsername,
                                 onSearchHashtag = onSearchHashtag,
@@ -433,7 +435,7 @@ internal fun PostRow(
                 }
             }
         }
-        if (largeLayout && !bodyTruncated) {
+        if (largeLayout && !bodyTruncated && onOpenPost != null) {
             TextButton(
                 onClick = { onOpenPost(ownedPost) },
                 modifier = Modifier.padding(horizontal = 8.dp),
@@ -472,6 +474,7 @@ internal fun PostBodyText(
     emoji: Map<String, CustomEmoji>,
     modifier: Modifier = Modifier,
     style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyLarge,
+    onTextTap: (() -> Unit)? = null,
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
     onSearchHashtag: ((String) -> Unit)? = null,
@@ -481,6 +484,7 @@ internal fun PostBodyText(
         emoji = emoji,
         modifier = modifier,
         style = style,
+        onTextTap = onTextTap,
         enableInlineEntities = true,
         onOpenUrl = onOpenUrl,
         onOpenUsername = onOpenUsername,
