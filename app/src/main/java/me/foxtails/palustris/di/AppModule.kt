@@ -20,6 +20,7 @@ import me.foxtails.palustris.data.auth.DetectingAuthGateway
 import me.foxtails.palustris.data.auth.EncryptedSessionStore
 import me.foxtails.palustris.data.preferences.EncryptedPostPreferencesRepository
 import me.foxtails.palustris.data.preferences.FileEmojiPickerPreferencesRepository
+import me.foxtails.palustris.data.preferences.FilePhotoGridPreferencesRepository
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.auth.EncryptedDraftStore
 import me.foxtails.palustris.data.auth.MastodonAuth
@@ -60,6 +61,7 @@ import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PostPreferencesRepository
+import me.foxtails.palustris.domain.PhotoGridPreferencesRepository
 import org.json.JSONObject
 
 @Qualifier
@@ -133,6 +135,12 @@ object StorageModule {
     fun providePostPreferencesRepository(
         @ApplicationContext context: Context,
     ): PostPreferencesRepository = EncryptedPostPreferencesRepository(context)
+
+    @Provides
+    @Singleton
+    fun providePhotoGridPreferencesRepository(
+        repository: FilePhotoGridPreferencesRepository,
+    ): PhotoGridPreferencesRepository = repository
 
     @Provides
     @Singleton

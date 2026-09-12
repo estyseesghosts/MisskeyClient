@@ -30,6 +30,7 @@ import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.effectiveTargetId
+import me.foxtails.palustris.domain.isExactHashtag
 
 @HiltViewModel(assistedFactory = FeedViewModel.Factory::class)
 class FeedViewModel @AssistedInject constructor(
@@ -168,7 +169,7 @@ class FeedViewModel @AssistedInject constructor(
         val normalized = query.trim()
         if (normalized.isBlank()) return
         searchJob?.cancel()
-        val isHashtag = normalized.matches(EXACT_HASHTAG)
+        val isHashtag = isExactHashtag(normalized)
         _feed.value = _feed.value.copy(
             accountSearch = AccountSearchState(
                 query = normalized,
@@ -180,10 +181,6 @@ class FeedViewModel @AssistedInject constructor(
             if (isHashtag) searchHashtag(normalized)
             else searchAccount(normalized)
         }
-    }
-
-    private companion object {
-        val EXACT_HASHTAG = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
     }
 
     private suspend fun searchAccount(normalized: String) {

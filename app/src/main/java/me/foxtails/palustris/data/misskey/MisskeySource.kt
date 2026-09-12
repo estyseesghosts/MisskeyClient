@@ -43,6 +43,7 @@ import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.timelineStatus
+import me.foxtails.palustris.domain.hashtagBody
 import me.foxtails.palustris.domain.ThreadAcquisitionState
 import me.foxtails.palustris.domain.ThreadContext
 import me.foxtails.palustris.domain.ThreadContinuation
@@ -145,10 +146,7 @@ class MisskeySource(
     }
 
     override suspend fun searchHashtag(tag: String, cursor: String?): Page<Post> = request {
-        val normalized = tag.trim().removePrefix("#")
-        require(normalized.matches(Regex("[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*"))) {
-            "Enter one exact hashtag, such as #photography."
-        }
+        val normalized = hashtagBody(tag)
         val body = JSONObject().put("i", token).put("tag", normalized).put("limit", 30)
         cursor?.let { body.put("untilId", it) }
         val notes = JSONArray(api.post(origin, "notes/search-by-tag", body).body)

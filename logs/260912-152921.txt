@@ -1,0 +1,41 @@
+# Photo Grid and Bubble implementation
+
+Intended steps:
+- Verify the Sharkey Bubble contract and inspect current capability/cache behavior.
+- Extend timeline capabilities, authenticated Misskey probing, persistence, and adapter routing.
+- Add account-scoped Photo Grid hashtag preferences and validation.
+- Add independent Photo Grid feed state and request isolation.
+- Wire Photo Grid UI, chips, dialog, paging, and navigation.
+- Add explicit standard/photo-grid single-post presentation and shared replies.
+- Synchronize selected posts and actions across all relevant collections.
+- Run focused and full verification, commit each slice, and push to GitHub.
+
+Affected areas:
+- app/src/main/java/me/foxtails/palustris/domain
+- app/src/main/java/me/foxtails/palustris/data
+- app/src/main/java/me/foxtails/palustris/ui
+- app/src/main/res
+- app/src/test
+- logs
+
+Verified Bubble contract:
+- Upstream revision: 80bbc646b09e934ebc00ee4201dfbc3de4aadf38 from activitypub.software/TransFem-org/Sharkey develop.
+- Endpoint: authenticated POST /api/notes/bubble-timeline with Misskey pagination fields, including untilId.
+- Account policy source: authenticated POST /api/i returns MeDetailed.policies; public POST /api/meta exposes instance policies as fallback.
+- Policy fields: ltlAvailable, btlAvailable, and gtlAvailable map to Local/Social, Bubble, and Federated.
+- Bubble denial: API error code BTL_DISABLED with message "Bubble timeline has been disabled.".
+- Bubble endpoint filters public, remote, non-channel notes and applies account moderation filters.
+
+Slice 1 result:
+- Added Timeline.Bubble and explicit ordered timeline status metadata.
+- Bumped capability schema from 3 to 4 and rejected old persisted/in-memory cache snapshots.
+- Added authenticated Misskey /i and Bubble endpoint probing with supported, denied, unsupported, temporarily unavailable, and unknown distinctions.
+- Routed Misskey Bubble requests and preserved Mastodon Social/Bubble rejection.
+- Focused verification passed: MisskeyIntegrationTest, CrossCuttingTest, and MastodonCapabilityProbeTest.
+
+Slice 2 result:
+- Added shared exact-hashtag validation and identity normalization.
+- Added account-scoped file/in-memory Photo Grid preference repositories with IO serialization, validation on load, and atomic replacement.
+- Bound the repository in Hilt and removed account preferences during account removal.
+- Updated Search and both adapters to use the shared validator.
+- Focused verification passed: PhotoGridPreferencesRepositoryTest and SessionViewModelTest.

@@ -25,6 +25,7 @@ import me.foxtails.palustris.data.preferences.InMemoryEmojiPickerPreferencesRepo
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
+import me.foxtails.palustris.data.preferences.InMemoryPhotoGridPreferencesRepository
 import me.foxtails.palustris.data.notifications.push.NoOpPushRegistrationManager
 import me.foxtails.palustris.data.notifications.push.PushRegistrationManager
 import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
@@ -35,6 +36,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
 import me.foxtails.palustris.domain.PostPreferencesRepository
+import me.foxtails.palustris.domain.PhotoGridPreferencesRepository
 import me.foxtails.palustris.domain.PushSessionState
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
@@ -63,6 +65,7 @@ class AccountManager @Inject constructor(
     private val pushRegistrationManager: PushRegistrationManager,
     private val notificationStreamController: NotificationStreamController,
     private val postPreferencesRepository: PostPreferencesRepository,
+    private val photoGridPreferencesRepository: PhotoGridPreferencesRepository,
     private val directMessageStore: DirectMessageStore,
     private val emojiCatalogRepository: EmojiCatalogRepository,
     private val emojiPickerPreferencesRepository: EmojiPickerPreferencesRepository,
@@ -80,6 +83,7 @@ class AccountManager @Inject constructor(
         NoOpPushRegistrationManager(),
         NoOpNotificationStreamController(),
         InMemoryPostPreferencesRepository(),
+        InMemoryPhotoGridPreferencesRepository(),
         InMemoryDirectMessageStore(),
         InMemoryEmojiCatalogRepository(),
         InMemoryEmojiPickerPreferencesRepository(),
@@ -300,6 +304,7 @@ class AccountManager @Inject constructor(
                 notificationSync.removeAccount(accountId)
                 val replacement = withContext(ioDispatcher) {
                     postPreferencesRepository.remove(accountId)
+                    photoGridPreferencesRepository.remove(accountId)
                     directMessageStore.delete(accountId)
                     emojiCatalogRepository.remove(accountId)
                     emojiPickerPreferencesRepository.remove(accountId)

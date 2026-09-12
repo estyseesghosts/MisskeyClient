@@ -47,6 +47,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.isExactHashtag
 import me.foxtails.palustris.ui.components.CategoryChips
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
@@ -56,8 +57,6 @@ import me.foxtails.palustris.ui.motion.springPress
 import me.foxtails.palustris.ui.large.LargeBottomDock
 import me.foxtails.palustris.ui.large.LargeBottomDockClearance
 import me.foxtails.palustris.ui.large.LargeSearchDockClearance
-
-private val exactHashtagQuery = Regex("#[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}\\p{M}_])*")
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
@@ -112,7 +111,7 @@ fun SearchScreen(
     LaunchedEffect(initialQuery, sharedQuery == null) {
         if (sharedQuery == null && initialQuery.isNotBlank()) updateQuery(initialQuery)
     }
-    val hashtagSearchRequested = query.trim().matches(exactHashtagQuery)
+    val hashtagSearchRequested = isExactHashtag(query)
     val sections = listOf(
         stringResource(R.string.search_category_profiles),
         stringResource(R.string.search_category_hashtags),
