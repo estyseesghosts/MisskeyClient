@@ -7,6 +7,8 @@ sealed class SourceError : Exception() {
     data class Unsupported(val feature: String) : SourceError()
     data class UnsupportedCredential(val feature: String) : SourceError()
     data class ServerUnsupported(val feature: String) : SourceError()
+    data class ResourceLimit(val feature: String) : SourceError()
+    data class ForeignOrigin(val feature: String) : SourceError()
     object NetworkUnavailable : SourceError()
     data class ServerError(val detail: String?) : SourceError()
 }

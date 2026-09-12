@@ -20,6 +20,7 @@ import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PostContentVisibility
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ProfileRelationship
@@ -169,6 +170,8 @@ object MastodonMapper {
         val poll = json.optJSONObject("poll")
         val quotedStatus = quotedStatus(json)
         val statusSensitive = json.optBoolean("sensitive")
+        val filtered = json.optJSONArray("filtered")?.length()?.let { it > 0 } == true
+        val contentVisibility = if (filtered) PostContentVisibility.Filtered else PostContentVisibility.Visible
         val emoji = MastodonEmojiMapper.parseEmojis(json.optJSONArray("emojis"), origin)
         val extensionReactions = MastodonReactionExtensionMapper.reactions(json, emoji)
         val selectedReactions = MastodonReactionExtensionMapper.selectedChoices(
@@ -177,7 +180,7 @@ object MastodonMapper {
         return Post(
             id = id,
             author = account(json.getJSONObject("account"), origin),
-            text = json.optString("content").htmlToMarkdown(emoji),
+            text = if (filtered) "" else json.optString("content").htmlToMarkdown(emoji),
             publishedAtEpochMillis = parseInstant(json.optString("created_at")),
             audience = when (json.optString("visibility")) {
                 "unlisted" -> Audience.Unlisted
@@ -185,18 +188,18 @@ object MastodonMapper {
                 "direct" -> Audience.Direct
                 else -> Audience.Public
             },
-            attachments = json.optJSONArray("media_attachments")?.let { media ->
+            attachments = if (filtered) emptyList() else json.optJSONArray("media_attachments")?.let { media ->
                 (0 until media.length()).map { attachment(media.getJSONObject(it), statusSensitive) }
             }.orEmpty(),
-            contentWarning = json.nullableString("spoiler_text"),
+            contentWarning = json.nullableString("spoiler_text").takeUnless { filtered },
             replyTo = json.nullableString("in_reply_to_id")?.let { EntityId(origin, it) },
             replyToAuthorId = json.nullableString("in_reply_to_account_id")
                 ?.let { AccountId(Connection(origin, Protocol.MASTODON), it) },
-            availableActions = MASTODON_ACTIONS,
+            availableActions = if (filtered) emptySet() else MASTODON_ACTIONS,
             url = json.nullableString("url") ?: json.nullableString("uri"),
             replyCount = json.optInt("replies_count"),
             reshareCount = json.optInt("reblogs_count"),
-            quote = quotedStatus?.takeIf { depth < MAX_NESTING_DEPTH }?.let { post(it, origin, depth + 1) },
+            quote = if (filtered) null else quotedStatus?.takeIf { depth < MAX_NESTING_DEPTH }?.let { post(it, origin, depth + 1) },
             pollOptions = poll?.optJSONArray("options")?.let { options ->
                 (0 until options.length()).map { option ->
                     options.getJSONObject(option).let {
@@ -211,6 +214,7 @@ object MastodonMapper {
             selectedReactions = selectedReactions,
             myReaction = selectedReactions.singleOrNull()?.submissionValue,
             emoji = emoji,
+            contentVisibility = contentVisibility,
         )
     }
 

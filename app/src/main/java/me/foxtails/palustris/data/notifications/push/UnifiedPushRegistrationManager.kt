@@ -626,6 +626,8 @@ class UnifiedPushRegistrationManager @Inject constructor(
         is SourceError.Unsupported -> "server_push_unsupported"
         is SourceError.UnsupportedCredential -> "server_push_unsupported_credential"
         is SourceError.ServerUnsupported -> "server_push_server_unsupported"
+        is SourceError.ResourceLimit -> "server_push_resource_limit"
+        is SourceError.ForeignOrigin -> "server_push_foreign_origin"
         is SourceError.ServerError -> "server_push_server_error"
         SourceError.AccountMismatch -> "server_push_account_mismatch"
     }
@@ -637,6 +639,8 @@ class UnifiedPushRegistrationManager @Inject constructor(
         is SourceError.Unsupported -> PushRegistrationFailureReason.Unsupported
         is SourceError.UnsupportedCredential -> PushRegistrationFailureReason.Unsupported
         is SourceError.ServerUnsupported -> PushRegistrationFailureReason.Unsupported
+        is SourceError.ResourceLimit -> PushRegistrationFailureReason.Server
+        is SourceError.ForeignOrigin -> PushRegistrationFailureReason.Server
         is SourceError.ServerError -> PushRegistrationFailureReason.Server
     }
 

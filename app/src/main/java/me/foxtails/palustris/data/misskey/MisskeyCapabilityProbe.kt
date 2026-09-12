@@ -39,6 +39,7 @@ class MisskeyCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
             primaryFavourite = PrimaryFavouriteCapability(CapabilityStatus.Supported, PrimaryFavouriteMode.Reaction),
             savedPosts = SavedPostsCapability(CapabilityStatus.Supported, SavedPostsKind.Favourites),
             likedPosts = CapabilityStatus.Supported,
+            threads = CapabilityStatus.Supported,
             profile = ProfileCapabilities(
                 editable = EditableProfileCapabilities(
                     read = CapabilityStatus.Supported,

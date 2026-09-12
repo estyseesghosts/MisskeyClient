@@ -19,7 +19,10 @@ internal enum class Destination(@StringRes val labelRes: Int, val icon: ImageVec
 internal enum class NotificationsPanel { Notifications, DirectMessages }
 internal enum class LocalPage { SavedPosts, Likes, Drafts, About }
 enum class SearchPanel { Search, PhotoGrid }
-internal enum class LargePostOrigin { Home, Search, Profile, Saved, Liked, Notification, Other }
+internal enum class LargePostOrigin { Home, Search, PhotoGrid, Profile, Saved, Liked, Notification, Other }
+
+internal fun LargePostOrigin.supportsComments(): Boolean = this == LargePostOrigin.Home ||
+    this == LargePostOrigin.Search || this == LargePostOrigin.Profile
 internal sealed interface Overlay {
     data object Composer : Overlay
     data object EditProfile : Overlay

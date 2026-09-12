@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import me.foxtails.palustris.data.misskey.ApiFailure
 import me.foxtails.palustris.data.misskey.HttpResponse
 import me.foxtails.palustris.data.misskey.MisskeyApi
+import me.foxtails.palustris.data.misskey.ResponseLimitExceeded
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -54,6 +55,11 @@ import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.domain.ThreadAcquisitionState
+import me.foxtails.palustris.domain.ThreadContext
+import me.foxtails.palustris.domain.ThreadContinuation
+import me.foxtails.palustris.domain.ThreadRefreshHint
+import me.foxtails.palustris.domain.ThreadSessionKey
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONArray
@@ -67,6 +73,7 @@ class MastodonSource(
     initialCapabilities: ServerCapabilities = DEFAULT_CAPABILITIES,
     private val capabilityProbe: CapabilityProbe? = null,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val sessionRevision: Long = 0L,
 ) : SocialSource, DirectMessageSource {
     private val _capabilities = kotlinx.coroutines.flow.MutableStateFlow(
         if (initialCapabilities.timelines.isEmpty() && initialCapabilities.actions.isEmpty() &&
@@ -103,7 +110,43 @@ class MastodonSource(
     }
 
     override suspend fun post(id: EntityId): Post = request {
-        MastodonMapper.post(api.get(origin, "v1/statuses/${id.value}", token).body.toJson(), origin)
+        validatePostId(id, "post")
+        MastodonMapper.post(api.get(origin, "v1/statuses/${id.value.encodePathSegment()}", token).body.toJson(), origin)
+    }
+
+    override suspend fun threadContext(
+        focalId: EntityId,
+        continuation: ThreadContinuation?,
+    ): ThreadContext = request {
+        validatePostId(focalId, "thread")
+        if (capabilities.threads == CapabilityStatus.Unsupported || capabilities.threads == CapabilityStatus.Denied) {
+            throw SourceError.Unsupported("thread")
+        }
+        val key = ThreadSessionKey(accountId, sessionRevision, focalId)
+        if (continuation != null && continuation.sessionKey != key) {
+            throw SourceError.Unsupported("thread.continuation")
+        }
+        val path = "v1/statuses/${focalId.value.encodePathSegment()}"
+        val focal = MastodonMapper.post(
+            api.get(origin, path, token, MAX_THREAD_RESPONSE_BYTES).body.toJson(),
+            origin,
+        )
+        val contextResponse = api.get(
+            origin,
+            "$path/context",
+            token,
+            MAX_THREAD_RESPONSE_BYTES,
+        )
+        val context = JSONObject(contextResponse.body)
+        val ancestors = context.optJSONArray("ancestors").toPosts(origin)
+        val descendants = context.optJSONArray("descendants").toPosts(origin)
+        ThreadContext(
+            focal = focal,
+            ancestors = ancestors,
+            descendants = descendants,
+            acquisitionState = ThreadAcquisitionState.Finished,
+            refreshHint = parseRefreshHint(contextResponse.headers["Mastodon-Async-Refresh"]),
+        )
     }
 
     override suspend fun profile(id: AccountId): Account = request { profileService.profile(id) }
@@ -361,7 +404,8 @@ class MastodonSource(
     }
 
     private fun validatePostId(id: EntityId, feature: String) {
-        if (id.connection != origin || id.value.isBlank()) throw SourceError.Unsupported(feature)
+        if (id.connection != origin) throw SourceError.ForeignOrigin(feature)
+        if (id.value.isBlank()) throw SourceError.Unsupported(feature)
     }
 
     override suspend fun dismissNotification(id: EntityId) = request { notificationService.dismiss(id) }
@@ -463,6 +507,8 @@ class MastodonSource(
             block()
         } catch (e: CancellationException) {
             throw e
+        } catch (_: ResponseLimitExceeded) {
+            throw SourceError.ResourceLimit("thread")
         } catch (e: SourceError) {
             throw e
         } catch (e: ApiFailure) {
@@ -474,6 +520,7 @@ class MastodonSource(
 
     private companion object {
         const val DEFAULT_NOTIFICATION_LIMIT = 30
+        const val MAX_THREAD_RESPONSE_BYTES = 4L * 1024L * 1024L
         const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
         val DEFAULT_CAPABILITIES = ServerCapabilities(
             timelines = setOf(Timeline.Home, Timeline.Local, Timeline.Federated),
@@ -489,8 +536,25 @@ class MastodonSource(
                  me.foxtails.palustris.domain.SavedPostsKind.Bookmarks,
              ),
              likedPosts = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+             threads = CapabilityStatus.Supported,
          )
     }
+}
+
+private fun JSONArray?.toPosts(origin: String): List<Post> {
+    if (this == null) return emptyList()
+    return (0 until length()).mapNotNull { index ->
+        runCatching { MastodonMapper.post(getJSONObject(index), origin) }.getOrNull()
+    }
+}
+
+private fun parseRefreshHint(header: String?): ThreadRefreshHint? {
+    val value = header?.trim() ?: return null
+    val match = Regex(
+        "^id=\"[^\"]+\"\\s*,\\s*retry=(\\d+)\\s*,\\s*result_count=(\\d+)\\s*$",
+    ).matchEntire(value) ?: return null
+    val retrySeconds = match.groupValues[1].toLongOrNull() ?: return null
+    return ThreadRefreshHint(retrySeconds * 1_000L)
 }
 
 private fun String.encodePathSegment(): String =

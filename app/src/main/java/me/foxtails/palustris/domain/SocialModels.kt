@@ -13,6 +13,8 @@ enum class SavedPostsKind { Bookmarks, Favourites }
 
 enum class MediaKind { Image, AnimatedImage, Video, Audio, Unknown }
 
+enum class PostContentVisibility { Visible, Hidden, Filtered }
+
 fun mediaKindForMimeType(mimeType: String): MediaKind = when {
     mimeType.equals("image/gif", ignoreCase = true) ||
         mimeType.equals("image/apng", ignoreCase = true) -> MediaKind.AnimatedImage
@@ -92,6 +94,8 @@ data class Post(
     val ownRepostId: EntityId? = null,
     /** ID accepted by post actions when the displayed row wraps another post, such as a renote. */
     val actionTargetId: EntityId? = null,
+    /** Server moderation/filtering state. Hidden and filtered bodies must not be rendered. */
+    val contentVisibility: PostContentVisibility = PostContentVisibility.Visible,
 )
 
 data class PostActionResult(

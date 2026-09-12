@@ -13,7 +13,10 @@ interface SocialSource {
     suspend fun followProfile(id: AccountId): ProfileRelationship = unsupported("profile.follow")
     suspend fun unfollowProfile(id: AccountId): ProfileRelationship = unsupported("profile.unfollow")
     suspend fun pinnedPosts(id: AccountId): List<Post> = emptyList()
-    suspend fun thread(rootId: EntityId): List<Post> = unsupported("thread")
+    suspend fun threadContext(
+        focalId: EntityId,
+        continuation: ThreadContinuation? = null,
+    ): ThreadContext = unsupported("thread")
     suspend fun create(post: CreatePostRequest): Post = unsupported("create")
     suspend fun loadEditableProfile(): EditableProfile = unsupported("profile.editable.load")
     suspend fun updateEditableProfile(patch: EditableProfilePatch): EditableProfile = unsupported("profile.editable.update")

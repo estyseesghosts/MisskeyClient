@@ -15,11 +15,12 @@ data class ServerCapabilities(
     val primaryFavourite: PrimaryFavouriteCapability = PrimaryFavouriteCapability(),
     val savedPosts: SavedPostsCapability? = null,
     val likedPosts: CapabilityStatus = CapabilityStatus.Unknown,
+    val threads: CapabilityStatus = CapabilityStatus.Unknown,
     /** Bumps when capability shapes change; older snapshots force a fresh probe. */
     val capabilitySchemaVersion: Int = CURRENT_CAPABILITY_SCHEMA_VERSION,
 ) {
     companion object {
-        const val CURRENT_CAPABILITY_SCHEMA_VERSION = 2
+        const val CURRENT_CAPABILITY_SCHEMA_VERSION = 3
     }
 }
 

@@ -11,6 +11,7 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PostContentVisibility
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.Protocol
@@ -80,6 +81,7 @@ object MisskeyMapper {
             )
         }
         val id = EntityId(origin, json.getString("id"))
+        val hidden = json.optBoolean("isHidden") || json.optBoolean("hidden")
         val reactionJson = json.optJSONObject("reactions") ?: JSONObject()
         val emojiMetadata = MisskeyEmojiMapper.parseEmojis(
             json.optJSONObject("reactionEmojis") ?: JSONObject(), origin,
@@ -95,14 +97,14 @@ object MisskeyMapper {
         return Post(
             id = id,
             author = account(json.getJSONObject("user"), origin),
-            text = if (json.optBoolean("isHidden")) "This post is not available to your account." else json.nullableString("text").orEmpty(),
+            text = if (hidden) "" else json.nullableString("text").orEmpty(),
             publishedAtEpochMillis = runCatching { Instant.parse(json.getString("createdAt")).toEpochMilli() }.getOrDefault(0),
             audience = when (json.optString("visibility")) { "home" -> Audience.Unlisted; "followers" -> Audience.Followers; "specified" -> Audience.Direct; else -> Audience.Public },
-            attachments = (0 until files.length()).mapNotNull { i -> attachment(files.optJSONObject(i)) },
-            contentWarning = if (json.isNull("cw")) null else json.optString("cw"),
+            attachments = if (hidden) emptyList() else (0 until files.length()).mapNotNull { i -> attachment(files.optJSONObject(i)) },
+            contentWarning = if (hidden || json.isNull("cw")) null else json.optString("cw"),
             replyTo = json.nullableString("replyId")?.let { EntityId(origin, it) },
             replyToAuthorId = replyToAuthorId?.let { AccountId(Connection(origin, Protocol.MISSKEY), it) },
-            reactions = reactionJson.keys().asSequence().map { emoji ->
+            reactions = if (hidden) emptyList() else reactionJson.keys().asSequence().map { emoji ->
                 Reaction(
                     emoji,
                     reactionJson.optInt(emoji).coerceAtLeast(0),
@@ -112,18 +114,19 @@ object MisskeyMapper {
             }.toList(),
             url = json.nullableString("url") ?: json.nullableString("uri") ?: "$origin/notes/${id.value}",
             replyCount = json.optInt("repliesCount"), reshareCount = json.optInt("renoteCount"),
-            quote = if (renote != null && depth < MAX_NESTING_DEPTH) post(renote, origin, depth + 1) else null,
+            quote = if (!hidden && renote != null && depth < MAX_NESTING_DEPTH) post(renote, origin, depth + 1) else null,
             pollOptions = if (poll == null) emptyList() else (0 until poll.length()).map { poll.getJSONObject(it).let { option ->
                 PollOption(option.getString("text"), option.optInt("votes"))
             } },
-            availableActions = MISSKEY_ACTIONS,
-            myReaction = myReaction,
-            selectedReactions = listOfNotNull(myChoice),
-            emoji = MisskeyEmojiMapper.parseEmojis(json.optJSONObject("emojis") ?: JSONObject(), origin),
+            availableActions = if (hidden) emptySet() else MISSKEY_ACTIONS,
+            myReaction = myReaction.takeUnless { hidden },
+            selectedReactions = if (hidden) emptyList() else listOfNotNull(myChoice),
+            emoji = if (hidden) emptyMap() else MisskeyEmojiMapper.parseEmojis(json.optJSONObject("emojis") ?: JSONObject(), origin),
             saved = json.optBoolean("isFavorited", json.optBoolean("isBookmarked")),
             reposted = json.optString("myRenoteId").takeIf { it.isNotBlank() } != null,
             ownRepostId = json.optString("myRenoteId").takeIf { it.isNotBlank() }
                 ?.let { EntityId(origin, it) },
+            contentVisibility = if (hidden) PostContentVisibility.Hidden else PostContentVisibility.Visible,
         )
     }
 

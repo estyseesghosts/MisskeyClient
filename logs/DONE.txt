@@ -192,10 +192,14 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added independent LazyStaggeredGridState, feed-cursor pagination through text-only pages, full-line loading/error items, and compact navigation-only clearance.
  - Compile verification passed with the configured Android SDK.
 20260911-023000 AVIF fallback cache task:
- - Changed Preview policy to prefer a valid preview URL and fall back to a valid full URL for all image types.
- - Preserved truthful Misskey thumbnail mapping and documented optional preview URLs on Attachment.
- - Split render cache keys from account/source URL disk-cache keys to reuse encoded full-URL fallbacks.
- - Added policy, loader, Misskey mapper, and timeline fallback regression coverage.
+  - Changed Preview policy to prefer a valid preview URL and fall back to a valid full URL for all image types.
+  - Preserved truthful Misskey thumbnail mapping and documented optional preview URLs on Attachment.
+  - Split render cache keys from account/source URL disk-cache keys to reuse encoded full-URL fallbacks.
+  - Added policy, loader, Misskey mapper, and timeline fallback regression coverage.
+260912-122728 Thread implementation slice 1:
+ - Added structured thread contracts, account/session-bound post ownership, visibility metadata, and iterative graph flattening.
+ - Added bounded Misskey acquisition scaffolding, Mastodon context scaffolding, capability flags, and focused graph tests.
+ - Verification passed: `:app:testDebugUnitTest --tests me.foxtails.palustris.ThreadTreeBuilderTest`.
 20260911-024000 Version 0.1.1 release task:
  - Updated the default app version to `0.1.1` and default Android version code to `1001`.
  - Pushed the version commit and `v0.1.1` tag to GitHub.

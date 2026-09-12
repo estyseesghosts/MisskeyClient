@@ -13,6 +13,7 @@ import okio.source
 import org.json.JSONObject
 import java.io.InputStream
 import java.io.IOException
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -33,16 +34,23 @@ class ApiFailure(val status: Int, val code: String? = null) : IOException(
     "Server request failed ($status${code?.let { ":$it" }.orEmpty()})",
 )
 
+class ResponseLimitExceeded : IOException("Server response exceeded the client limit")
+
 /** No redirects: an authenticated request must never forward its token to another host. */
 class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
     .followRedirects(false).followSslRedirects(false)
     .connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
     .callTimeout(40, TimeUnit.SECONDS).build()) {
-    suspend fun post(origin: String, endpoint: String, body: JSONObject = JSONObject()): HttpResponse =
+    suspend fun post(
+        origin: String,
+        endpoint: String,
+        body: JSONObject = JSONObject(),
+        maxResponseBytes: Long? = null,
+    ): HttpResponse =
         execute(Request.Builder().url("$origin/api/$endpoint")
             .header("Accept", "application/json")
             .header("User-Agent", ProductIdentity.userAgent)
-            .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build())
+            .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build(), maxResponseBytes)
 
     suspend fun postForm(
         origin: String,
@@ -148,19 +156,24 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
             .build())
     }
 
-    suspend fun get(origin: String, endpoint: String, bearerToken: String? = null): HttpResponse =
+    suspend fun get(
+        origin: String,
+        endpoint: String,
+        bearerToken: String? = null,
+        maxResponseBytes: Long? = null,
+    ): HttpResponse =
         execute(Request.Builder().url("$origin/api/$endpoint")
             .header("Accept", "application/json")
             .header("User-Agent", ProductIdentity.userAgent)
             .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
-            .get().build())
+            .get().build(), maxResponseBytes)
 
-    suspend fun getUrl(url: String, bearerToken: String? = null): HttpResponse =
+    suspend fun getUrl(url: String, bearerToken: String? = null, maxResponseBytes: Long? = null): HttpResponse =
         execute(Request.Builder().url(url)
             .header("Accept", "application/json")
             .header("User-Agent", "Palustris/0.1 (Android)")
             .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
-            .get().build())
+            .get().build(), maxResponseBytes)
 
     fun webSocket(origin: String, path: String, headers: Map<String, String> = emptyMap(), listener: WebSocketListener): WebSocket {
         val base = origin.toHttpUrlOrNull()
@@ -182,7 +195,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
         return client.newWebSocket(request, listener)
     }
 
-    private suspend fun execute(request: Request): HttpResponse = withContext(Dispatchers.IO) {
+    private suspend fun execute(request: Request, maxResponseBytes: Long? = null): HttpResponse = withContext(Dispatchers.IO) {
         suspendCancellableCoroutine { continuation ->
             val call = client.newCall(request)
             continuation.invokeOnCancellation { call.cancel() }
@@ -191,7 +204,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
                         try {
-                            val text = it.body?.string().orEmpty()
+                            val text = it.body?.let { body -> readBody(body, maxResponseBytes) }.orEmpty()
                             if (!it.isSuccessful) {
                                 val code = runCatching { JSONObject(text).optJSONObject("error")?.optString("code") }.getOrNull()
                                 throw ApiFailure(it.code, code)
@@ -202,6 +215,23 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
                 }
             })
         }
+    }
+
+    private fun readBody(body: ResponseBody, maxResponseBytes: Long?): String {
+        if (maxResponseBytes == null) return body.string()
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(8 * 1024)
+        var total = 0L
+        body.byteStream().use { input ->
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                total += read
+                if (total > maxResponseBytes) throw ResponseLimitExceeded()
+                output.write(buffer, 0, read)
+            }
+        }
+        return output.toString(Charsets.UTF_8.name())
     }
 }
 
