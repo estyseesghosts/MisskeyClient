@@ -46,3 +46,9 @@ Slice 3 result:
 - Wired state and callbacks through ConnectedApp and PalustrisApp without reusing Home refresh/paging callbacks.
 - Reworked PhotoGridScreen around dedicated state, ordered timeline/hashtag chips, add-hashtag dialog, in-scroll clearance, and still-image-only media filtering.
 - Focused verification passed: PhotoGridFeedViewModelTest, PhotoGridScreenTest, and FeedViewModelReactionTest.
+
+Slice 4 result:
+- Added explicit Standard and PhotoGrid single-post presentation modes; only PhotoGrid uses the image-first pager layout.
+- Kept all named post origins thread-eligible and made same-post thread activation respond when eligibility changes.
+- Propagated confirmed thread actions to Home, Photo Grid, saved, liked, and profile collections.
+- Focused verification passed: SinglePostScreenTest, PostThreadViewModelTest, PhotoGridFeedViewModelTest, and PhotoGridScreenTest.

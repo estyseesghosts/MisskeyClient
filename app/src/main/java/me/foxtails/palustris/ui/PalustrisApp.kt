@@ -631,7 +631,7 @@ fun PalustrisApp(
         photoGridScrollState.scrollToItem(0)
         if (singlePostOrigin == LargePostOrigin.PhotoGrid) clearSelectedPost()
     }
-    LaunchedEffect(singlePost?.post?.id, singlePostOrigin) {
+    LaunchedEffect(singlePost?.post?.id, singlePostOrigin, singlePostOrigin.supportsComments()) {
         onThreadActivate(singlePost, singlePostOrigin.supportsComments())
     }
     LaunchedEffect(destination, page, overlayKey, sheet, profileDialog, signOutDialog, mediaRequest, singlePost, notificationRoute) {
@@ -1277,9 +1277,10 @@ fun PalustrisApp(
                              val selected = selectedThreadState?.focal ?: latestSelectedPost()
                              if (selected != null) {
                                  val threadEnabled = selectedThreadState != null && singlePostOrigin.supportsComments()
-                                 SinglePostScreen(
-                                     ownedPost = selected,
-                                     onClose = { singlePost = null },
+                                  SinglePostScreen(
+                                      ownedPost = selected,
+                                      presentation = singlePostOrigin.singlePostPresentation(),
+                                      onClose = { singlePost = null },
                                      availableActions = (feedState?.actions ?: emptySet()) +
                                          if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
                                       onReact = if (threadEnabled) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
@@ -1432,9 +1433,10 @@ fun PalustrisApp(
          )
          if (!largePresentation) {
              singlePost?.let { post ->
-                 SinglePostScreen(
-                     ownedPost = post,
-                     onClose = { singlePost = null },
+                  SinglePostScreen(
+                      ownedPost = post,
+                      presentation = singlePostOrigin.singlePostPresentation(),
+                      onClose = { singlePost = null },
                       availableActions = (feedState?.actions ?: emptySet()) +
                            if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
                        onReact = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,

@@ -24,6 +24,9 @@ internal enum class LargePostOrigin { Home, Search, PhotoGrid, Profile, Saved, L
 internal fun LargePostOrigin.supportsComments(): Boolean = this == LargePostOrigin.Home ||
     this == LargePostOrigin.Search || this == LargePostOrigin.PhotoGrid || this == LargePostOrigin.Profile ||
     this == LargePostOrigin.Saved || this == LargePostOrigin.Liked || this == LargePostOrigin.Notification
+
+internal fun LargePostOrigin.singlePostPresentation(): SinglePostPresentation =
+    if (this == LargePostOrigin.PhotoGrid) SinglePostPresentation.PhotoGrid else SinglePostPresentation.Standard
 internal sealed interface Overlay {
     data object Composer : Overlay
     data object EditProfile : Overlay

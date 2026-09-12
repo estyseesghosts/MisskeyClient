@@ -64,9 +64,12 @@ import me.foxtails.palustris.ui.thread.PostThreadPhase
 import me.foxtails.palustris.ui.thread.PostThreadUiState
 import me.foxtails.palustris.ui.thread.ThreadedReplyRow
 
+internal enum class SinglePostPresentation { Standard, PhotoGrid }
+
 @Composable
 internal fun SinglePostScreen(
     ownedPost: OwnedPost,
+    presentation: SinglePostPresentation = SinglePostPresentation.Standard,
     onClose: () -> Unit,
     availableActions: Set<PostAction> = emptySet(),
     onReact: (OwnedPost) -> Unit = {},
@@ -93,7 +96,7 @@ internal fun SinglePostScreen(
     val context = LocalContext.current
     val photos = post.attachments.filter { it.kind == MediaKind.Image || it.kind == MediaKind.AnimatedImage }
 
-    key(ownedPost.fetchedBy, post.id.connection, post.id.value) {
+    key(ownedPost.fetchedBy, post.id.connection, post.id.value, presentation) {
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
             val listState = rememberLazyListState()
             LazyColumn(
@@ -138,7 +141,7 @@ internal fun SinglePostScreen(
                     }
                 }
                 item("single-post-focal", contentType = "focal") {
-                if (photos.isEmpty()) {
+                if (presentation == SinglePostPresentation.Standard || photos.isEmpty()) {
                     PostRow(
                         ownedPost = ownedPost,
                         availableActions = actionsForPost(availableActions, post),

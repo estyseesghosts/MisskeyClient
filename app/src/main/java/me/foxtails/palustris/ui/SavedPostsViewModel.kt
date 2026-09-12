@@ -18,6 +18,7 @@ import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.domain.effectiveTargetId
 
 @HiltViewModel(assistedFactory = SavedPostsViewModel.Factory::class)
 class SavedPostsViewModel @AssistedInject constructor(
@@ -168,6 +169,20 @@ class SavedPostsViewModel @AssistedInject constructor(
         reactionJobs[key] = job
     }
 
+    fun applyExternalPost(updated: OwnedPost) {
+        if (stopped || updated.fetchedBy != accountId) return
+        val target = updated.effectiveTargetId()
+        _state.value = _state.value.copy(
+            posts = _state.value.posts.map { owned ->
+                if (owned.fetchedBy == accountId &&
+                    (owned.post.id == target || owned.effectiveTargetId() == target)
+                ) {
+                    owned.copy(post = mergeExternalActionFields(owned.post, updated.post))
+                } else owned
+            },
+        )
+    }
+
     fun stop() {
         if (stopped) return
         stopped = true
@@ -181,6 +196,20 @@ class SavedPostsViewModel @AssistedInject constructor(
             if (owned.post.id == id && owned.fetchedBy == accountId) owned.copy(post = transform(owned.post)) else owned
         })
     }
+
+    private fun mergeExternalActionFields(
+        existing: me.foxtails.palustris.domain.Post,
+        incoming: me.foxtails.palustris.domain.Post,
+    ) = existing.copy(
+        favourited = incoming.favourited,
+        myReaction = incoming.myReaction,
+        selectedReactions = incoming.selectedReactions,
+        reactions = incoming.reactions,
+        reposted = incoming.reposted,
+        reshareCount = incoming.reshareCount,
+        ownRepostId = incoming.ownRepostId,
+        saved = incoming.saved,
+    )
 
     private suspend fun load(kind: SavedPostsKind, cursor: String?, replace: Boolean) {
         try {

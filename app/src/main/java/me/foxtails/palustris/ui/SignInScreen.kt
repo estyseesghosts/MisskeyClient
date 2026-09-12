@@ -179,8 +179,13 @@ fun ConnectedApp(
     DisposableEffect(state.sessionGeneration, threadModel) {
         onDispose { threadModel?.stop() }
     }
-    LaunchedEffect(threadModel, feedModel) {
-        threadModel?.setPostUpdateListener { updated -> feedModel?.applyExternalPost(updated) }
+    LaunchedEffect(threadModel, feedModel, savedPostsModel, likedPostsModel, profileModel) {
+        threadModel?.setPostUpdateListener { updated ->
+            feedModel?.applyExternalPost(updated)
+            savedPostsModel?.applyExternalPost(updated)
+            likedPostsModel?.applyExternalPost(updated)
+            profileModel?.applyExternalPost(updated)
+        }
     }
     DisposableEffect(threadModel, lifecycleOwner) {
         if (threadModel == null) return@DisposableEffect onDispose {}

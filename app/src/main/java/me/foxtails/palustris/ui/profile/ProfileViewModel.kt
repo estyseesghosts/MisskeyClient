@@ -28,6 +28,7 @@ import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.mergeInto
 import me.foxtails.palustris.ui.requiresSignIn
 import me.foxtails.palustris.ui.sourceErrorMessage
@@ -259,6 +260,23 @@ class ProfileViewModel @AssistedInject constructor(
         reactionJobs[postId] = job
     }
 
+    fun applyExternalPost(updated: OwnedPost) {
+        if (stopped || updated.fetchedBy != accountId) return
+        val target = updated.effectiveTargetId()
+        updateOwnedPost(target) { existing ->
+            existing.copy(
+                favourited = updated.post.favourited,
+                myReaction = updated.post.myReaction,
+                selectedReactions = updated.post.selectedReactions,
+                reactions = updated.post.reactions,
+                reposted = updated.post.reposted,
+                reshareCount = updated.post.reshareCount,
+                ownRepostId = updated.post.ownRepostId,
+                saved = updated.post.saved,
+            )
+        }
+    }
+
     fun follow() {
         mutateRelationship { source.followProfile(it) }
     }
@@ -304,11 +322,11 @@ class ProfileViewModel @AssistedInject constructor(
     private fun updateOwnedPost(postId: EntityId, transform: (me.foxtails.palustris.domain.Post) -> me.foxtails.palustris.domain.Post) {
         _state.value = _state.value.copy(
             pinnedPosts = _state.value.pinnedPosts.map { owned ->
-                if (owned.post.id == postId) owned.copy(post = transform(owned.post)) else owned
+                if (owned.post.id == postId || owned.effectiveTargetId() == postId) owned.copy(post = transform(owned.post)) else owned
             },
             pages = _state.value.pages.mapValues { (_, page) ->
                 page.copy(posts = page.posts.map { owned ->
-                    if (owned.post.id == postId) owned.copy(post = transform(owned.post)) else owned
+                    if (owned.post.id == postId || owned.effectiveTargetId() == postId) owned.copy(post = transform(owned.post)) else owned
                 })
             },
         )

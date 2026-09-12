@@ -20,6 +20,7 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.SinglePostScreen
+import me.foxtails.palustris.ui.SinglePostPresentation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -55,7 +56,7 @@ class SinglePostScreenTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                SinglePostScreen(OwnedPost(account.id, post), onClose = {})
+                SinglePostScreen(OwnedPost(account.id, post), SinglePostPresentation.PhotoGrid, onClose = {})
             }
         }
         compose.waitForIdle()
@@ -86,7 +87,7 @@ class SinglePostScreenTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                SinglePostScreen(OwnedPost(account.id, post), onClose = {})
+                SinglePostScreen(OwnedPost(account.id, post), SinglePostPresentation.PhotoGrid, onClose = {})
             }
         }
         compose.waitForIdle()
@@ -108,6 +109,7 @@ class SinglePostScreenTest {
             compose.activity.setContent {
                 SinglePostScreen(
                     ownedPost = OwnedPost(account.id, post),
+                    presentation = SinglePostPresentation.PhotoGrid,
                     onClose = {},
                     availableActions = PostAction.entries.toSet(),
                 )
@@ -122,6 +124,30 @@ class SinglePostScreenTest {
         assertTrue(actions.bottom <= body.top)
         compose.onNodeWithContentDescription("Reply").assertIsDisplayed()
         compose.onNodeWithContentDescription("Favorite").assertIsDisplayed()
+    }
+
+    @Test fun standardPresentationUsesThePostRowEvenWhenPhotosExist() {
+        val post = Post(
+            EntityId("https://example.org", "standard-photo-post"),
+            account,
+            "Standard detail body",
+            0,
+            Audience.Public,
+            attachments = listOf(image("standard")),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SinglePostScreen(
+                    ownedPost = OwnedPost(account.id, post),
+                    presentation = SinglePostPresentation.Standard,
+                    onClose = {},
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Standard detail body").assertIsDisplayed()
+        compose.onNodeWithTag("single_post_photo_pager").assertDoesNotExist()
     }
 
     private fun image(id: String) = Attachment(

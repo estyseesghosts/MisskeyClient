@@ -89,7 +89,20 @@ class PostThreadViewModel @AssistedInject constructor(
             return
         }
         val key = ThreadSessionKey(accountId, sessionRevision, ownedPost.effectiveTargetId())
-        if (key == activeKey && _state.value.focal != null) return
+        if (key == activeKey && _state.value.focal != null) {
+            activeWrapper = ownedPost
+            when {
+                supportsComments && _state.value.phase == PostThreadPhase.Inactive -> {
+                    _state.value = _state.value.copy(phase = PostThreadPhase.InitialLoading, error = null)
+                    loadFresh()
+                }
+                !supportsComments && _state.value.phase != PostThreadPhase.Inactive -> {
+                    stopAcquisition()
+                    _state.value = _state.value.copy(phase = PostThreadPhase.Inactive, error = null)
+                }
+            }
+            return
+        }
         stopAcquisition()
         activeKey = key
         activeWrapper = ownedPost
