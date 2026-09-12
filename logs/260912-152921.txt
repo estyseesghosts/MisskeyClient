@@ -55,3 +55,8 @@ Slice 4 result:
 
 Slice 5 result:
 - Restricted Photo Grid tiles to still-image attachments and added animated-image regression coverage.
+
+Slice 6 result:
+- Prevented an exiting Home feed's stale scroll callback from hiding navigation on Search and Photo Grid.
+- Updated navigation tests to select the current navigation item when animated outgoing content exposes the same accessibility label.
+- Focused verification passed: the three affected NavigationTest cases.

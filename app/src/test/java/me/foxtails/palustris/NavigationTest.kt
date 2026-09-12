@@ -812,7 +812,7 @@ class NavigationTest {
         compose.onNodeWithContentDescription("Photo grid").assertIsSelected()
         compose.onNodeWithText("No media posts available").assertIsDisplayed()
 
-        compose.onNodeWithContentDescription("Home").performClick()
+        compose.onAllNodesWithContentDescription("Home").onLast().performClick()
         compose.onNodeWithContentDescription("Search").performClick()
 
         compose.onNodeWithContentDescription("Photo grid").assertIsSelected()
@@ -829,7 +829,7 @@ class NavigationTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onNodeWithContentDescription("Photo grid").performClick()
-        compose.onNodeWithContentDescription("Home").performClick()
+        compose.onAllNodesWithContentDescription("Home").onLast().performClick()
         compose.onNodeWithContentDescription("2 hashtags: #photos and #travel").performClick()
         compose.onNodeWithContentDescription("Hashtag #travel").performClick()
         compose.waitForIdle()
@@ -847,7 +847,7 @@ class NavigationTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onNodeWithContentDescription("Photo grid").performClick()
-        compose.onNodeWithContentDescription("Home").performClick()
+        compose.onAllNodesWithContentDescription("Home").onLast().performClick()
         compose.onNode(hasContentDescription("Username @target", substring = true)).performClick()
         compose.waitForIdle()
 
