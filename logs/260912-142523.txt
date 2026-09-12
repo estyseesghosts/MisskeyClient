@@ -6,4 +6,5 @@ Body tap opens threaded post detail task:
 - Affected files: ui/emoji/InlineEmojiText.kt, ui/HomeFeed.kt, ui/PalustrisApp.kt, and related tests/logs.
 - Slice 1 committed as `e5cdeb5`; focused HomeFeed and InlineEmojiText tests passed.
 - Slice 2 committed as `68cec1a`; compact, wide, and Search threaded-detail tests passed.
+- Refreshed the body-tap callback through recomposition with `rememberUpdatedState`; focused tests passed again.
 - Final verification passed: `:app:testDebugUnitTest`, `lintDebug`, and `test assembleRelease`.

@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,6 +108,7 @@ fun InlineEmojiText(
             (enableInlineEntities && annotated.getStringAnnotations(USERNAME_ANNOTATION, 0, annotated.length).isNotEmpty()) ||
             (enableInlineEntities && annotated.getStringAnnotations(HASHTAG_ANNOTATION, 0, annotated.length).isNotEmpty())
     }
+    val currentOnTextTap by rememberUpdatedState(onTextTap)
     val textTapSemantics = if (onTextTap != null) {
         Modifier.semantics {
             onClick {
@@ -125,7 +127,7 @@ fun InlineEmojiText(
                 .then(
                     if (onTextTap != null) {
                         Modifier.pointerInput(annotated) {
-                            detectTapGestures { onTextTap() }
+                            detectTapGestures { currentOnTextTap?.invoke() }
                         }
                     } else {
                         Modifier
@@ -162,7 +164,7 @@ fun InlineEmojiText(
                             return@detectTapGestures
                         }
                 }
-                onTextTap?.invoke()
+                currentOnTextTap?.invoke()
             }
         },
         style = resolvedStyle,
