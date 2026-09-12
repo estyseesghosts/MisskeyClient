@@ -636,7 +636,8 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         MockWebServer().use { server ->
             val root = JSONObject(note("root")).put("replyId", "parent").toString()
             val parent = JSONObject(note("parent")).toString()
-            val child = JSONObject(note("child")).toString()
+            val child = JSONObject(note("child")).put("replyId", "root").toString()
+            server.enqueue(MockResponse().setBody(root))
             server.enqueue(MockResponse().setBody(root))
             server.enqueue(MockResponse().setBody(parent))
             server.enqueue(MockResponse().setBody("[$child]"))

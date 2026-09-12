@@ -252,6 +252,8 @@
     <string name="post_action_not_selected">Not selected</string>
     <string name="post_profile_picture">Profile picture of %1$s</string>
     <string name="post_comments">Comments</string>
+    <string name="post_content_unavailable">This post is not available to this account.</string>
+    <string name="post_content_filtered">This post is hidden by a server filter.</string>
     <string name="post_reaction_accessibility">%1$s, %2$s</string>
     <plurals name="post_poll_votes">
         <item quantity="one">%1$d vote</item>
@@ -377,7 +379,14 @@
     <string name="single_post_title">Post</string>
     <string name="single_post_close">Close post</string>
     <string name="single_post_view_quote">View quoted post</string>
-    <string name="single_post_comments_unavailable">Comments are not available in this view yet.</string>
+    <string name="thread_replies">Replies</string>
+    <string name="thread_loading_replies">Loading replies</string>
+    <string name="thread_refreshing">Refreshing replies</string>
+    <string name="thread_no_replies">No replies available</string>
+    <string name="thread_replies_could_not_load">Replies could not be loaded</string>
+    <string name="thread_load_more">Load more replies</string>
+    <string name="thread_loading_limit_reached">Reply loading limit reached</string>
+    <string name="thread_earlier_reply_unavailable">Earlier reply unavailable</string>
     <string name="content_warning">Content warning</string>
     <string name="content_warning_hide">Hide content</string>
     <string name="content_warning_show">Show content</string>

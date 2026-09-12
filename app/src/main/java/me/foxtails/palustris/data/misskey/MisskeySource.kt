@@ -157,7 +157,7 @@ class MisskeySource(
         val state = continuation?.let { continuationState(it, key) } ?: beginThreadAcquisition(focalId, key)
         acquireDescendants(state)
         val next = if (state.pending.isNotEmpty() && !state.hardLimitReached) {
-            val tokenValue = state.token ?: UUID.randomUUID().toString().also { state.token = it }
+            val tokenValue = UUID.randomUUID().toString().also { state.token = it }
             continuationStore[tokenValue] = state
             ThreadContinuation(key, tokenValue)
         } else {
@@ -241,6 +241,7 @@ class MisskeySource(
                         .put("noteId", work.parentId.value)
                         .put("limit", CHILDREN_PAGE_LIMIT)
                         .apply { work.cursor?.let { put("untilId", it) } },
+                    MAX_THREAD_RESPONSE_BYTES,
                 )
             } catch (e: CancellationException) {
                 throw e
@@ -289,7 +290,13 @@ class MisskeySource(
 
     private suspend fun loadThreadPost(id: EntityId): Post {
         validatePostId(id, "thread")
-        val value = post(id)
+        val response = api.post(
+            origin,
+            "notes/show",
+            JSONObject().put("i", token).put("noteId", id.value),
+            MAX_THREAD_RESPONSE_BYTES,
+        )
+        val value = MisskeyMapper.post(JSONObject(response.body), origin)
         if (value.id.connection != origin) throw SourceError.ForeignOrigin("thread")
         return value
     }
@@ -314,7 +321,7 @@ class MisskeySource(
         expected: ThreadSessionKey,
     ): ThreadAcquisition {
         if (continuation.sessionKey != expected) throw SourceError.Unsupported("thread.continuation")
-        return continuationStore[continuation.token]
+        return continuationStore.remove(continuation.token)
             ?.takeIf { it.key == expected }
             ?: throw SourceError.Unsupported("thread.continuation")
     }
@@ -345,6 +352,7 @@ class MisskeySource(
 
     override suspend fun create(post: CreatePostRequest): Post = request {
         if (post.attachments.isNotEmpty()) throw SourceError.Unsupported("create.attachments")
+        post.replyTo?.let { validatePostId(it, "create.reply-origin") }
         val body = JSONObject()
             .put("i", token)
             .put("text", post.text)
@@ -505,7 +513,8 @@ class MisskeySource(
     }
 
     private fun validatePostId(id: EntityId, feature: String) {
-        if (id.connection != origin || id.value.isBlank()) throw SourceError.Unsupported(feature)
+        if (id.connection != origin) throw SourceError.ForeignOrigin(feature)
+        if (id.value.isBlank()) throw SourceError.Unsupported(feature)
     }
 
     override suspend fun loadEditableProfile(): EditableProfile = request {
@@ -603,6 +612,8 @@ class MisskeySource(
                 _capabilities.value = capabilities.copy(capabilitiesLastUpdated = 0)
             }
             throw MisskeyErrorMapper.map(e)
+        } catch (_: ResponseLimitExceeded) {
+            throw SourceError.ResourceLimit("thread")
         } catch (e: Exception) {
             throw MisskeyErrorMapper.map(e)
         }
@@ -649,6 +660,7 @@ class MisskeySource(
         const val MAX_REQUESTS = 40
         const val MAX_BATCH_TIME_MILLIS = 15_000L
         const val CHILDREN_PAGE_LIMIT = 30
+        const val MAX_THREAD_RESPONSE_BYTES = 4L * 1024L * 1024L
         const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
         // Misskey's secure push endpoints return ACCESS_DENIED for MiAuth/app
         // credentials. Those tokens can authenticate ordinary API calls, but

@@ -78,6 +78,7 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.PostDraftQuotePreview
+import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.Timeline
 import java.util.UUID
@@ -118,6 +119,7 @@ import me.foxtails.palustris.ui.large.LargeScreenShell
 import me.foxtails.palustris.ui.large.LargeTimelineDockContent
 import me.foxtails.palustris.ui.large.largeLayoutMode
 import me.foxtails.palustris.ui.large.LargeLayoutMode
+import me.foxtails.palustris.ui.thread.PostThreadUiState
 
 private const val COMPOSER_OVERLAY_KEY = "Composer"
 private const val EDIT_PROFILE_OVERLAY_KEY = "EditProfile"
@@ -412,7 +414,16 @@ fun PalustrisApp(
     accounts: List<AccountRef> = emptyList(),
     onSwitchAccount: (AccountId) -> Unit = {},
     onAddAccount: () -> Unit = {},
-    onPublish: (CreatePostRequest, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
+    onPublish: (CreatePostRequest, (OwnedPost) -> Unit) -> Unit = { _, _ -> },
+    threadState: PostThreadUiState? = null,
+    onThreadActivate: (OwnedPost?, Boolean) -> Unit = { _, _ -> },
+    onThreadDeactivate: () -> Unit = {},
+    onThreadRefresh: () -> Unit = {},
+    onThreadContinue: () -> Unit = {},
+    onThreadFavorite: (OwnedPost) -> Unit = {},
+    onThreadReshare: (OwnedPost) -> Unit = {},
+    onThreadBookmark: (OwnedPost) -> Unit = {},
+    onThreadReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     onUpdateProfile: (EditableProfilePatch, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
     onOpenProfileEditor: () -> Unit = {},
     onCloseEditor: () -> Unit = {},
@@ -601,6 +612,10 @@ fun PalustrisApp(
         postActionBubbleTarget = null
         postReactionHandler = null
         pendingEmojiInsertion = null
+        onThreadDeactivate()
+    }
+    LaunchedEffect(singlePost?.post?.id, singlePostOrigin) {
+        onThreadActivate(singlePost, singlePostOrigin.supportsComments())
     }
     LaunchedEffect(destination, page, overlayKey, sheet, profileDialog, signOutDialog, mediaRequest, singlePost, notificationRoute) {
         postActionBubbleTarget = null
@@ -904,6 +919,11 @@ fun PalustrisApp(
         return candidates.firstOrNull { it.post.id == selected.post.id } ?: selected
     }
 
+    val selectedThreadState = threadState?.takeIf { state ->
+        val selected = singlePost ?: return@takeIf false
+        state.focal?.effectiveTargetId() == selected.effectiveTargetId()
+    }
+
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val presentationMode = largeLayoutMode(maxWidth.value)
         val largePresentation = presentationMode != LargeLayoutMode.Compact
@@ -1094,7 +1114,7 @@ fun PalustrisApp(
                                                compactNavigationVisible = !largePresentation,
                                                mediaOwner = account?.id,
                                                onOpenMedia = ::openMedia,
-                                               onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
+                                                onOpenPost = { post -> openSinglePost(post, LargePostOrigin.PhotoGrid) },
                                                onOpenUsername = ::openAccountSearch,
                                            )
                                            SearchPanel.PhotoGrid -> PhotoGridScreen(
@@ -1232,18 +1252,19 @@ fun PalustrisApp(
                         onCompose = ::openComposer,
                         primaryContent = { paneModifier -> destinationScaffold(paneModifier) },
                         detailContent = { paneModifier ->
-                            val selected = latestSelectedPost()
-                            if (selected != null) {
+                             val selected = selectedThreadState?.focal ?: latestSelectedPost()
+                             if (selected != null) {
+                                 val threadEnabled = selectedThreadState != null && singlePostOrigin.supportsComments()
                                  SinglePostScreen(
                                      ownedPost = selected,
                                      onClose = { singlePost = null },
                                      availableActions = (feedState?.actions ?: emptySet()) +
                                          if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
-                                     onReact = if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
-                                    onReply = handleReply,
-                                    onReshare = onReshare,
-                                    onBookmark = onBookmark,
-                                     onReaction = when (singlePostOrigin) {
+                                      onReact = if (threadEnabled) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
+                                     onReply = handleReply,
+                                     onReshare = if (threadEnabled) onThreadReshare else onReshare,
+                                     onBookmark = if (threadEnabled) onThreadBookmark else onBookmark,
+                                      onReaction = if (threadEnabled) onThreadReaction else when (singlePostOrigin) {
                                          LargePostOrigin.Profile -> onProfilePostReaction
                                          LargePostOrigin.Saved -> onSavedPostReaction
                                          LargePostOrigin.Liked -> onLikedPostReaction
@@ -1256,18 +1277,23 @@ fun PalustrisApp(
                                         openReactionBubble(
                                             post,
                                             bounds,
-                                             when (singlePostOrigin) {
-                                                 LargePostOrigin.Profile -> onProfilePostReaction
-                                                 LargePostOrigin.Saved -> onSavedPostReaction
-                                                 LargePostOrigin.Liked -> onLikedPostReaction
-                                                 else -> onReaction
-                                            },
+                                         when {
+                                             threadEnabled -> onThreadReaction
+                                             else -> when (singlePostOrigin) {
+                                          LargePostOrigin.Profile -> onProfilePostReaction
+                                          LargePostOrigin.Saved -> onSavedPostReaction
+                                          LargePostOrigin.Liked -> onLikedPostReaction
+                                          else -> onReaction
+                                             }
+                                         },
                                         )
                                     },
                                     onOpenMedia = ::openMedia,
                                     onOpenUsername = ::openAccountSearch,
                                     embedded = true,
-                                    showCommentsPlaceholder = true,
+                                     threadState = selectedThreadState.takeIf { threadEnabled },
+                                     onThreadRefresh = onThreadRefresh,
+                                     onThreadContinue = onThreadContinue,
                                     quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
                                     onQuote = ::openQuote,
                                     modifier = paneModifier,
@@ -1388,21 +1414,24 @@ fun PalustrisApp(
                      ownedPost = post,
                      onClose = { singlePost = null },
                       availableActions = (feedState?.actions ?: emptySet()) +
-                          if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
-                      onReact = if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
-                     onReply = handleReply,
-                     onReshare = onReshare,
-                     onBookmark = onBookmark,
-                      onReaction = when (singlePostOrigin) {
-                          LargePostOrigin.Liked -> onLikedPostReaction
-                          else -> onReaction
-                      },
+                           if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
+                       onReact = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
+                      onReply = handleReply,
+                      onReshare = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadReshare else onReshare,
+                      onBookmark = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadBookmark else onBookmark,
+                       onReaction = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadReaction else when (singlePostOrigin) {
+                           LargePostOrigin.Liked -> onLikedPostReaction
+                           else -> onReaction
+                       },
                      onOpenProfile = ::openProfile,
                      onSearchHashtag = ::openHashtagSearch,
                      onOpenHashtagBubble = ::openHashtagBubble,
                      onOpenMedia = ::openMedia,
-                     onOpenUsername = ::openAccountSearch,
-                 )
+                      onOpenUsername = ::openAccountSearch,
+                      threadState = selectedThreadState.takeIf { selectedThreadState != null && singlePostOrigin.supportsComments() },
+                      onThreadRefresh = onThreadRefresh,
+                      onThreadContinue = onThreadContinue,
+                  )
              }
          }
      }
@@ -1447,12 +1476,13 @@ fun PalustrisApp(
             }, pendingEmojiInsertion = pendingEmojiInsertion, onEmojiInsertionApplied = { pendingEmojiInsertion = null }, onPublish = {
                 val submittedText = draft; val submittedWarning = warning.takeIf { warningEnabled && it.isNotBlank() }
                 val submittedQuote = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
-                val submittedReply = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
+                 val submittedReply = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
+                 val publishingAccountId = account?.id
                 scope.launch {
                     runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }.onSuccess { saved ->
                         draftId = saved.id; savedDraft = saved.text; savedWarning = saved.contentWarning.orEmpty()
-                        onPublish(CreatePostRequest(submittedText, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) {
-                            scope.launch { store.delete(account?.id, saved.id); reloadDrafts() }
+                         onPublish(CreatePostRequest(submittedText, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) { _ ->
+                             scope.launch { store.delete(publishingAccountId, saved.id); reloadDrafts() }
                             draft = ""
                             savedDraft = ""
                             warning = ""

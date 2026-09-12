@@ -49,6 +49,8 @@ import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.profile.ProfileViewModel
+import me.foxtails.palustris.ui.thread.PostThreadUiState
+import me.foxtails.palustris.ui.thread.PostThreadViewModel
 import me.foxtails.palustris.ui.directmessages.DirectMessageUiState
 import me.foxtails.palustris.ui.directmessages.DirectMessageViewModel
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
@@ -97,7 +99,7 @@ fun ConnectedApp(
         hiltViewModel<FeedViewModel, FeedViewModel.Factory>(
             key = "feed-${session.accountId}-${state.sessionGeneration}",
             creationCallback = { factory ->
-                factory.create(session.accountId, sharedSource!!)
+                factory.create(session.accountId, sharedSource!!, session.sessionRevision)
             },
         )
     }
@@ -161,6 +163,38 @@ fun ConnectedApp(
             key = "profile-${session.accountId}-${state.sessionGeneration}",
             creationCallback = { factory -> factory.create(session.accountId, sharedSource!!) },
         )
+    }
+    val threadModel = activeSession?.let { session ->
+        hiltViewModel<PostThreadViewModel, PostThreadViewModel.Factory>(
+            key = "thread-${session.accountId}-${state.sessionGeneration}",
+            creationCallback = { factory ->
+                factory.create(session.accountId, sharedSource!!, session.sessionRevision)
+            },
+        )
+    }
+    val threadState by if (threadModel != null) threadModel.state.collectAsStateWithLifecycle()
+    else remember { mutableStateOf(PostThreadUiState()) }
+    DisposableEffect(state.sessionGeneration, threadModel) {
+        onDispose { threadModel?.stop() }
+    }
+    LaunchedEffect(threadModel, feedModel) {
+        threadModel?.setPostUpdateListener { updated -> feedModel?.applyExternalPost(updated) }
+    }
+    DisposableEffect(threadModel, lifecycleOwner) {
+        if (threadModel == null) return@DisposableEffect onDispose {}
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> threadModel.setForeground(true)
+                Lifecycle.Event.ON_STOP -> threadModel.setForeground(false)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        threadModel.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            threadModel.setForeground(false)
+        }
     }
     DisposableEffect(state.sessionGeneration, profileModel) {
         onDispose { profileModel?.stop() }
@@ -247,7 +281,21 @@ fun ConnectedApp(
                 accounts = accountIndex.accounts,
                 onSwitchAccount = accountManager::switchAccount,
                 onAddAccount = accountManager::beginAddAccount,
-                onPublish = { request, onSuccess -> feedModel?.create(request, onSuccess) },
+                 onPublish = { request, onSuccess ->
+                     feedModel?.create(request) { created ->
+                         threadModel?.acceptPublishedReply(created)
+                         onSuccess(created)
+                     }
+                 },
+                 threadState = threadState.takeIf { it.focal != null },
+                 onThreadActivate = { post, enabled -> threadModel?.activate(post, enabled) },
+                 onThreadDeactivate = { threadModel?.deactivate() },
+                 onThreadRefresh = { threadModel?.refresh() },
+                 onThreadContinue = { threadModel?.continueAcquisition() },
+                 onThreadFavorite = { threadModel?.favorite(it) },
+                 onThreadReshare = { threadModel?.reshare(it) },
+                 onThreadBookmark = { threadModel?.bookmark(it) },
+                 onThreadReaction = { post, choice -> threadModel?.react(post, choice) },
                 onSearchAccounts = feedModel?.let { model -> { query -> model.search(query) } } ?: {},
                 onLoadMoreSearch = feedModel?.let { model -> { model.loadMoreSearch() } } ?: {},
                 draftStore = draftStore,

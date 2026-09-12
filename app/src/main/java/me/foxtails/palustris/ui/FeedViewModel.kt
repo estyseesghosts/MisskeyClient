@@ -29,6 +29,7 @@ import me.foxtails.palustris.domain.PrimaryFavouriteMode
 import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.effectiveTargetId
 
 @HiltViewModel(assistedFactory = FeedViewModel.Factory::class)
 class FeedViewModel @AssistedInject constructor(
@@ -36,12 +37,13 @@ class FeedViewModel @AssistedInject constructor(
     @Assisted private val source: SocialSource,
     private val syncCoordinator: AccountSyncCoordinator,
     private val postPreferencesRepository: PostPreferencesRepository,
+    @Assisted private val sessionRevision: Long,
 ) : ViewModel() {
     constructor(
         accountId: AccountId,
         source: SocialSource,
         syncCoordinator: AccountSyncCoordinator,
-    ) : this(accountId, source, syncCoordinator, InMemoryPostPreferencesRepository())
+    ) : this(accountId, source, syncCoordinator, InMemoryPostPreferencesRepository(), 0L)
 
     private val _feed = MutableStateFlow(FeedState())
     val feed = _feed.asStateFlow()
@@ -139,15 +141,15 @@ class FeedViewModel @AssistedInject constructor(
         }
     }
 
-    fun create(request: CreatePostRequest, onSuccess: () -> Unit = {}) {
+    fun create(request: CreatePostRequest, onSuccess: (OwnedPost) -> Unit = {}) {
         if (stopped || _feed.value.publishing) return
         publishJob?.cancel()
         publishJob = viewModelScope.launch {
             _feed.value = _feed.value.copy(publishing = true, error = null)
             try {
-                source.create(request)
+                val created = source.create(request)
                 _feed.value = _feed.value.copy(publishing = false, error = null)
-                onSuccess()
+                if (!stopped) onSuccess(OwnedPost(accountId, created, sessionRevision))
                 refresh()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -322,6 +324,13 @@ class FeedViewModel @AssistedInject constructor(
         )
     }
 
+    /** Applies confirmed action fields to existing collections without inserting thread-only posts. */
+    fun applyExternalPost(updated: OwnedPost) {
+        if (stopped || updated.fetchedBy != accountId || updated.sessionRevision != sessionRevision) return
+        val target = updated.effectiveTargetId()
+        updateExternalPost(target, updated.post)
+    }
+
     fun stop() {
         if (stopped) return
         stopped = true
@@ -423,6 +432,35 @@ class FeedViewModel @AssistedInject constructor(
         )
     }
 
+    private fun updateExternalPost(target: EntityId, incoming: Post) {
+        _feed.value = _feed.value.copy(
+            posts = _feed.value.posts.map { post ->
+                if (post.id == target || post.actionTargetId == target) mergeExternalActionFields(post, incoming) else post
+            },
+            ownedPosts = _feed.value.ownedPosts.map { owned ->
+                if (owned.fetchedBy == accountId && (owned.post.id == target || owned.effectiveTargetId() == target)) {
+                    owned.copy(post = mergeExternalActionFields(owned.post, incoming))
+                } else owned
+            },
+            accountSearch = _feed.value.accountSearch.copy(
+                posts = _feed.value.accountSearch.posts.map { post ->
+                    if (post.id == target || post.actionTargetId == target) mergeExternalActionFields(post, incoming) else post
+                },
+            ),
+        )
+    }
+
+    private fun mergeExternalActionFields(existing: Post, incoming: Post): Post = existing.copy(
+        favourited = incoming.favourited,
+        myReaction = incoming.myReaction,
+        selectedReactions = incoming.selectedReactions,
+        reactions = incoming.reactions,
+        reposted = incoming.reposted,
+        reshareCount = incoming.reshareCount,
+        ownRepostId = incoming.ownRepostId,
+        saved = incoming.saved,
+    )
+
     private fun updatePosts(transform: (Post) -> Post) {
         val transformed = _feed.value.posts.associate { it.id to transform(it) }
         _feed.value = _feed.value.copy(
@@ -455,6 +493,6 @@ class FeedViewModel @AssistedInject constructor(
 
     @AssistedFactory
     interface Factory {
-        fun create(accountId: AccountId, source: SocialSource): FeedViewModel
+        fun create(accountId: AccountId, source: SocialSource, sessionRevision: Long): FeedViewModel
     }
 }

@@ -344,6 +344,20 @@ internal fun PostRow(
             onOpenHashtagBubble = onOpenHashtagBubble,
             postOwned = ownedPost,
         )
+        if (post.contentVisibility != me.foxtails.palustris.domain.PostContentVisibility.Visible) {
+            Text(
+                stringResource(
+                    if (post.contentVisibility == me.foxtails.palustris.domain.PostContentVisibility.Hidden) {
+                        R.string.post_content_unavailable
+                    } else {
+                        R.string.post_content_filtered
+                    },
+                ),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return@Column
+        }
         if (post.replyTo != null) Text(stringResource(R.string.post_reply), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         if (post.contentWarning != null) {
             InlineEmojiText(post.contentWarning.ifBlank { stringResource(R.string.content_warning) }, post.emoji, Modifier.padding(horizontal = 16.dp), MaterialTheme.typography.bodyLarge)
@@ -448,6 +462,9 @@ internal fun PostRow(
         )
     }
 }
+
+internal fun actionsForPost(availableActions: Set<PostAction>, post: Post): Set<PostAction> =
+    if (post.availableActions.isEmpty()) availableActions else availableActions.intersect(post.availableActions)
 
 @Composable
 internal fun PostBodyText(

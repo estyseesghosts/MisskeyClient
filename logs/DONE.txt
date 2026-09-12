@@ -109,8 +109,8 @@ Confirmed that the worktree already contains unrelated changes. No existing file
  - Signed APK verified with apksigner and written to C:\Users\julie\newmisskeyclientprojectdirectory\app-release.apk.
 - Restored the large timeline dock accessibility label and replaced Compose-invalid LocalContext resource reads with stringResource calls.
 - Full unit tests, lintDebug, assembleDebug, and assembleRelease passed.
-- connectedDebugAndroidTest ran on the connected device; Room persistence, AVIF, and example tests passed, while the existing API-29 startup and system-bar tests failed with no Compose hierarchy found.
-- Pushed the six stabilization commits to `origin/feature/foldable-ui` through `d548130`.
+ - connectedDebugAndroidTest ran on the connected device; Room persistence, AVIF, and example tests passed, while the existing API-29 startup and system-bar tests failed with no Compose hierarchy found.
+ - Pushed the six stabilization commits to `origin/feature/foldable-ui` through `d548130`.
 260910-131102 Release pipeline:
 - Added a tag-driven signed APK workflow with test and lint gates.
 - Added release tag version handling for `versionName` and `versionCode`.
@@ -203,3 +203,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 20260911-024000 Version 0.1.1 release task:
  - Updated the default app version to `0.1.1` and default Android version code to `1001`.
  - Pushed the version commit and `v0.1.1` tag to GitHub.
+260912-122728 Thread implementation completion:
+ - Added account-session thread lifecycle, publishing insertion, action reconciliation, and shared compact/wide detail integration.
+ - Refactored detail rendering to one lazy list with bounded reply rows, connectors, localized loading/limit states, and Photo Grid exclusion.
+ - Added ViewModel and Mastodon context regression coverage; hardened capability checks, response-size handling, and one-use Misskey continuations.
+ - Verification passed: focused 122-test thread/navigation/adapter suite, `lintDebug`, and `test assembleRelease`.
+ - Live-server, device-rendering, and supported Misskey/Sharkey release checks remain unverified.

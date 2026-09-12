@@ -31,6 +31,8 @@ import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfilePageState
 import me.foxtails.palustris.ui.profile.ProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
+import me.foxtails.palustris.ui.thread.PostThreadPhase
+import me.foxtails.palustris.ui.thread.PostThreadUiState
 import org.junit.Assert.assertTrue
 import org.junit.After
 import org.junit.Before
@@ -117,6 +119,10 @@ class WideNavigationTest {
                 PalustrisApp(
                     account = account,
                     feedState = FeedState(posts = listOf(post)),
+                    threadState = PostThreadUiState(
+                        phase = PostThreadPhase.Content,
+                        focal = OwnedPost(account.id, post),
+                    ),
                 )
             }
         }
@@ -124,7 +130,7 @@ class WideNavigationTest {
 
         compose.onNodeWithText("Open post").performClick()
         compose.onNodeWithContentDescription("Close post").assertIsDisplayed()
-        compose.onNodeWithText("Comments").assertIsDisplayed()
+        compose.onNodeWithText("Replies").assertIsDisplayed()
     }
 
     @Test fun wideProfileUsesNormalChipFlowAndKeepsSelfActionReachable() {

@@ -18,9 +18,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +60,9 @@ import me.foxtails.palustris.ui.emoji.AccountDisplayName
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.MediaPage
 import me.foxtails.palustris.ui.media.PostMediaCarousel
+import me.foxtails.palustris.ui.thread.PostThreadPhase
+import me.foxtails.palustris.ui.thread.PostThreadUiState
+import me.foxtails.palustris.ui.thread.ThreadedReplyRow
 
 @Composable
 internal fun SinglePostScreen(
@@ -78,7 +82,9 @@ internal fun SinglePostScreen(
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
     embedded: Boolean = false,
-    showCommentsPlaceholder: Boolean = false,
+    threadState: PostThreadUiState? = null,
+    onThreadRefresh: () -> Unit = {},
+    onThreadContinue: () -> Unit = {},
     quoteEnabled: Boolean = false,
     onQuote: (OwnedPost) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -89,42 +95,70 @@ internal fun SinglePostScreen(
 
     key(ownedPost.fetchedBy, post.id.connection, post.id.value) {
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-            Column(
+            val listState = rememberLazyListState()
+            LazyColumn(
+                state = listState,
                 modifier = modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
-                    .verticalScroll(rememberScrollState())
                     .testTag("single_post_content"),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp),
             ) {
-            Row(
-             modifier = Modifier.fillMaxWidth().then(if (embedded) Modifier else Modifier.statusBarsPadding()).height(64.dp).padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ActionIcon(AppIcons.Back, stringResource(R.string.single_post_close), onClose)
-            Text(stringResource(R.string.single_post_title), modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleLarge)
-        }
-
-        if (photos.isEmpty()) {
-            PostRow(
-                ownedPost = ownedPost,
-                availableActions = availableActions,
-                onReact = onReact,
-                onReply = onReply,
-                onReshare = onReshare,
-                onBookmark = onBookmark,
-                 onReaction = onReaction,
-                 onOpenProfile = onOpenProfile,
-                 onSearchHashtag = onSearchHashtag,
-                 onOpenHashtagBubble = onOpenHashtagBubble,
-                 onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
-                 onOpenMedia = onOpenMedia,
-                 truncateBody = false,
-                 quoteEnabled = quoteEnabled,
-                 onQuote = onQuote,
-                 onOpenUrl = onOpenUrl,
-                onOpenUsername = onOpenUsername,
-            )
-        } else {
+                item("single-post-header", contentType = "header") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().then(if (embedded) Modifier else Modifier.statusBarsPadding())
+                            .height(64.dp).padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ActionIcon(AppIcons.Back, stringResource(R.string.single_post_close), onClose)
+                        Text(stringResource(R.string.single_post_title), modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+                threadState?.ancestors?.let { ancestors ->
+                    items(ancestors, key = { "ancestor:${it.sessionRevision}:${it.post.id.connection}:${it.post.id.value}" }, contentType = { "ancestor" }) { ancestor ->
+                        PostRow(
+                            ownedPost = ancestor,
+                            availableActions = actionsForPost(availableActions, ancestor.post),
+                            onReact = onReact,
+                            onReply = onReply,
+                            onReshare = onReshare,
+                            onBookmark = onBookmark,
+                            onReaction = onReaction,
+                            onOpenProfile = onOpenProfile,
+                            onSearchHashtag = onSearchHashtag,
+                            onOpenHashtagBubble = onOpenHashtagBubble,
+                            onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
+                            onOpenMedia = onOpenMedia,
+                            truncateBody = false,
+                            quoteEnabled = quoteEnabled,
+                            onQuote = onQuote,
+                            onOpenUrl = onOpenUrl,
+                            onOpenUsername = onOpenUsername,
+                        )
+                    }
+                }
+                item("single-post-focal", contentType = "focal") {
+                if (photos.isEmpty()) {
+                    PostRow(
+                        ownedPost = ownedPost,
+                        availableActions = actionsForPost(availableActions, post),
+                        onReact = onReact,
+                        onReply = onReply,
+                        onReshare = onReshare,
+                        onBookmark = onBookmark,
+                        onReaction = onReaction,
+                        onOpenProfile = onOpenProfile,
+                        onSearchHashtag = onSearchHashtag,
+                        onOpenHashtagBubble = onOpenHashtagBubble,
+                        onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
+                        onOpenMedia = onOpenMedia,
+                        truncateBody = false,
+                        quoteEnabled = quoteEnabled,
+                        onQuote = onQuote,
+                        onOpenUrl = onOpenUrl,
+                        onOpenUsername = onOpenUsername,
+                    )
+                } else {
             val presentation = remember(post.text, post.emoji) { parseHashtagBlocks(post.text, post.emoji) }
             var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
             val contentVisible = post.contentWarning == null || expanded
@@ -230,21 +264,92 @@ internal fun SinglePostScreen(
                     }
                 }
             }
-            }
-            if (showCommentsPlaceholder) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp)) {
-                    Text(stringResource(R.string.post_comments), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        stringResource(R.string.single_post_comments_unavailable),
-                        modifier = Modifier.padding(top = 4.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    }
+                }
+                threadState?.let { state ->
+                    item("thread-heading", contentType = "thread-heading") {
+                        Text(
+                            stringResource(R.string.thread_replies),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    items(state.rows, key = { it.stableKey }, contentType = { "reply" }) { row ->
+                        ThreadedReplyRow(
+                            row = row,
+                            availableActions = availableActions,
+                            onReact = onReact,
+                            onReply = onReply,
+                            onReshare = onReshare,
+                            onBookmark = onBookmark,
+                            onReaction = onReaction,
+                            onOpenProfile = onOpenProfile ?: {},
+                            onSearchHashtag = onSearchHashtag ?: {},
+                            onOpenHashtagBubble = onOpenHashtagBubble,
+                            onOpenReactionBubble = onOpenReactionBubble,
+                            onOpenMedia = onOpenMedia,
+                            onOpenUrl = onOpenUrl,
+                            onOpenUsername = onOpenUsername,
+                            quoteEnabled = quoteEnabled,
+                            onQuote = onQuote,
+                        )
+                    }
+                    items(state.disconnectedRows, key = { "disconnected:${it.stableKey}" }, contentType = { "disconnected" }) { row ->
+                        ThreadedReplyRow(
+                            row = row,
+                            availableActions = availableActions,
+                            onReact = onReact,
+                            onReply = onReply,
+                            onReshare = onReshare,
+                            onBookmark = onBookmark,
+                            onReaction = onReaction,
+                            onOpenProfile = onOpenProfile ?: {},
+                            onSearchHashtag = onSearchHashtag ?: {},
+                            onOpenHashtagBubble = onOpenHashtagBubble,
+                            onOpenReactionBubble = onOpenReactionBubble,
+                            onOpenMedia = onOpenMedia,
+                            onOpenUrl = onOpenUrl,
+                            onOpenUsername = onOpenUsername,
+                            quoteEnabled = quoteEnabled,
+                            onQuote = onQuote,
+                        )
+                    }
+                    item("thread-status", contentType = "thread-status") {
+                        ThreadStatus(state, onThreadRefresh, onThreadContinue)
+                    }
                 }
             }
         }
-        }
     }
     if (!embedded) BackHandler(onBack = onClose)
+}
+
+@Composable
+private fun ThreadStatus(
+    state: PostThreadUiState,
+    onRefresh: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        when (state.phase) {
+            PostThreadPhase.InitialLoading, PostThreadPhase.Continuing ->
+                Text(stringResource(R.string.thread_loading_replies), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            PostThreadPhase.InitialFailure -> {
+                Text(stringResource(R.string.thread_replies_could_not_load), color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = onRefresh) { Text(stringResource(R.string.notifications_retry)) }
+            }
+            PostThreadPhase.Partial -> {
+                if (state.error != null) Text(stringResource(R.string.thread_replies_could_not_load), color = MaterialTheme.colorScheme.error)
+                if (state.continuation == null) Text(stringResource(R.string.thread_loading_limit_reached), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            PostThreadPhase.Content -> if (state.rows.isEmpty() && state.disconnectedRows.isEmpty()) {
+                Text(stringResource(R.string.thread_no_replies), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            PostThreadPhase.Refreshing -> Text(stringResource(R.string.thread_refreshing), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            PostThreadPhase.Inactive, PostThreadPhase.AccountUnavailable -> Unit
+        }
+        if (state.continuation != null) TextButton(onClick = onContinue) { Text(stringResource(R.string.thread_load_more)) }
+    }
 }
 
 @Composable

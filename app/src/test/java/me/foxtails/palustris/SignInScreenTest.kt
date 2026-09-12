@@ -78,7 +78,7 @@ class SignInScreenTest {
 
     @Test fun publishingKeepsDraftUntilSuccessCallback() {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
-        var complete: (() -> Unit)? = null
+        var complete: ((OwnedPost) -> Unit)? = null
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = account,
@@ -92,7 +92,14 @@ class SignInScreenTest {
         compose.onNodeWithText("Publish").performClick()
         compose.onNodeWithContentDescription("Post text").assertTextContains("Keep this draft")
 
-        compose.runOnIdle { complete?.invoke() }
+        compose.runOnIdle {
+            complete?.invoke(
+                OwnedPost(
+                    account.id,
+                    Post(EntityId(account.id.connection.origin, "created"), account, "", 0L, Audience.Public),
+                ),
+            )
+        }
         compose.onNodeWithContentDescription("Post text").assertDoesNotExist()
     }
 

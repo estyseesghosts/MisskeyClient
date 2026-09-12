@@ -182,6 +182,46 @@ class MastodonIntegrationTest {
     }
 
     @Test
+    fun sourceLoadsCanonicalPostContextAndHonorsRefreshHint() = runBlocking {
+        val ancestor = status("ancestor").put("in_reply_to_id", "older")
+        val reply = status("reply").put("in_reply_to_id", "focal")
+        server.enqueue(MockResponse().setBody(status("focal").toString()))
+        server.enqueue(
+            MockResponse()
+                .setBody(JSONObject()
+                    .put("ancestors", JSONArray().put(ancestor))
+                    .put("descendants", JSONArray().put(reply))
+                    .toString())
+                .addHeader("Mastodon-Async-Refresh", "id=\"job\", retry=3, result_count=1"),
+        )
+        val source = source()
+
+        val context = source.threadContext(EntityId(origin, "focal"))
+
+        assertEquals("focal", context.focal.id.value)
+        assertEquals(listOf("ancestor"), context.ancestors.map { it.id.value })
+        assertEquals(listOf("reply"), context.descendants.map { it.id.value })
+        assertEquals(3_000L, context.refreshHint?.minimumDelayMillis)
+        assertEquals("/api/v1/statuses/focal", server.takeRequest().path)
+        assertEquals("/api/v1/statuses/focal/context", server.takeRequest().path)
+    }
+
+    @Test
+    fun threadContextRejectsContinuationFromAnotherSession() = runBlocking {
+        val source = source()
+        val other = AccountId(Connection(origin, Protocol.MASTODON), "other-user")
+        val continuation = me.foxtails.palustris.domain.ThreadContinuation(
+            me.foxtails.palustris.domain.ThreadSessionKey(other, 0L, EntityId(origin, "focal")),
+            "opaque",
+        )
+
+        assertThrows(SourceError.Unsupported::class.java) {
+            runBlocking { source.threadContext(EntityId(origin, "focal"), continuation) }
+        }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
     fun sourceUsesLinkCursorAndBearerTimelineRequest() = runBlocking {
         server.enqueue(MockResponse().setBody("[${status("newest")}]" ).addHeader(
             "Link", "<$origin/api/v1/timelines/home?max_id=newest>; rel=\"next\"",
@@ -437,7 +477,7 @@ class MastodonIntegrationTest {
         val source = reactionSource()
         val foreign = EntityId("https://other.example", "status-1")
 
-        assertThrows(SourceError.Unsupported::class.java) {
+        assertThrows(SourceError.ForeignOrigin::class.java) {
             runBlocking { source.react(foreign, EmojiChoice(":a:", ":a:", null)) }
         }
         assertEquals(0, server.requestCount)

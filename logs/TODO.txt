@@ -1,3 +1,1 @@
 # Active tasks
-
-- 260912-122728: Implement server-authoritative post threads from docs/implementcomments.md.

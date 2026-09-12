@@ -18,6 +18,7 @@ class SocialSourceFactory @Inject constructor(private val clientPool: HttpClient
             api = MisskeyApi(clientPool.clientFor(session.accountId.connection)),
             accountId = session.accountId,
             initialCapabilities = session.capabilities,
+            sessionRevision = session.sessionRevision,
         )
         Protocol.MASTODON -> {
             val api = MisskeyApi(clientPool.clientFor(session.accountId.connection))
@@ -28,6 +29,7 @@ class SocialSourceFactory @Inject constructor(private val clientPool: HttpClient
                 accountId = session.accountId,
                 initialCapabilities = session.capabilities,
                 capabilityProbe = MastodonCapabilityProbe(api),
+                sessionRevision = session.sessionRevision,
             )
         }
     }
