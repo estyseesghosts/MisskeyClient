@@ -24,6 +24,7 @@ import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.CompactSearchChipRowHeight
 import me.foxtails.palustris.ui.timelineLabelRes
+import me.foxtails.palustris.domain.timelineDisplayOrder
 
 internal val LargeBottomDockClearance = 88.dp
 internal val LargeSearchDockClearance = 144.dp
@@ -53,7 +54,7 @@ internal fun LargeTimelineDockContent(
         Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Timeline.entries.filter { it in timelines }.forEach { timeline ->
+        timelineDisplayOrder.filter { it in timelines }.forEach { timeline ->
             val label = stringResource(timelineLabelRes(timeline))
             val description = stringResource(R.string.large_timeline, label)
             FilterChip(

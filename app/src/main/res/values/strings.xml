@@ -395,5 +395,6 @@
     <string name="timeline_home">Home</string>
     <string name="timeline_local">Local</string>
     <string name="timeline_social">Social</string>
+    <string name="timeline_bubble">Bubble</string>
     <string name="timeline_federated">Federated</string>
 </resources>

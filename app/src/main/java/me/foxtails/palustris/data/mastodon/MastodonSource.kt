@@ -99,7 +99,7 @@ class MastodonSource(
             Timeline.Home -> "v1/timelines/home"
             Timeline.Local -> "v1/timelines/public?local=true"
             Timeline.Federated -> "v1/timelines/public"
-            Timeline.Social -> throw SourceError.Unsupported("timeline:$timeline")
+            Timeline.Social, Timeline.Bubble -> throw SourceError.Unsupported("timeline:$timeline")
         }
         val response = getPage(endpoint, cursor)
         val statuses = JSONArray(response.body)
@@ -486,7 +486,7 @@ class MastodonSource(
     private suspend fun refreshCapabilities() {
         val probe = capabilityProbe ?: return
         val now = clock()
-        val schemaCurrent = capabilities.capabilitySchemaVersion >= ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION
+        val schemaCurrent = capabilities.capabilitySchemaVersion == ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION
         if (schemaCurrent && now - capabilities.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS) return
         try {
             val probed = probe.probeCapabilities(Connection(origin, Protocol.MASTODON))

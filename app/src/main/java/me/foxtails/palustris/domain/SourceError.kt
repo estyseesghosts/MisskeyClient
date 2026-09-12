@@ -5,6 +5,7 @@ sealed class SourceError : Exception() {
     object AccountMismatch : SourceError()
     object RateLimited : SourceError()
     data class Unsupported(val feature: String) : SourceError()
+    data class AccessDenied(val feature: String) : SourceError()
     data class UnsupportedCredential(val feature: String) : SourceError()
     data class ServerUnsupported(val feature: String) : SourceError()
     data class ResourceLimit(val feature: String) : SourceError()

@@ -22,7 +22,8 @@ enum class SearchPanel { Search, PhotoGrid }
 internal enum class LargePostOrigin { Home, Search, PhotoGrid, Profile, Saved, Liked, Notification, Other }
 
 internal fun LargePostOrigin.supportsComments(): Boolean = this == LargePostOrigin.Home ||
-    this == LargePostOrigin.Search || this == LargePostOrigin.Profile
+    this == LargePostOrigin.Search || this == LargePostOrigin.PhotoGrid || this == LargePostOrigin.Profile ||
+    this == LargePostOrigin.Saved || this == LargePostOrigin.Liked || this == LargePostOrigin.Notification
 internal sealed interface Overlay {
     data object Composer : Overlay
     data object EditProfile : Overlay
@@ -54,6 +55,7 @@ internal fun timelineLabelRes(timeline: Timeline): Int = when (timeline) {
     Timeline.Home -> R.string.timeline_home
     Timeline.Local -> R.string.timeline_local
     Timeline.Social -> R.string.timeline_social
+    Timeline.Bubble -> R.string.timeline_bubble
     Timeline.Federated -> R.string.timeline_federated
 }
 

@@ -3,6 +3,7 @@ package me.foxtails.palustris.domain
 /** Supplied by an adapter and refreshed as the server's feature set changes. */
 data class ServerCapabilities(
     val timelines: Set<Timeline> = emptySet(),
+    val timelineStatuses: Map<Timeline, CapabilityStatus> = emptyMap(),
     val audiences: Set<Audience> = emptySet(),
     val actions: Set<PostAction> = emptySet(),
     val maxPostLength: Int? = null,
@@ -20,11 +21,27 @@ data class ServerCapabilities(
     val capabilitySchemaVersion: Int = CURRENT_CAPABILITY_SCHEMA_VERSION,
 ) {
     companion object {
-        const val CURRENT_CAPABILITY_SCHEMA_VERSION = 3
+        const val CURRENT_CAPABILITY_SCHEMA_VERSION = 4
     }
 }
 
 enum class CapabilityStatus { Supported, Denied, Unsupported, TemporarilyUnavailable, Unknown }
+
+val timelineDisplayOrder: List<Timeline> = listOf(
+    Timeline.Home,
+    Timeline.Local,
+    Timeline.Social,
+    Timeline.Bubble,
+    Timeline.Federated,
+)
+
+fun ServerCapabilities.timelineStatus(timeline: Timeline): CapabilityStatus =
+    timelineStatuses[timeline] ?: if (timeline in timelines) CapabilityStatus.Supported else CapabilityStatus.Unknown
+
+fun ServerCapabilities.withTimelineStatuses(statuses: Map<Timeline, CapabilityStatus>): ServerCapabilities = copy(
+    timelines = statuses.filterValues { it == CapabilityStatus.Supported }.keys,
+    timelineStatuses = statuses,
+)
 
 data class ProfileCapabilities(
     val details: CapabilityStatus = CapabilityStatus.Unknown,

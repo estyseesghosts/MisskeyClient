@@ -610,8 +610,46 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
 
             assertEquals(setOf(Timeline.Home, Timeline.Local, Timeline.Social), capabilities.timelines)
             assertFalse(Timeline.Federated in capabilities.timelines)
+            assertEquals(CapabilityStatus.Supported, capabilities.timelineStatus(Timeline.Local))
+            assertEquals(CapabilityStatus.Unknown, capabilities.timelineStatus(Timeline.Bubble))
             assertEquals(setOf(PostAction.Reply, PostAction.Reshare, PostAction.Favorite, PostAction.React, PostAction.Bookmark), capabilities.actions)
             assertEquals(CapabilityStatus.Supported, capabilities.likedPosts)
+        }
+    }
+
+    @Test fun authenticatedCapabilityProbeSeparatesBubbleSupportAndPolicy() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody(JSONObject().put("version", "2026.1.0").toString()))
+            server.enqueue(MockResponse().setBody(JSONObject().put("policies", JSONObject()
+                .put("ltlAvailable", true).put("btlAvailable", true).put("gtlAvailable", false)).toString()))
+            server.enqueue(MockResponse().setBody("[]"))
+            val origin = server.url("/").toString().removeSuffix("/")
+
+            val capabilities = MisskeyCapabilityProbe(MisskeyApi(), "token").probeCapabilities(
+                Connection(origin, Protocol.MISSKEY),
+            )
+
+            assertEquals(CapabilityStatus.Supported, capabilities.timelineStatus(Timeline.Bubble))
+            assertTrue(Timeline.Bubble in capabilities.timelines)
+            assertEquals("/api/meta", server.takeRequest().path)
+            assertEquals("/api/i", server.takeRequest().path)
+            assertEquals("/api/notes/bubble-timeline", server.takeRequest().path)
+        }
+    }
+
+    @Test fun authenticatedCapabilityProbeReportsDeniedBubblePolicy() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody(JSONObject().put("version", "2026.1.0").toString()))
+            server.enqueue(MockResponse().setBody(JSONObject().put("policies", JSONObject().put("btlAvailable", false)).toString()))
+            server.enqueue(MockResponse().setResponseCode(403).setBody(JSONObject().put("error", JSONObject().put("code", "BTL_DISABLED")).toString()))
+            val origin = server.url("/").toString().removeSuffix("/")
+
+            val capabilities = MisskeyCapabilityProbe(MisskeyApi(), "token").probeCapabilities(
+                Connection(origin, Protocol.MISSKEY),
+            )
+
+            assertEquals(CapabilityStatus.Denied, capabilities.timelineStatus(Timeline.Bubble))
+            assertFalse(Timeline.Bubble in capabilities.timelines)
         }
     }
 

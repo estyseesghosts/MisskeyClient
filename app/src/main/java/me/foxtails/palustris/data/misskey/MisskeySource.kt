@@ -42,6 +42,7 @@ import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.timelineStatus
 import me.foxtails.palustris.domain.ThreadAcquisitionState
 import me.foxtails.palustris.domain.ThreadContext
 import me.foxtails.palustris.domain.ThreadContinuation
@@ -67,10 +68,11 @@ class MisskeySource(
     private val api: MisskeyApi,
     private val initialCapabilities: ServerCapabilities = ServerCapabilities(timelines = setOf(Timeline.Home)),
     private val accountId: AccountId? = null,
-    private val capabilityProbe: CapabilityProbe = MisskeyCapabilityProbe(api),
+    private val capabilityProbe: CapabilityProbe = MisskeyCapabilityProbe(api, token.takeIf { accountId != null }),
     private val capabilityCache: CapabilityCache = CapabilityCache(),
     private val clock: () -> Long = System::currentTimeMillis,
     private val sessionRevision: Long = 0L,
+    private val onCapabilitiesUpdated: ((ServerCapabilities) -> Unit)? = null,
 ) : SocialSource, DirectMessageSource {
     private val cacheKey = CapabilityCacheKey(origin, accountId ?: AccountId(Connection(origin, Protocol.MISSKEY), "anonymous"))
     private val _capabilities = MutableStateFlow(initialCapabilities)
@@ -85,15 +87,23 @@ class MisskeySource(
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request(invalidateCapabilitiesOnNotFound = true) {
             refreshCapabilities()
-            if (timeline !in capabilities.timelines) throw SourceError.Unsupported("timeline:$timeline")
+            when (capabilities.timelineStatus(timeline)) {
+                CapabilityStatus.Supported -> Unit
+                CapabilityStatus.Denied -> throw SourceError.AccessDenied("timeline:$timeline")
+                CapabilityStatus.Unsupported -> throw SourceError.Unsupported("timeline:$timeline")
+                CapabilityStatus.TemporarilyUnavailable -> throw SourceError.ServerError("timeline:$timeline")
+                CapabilityStatus.Unknown -> throw SourceError.Unsupported("timeline:$timeline")
+            }
             val params = JSONObject().put("i", token).put("limit", 30)
             if (cursor != null) params.put("untilId", cursor)
             val endpoint = when (timeline) {
                 Timeline.Home -> "notes/timeline"
                 Timeline.Local -> "notes/local-timeline"
                 Timeline.Social -> "notes/hybrid-timeline"
+                Timeline.Bubble -> "notes/bubble-timeline"
                 Timeline.Federated -> "notes/global-timeline"
             }
+            params.put("withFiles", true)
             val notes = JSONArray(api.post(origin, endpoint, params).body)
             Page((0 until notes.length()).map { MisskeyMapper.post(notes.getJSONObject(it), origin) },
                 // Use the OUTER renote ID, not the displayed original note, for pagination.
@@ -621,9 +631,11 @@ class MisskeySource(
 
     private suspend fun refreshCapabilities() {
         val now = clock()
-        if (now - capabilities.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS) return
+        val schemaCurrent = capabilities.capabilitySchemaVersion == ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION
+        if (schemaCurrent && now - capabilities.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS) return
         capabilityCache.get(cacheKey)?.takeIf {
-            now - it.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS
+            it.capabilitySchemaVersion == ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION &&
+                now - it.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS
         }?.let {
             _capabilities.value = it.copy(
                 canPublish = it.canPublish || capabilities.canPublish,
@@ -641,6 +653,7 @@ class MisskeySource(
                 )
                 _capabilities.value = updated
                 capabilityCache.put(cacheKey, updated)
+                onCapabilitiesUpdated?.invoke(updated)
             }
         } catch (e: CancellationException) {
             throw e

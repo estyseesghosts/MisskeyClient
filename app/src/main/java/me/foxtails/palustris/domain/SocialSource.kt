@@ -3,7 +3,7 @@ package me.foxtails.palustris.domain
 /** Transport-independent boundary implemented by individual server adapters. */
 interface SocialSource {
     val capabilities: ServerCapabilities
-    suspend fun timelines(): List<Timeline> = capabilities.timelines.toList()
+    suspend fun timelines(): List<Timeline> = timelineDisplayOrder.filter { it in capabilities.timelines }
     suspend fun timeline(timeline: Timeline, cursor: String? = null): Page<Post>
     suspend fun post(id: EntityId): Post = unsupported("post")
     suspend fun profile(id: AccountId): Account = unsupported("profile")

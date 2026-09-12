@@ -624,6 +624,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
         SourceError.NetworkUnavailable -> "server_push_network"
         SourceError.RateLimited -> "server_push_rate_limited"
         is SourceError.Unsupported -> "server_push_unsupported"
+        is SourceError.AccessDenied -> "server_push_access_denied"
         is SourceError.UnsupportedCredential -> "server_push_unsupported_credential"
         is SourceError.ServerUnsupported -> "server_push_server_unsupported"
         is SourceError.ResourceLimit -> "server_push_resource_limit"
@@ -637,6 +638,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
         SourceError.NetworkUnavailable -> PushRegistrationFailureReason.Network
         SourceError.RateLimited -> PushRegistrationFailureReason.RateLimited
         is SourceError.Unsupported -> PushRegistrationFailureReason.Unsupported
+        is SourceError.AccessDenied -> PushRegistrationFailureReason.Unsupported
         is SourceError.UnsupportedCredential -> PushRegistrationFailureReason.Unsupported
         is SourceError.ServerUnsupported -> PushRegistrationFailureReason.Unsupported
         is SourceError.ResourceLimit -> PushRegistrationFailureReason.Server

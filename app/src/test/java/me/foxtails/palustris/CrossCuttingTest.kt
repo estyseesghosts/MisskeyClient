@@ -33,6 +33,7 @@ import me.foxtails.palustris.domain.PushSessionState
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.timelineStatus
 import me.foxtails.palustris.domain.ValidatedUrl
 import me.foxtails.palustris.ui.requiresSignIn
 import me.foxtails.palustris.ui.sourceErrorMessage
@@ -210,13 +211,15 @@ class CrossCuttingTest {
 
         val restored = store.read(accountId) ?: error("Session was not restored")
 
-        assertEquals(0, restored.capabilities.capabilitySchemaVersion)
+        assertEquals(ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION, restored.capabilities.capabilitySchemaVersion)
+        assertTrue(restored.capabilities.timelines.isEmpty())
+        assertEquals(CapabilityStatus.Unknown, restored.capabilities.timelineStatus(Timeline.Bubble))
         assertEquals(CapabilityStatus.Unknown, restored.capabilities.profile.editable.read)
         assertEquals(CapabilityStatus.Unknown, restored.capabilities.profile.editable.imageDescriptions)
         assertEquals(CapabilityStatus.Unknown, restored.capabilities.emoji.catalog)
         assertEquals(CapabilityStatus.Unknown, restored.capabilities.emoji.reactionMutation)
         assertEquals(me.foxtails.palustris.domain.ReactionSelectionMode.Unknown, restored.capabilities.emoji.selectionMode)
-        assertTrue(restored.capabilities.canPublish)
+        assertFalse(restored.capabilities.canPublish)
     }
 
     @Test

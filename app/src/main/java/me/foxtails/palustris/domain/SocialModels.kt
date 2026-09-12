@@ -3,7 +3,7 @@ package me.foxtails.palustris.domain
 /** IDs are opaque and scoped to a connection. Never parse them as numbers or dates. */
 data class EntityId(val connection: String, val value: String)
 
-enum class Timeline { Home, Local, Social, Federated }
+enum class Timeline { Home, Local, Social, Bubble, Federated }
 enum class Audience { Public, Unlisted, Followers, Direct }
 enum class PostAction { Reply, Reshare, Favorite, React, Bookmark }
 

@@ -1,1 +1,3 @@
 # Active tasks
+
+- Implement and verify independent Photo Grid feeds, Bubble capabilities, presentations, replies, and action synchronization.

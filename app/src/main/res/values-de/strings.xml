@@ -65,4 +65,5 @@
     <string name="content_warning_hide">Inhalt ausblenden</string>
     <string name="content_warning_show">Inhalt anzeigen</string>
     <string name="timeline_home">Startseite</string>
+    <string name="timeline_bubble">Bubble</string>
 </resources>

@@ -27,6 +27,7 @@ import me.foxtails.palustris.data.auth.MisskeyAuth
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
+import me.foxtails.palustris.data.misskey.CapabilityCache
 import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.NotificationStore
@@ -68,6 +69,10 @@ annotation class IoDispatcher
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+    @Provides
+    @Singleton
+    fun provideCapabilityCache(): CapabilityCache = CapabilityCache()
+
     @Provides
     @Singleton
     fun provideMediaImageLoader(@ApplicationContext context: Context): MediaImageLoader =
@@ -181,7 +186,11 @@ object StorageModule {
 object SourceModule {
     @Provides
     @Singleton
-    fun provideSocialSourceFactory(clientPool: HttpClientPool): SocialSourceFactory = SocialSourceFactory(clientPool)
+    fun provideSocialSourceFactory(
+        clientPool: HttpClientPool,
+        sessionStore: SessionStore,
+        capabilityCache: CapabilityCache,
+    ): SocialSourceFactory = SocialSourceFactory(clientPool, sessionStore, capabilityCache)
 }
 
 @Module

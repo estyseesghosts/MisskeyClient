@@ -18,6 +18,7 @@ import me.foxtails.palustris.domain.SavedPostsCapability
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.withTimelineStatuses
 import org.json.JSONObject
 
 /** Probes Mastodon instance metadata without making protocol details visible to the UI. */
@@ -124,7 +125,6 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
                 PostAction.Bookmark,
             ) + if (emoji.reactionMutation == CapabilityStatus.Supported) setOf(PostAction.React) else emptySet()
             return ServerCapabilities(
-                timelines = setOf(Timeline.Home, Timeline.Local, Timeline.Federated),
                 audiences = setOf(Audience.Public, Audience.Unlisted, Audience.Followers, Audience.Direct),
                 actions = actions,
                 canPublish = true,
@@ -137,6 +137,14 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
                 threads = CapabilityStatus.Supported,
                 capabilitiesLastUpdated = System.currentTimeMillis(),
                 capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
+            ).withTimelineStatuses(
+                mapOf(
+                    Timeline.Home to CapabilityStatus.Supported,
+                    Timeline.Local to CapabilityStatus.Supported,
+                    Timeline.Social to CapabilityStatus.Unsupported,
+                    Timeline.Bubble to CapabilityStatus.Unsupported,
+                    Timeline.Federated to CapabilityStatus.Supported,
+                ),
             )
         }
 

@@ -62,7 +62,9 @@ class AccountFileStore internal constructor(
         return Session(
             accountId = storedAccountId,
             token = json.getString("token"),
-            capabilities = json.optJSONObject("capabilities")?.toCapabilities() ?: ServerCapabilities(),
+            capabilities = json.optJSONObject("capabilities")?.toCapabilities()
+                ?.takeIf { it.capabilitySchemaVersion == ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION }
+                ?: ServerCapabilities(),
             access = json.optJSONObject("access")?.toAccessGrant() ?: AccessGrant(),
             pushInstanceName = json.optString("pushInstanceName").takeIf { it.isNotBlank() },
             sessionRevision = json.optLong("sessionRevision", 1L).coerceAtLeast(1L),
@@ -217,6 +219,9 @@ private fun JSONObject.toPushSessionState(): PushSessionState = PushSessionState
 
 private fun ServerCapabilities.toJson(): JSONObject = JSONObject()
     .put("timelines", JSONArray(timelines.map { it.name }))
+    .put("timelineStatuses", JSONObject().apply {
+        timelineStatuses.forEach { (timeline, status) -> put(timeline.name, status.name) }
+    })
     .put("audiences", JSONArray(audiences.map { it.name }))
     .put("actions", JSONArray(actions.map { it.name }))
     .put("maxPostLength", maxPostLength)
@@ -232,11 +237,19 @@ private fun ServerCapabilities.toJson(): JSONObject = JSONObject()
          JSONObject().put("status", it.status.name).put("kind", it.kind.name)
      })
      .put("likedPosts", likedPosts.name)
+     .put("threads", threads.name)
      .put("capabilitiesLastUpdated", capabilitiesLastUpdated)
     .put("capabilitySchemaVersion", capabilitySchemaVersion)
 
 private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities(
     timelines = enumSet<Timeline>("timelines"),
+    timelineStatuses = optJSONObject("timelineStatuses")?.let { statuses ->
+        buildMap {
+            statuses.keys().forEach { name ->
+                runCatching { put(Timeline.valueOf(name), CapabilityStatus.valueOf(statuses.getString(name))) }
+            }
+        }
+    }.orEmpty(),
     audiences = enumSet<Audience>("audiences"),
     actions = enumSet<PostAction>("actions"),
     maxPostLength = if (isNull("maxPostLength")) null else optInt("maxPostLength"),
@@ -258,6 +271,7 @@ private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities
          )
      },
      likedPosts = enumOrDefault("likedPosts", CapabilityStatus.Unknown),
+     threads = enumOrDefault("threads", CapabilityStatus.Unknown),
      capabilitiesLastUpdated = optLong("capabilitiesLastUpdated"),
     capabilitySchemaVersion = optInt("capabilitySchemaVersion", 0),
 )

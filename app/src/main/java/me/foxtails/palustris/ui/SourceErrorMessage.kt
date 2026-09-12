@@ -7,6 +7,7 @@ internal fun sourceErrorMessage(error: Exception): String = when (error) {
     is SourceError.AccountMismatch -> "The signed-in account did not match the account being upgraded. Nothing was changed."
     is SourceError.RateLimited -> "This instance is busy. Wait a moment and try again."
     is SourceError.Unsupported -> "This instance doesn't support ${error.feature}."
+    is SourceError.AccessDenied -> "Access to ${error.feature} was denied by this account's server policy."
     is SourceError.ResourceLimit -> "The instance returned too much data for ${error.feature}."
     is SourceError.ForeignOrigin -> "The instance returned content from an unexpected origin."
     is SourceError.NetworkUnavailable -> "Could not reach the instance. Check your connection and try again."
