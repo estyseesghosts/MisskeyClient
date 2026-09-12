@@ -82,7 +82,7 @@ internal fun photoGridItems(posts: List<OwnedPost>): List<PhotoGridItem> = posts
 }
 
 private fun Attachment.isPhotoGridDisplayable(): Boolean =
-    (kind == MediaKind.Image || kind == MediaKind.AnimatedImage) &&
+    kind == MediaKind.Image &&
     MediaRequestPolicy.resolve(
         attachment = this,
         role = MediaRequestRole.Preview,

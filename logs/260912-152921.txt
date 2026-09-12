@@ -52,3 +52,6 @@ Slice 4 result:
 - Kept all named post origins thread-eligible and made same-post thread activation respond when eligibility changes.
 - Propagated confirmed thread actions to Home, Photo Grid, saved, liked, and profile collections.
 - Focused verification passed: SinglePostScreenTest, PostThreadViewModelTest, PhotoGridFeedViewModelTest, and PhotoGridScreenTest.
+
+Slice 5 result:
+- Restricted Photo Grid tiles to still-image attachments and added animated-image regression coverage.

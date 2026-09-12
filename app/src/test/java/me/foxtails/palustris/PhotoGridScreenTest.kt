@@ -72,6 +72,21 @@ class PhotoGridScreenTest {
     }
 
     @Test
+    fun mediaFilterExcludesAnimatedImages() {
+        val animatedThenStill = post(
+            "animated-then-still",
+            listOf(
+                image("animated").copy(kind = MediaKind.AnimatedImage, mimeType = "image/gif"),
+                image("still"),
+            ),
+        )
+
+        val items = photoGridItems(listOf(OwnedPost(account.id, animatedThenStill)))
+
+        assertEquals("still", items.single().attachment.id)
+    }
+
+    @Test
     fun aspectRatioUsesOriginalAttachmentDimensionsWithFallback() {
         assertEquals(
             1.5f,
