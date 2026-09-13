@@ -6,6 +6,15 @@
     <string name="nav_photo_grid">Photo grid</string>
     <string name="nav_direct_messages">Private messages</string>
     <string name="nav_switch_account">Switch account</string>
+    <string name="search_clear">Clear search</string>
+    <string name="search_ready_when_you_are">Search is ready when you are</string>
+    <string name="search_explore_hashtags">Explore hashtags</string>
+    <string name="search_news_from_network">News from your network</string>
+    <string name="search_find_your_people">Find your people</string>
+    <string name="search_accounts_available_profiles">Account search is available from the Profiles tab.</string>
+    <string name="search_trending_topics">Trending topics will appear here.</string>
+    <string name="search_popular_links">Popular links will appear here.</string>
+    <string name="search_suggested_accounts">Suggested accounts will appear here.</string>
     <string name="nav_compose">Compose post</string>
     <string name="nav_choose_timeline">Choose timeline</string>
     <string name="a11y_selected">Selected</string>

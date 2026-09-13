@@ -98,3 +98,7 @@ S59 account and timeline sheet labels:
 S60 emoji group labels:
 - Separated built-in group labels from server category names.
 - Kept group IDs unchanged for pin and collapse preferences.
+S02 Search composition:
+- Moved SearchScreen, controls, and account/hashtag result lists to ui/SearchScreen.kt.
+- Preserved shared query/tab state, list state, insets, result actions, and empty-state behavior.
+- Verification passed: Search chip Compose test and Kotlin compilation.
