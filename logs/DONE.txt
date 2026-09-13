@@ -404,3 +404,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Kept refresh scheduling in `PostThreadViewModel` because foreground state, acquisition generation, continuation, and automatic-refresh cancellation share one lifecycle owner.
 - No pure policy extraction clarified the current boundary.
 - Verification passed: existing thread refresh tests and source review.
+260913-032505 S50 post-action bubble placement:
+- Moved popup placement geometry and edge fallback calculations into `ui/PostActionBubblePlacement.kt`.
+- Preserved anchor fallback, layout bounds, above/below placement, margins, and bottom-edge behavior.
+- Verification passed: Kotlin compilation and existing Home/Search presentation tests.

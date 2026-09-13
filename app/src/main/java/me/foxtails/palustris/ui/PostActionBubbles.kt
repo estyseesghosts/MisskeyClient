@@ -43,21 +43,15 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import android.os.SystemClock
 import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import kotlinx.coroutines.delay
 import kotlin.math.abs
-import kotlin.math.roundToInt
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.EmojiChoice
@@ -350,48 +344,6 @@ private fun ReactionBubble(
                 onEmojiSelected = onSelected,
             )
         }
-    }
-}
-
-private enum class BubblePlacement { Above, Below }
-
-private class WindowAnchorPositionProvider(
-    private val targetBounds: Rect,
-    private val placement: BubblePlacement,
-) : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize,
-    ): IntOffset {
-        val fallback = Rect(
-            anchorBounds.left.toFloat(),
-            anchorBounds.top.toFloat(),
-            anchorBounds.right.toFloat(),
-            anchorBounds.bottom.toFloat(),
-        )
-        val anchor = targetBounds.takeIf { it.width > 0f && it.height > 0f } ?: fallback
-        val margin = 8
-        val preferredX = when (placement) {
-            BubblePlacement.Above -> anchor.center.x.roundToInt() - popupContentSize.width / 2
-            BubblePlacement.Below -> anchor.right.roundToInt() - popupContentSize.width
-        }
-        val x = preferredX.coerceIn(
-            margin,
-            (windowSize.width - popupContentSize.width - margin).coerceAtLeast(margin),
-        )
-        val preferredY = when (placement) {
-            BubblePlacement.Above -> anchor.top.roundToInt() - popupContentSize.height - margin
-            BubblePlacement.Below -> anchor.bottom.roundToInt() + margin
-        }
-        val alternateY = when (placement) {
-            BubblePlacement.Above -> anchor.bottom.roundToInt() + margin
-            BubblePlacement.Below -> anchor.top.roundToInt() - popupContentSize.height - margin
-        }
-        val maxY = (windowSize.height - popupContentSize.height - margin).coerceAtLeast(margin)
-        val y = if (preferredY in margin..maxY) preferredY else alternateY.coerceIn(margin, maxY)
-        return IntOffset(x, y)
     }
 }
 
