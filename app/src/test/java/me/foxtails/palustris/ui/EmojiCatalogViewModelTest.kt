@@ -126,6 +126,7 @@ class EmojiCatalogViewModelTest {
             EmojiPickerPreferences(
                 collapsedGroups = setOf("server:missing", EmojiPickerGroupIds.server(null)),
                 pinnedGroups = listOf("server:missing", EmojiPickerGroupIds.server(null)),
+                pinnedEmoji = listOf(":old:", ":post-only:", "🎉"),
             ),
         )
         val model = model(
@@ -138,6 +139,7 @@ class EmojiCatalogViewModelTest {
 
         assertEquals(setOf(EmojiPickerGroupIds.server(null)), preferences.preferences.collapsedGroups)
         assertEquals(listOf(EmojiPickerGroupIds.server(null)), preferences.preferences.pinnedGroups)
+        assertEquals(listOf(":post-only:", "🎉"), preferences.preferences.pinnedEmoji)
     }
 
     @Test

@@ -454,6 +454,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Commit: `931ecde`.
 260913-075234 Final verification:
 - Focused emoji, Feed interaction, notification, navigation, profile, saved-post, and thread tests passed.
-- `test assembleRelease` passed.
-- `lintDebug` passed.
+- `test assembleRelease` and `lintDebug` passed before the final catalog-pruning test addition.
+- The final 645-test gate encountered the known intermittent `MediaViewerScreenTest.selectedAttachmentsRemainOnFullQualityAfterSwipingBack` timeout; its focused rerun passed.
 - Compact, wide, system-font-scale, live-server, and physical-device checks were not run in this environment.
+260913-075234 Catalog pruning correction:
+- Pruned only custom identities that were present in the previous catalog and missing from a successful refresh.
+- Preserved unresolved post-specific identities and Unicode pins.
+- Focused verification passed: `EmojiCatalogViewModelTest`.
+- Commit: pending.

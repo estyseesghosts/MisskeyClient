@@ -144,6 +144,7 @@ class EmojiCatalogViewModel @AssistedInject constructor(
     }
 
     private fun publishSnapshot(snapshot: EmojiCatalogSnapshot, refreshed: Boolean) {
+        val previousCatalogIdentities = _state.value.items.mapTo(mutableSetOf()) { it.submissionValue }
         _state.value = _state.value.copy(
             items = snapshot.items.filter { it.visibleInPicker },
             initialLoading = false,
@@ -153,12 +154,14 @@ class EmojiCatalogViewModel @AssistedInject constructor(
             unsupported = false,
             hasSnapshot = true,
         )
-        if (refreshed) pruneMissingServerGroups(snapshot.items)
+        if (refreshed) pruneMissingServerGroups(snapshot.items, previousCatalogIdentities)
     }
 
-    private fun pruneMissingServerGroups(items: List<CustomEmoji>) {
+    private fun pruneMissingServerGroups(items: List<CustomEmoji>, previousCatalogIdentities: Set<String>) {
         val groups = items.filter { it.visibleInPicker }
             .mapTo(mutableSetOf()) { EmojiPickerGroupIds.server(it.category) }
+        val currentCatalogIdentities = items.filter { it.visibleInPicker }
+            .mapTo(mutableSetOf()) { it.submissionValue }
         viewModelScope.launch {
             preferencesRepository.update(accountId) { current ->
                 current.copy(
@@ -166,6 +169,9 @@ class EmojiCatalogViewModel @AssistedInject constructor(
                         EmojiPickerGroupIds.isServer(group) && group !in groups
                     }.toSet(),
                     pinnedGroups = current.pinnedGroups.filter { it in groups },
+                    pinnedEmoji = current.pinnedEmoji.filter { identity ->
+                        identity !in previousCatalogIdentities || identity in currentCatalogIdentities
+                    },
                 )
             }
         }
