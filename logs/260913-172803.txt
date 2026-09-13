@@ -1,0 +1,21 @@
+# Beeline v0.2.1 release task
+
+Goal: Push the current Beeline work to GitHub and publish a signed `v0.2.1` release.
+
+Planned slices:
+- Update the release workflow and release task logs.
+- Verify tests and build the release APK.
+- Commit and push the current application changes.
+- Create and push a signed `v0.2.1` tag.
+- Verify the GitHub release and its download message.
+
+Affected files:
+- `.github/workflows/release.yml`
+- `logs/TODO.txt`
+- `logs/DONE.txt`
+- Current uncommitted application, test, resource, script, and documentation files.
+
+Risks:
+- GitHub Actions must access the configured release environment secrets.
+- The connected API 35+ system-bar assertion failure remains a known test issue.
+- Local signing can be verified only if the local keystore is available.
