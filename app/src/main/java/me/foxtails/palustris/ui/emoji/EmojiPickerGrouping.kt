@@ -49,9 +49,13 @@ internal fun buildEmojiPickerGroups(
         postSpecificChoices.forEach { putIfAbsent(it.submissionValue, it) }
         standardChoices.forEach { putIfAbsent(it.submissionValue, it) }
     }
+    val pinnedChoices = preferences.pinnedEmoji.mapNotNull(choiceMap::get).distinctBy { it.submissionValue }
+    val pinnedEmojiIds = pinnedChoices.mapTo(mutableSetOf()) { it.submissionValue }
     val recentChoices = recentIdentities.mapNotNull { identity ->
         choiceMap[identity] ?: identity.takeUnless(String::isCustomIdentity)?.let { EmojiChoice(it, it) }
-    }.distinctBy { it.submissionValue }
+    }.distinctBy { it.submissionValue }.filterNot { it.submissionValue in pinnedEmojiIds }
+    val filteredPostSpecificChoices = postSpecificChoices.filterNot { it.submissionValue in pinnedEmojiIds }
+    val filteredStandardChoices = standardChoices.filterNot { it.submissionValue in pinnedEmojiIds }
     val groups = linkedMapOf<String, Pair<EmojiPickerGroupLabel, MutableList<EmojiChoice>>>()
     catalogItems.filter { it.visibleInPicker }.forEach { emoji ->
         val category = emoji.category?.takeIf(String::isNotBlank)
@@ -60,6 +64,7 @@ internal fun buildEmojiPickerGroups(
         groups.getOrPut(id) { label to mutableListOf() }.second +=
             (catalogChoices[emoji.submissionValue] ?: EmojiChoice(emoji.submissionValue, emoji.token, emoji))
     }
+    groups.values.forEach { (_, choices) -> choices.removeAll { it.submissionValue in pinnedEmojiIds } }
     val pinnedIds = preferences.pinnedGroups.filter { it in groups }
     val customIds = groups.keys.toList()
     val orderedCustomIds = pinnedIds + customIds.filterNot { it in pinnedIds }
@@ -88,19 +93,25 @@ internal fun buildEmojiPickerGroups(
         )
     }
     return buildList {
-        fun addIfVisible(group: EmojiPickerGroup) { if (query.isEmpty() || group.hasMatchingChoices) add(group) }
-        addIfVisible(createGroup(EmojiPickerGroupIds.Favorite, EmojiPickerGroupLabel.Favorite, emptyList(), false))
+        fun addIfVisible(group: EmojiPickerGroup) {
+            if (group.id == EmojiPickerGroupIds.Favorite) {
+                if (group.hasMatchingChoices) add(group)
+            } else if (query.isEmpty() || group.hasMatchingChoices) {
+                add(group)
+            }
+        }
+        addIfVisible(createGroup(EmojiPickerGroupIds.Favorite, EmojiPickerGroupLabel.Favorite, pinnedChoices, false))
         orderedCustomIds.takeWhile { it in pinnedIds }.forEach { id ->
             val (label, choices) = groups.getValue(id)
             addIfVisible(createGroup(id, label, choices, true))
         }
         if (recentChoices.isNotEmpty()) addIfVisible(createGroup(EmojiPickerGroupIds.Recent, EmojiPickerGroupLabel.Recent, recentChoices, false))
-        if (postSpecificChoices.isNotEmpty()) addIfVisible(createGroup(EmojiPickerGroupIds.PostSpecific, EmojiPickerGroupLabel.PostSpecific, postSpecificChoices, false))
+        if (filteredPostSpecificChoices.isNotEmpty()) addIfVisible(createGroup(EmojiPickerGroupIds.PostSpecific, EmojiPickerGroupLabel.PostSpecific, filteredPostSpecificChoices, false))
         orderedCustomIds.drop(pinnedIds.size).forEach { id ->
             val (label, choices) = groups.getValue(id)
             addIfVisible(createGroup(id, label, choices, true))
         }
-        addIfVisible(createGroup(EmojiPickerGroupIds.Unicode, EmojiPickerGroupLabel.Standard, standardChoices, false))
+        addIfVisible(createGroup(EmojiPickerGroupIds.Unicode, EmojiPickerGroupLabel.Standard, filteredStandardChoices, false))
     }
 }
 

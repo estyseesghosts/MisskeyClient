@@ -67,6 +67,7 @@ class FileEmojiPickerPreferencesRepository @Inject constructor(
                 EmojiPickerPreferences(
                     collapsedGroups = value.optJSONArray("collapsedGroups").strings().toSet(),
                     pinnedGroups = value.optJSONArray("pinnedGroups").strings(),
+                    pinnedEmoji = value.optJSONArray("pinnedEmoji").strings(),
                 ),
             )
         }.toMap()
@@ -80,10 +81,11 @@ class FileEmojiPickerPreferencesRepository @Inject constructor(
                 key,
                 JSONObject()
                     .put("collapsedGroups", JSONArray(preference.collapsedGroups.toList()))
-                    .put("pinnedGroups", JSONArray(preference.pinnedGroups)),
+                    .put("pinnedGroups", JSONArray(preference.pinnedGroups))
+                    .put("pinnedEmoji", JSONArray(preference.pinnedEmoji)),
             )
         }
-        val root = JSONObject().put("version", 1).put("accounts", accounts)
+        val root = JSONObject().put("version", 2).put("accounts", accounts)
         val temporary = File("${file.path}.new")
         val stream = FileOutputStream(temporary)
         try {
@@ -123,6 +125,11 @@ private fun normalize(preferences: EmojiPickerPreferences): EmojiPickerPreferenc
         .distinct()
         .take(MAX_PINS)
         .toList(),
+    pinnedEmoji = preferences.pinnedEmoji
+        .asSequence()
+        .filter(::isValidPinnedEmoji)
+        .distinct()
+        .toList(),
 )
 
 private fun isValidCollapsedGroup(value: String): Boolean = value.isNotBlank() &&
@@ -135,6 +142,9 @@ private fun isValidCollapsedGroup(value: String): Boolean = value.isNotBlank() &
 
 private fun isValidPinnedGroup(value: String): Boolean = value.isNotBlank() &&
     value.none(Char::isISOControl) && EmojiPickerGroupIds.isServer(value)
+
+private fun isValidPinnedEmoji(value: String): Boolean = value.isNotBlank() &&
+    value.none(Char::isISOControl)
 
 private fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else {
     (0 until length()).mapNotNull { optString(it).takeIf(String::isNotBlank) }

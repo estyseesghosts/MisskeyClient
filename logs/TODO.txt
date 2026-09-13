@@ -1,7 +1,6 @@
 # Active tasks
 
-260913-032505 decomposition completion:
-  - No decomposition slices remain.
-- S12-S15, S23-S34, S35-S37, and S54-S60 have completed focused implementation slices.
-- Each completed slice requires focused verification and its own local commit.
-  - The application version is already v0.2.0.
+260913-075234 individual emoji pins and post interactions:
+- Emoji pinning and post interactions are tracked as separate implementation slices.
+- Current slice: add picker long-press confirmation and finish emoji pinning.
+- Risks: storage migration, session isolation, and network rollback.

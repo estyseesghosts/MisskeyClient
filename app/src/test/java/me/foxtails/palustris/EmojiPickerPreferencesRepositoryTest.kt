@@ -51,6 +51,7 @@ class EmojiPickerPreferencesRepositoryTest {
                     "server:fifth",
                     "server:sixth",
                 ),
+                pinnedEmoji = listOf("🎉", ":blob:", ":blob:", "", "bad\nidentity"),
             )
         }
 
@@ -61,6 +62,35 @@ class EmojiPickerPreferencesRepositoryTest {
             listOf("server:first", "server:unknown", "server:second", "server:third", "server:fourth"),
             result.pinnedGroups,
         )
+        assertEquals(listOf("🎉", ":blob:"), result.pinnedEmoji)
+    }
+
+    @Test
+    fun versionOneFilesKeepExistingFieldsAndDefaultPinnedEmoji() = runBlocking {
+        val file = java.io.File(context.noBackupFilesDir, "emoji-picker-preferences.json")
+        file.parentFile?.mkdirs()
+        file.writeText(
+            org.json.JSONObject()
+                .put("version", 1)
+                .put(
+                    "accounts",
+                    org.json.JSONObject().put(
+                        java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                            "${account.connection.origin}\u0000${account.localId}".toByteArray(),
+                        ),
+                        org.json.JSONObject()
+                            .put("collapsedGroups", org.json.JSONArray(listOf("unicode")))
+                            .put("pinnedGroups", org.json.JSONArray(listOf("server:old"))),
+                    ),
+                )
+                .toString(),
+        )
+
+        val result = FileEmojiPickerPreferencesRepository(context).observe(account).first()
+
+        assertEquals(setOf("unicode"), result.collapsedGroups)
+        assertEquals(listOf("server:old"), result.pinnedGroups)
+        assertTrue(result.pinnedEmoji.isEmpty())
     }
 
     @Test
@@ -75,5 +105,6 @@ class EmojiPickerPreferencesRepositoryTest {
         restored.remove(account)
         assertTrue(restored.observe(account).first().collapsedGroups.isEmpty())
         assertTrue(restored.observe(account).first().pinnedGroups.isEmpty())
+        assertTrue(restored.observe(account).first().pinnedEmoji.isEmpty())
     }
 }

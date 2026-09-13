@@ -3,6 +3,7 @@ package me.foxtails.palustris.domain
 data class EmojiPickerPreferences(
     val collapsedGroups: Set<String> = emptySet(),
     val pinnedGroups: List<String> = emptyList(),
+    val pinnedEmoji: List<String> = emptyList(),
 )
 
 object EmojiPickerGroupIds {

@@ -219,7 +219,10 @@ class EmojiPickerTest {
             recentIdentities = listOf(":blob:", "🎈"),
             selectedIdentities = setOf(":blob:"),
             searchQuery = "",
-            preferences = EmojiPickerPreferences(pinnedGroups = listOf("server:blobs")),
+            preferences = EmojiPickerPreferences(
+                pinnedGroups = listOf("server:blobs"),
+                pinnedEmoji = listOf(":blob:"),
+            ),
         )
 
         assertEquals(
@@ -234,9 +237,25 @@ class EmojiPickerTest {
             ),
             groups.map { it.id },
         )
-        assertEquals("blob", groups[2].choices.first().emoji?.shortcode)
+        assertEquals("🎈", groups[2].choices.first().submissionValue)
         assertEquals(":missing:", groups[3].choices.first().submissionValue)
-        assertEquals(":blob:", groups[1].choices.first().submissionValue)
+        assertEquals(":blob:", groups[0].choices.first().submissionValue)
+    }
+
+    @Test
+    fun favoriteGroupPreservesPinnedCustomAndUnicodeOrderWithoutDuplicates() {
+        val groups = buildEmojiPickerGroups(
+            catalogItems = catalogEmoji,
+            additionalChoices = listOf(EmojiChoice("🎈", "🎈")),
+            recentIdentities = listOf(":blob:", "🎈"),
+            selectedIdentities = emptySet(),
+            searchQuery = "",
+            preferences = EmojiPickerPreferences(pinnedEmoji = listOf("🎈", ":blob:", "🎈")),
+        )
+
+        assertEquals(EmojiPickerGroupIds.Favorite, groups.first().id)
+        assertEquals(listOf("🎈", ":blob:"), groups.first().choices.map { it.submissionValue })
+        assertTrue(groups.drop(1).none { group -> group.choices.any { it.submissionValue == "🎈" || it.submissionValue == ":blob:" } })
     }
 
     @Test

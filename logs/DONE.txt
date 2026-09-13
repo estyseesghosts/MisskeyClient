@@ -424,3 +424,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Ran the full unit-test and release assembly gate after the structural slices.
 - No benchmark harness or device performance data is available in this workspace, so no storage, retention, timeout, or rendering optimization follow-up was approved.
 - The media request-count assertion was narrowed to the deterministic initial-cache invariant after repeated runs showed asynchronous second-page request timing was not stable under Robolectric.
+260913-075234 Emoji pin preference slice:
+- Added account-scoped ordered individual emoji pins with version-two JSON persistence.
+- Preserved version-one category preferences and exact Unicode/custom identities while rejecting invalid and duplicate pins.
+- Added ViewModel toggle support and Favorite-group ordering with duplicate removal.
+- Focused verification passed: `EmojiPickerPreferencesRepositoryTest` and `EmojiPickerTest`.
+- Commit: pending.

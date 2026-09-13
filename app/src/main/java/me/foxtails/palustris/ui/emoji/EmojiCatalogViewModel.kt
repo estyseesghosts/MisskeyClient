@@ -99,6 +99,21 @@ class EmojiCatalogViewModel @AssistedInject constructor(
         }
     }
 
+    fun togglePinnedEmoji(identity: String) {
+        if (stopped || identity.isBlank() || identity.any(Char::isISOControl)) return
+        viewModelScope.launch {
+            preferencesRepository.update(accountId) { current ->
+                current.copy(
+                    pinnedEmoji = if (identity in current.pinnedEmoji) {
+                        current.pinnedEmoji.filterNot { it == identity }
+                    } else {
+                        current.pinnedEmoji + identity
+                    },
+                )
+            }
+        }
+    }
+
     fun stop() {
         stopped = true
         loadJob?.cancel()
