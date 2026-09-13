@@ -172,6 +172,12 @@ class NotificationRepository @Inject constructor(
     ): Boolean {
         val next = synchronized(this) {
             if (!isCurrentLocked(token)) return false
+            if (page.checkpoint?.accountId?.let { it != token.accountId } == true ||
+                page.items.any {
+                    it.accountId != token.accountId ||
+                        it.id.connection != token.accountId.connection.origin
+                }
+            ) return false
             val state = stateForLocked(token.accountId).value
             val query = page.checkpoint?.query ?: page.items.firstOrNull()?.let { state.checkpoint?.query }
             if (query == null) {
@@ -180,20 +186,20 @@ class NotificationRepository @Inject constructor(
             val previousCheckpoint = state.checkpoints[query.stableKey]
                 ?: state.checkpoint?.takeIf { it.query == query }
             val previous = state.items.associateBy(Notification::id)
-            val incoming = page.items.filter { item ->
-                item.accountId == token.accountId && item.id.connection == token.accountId.connection.origin
-            }
+            val incoming = page.items
             val merged = (incoming + state.items)
                 .distinctBy(Notification::id)
                 .map { item -> item.mergeReadState(previous[item.id]?.readState) }
                 .filterNot { it.id in state.dismissedIds }
                 .sortedWith(compareByDescending<Notification> { it.createdAtEpochMillis }.thenByDescending { it.id.value })
                 .take(MAX_ITEMS)
-            val pageCheckpoint = page.checkpoint?.takeIf { it.accountId == token.accountId && it.query == query }
+            val pageCheckpoint = page.checkpoint
             val nextCheckpoint = mergeCheckpoint(
                 previous = previousCheckpoint,
                 page = page,
                 pageCheckpoint = pageCheckpoint,
+                accountId = token.accountId,
+                query = query,
                 direction = direction,
                 baselineEstablished = baselineEstablished,
             )
@@ -227,7 +233,7 @@ class NotificationRepository @Inject constructor(
     ): NotificationRepositoryState {
         val state = stateForLocked(token.accountId).value
         val previous = state.items.associateBy(Notification::id)
-        val incoming = page.items.filter { it.accountId == token.accountId }
+        val incoming = page.items
         val merged = (incoming + state.items).distinctBy(Notification::id)
             .map { it.mergeReadState(previous[it.id]?.readState) }
             .filterNot { it.id in state.dismissedIds }
@@ -252,10 +258,11 @@ class NotificationRepository @Inject constructor(
         previous: NotificationCheckpoint?,
         page: NotificationPage,
         pageCheckpoint: NotificationCheckpoint?,
+        accountId: AccountId,
+        query: NotificationQuery,
         direction: NotificationPageDirection,
         baselineEstablished: Boolean,
     ): NotificationCheckpoint {
-        val query = pageCheckpoint?.query ?: previous?.query ?: error("Notification page has no query")
         val newest = when (direction) {
             NotificationPageDirection.Older -> previous?.newest ?: page.resolvedNewestBoundary
             NotificationPageDirection.Initial -> page.resolvedNewestBoundary ?: previous?.newest
@@ -289,7 +296,7 @@ class NotificationRepository @Inject constructor(
         }
         val complete = page.reachedBoundary || continuation == null
         return NotificationCheckpoint(
-            accountId = queryAccountId(page, previous),
+            accountId = accountId,
             query = query,
             newest = newest,
             oldest = oldest,
@@ -300,10 +307,6 @@ class NotificationRepository @Inject constructor(
             baselineEstablished = baselineEstablished || previous?.baselineEstablished == true,
         )
     }
-
-    private fun queryAccountId(page: NotificationPage, previous: NotificationCheckpoint?): AccountId =
-        page.checkpoint?.accountId ?: previous?.accountId ?: page.items.firstOrNull()?.accountId
-        ?: error("Notification page has no account")
 
     private fun updateDeliveryOutbox(
         state: NotificationRepositoryState,

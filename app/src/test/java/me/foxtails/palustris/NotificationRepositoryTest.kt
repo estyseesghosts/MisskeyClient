@@ -416,6 +416,25 @@ class NotificationRepositoryTest {
         assertEquals(destination, activity.validatedDestination)
     }
 
+    @Test
+    fun foreignCheckpointAndEntityOriginAreRejectedWithoutPublication() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        repository.activate(token)
+        val foreignAccount = AccountId(Connection("https://foreign.example", Protocol.MISSKEY), "receiver")
+
+        assertFalse(repository.establishBaseline(token, NotificationPage(
+            items = emptyList(),
+            checkpoint = NotificationCheckpoint(foreignAccount, NotificationQuery()),
+        )))
+        assertFalse(repository.establishBaseline(token, NotificationPage(
+            items = listOf(notification("foreign", NotificationActivity.Mention).copy(
+                id = EntityId("https://foreign.example", "foreign"),
+            )),
+        )))
+        assertTrue(repository.observe(account).value.items.isEmpty())
+    }
+
     private fun notification(id: String, activity: NotificationActivity, post: Post? = null) = Notification(
         id = EntityId(account.connection.origin, id),
         accountId = account,

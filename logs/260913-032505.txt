@@ -50,3 +50,9 @@ S23 notification unknown-activity persistence:
 - Kept missing and invalid destinations as null for compatibility and safety.
 - Added repository recreation coverage.
 - Verification passed: `NotificationRepositoryTest` and lint.
+S25 notification checkpoint ownership:
+- Validated checkpoint account ownership and entity origins before query selection.
+- Passed accepted account and query values into checkpoint merging.
+- Rejected foreign pages without publication or checkpoint changes.
+- Added foreign checkpoint and entity-origin coverage.
+- Verification passed: `NotificationRepositoryTest` and lint.
