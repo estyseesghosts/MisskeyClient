@@ -76,3 +76,8 @@ S35 Mastodon reaction capability handling:
 - Preserved support after temporary, rate-limit, and access-denied failures.
 - Preserved cancellation propagation.
 - Verification passed: Mastodon capability/source contract tests and lint.
+S54 Beeline identity:
+- Changed build metadata, generated application label, authentication name, and User-Agent source to Beeline.
+- Incremented the default version to `0.2.0` and Android version code to `1003`.
+- Updated the notification distributor contract test and added generated identity coverage.
+- Compatibility package, application ID, stored keys, and callback schemes remain unchanged.

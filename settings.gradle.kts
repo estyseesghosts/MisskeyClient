@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MisskeyClient"
+rootProject.name = "Beeline"
 include(":app")
