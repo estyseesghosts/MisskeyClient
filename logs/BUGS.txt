@@ -40,3 +40,4 @@
 
 260913-165755: The connected SM-F926W uses a text-only launcher, so home-screen and app-drawer icon presentation could not be independently verified. Android Settings displayed the adaptive icon in light and dark modes.
 260913-165755: No authenticated account was available on the connected device. Share-sheet actions were verified by focused Compose tests, but live follow/unfollow, block, mute, report, PM, copy, and Android share actions remain unverified.
+260913-172803: The `v0.2.1` signed-release job is waiting for approval from the protected `release` environment. The current GitHub token cannot approve the required reviewer deployment.
