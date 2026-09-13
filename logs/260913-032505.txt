@@ -106,3 +106,7 @@ S03 composer UI:
 - Moved ComposeScreen and Audience.label() to ui/ComposerScreen.kt.
 - Preserved reply, visibility, content warning, emoji insertion, link cleanup, and publish callbacks.
 - Verification passed: `ReplyComposerTest` and debug lint.
+S04 drafts UI:
+- Moved DraftsScreen to ui/DraftsScreen.kt and removed the now-empty Screens.kt.
+- Preserved draft editing, deletion confirmation, and recreation-safe callbacks.
+- Verification passed: Kotlin compilation and existing draft tests in the full unit test gate.
