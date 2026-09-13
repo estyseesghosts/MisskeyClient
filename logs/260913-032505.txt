@@ -205,3 +205,7 @@ S27 notification read-state sub-slice:
 - Moved the shared notification read-state merge transform to `data/notifications/NotificationReadStateMerge.kt`.
 - Preserved server status precedence and local seen, acknowledgement, Android presentation, and dismissal flags.
 - Verification passed: `NotificationRepositoryTest`, `NotificationContractTest`, and Kotlin compilation.
+S28 notification delivery sub-slice:
+- Moved claim eligibility, claim creation, and delivery completion transforms to `data/notifications/NotificationDeliveryTransforms.kt`.
+- Preserved lease expiry, retry counts, claim ownership, and failure-state fields.
+- Verification passed: `NotificationRepositoryTest`, `NotificationDeliveryPlannerTest`, and Kotlin compilation.

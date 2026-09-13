@@ -408,20 +408,11 @@ class NotificationRepository @Inject constructor(
             if (!isCurrentLocked(token)) return null
             val current = stateForLocked(token.accountId).value
             val record = current.deliveries[id] ?: return null
-            val claimable = when (record.state) {
-                NotificationDeliveryState.Pending,
-                NotificationDeliveryState.Failed,
-                -> true
-                NotificationDeliveryState.Posting -> record.claimExpiresAtEpochMillis <= nowEpochMillis
-                else -> false
-            }
-            if (!claimable) return null
-            val claimed = record.copy(
-                state = NotificationDeliveryState.Posting,
-                attemptCount = record.attemptCount + 1,
-                lastAttemptAtEpochMillis = nowEpochMillis,
+            if (!record.isClaimable(nowEpochMillis)) return null
+            val claimed = record.claim(
+                nowEpochMillis = nowEpochMillis,
                 claimId = UUID.randomUUID().toString(),
-                claimExpiresAtEpochMillis = nowEpochMillis + DELIVERY_CLAIM_LEASE_MILLIS,
+                leaseMillis = DELIVERY_CLAIM_LEASE_MILLIS,
             )
             stateForLocked(token.accountId).value = current.copy(deliveries = current.deliveries + (id to claimed))
             claimed
@@ -442,12 +433,8 @@ class NotificationRepository @Inject constructor(
             val current = stateForLocked(token.accountId).value
             val existing = current.deliveries[id] ?: return false
             if (claimId != null && existing.claimId != claimId) return false
-            current.copy(deliveries = current.deliveries + (id to existing.copy(
-                state = state,
-                lastErrorCategory = errorCategory,
-                claimId = null,
-                claimExpiresAtEpochMillis = 0,
-            ))).also { stateForLocked(token.accountId).value = it }
+            current.copy(deliveries = current.deliveries + (id to existing.finish(state, errorCategory)))
+                .also { stateForLocked(token.accountId).value = it }
         }
         persistIfCurrent(token, next)
         return true
