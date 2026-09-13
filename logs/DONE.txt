@@ -461,4 +461,4 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Pruned only custom identities that were present in the previous catalog and missing from a successful refresh.
 - Preserved unresolved post-specific identities and Unicode pins.
 - Focused verification passed: `EmojiCatalogViewModelTest`.
-- Commit: pending.
+- Commit: `ed5bf97`.
