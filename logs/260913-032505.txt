@@ -88,3 +88,7 @@ S57 media test readiness:
 - Replaced fixed media-test sleeps with bounded request, semantics, and decoded-pixel readiness checks.
 - Preserved request-count and crop assertions.
 - Verification passed: media viewer and post-media carousel tests, and lint.
+S58 navigation screenshot output:
+- Made diagnostic PNG output opt-in through `beeline.captureScreenshots=true`.
+- Preserved native bitmap and bounds assertions.
+- Verification will include the navigation suite in the final gate.

@@ -59,11 +59,14 @@ class NavigationTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     @Before fun previewShell() { compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp() } } }
 
+    private val captureScreenshots = System.getProperty("beeline.captureScreenshots") == "true"
+
     @After fun clearDraft() {
         compose.activity.getSharedPreferences("local_draft", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     private fun screenshot(name: String) {
+        if (!captureScreenshots) return
         compose.waitForIdle()
         val file = File("build/ui-screenshots/$name.png")
         file.parentFile?.mkdirs()
