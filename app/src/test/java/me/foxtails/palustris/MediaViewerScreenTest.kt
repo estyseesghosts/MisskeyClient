@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -246,27 +247,18 @@ class MediaViewerScreenTest {
                     )
                 }
             }
-            repeat(15) {
-                compose.waitForIdle()
-                Thread.sleep(100)
-            }
+            compose.waitUntil(timeoutMillis = 3_000) { firstFullRequests.get() > 0 }
             val firstRequestsBeforeSwipes = firstFullRequests.get()
             compose.onNodeWithContentDescription("Media viewer").performTouchInput {
                 swipe(center, center + Offset(-1_200f, 0f), durationMillis = 180)
             }
-            repeat(15) {
-                compose.waitForIdle()
-                Thread.sleep(100)
-            }
+            compose.waitUntil(timeoutMillis = 3_000) { secondFullRequests.get() > 0 }
             val firstRequestsAfterForwardSwipe = firstFullRequests.get()
             val secondRequestsAfterForwardSwipe = secondFullRequests.get()
             compose.onNodeWithContentDescription("Media viewer").performTouchInput {
                 swipe(center, center + Offset(1_200f, 0f), durationMillis = 180)
             }
-            repeat(15) {
-                compose.waitForIdle()
-                Thread.sleep(100)
-            }
+            compose.waitForIdle()
 
             assertEquals(firstRequestsAfterForwardSwipe, firstFullRequests.get())
             assertEquals(secondRequestsAfterForwardSwipe, secondFullRequests.get())
@@ -371,9 +363,8 @@ class MediaViewerScreenTest {
                     }
                 }
             }
-            repeat(10) {
-                compose.waitForIdle()
-                Thread.sleep(100)
+            compose.waitUntil(timeoutMillis = 3_000) {
+                compose.onAllNodes(hasContentDescription("Open media 1 of 1")).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithContentDescription("Open media 1 of 1").performClick()
             compose.waitForIdle()

@@ -84,3 +84,7 @@ S54 Beeline identity:
 S56 test cleanup:
 - Removed the Android Studio arithmetic template test.
 - Verification will include full test discovery in the final gate.
+S57 media test readiness:
+- Replaced fixed media-test sleeps with bounded request, semantics, and decoded-pixel readiness checks.
+- Preserved request-count and crop assertions.
+- Verification passed: media viewer and post-media carousel tests, and lint.

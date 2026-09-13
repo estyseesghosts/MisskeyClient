@@ -108,9 +108,18 @@ class PostMediaCarouselTest {
                     ),
                 ),
             )
-            repeat(10) {
-                compose.waitForIdle()
-                Thread.sleep(100)
+            compose.waitUntil(timeoutMillis = 3_000) {
+                if (server.requestCount == 0) return@waitUntil false
+                var top = Color.TRANSPARENT
+                compose.runOnIdle {
+                    val view = compose.activity.window.decorView
+                    val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+                    view.draw(android.graphics.Canvas(bitmap))
+                    val frame = bounds("post_media_frame_crop_0")
+                    top = bitmap.getPixel(frame.center.x.toInt(), frame.top.toInt() + 8)
+                    bitmap.recycle()
+                }
+                Color.red(top) > 180 && Color.blue(top) < 80
             }
 
             val bounds = bounds("post_media_frame_crop_0")
