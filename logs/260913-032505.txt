@@ -182,3 +182,7 @@ S14 Notifications and Direct Messages sub-slice:
 - Moved the notifications and direct-message destination branch to `ui/AppNotificationsDestinationContent.kt`.
 - Preserved panel restoration, notification route opening, settings entry, conversation routing, and account gating.
 - Verification passed: `NavigationTest`, `DirectMessageSourceTest`, and Kotlin compilation.
+S14 Profile sub-slice:
+- Moved Profile destination composition to `ui/AppProfileDestinationContent.kt`.
+- Preserved profile category transitions, self-profile page actions, selected-post clearing, and post callbacks.
+- Verification passed: `ProfileScreenTest`, `NavigationTest`, and Kotlin compilation.

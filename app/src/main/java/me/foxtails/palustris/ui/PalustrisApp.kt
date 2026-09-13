@@ -95,7 +95,6 @@ import me.foxtails.palustris.ui.notifications.NotificationSettingsSheet
 import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.ui.profile.ProfileCategory
-import me.foxtails.palustris.ui.profile.ProfileScreen as RichProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.profile.editableProfilePatch
 import me.foxtails.palustris.ui.media.MediaOpenRequest
@@ -987,55 +986,55 @@ fun PalustrisApp(
                                       onSendDirectMessage = onSendDirectMessage,
                                       contentWarningRules = contentWarningRules,
                                   )
-                Destination.Profile -> RichProfileScreen(
-                    account = displayedProfile,
+                 Destination.Profile -> AppProfileDestinationContent(
+                     account = displayedProfile,
                      profileState = profileState,
-                      compactLayout = !largePresentation,
+                     compactLayout = !largePresentation,
                      largeLayout = largePresentation,
                      largeShowSummary = singlePost == null,
                      listState = profileListState,
-                    compactNavigationVisible = navigationVisible,
-                    authenticatedAccountId = account?.id,
-                    onProfileShown = onProfileShown,
+                     compactNavigationVisible = navigationVisible,
+                     authenticatedAccountId = account?.id,
+                     onProfileShown = onProfileShown,
                      onCategorySelected = { category ->
                          if (largePresentation) clearSelectedPost()
                          onProfileCategorySelected(category)
                      },
-                    onRefresh = onRefreshProfile,
-                    onLoadMore = onLoadMoreProfile,
-                    onFollow = onFollowProfile,
+                     onRefresh = onRefreshProfile,
+                     onLoadMore = onLoadMoreProfile,
+                     onFollow = onFollowProfile,
                      onUnfollow = onUnfollowProfile,
-                      onMessage = ::openDirectMessage,
-                      onOpenProfileImage = ::openProfileImage,
+                     onMessage = ::openDirectMessage,
+                     onOpenProfileImage = ::openProfileImage,
                      onEditProfile = ::openProfileEditor,
                      onOpenDrafts = {
                          if (largePresentation) clearSelectedPost()
                          if (account != null && displayedProfile?.id == account.id) page = LocalPage.Drafts
                      },
-                      onOpenBookmarks = {
-                          if (largePresentation) clearSelectedPost()
-                          if (account != null && displayedProfile?.id == account.id) page = LocalPage.SavedPosts
+                     onOpenBookmarks = {
+                         if (largePresentation) clearSelectedPost()
+                         if (account != null && displayedProfile?.id == account.id) page = LocalPage.SavedPosts
                      },
-                      onOpenLikes = {
-                          if (largePresentation) clearSelectedPost()
-                          if (account != null && displayedProfile?.id == account.id) page = LocalPage.Likes
-                      },
+                     onOpenLikes = {
+                         if (largePresentation) clearSelectedPost()
+                         if (account != null && displayedProfile?.id == account.id) page = LocalPage.Likes
+                     },
                      onOpenProfile = ::openProfile,
                      onSearchHashtag = ::openHashtagSearch,
                      onOpenHashtagBubble = ::openHashtagBubble,
-                       availableActions = feedState?.actions ?: emptySet(),
-                       onReact = onReact,
+                     availableActions = feedState?.actions ?: emptySet(),
+                     onReact = onReact,
                      onReply = handleReply,
-                    onReshare = onReshare,
-                    onBookmark = onBookmark,
+                     onReshare = onReshare,
+                     onBookmark = onBookmark,
                      onReaction = onProfilePostReaction,
-                      onOpenReactionBubble = { ownedPost, bounds ->
-                          openReactionBubble(ownedPost, bounds, onProfilePostReaction)
-                      },
-                       onOpenMedia = ::openMedia,
-                        onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
-                       onOpenUsername = ::openAccountSearch,
-                   )
+                     onOpenReactionBubble = { ownedPost, bounds ->
+                         openReactionBubble(ownedPost, bounds, onProfilePostReaction)
+                     },
+                     onOpenMedia = ::openMedia,
+                     onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
+                     onOpenUsername = ::openAccountSearch,
+                 )
                                }
                           }
                           }
