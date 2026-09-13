@@ -253,3 +253,7 @@ S42 push message handling:
 - Moved distributor message decoding, Misskey notification/chat/read-all handling, protocol dispatch, catch-up scheduling, and cancellation handling into `UnifiedPushMessageHandler`.
 - Kept registration orchestration, endpoint ownership, and its mutex in `UnifiedPushRegistrationManager`.
 - Verification passed: push parser/repository/connector tests and Kotlin compilation.
+S43 push registration orchestration review:
+- Kept registration reconciliation, endpoint replacement, retry, disable, and stale-callback checks in `UnifiedPushRegistrationManager`.
+- The manager remains the single mutex owner; extracting a second reconciler would add indirection without changing ownership or behavior.
+- Verification passed: push registration tests and source review.
