@@ -30,7 +30,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.R
-import me.foxtails.palustris.ui.AccountAvatar
+import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.Avatar
 

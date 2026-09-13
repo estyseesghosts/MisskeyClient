@@ -127,6 +127,7 @@ import me.foxtails.palustris.ui.large.LargeTimelineDockContent
 import me.foxtails.palustris.ui.large.largeLayoutMode
 import me.foxtails.palustris.ui.large.LargeLayoutMode
 import me.foxtails.palustris.ui.thread.PostThreadUiState
+import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.layout.CompactFilterDockHeight as movedCompactFilterDockHeight
 import me.foxtails.palustris.ui.layout.CompactOverlayControlSpacing as movedCompactOverlayControlSpacing
 import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding as movedCompactOverlayHorizontalPadding

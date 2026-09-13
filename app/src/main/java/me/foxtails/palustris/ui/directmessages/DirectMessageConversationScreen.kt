@@ -37,7 +37,7 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Post
-import me.foxtails.palustris.ui.AccountAvatar
+import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.ActionIcon
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.Avatar

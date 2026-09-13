@@ -61,7 +61,7 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.R
-import me.foxtails.palustris.ui.AccountAvatar
+import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.layout.compactContextualControlsPositioningInsets

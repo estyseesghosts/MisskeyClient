@@ -50,6 +50,7 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.isExactHashtag
 import me.foxtails.palustris.ui.components.CategoryChips
+import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.ExpandableContent

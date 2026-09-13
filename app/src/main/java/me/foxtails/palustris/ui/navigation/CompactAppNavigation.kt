@@ -54,7 +54,7 @@ import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.ui.AccountAvatar
+import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.Avatar
 import me.foxtails.palustris.ui.Destination

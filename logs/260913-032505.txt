@@ -36,3 +36,7 @@ S09 moderation request ownership:
 - Deduplicated account and hashtag pages and stopped repeated cursors.
 - Kept the current list available when a stale request returns.
 - Verification passed: compile and lint.
+S10 shared account avatar:
+- Moved `AccountAvatar` and its media loading semantics to `ui/components/AccountAvatar.kt`.
+- Updated profile, feed, notification, direct-message, navigation, and root callers.
+- Verification passed: compile and lint.

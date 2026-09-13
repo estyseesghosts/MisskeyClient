@@ -58,6 +58,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.layout.LegacyFeedBottomClearance
 import me.foxtails.palustris.ui.layout.compactHomeScrollEndClearance
 import androidx.compose.ui.unit.sp
@@ -291,35 +292,6 @@ fun HomeFeed(
             onReactionSelected = { _, _ -> },
             hashtagBottomClearance = if (compactLayout) compactHomeScrollEndClearance() else 0.dp,
         )
-    }
-}
-
-@Composable
-fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemantics: Boolean = true) {
-    val context = LocalContext.current
-    val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
-    val avatarRequest = remember(context, account.avatarUrl) {
-        ImageRequest.Builder(context)
-            .data(account.avatarUrl)
-            // Avoid starting an animation while a recycled timeline row is scrolling into view.
-            .crossfade(false)
-            .build()
-    }
-    val avatarDescription = stringResource(R.string.post_profile_picture, account.displayName)
-    Box(
-        modifier
-            .clip(CircleShape)
-            .then(if (exposeSemantics) Modifier.semantics(mergeDescendants = true) {
-                contentDescription = avatarDescription
-            } else Modifier),
-    ) {
-        Avatar(Modifier.fillMaxSize(), description = null)
-        AsyncImage(
-            model = avatarRequest,
-            imageLoader = mediaImageLoader.imageLoader,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize())
     }
 }
 

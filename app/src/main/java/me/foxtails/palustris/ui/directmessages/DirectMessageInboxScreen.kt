@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.DirectConversation
-import me.foxtails.palustris.ui.AccountAvatar
+import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.layout.CompactFilterDockHeight

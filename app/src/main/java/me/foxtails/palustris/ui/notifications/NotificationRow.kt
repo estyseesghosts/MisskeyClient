@@ -48,7 +48,7 @@ import me.foxtails.palustris.domain.ContentWarningDecision
 import me.foxtails.palustris.domain.ContentWarningPolicy
 import me.foxtails.palustris.domain.ContentWarningRules
 import me.foxtails.palustris.domain.HiddenContentPresentation
-import me.foxtails.palustris.ui.AccountAvatar
+import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.Avatar
 import me.foxtails.palustris.ui.LocalContentWarningRules
 import me.foxtails.palustris.ui.LocalHiddenContentPresentation
