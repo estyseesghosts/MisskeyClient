@@ -10,7 +10,9 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.longClick
 import me.foxtails.palustris.MainActivity
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -82,6 +84,7 @@ class EmojiPickerTest {
         mutationSupported: Boolean = true,
         selectionMode: ReactionSelectionMode = ReactionSelectionMode.Single,
         onEmojiSelected: (EmojiChoice) -> Unit = {},
+        onTogglePinnedEmoji: (String) -> Unit = {},
         onLoadCatalog: () -> Unit = {},
     ) {
         compose.activity.runOnUiThread {
@@ -95,6 +98,7 @@ class EmojiPickerTest {
                     onRetryCatalog = {},
                     onDismiss = {},
                     onEmojiSelected = onEmojiSelected,
+                    onTogglePinnedEmoji = onTogglePinnedEmoji,
                 )
             }
         }
@@ -243,6 +247,46 @@ class EmojiPickerTest {
     }
 
     @Test
+    fun longPressingUnpinnedEmojiOpensPinConfirmationWithoutSelecting() {
+        var selected: EmojiChoice? = null
+        var pinned: String? = null
+        show(
+            target = EmojiPickerTarget.Composer(ComposerField.Text),
+            onEmojiSelected = { selected = it },
+            onTogglePinnedEmoji = { pinned = it },
+        )
+
+        compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).performTouchInput { longClick() }
+
+        compose.onNodeWithTag("emoji_pin_confirmation").assertIsDisplayed()
+        compose.onNodeWithText("Pin emoji?").assertIsDisplayed()
+        compose.onNodeWithTag("emoji_pin_confirm").performClick()
+
+        assertEquals(null, selected)
+        assertEquals(":wave:", pinned)
+        compose.onNodeWithTag("emoji_pin_confirmation").assertDoesNotExist()
+    }
+
+    @Test
+    fun longPressingPinnedEmojiOpensRemovalConfirmation() {
+        var pinned: String? = null
+        show(
+            target = EmojiPickerTarget.Composer(ComposerField.Text),
+            catalog = EmojiCatalogState(
+                items = catalogEmoji,
+                preferences = me.foxtails.palustris.domain.EmojiPickerPreferences(pinnedEmoji = listOf(":wave:")),
+            ),
+            onTogglePinnedEmoji = { pinned = it },
+        )
+
+        compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).performTouchInput { longClick() }
+
+        compose.onNodeWithText("Remove emoji?").assertIsDisplayed()
+        compose.onNodeWithTag("emoji_pin_confirm").performClick()
+        assertEquals(":wave:", pinned)
+    }
+
+    @Test
     fun favoriteGroupPreservesPinnedCustomAndUnicodeOrderWithoutDuplicates() {
         val groups = buildEmojiPickerGroups(
             catalogItems = catalogEmoji,
@@ -283,6 +327,9 @@ class EmojiPickerTest {
                 PalustrisTheme {
                     EmojiChoiceGrid(
                         catalogItems = catalogEmoji,
+                        preferences = me.foxtails.palustris.domain.EmojiPickerPreferences(
+                            pinnedEmoji = listOf(":blob:"),
+                        ),
                         onToggleGroupCollapsed = { collapsed = it },
                         onToggleGroupPinned = { pinned = it },
                         onEmojiSelected = {},

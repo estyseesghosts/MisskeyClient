@@ -95,6 +95,7 @@ fun PostActionBubbleHost(
     onRetryEmojiCatalog: () -> Unit = {},
     onToggleEmojiGroupCollapsed: (String) -> Unit = {},
     onToggleEmojiGroupPinned: (String) -> Unit = {},
+    onTogglePinnedEmoji: (String) -> Unit = {},
     onDismiss: () -> Unit,
     onHashtagSelected: (String) -> Unit,
     onReactionSelected: (OwnedPost, EmojiChoice) -> Unit,
@@ -170,6 +171,7 @@ fun PostActionBubbleHost(
                     openedAtMillis = reactionOpenedAtMillis,
                     onToggleGroupCollapsed = onToggleEmojiGroupCollapsed,
                     onToggleGroupPinned = onToggleEmojiGroupPinned,
+                    onTogglePinnedEmoji = onTogglePinnedEmoji,
                     onSelected = { choice ->
                         onReactionSelected(current.ownedPost, choice)
                         dismiss()
@@ -244,6 +246,7 @@ private fun ReactionBubble(
     openedAtMillis: Long,
     onToggleGroupCollapsed: (String) -> Unit,
     onToggleGroupPinned: (String) -> Unit,
+    onTogglePinnedEmoji: (String) -> Unit = {},
     onSelected: (EmojiChoice) -> Unit,
     onExpanded: () -> Unit,
 ) {
@@ -323,8 +326,9 @@ private fun ReactionBubble(
                  compact = false,
                  modifier = Modifier.heightIn(max = 520.dp).padding(horizontal = 8.dp, vertical = 8.dp),
                  testTag = "reaction_bubble_grid",
-                 onToggleGroupCollapsed = onToggleGroupCollapsed,
-                 onToggleGroupPinned = onToggleGroupPinned,
+                  onToggleGroupCollapsed = onToggleGroupCollapsed,
+                  onToggleGroupPinned = onToggleGroupPinned,
+                  onTogglePinnedEmoji = onTogglePinnedEmoji,
                  onEmojiSelected = onSelected,
             )
         } else {
@@ -340,8 +344,9 @@ private fun ReactionBubble(
                 selectedIdentities = selectedIdentities,
                 compact = true,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                testTag = "reaction_bubble_grid",
-                onEmojiSelected = onSelected,
+                 testTag = "reaction_bubble_grid",
+                 onTogglePinnedEmoji = onTogglePinnedEmoji,
+                 onEmojiSelected = onSelected,
             )
         }
     }

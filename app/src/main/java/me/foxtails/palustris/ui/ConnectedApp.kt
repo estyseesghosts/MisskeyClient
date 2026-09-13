@@ -451,6 +451,7 @@ fun ConnectedApp(
                   onRetryEmojiCatalog = { emojiCatalogModel?.retry() },
                   onToggleEmojiGroupCollapsed = { groupId -> emojiCatalogModel?.toggleGroupCollapsed(groupId) },
                   onToggleEmojiGroupPinned = { groupId -> emojiCatalogModel?.toggleGroupPinned(groupId) },
+                  onTogglePinnedEmoji = { identity -> emojiCatalogModel?.togglePinnedEmoji(identity) },
                   onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
                 onProfilePostReaction = { ownedPost, choice -> profileModel?.react(ownedPost, choice) },
             )

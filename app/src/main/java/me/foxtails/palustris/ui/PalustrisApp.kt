@@ -203,6 +203,7 @@ fun PalustrisApp(
     onRetryEmojiCatalog: () -> Unit = {},
     onToggleEmojiGroupCollapsed: (String) -> Unit = {},
     onToggleEmojiGroupPinned: (String) -> Unit = {},
+    onTogglePinnedEmoji: (String) -> Unit = {},
     savedPostsState: SavedPostsUiState? = null,
     onRefreshSavedPosts: () -> Unit = {},
     onLoadMoreSavedPosts: () -> Unit = {},
@@ -1175,6 +1176,7 @@ fun PalustrisApp(
              onRetryEmojiCatalog = onRetryEmojiCatalog,
              onToggleEmojiGroupCollapsed = onToggleEmojiGroupCollapsed,
              onToggleEmojiGroupPinned = onToggleEmojiGroupPinned,
+             onTogglePinnedEmoji = onTogglePinnedEmoji,
              onDismiss = ::clearPostActionBubble,
             onHashtagSelected = { hashtag ->
                 clearPostActionBubble()
@@ -1348,6 +1350,7 @@ fun PalustrisApp(
             onRetryCatalog = onRetryEmojiCatalog,
             onToggleGroupCollapsed = onToggleEmojiGroupCollapsed,
             onToggleGroupPinned = onToggleEmojiGroupPinned,
+            onTogglePinnedEmoji = onTogglePinnedEmoji,
             onDismiss = {
                 emojiPickerTarget = null
             },
