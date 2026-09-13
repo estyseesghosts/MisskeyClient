@@ -81,3 +81,6 @@ S54 Beeline identity:
 - Incremented the default version to `0.2.0` and Android version code to `1003`.
 - Updated the notification distributor contract test and added generated identity coverage.
 - Compatibility package, application ID, stored keys, and callback schemes remain unchanged.
+S56 test cleanup:
+- Removed the Android Studio arithmetic template test.
+- Verification will include full test discovery in the final gate.
