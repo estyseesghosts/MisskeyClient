@@ -92,6 +92,7 @@ import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.notifications.NotificationDetailScreen
 import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
 import me.foxtails.palustris.ui.notifications.NotificationSettingsScreen
+import me.foxtails.palustris.ui.notifications.NotificationSettingsSheet
 import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.ui.profile.ProfileCategory
@@ -1415,49 +1416,21 @@ fun PalustrisApp(
         )
     }
 
-    if (overlay == Overlay.NotificationSettings && account != null) {
-        ModalBottomSheet(
-            onDismissRequest = ::closeNotificationSettings,
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight()
-                    .testTag("notification_settings_sheet"),
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ActionIcon(
-                        AppIcons.Close,
-                        stringResource(me.foxtails.palustris.R.string.notification_settings_sheet_close),
-                        ::closeNotificationSettings,
-                    )
-                    Text(
-                        stringResource(me.foxtails.palustris.R.string.notification_settings_sheet_title),
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                }
-                NotificationSettingsScreen(
-                    state = notificationSettingsState,
-                    onAlertsEnabled = onNotificationAlertsEnabled,
-                    onShowPreviews = onNotificationShowPreviews,
-                    onPeriodicFallback = onNotificationPeriodicFallback,
-                    onQuietHours = onNotificationQuietHours,
-                    onCategoryChanged = onNotificationCategoryChanged,
-                    onRunLocalTest = onNotificationLocalTest,
-                    onRetryRegistration = onNotificationRetryRegistration,
-                    onPermissionChanged = onNotificationPermissionChanged,
-                    onRefreshDistributors = onNotificationRefreshDistributors,
-                    onSelectDistributor = onNotificationSelectDistributor,
-                    onRunPushConnectionTest = onNotificationPushConnectionTest,
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                )
-            }
-        }
-    }
+    if (overlay == Overlay.NotificationSettings && account != null) NotificationSettingsSheet(
+        state = notificationSettingsState,
+        onDismiss = ::closeNotificationSettings,
+        onAlertsEnabled = onNotificationAlertsEnabled,
+        onShowPreviews = onNotificationShowPreviews,
+        onPeriodicFallback = onNotificationPeriodicFallback,
+        onQuietHours = onNotificationQuietHours,
+        onCategoryChanged = onNotificationCategoryChanged,
+        onRunLocalTest = onNotificationLocalTest,
+        onRetryRegistration = onNotificationRetryRegistration,
+        onPermissionChanged = onNotificationPermissionChanged,
+        onRefreshDistributors = onNotificationRefreshDistributors,
+        onSelectDistributor = onNotificationSelectDistributor,
+        onRunPushConnectionTest = onNotificationPushConnectionTest,
+    )
 
     BackHandler(enabled = overlay == Overlay.NotificationSettings) {
         closeNotificationSettings()

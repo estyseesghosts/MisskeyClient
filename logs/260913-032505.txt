@@ -131,3 +131,7 @@ S18 profile editor sheet:
 - Moved profile editor sheet rendering to ui/profile/EditProfileSheet.kt.
 - Moved editableProfilePatch into the profile feature package and kept dirty-field comparison unchanged.
 - Verification passed: Kotlin compilation.
+S19 notification settings sheet:
+- Moved notification settings sheet chrome to ui/notifications/NotificationSettingsSheet.kt.
+- Kept the separate SettingsHost route and all notification setting callbacks unchanged.
+- Verification passed: Kotlin compilation.
