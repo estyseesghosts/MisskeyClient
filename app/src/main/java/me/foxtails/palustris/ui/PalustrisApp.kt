@@ -1436,8 +1436,14 @@ fun PalustrisApp(
         closeNotificationSettings()
     }
 
-    if (profileDialog) AlertDialog(onDismissRequest = { profileDialog = false }, title = { Text(stringResource(R.string.dialog_discard_profile_title)) }, text = { Text(stringResource(R.string.dialog_discard_profile_text)) }, confirmButton = { TextButton(onClick = { profileDialog = false; discardProfileEditor() }) { Text(stringResource(R.string.dialog_discard)) } }, dismissButton = { TextButton(onClick = { profileDialog = false }) { Text(stringResource(R.string.dialog_keep_editing)) } })
-    if (signOutDialog) AlertDialog(onDismissRequest = { signOutDialog = false }, title = { Text(stringResource(R.string.dialog_sign_out_title)) }, text = { Text(stringResource(R.string.dialog_sign_out_text)) }, confirmButton = { TextButton(onClick = { signOutDialog = false; onSignOut() }) { Text(stringResource(R.string.account_sign_out)) } }, dismissButton = { TextButton(onClick = { signOutDialog = false }) { Text(stringResource(R.string.dialog_cancel)) } })
+    AppDialogs(
+        profileDialog = profileDialog,
+        onProfileDialogDismiss = { profileDialog = false },
+        onDiscardProfile = ::discardProfileEditor,
+        signOutDialog = signOutDialog,
+        onSignOutDialogDismiss = { signOutDialog = false },
+        onSignOut = onSignOut,
+    )
     }
 }
 

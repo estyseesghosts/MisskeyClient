@@ -135,3 +135,7 @@ S19 notification settings sheet:
 - Moved notification settings sheet chrome to ui/notifications/NotificationSettingsSheet.kt.
 - Kept the separate SettingsHost route and all notification setting callbacks unchanged.
 - Verification passed: Kotlin compilation.
+S20 app dialogs:
+- Moved profile-discard and sign-out dialogs to ui/AppDialogs.kt.
+- Preserved dialog precedence, cancel behavior, and confirmation callbacks.
+- Verification passed: Kotlin compilation.
