@@ -15,10 +15,12 @@ this is nowhere near the end. i would still call this app an unfinished prototyp
 
 this app supports 
 - the mastodon api, and compatible servers 
-- support for glitch extensions/pleroma/akkoma is not yet tested
+- which apparently includes pixelfed! 
+- ^ which has not yet been tested. 
+- support for glitch extensions/pleroma/akkoma is also not yet tested
 - but i'd love to have them working too (:
-- the misskey api, and compatible servers 
-- i personally use (and tested this app with) sharkey
+- the misskey api, and compatible servers.
+- i personally use (and tested this app with) sharkey.
 - if there are bugs with vanilla misskey, open an issue! 
 
 native misskey chats are not implemented and are currently not planned - private message posts from mastodon are reimplemented here for misskey. native misskey chats are bound only to the local instance, and are not globally interoperable. private messages are NOT secure or encrypted at this point in time, in any way. you should only use them for sharing memes. will rename them to 'direct messages' but there is a ui disclaimer that they are not secure. (need to make that more prominent too)
