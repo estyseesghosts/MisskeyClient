@@ -16,3 +16,5 @@ local.properties
 /.gradle-user
 /logs/*.txt
 /app/release/
+/AGENTS.md
+/docs/

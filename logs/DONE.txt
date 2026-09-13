@@ -241,3 +241,6 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added mapper, state, persistence, and Compose regression coverage. Commits: `df791fc`, `320c5e1`, `b1c650e`.
 - Verification passed: focused interaction tests, `lintDebug`, `test`, and `assembleRelease`.
 - Pushed `feature/interaction-counts` to `origin`; GitHub provided the pull request URL.
+20260913-012957 Repository hygiene task:
+ - Added root-level ignore rules for `AGENTS.md` and `docs/`.
+ - Confirmed both paths remain on disk and are not tracked by Git.
