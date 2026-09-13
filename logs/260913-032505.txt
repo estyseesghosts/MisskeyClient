@@ -1,0 +1,11 @@
+Goal: Execute docs/decomposition.md to completion and release Beeline as v0.2.0.
+Baseline: 90f0708 and the current worktree on September 13, 2026.
+Read: AGENTS.md, importantdocs/writing_style.md, docs/decomposition.md, and current task logs.
+Planned slices: S00 through S60 in the documented order, with one commit per completed slice.
+Affected areas: app source, app tests, build metadata, and required task logs.
+Risks: Existing unrelated worktree changes, state lifetime changes, persisted compatibility, account isolation, protocol boundaries, and incomplete device/live-server coverage.
+Constraints: Do not use subagents. Do not push. Preserve unrelated worktree changes and ignored documentation.
+S00 baseline:
+- `gradlew.bat test assembleRelease` passed.
+- Existing tests cover the compact and wide shell boundaries needed for S01.
+- No additional baseline test was required before the metrics move.
