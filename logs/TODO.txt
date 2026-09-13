@@ -2,5 +2,5 @@
 
 260913-075234 individual emoji pins and post interactions:
 - Emoji pinning and post interactions are tracked as separate implementation slices.
-- Current slice: consolidate post interaction mutation ownership and cross-surface optimistic projection.
+- Current slice: wire notification detail actions and publication count updates.
 - Risks: storage migration, session isolation, and network rollback.

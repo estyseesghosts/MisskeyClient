@@ -441,3 +441,8 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Preserved boost tap behavior and added an accessibility quote custom action.
 - Focused verification passed: `compileDebugKotlin`.
 - Commit: pending.
+260913-075234 Post mutation owner slice:
+- Extracted Feed favorite, reaction, boost, and bookmark mutations into `PostInteractionMutationOwner`.
+- Preserved opaque action targets, account/session validation, optimistic updates, reconciliation, rollback, and favorite/reaction deduplication.
+- Focused verification passed: `FeedViewModelReactionTest` and `compileDebugKotlin`.
+- Commit: pending.
