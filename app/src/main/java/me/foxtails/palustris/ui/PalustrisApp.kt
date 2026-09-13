@@ -793,21 +793,12 @@ fun PalustrisApp(
                         else -> ScaffoldDefaults.contentWindowInsets
                     },
                     topBar = {
-                    when {
-                        page != null -> TopAppBar(
-                             title = {
-                                 Text(
-                                     when (page) {
-                                         LocalPage.SavedPosts -> stringResource(savedTitle)
-                                         LocalPage.Likes -> stringResource(likedCollectionTitle())
-                                         else -> page!!.name
-                                     },
-                                 )
-                             },
-                             navigationIcon = { ActionIcon(AppIcons.Back, "Back") { clearPostActionBubble(); page = null } },
-                         )
-                          notificationRoute != null -> TopAppBar(title = { Text(stringResource(R.string.app_notification)) }, navigationIcon = { ActionIcon(AppIcons.Back, stringResource(R.string.app_back)) { clearPostActionBubble(); notificationRoute = null } })
-                    }
+                    AppDestinationTopBar(
+                        page = page,
+                        notificationRoute = notificationRoute,
+                        savedTitle = savedTitle,
+                        onBack = { clearPostActionBubble(); if (page != null) page = null else notificationRoute = null },
+                    )
                 }) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
                         SpringAnimatedContent(

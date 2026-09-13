@@ -149,4 +149,8 @@ S22 emoji scrollbar boundary:
 - Verification passed: `EmojiGridScrollbarTest` and Kotlin compilation.
 Media test follow-up:
 - Advanced the Compose test clock through viewer opening and pager settling before bounded request assertions.
-- Verification passed: `MediaViewerScreenTest.selectedAttachmentsRemainOnFullQualityAfterSwipingBack`.
+ - Verification passed: `MediaViewerScreenTest.selectedAttachmentsRemainOnFullQualityAfterSwipingBack`.
+S14 destination top-bar sub-slice:
+- Moved local-page and notification-route top-bar rendering to `ui/AppDestinationTopBar.kt`.
+- Preserved saved page identities, resource titles, and root Back behavior.
+- Verification passed: `NavigationTest`.
