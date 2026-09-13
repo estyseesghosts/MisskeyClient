@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import me.foxtails.palustris.MainActivity
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -52,6 +53,10 @@ class PostShareSheetTest {
         compose.onNodeWithTag("post_share_pm").assertIsDisplayed()
         compose.onNodeWithTag("post_share_copy").assertIsDisplayed()
         compose.onNodeWithTag("post_share_system").assertIsDisplayed()
+        compose.onNodeWithText("Copy").assertIsDisplayed()
+        compose.onNodeWithText("Share").assertIsDisplayed()
+        compose.onNodeWithText("Copy link").assertDoesNotExist()
+        compose.onNodeWithText("Share with another app").assertDoesNotExist()
         compose.onAllNodesWithText("Share post").assertCountEquals(0)
     }
 }
