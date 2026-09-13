@@ -110,3 +110,8 @@ S04 drafts UI:
 - Moved DraftsScreen to ui/DraftsScreen.kt and removed the now-empty Screens.kt.
 - Preserved draft editing, deletion confirmation, and recreation-safe callbacks.
 - Verification passed: Kotlin compilation and existing draft tests in the full unit test gate.
+S05 connected application wiring:
+- Moved ConnectedApp and its settings/moderation wiring helpers to ui/ConnectedApp.kt.
+- Kept sign-in-specific state, suggested instances, and UI in ui/SignInScreen.kt.
+- Preserved ViewModel keys, lifecycle effects, settings ownership, and root composition order.
+- Verification passed: `SignInScreenTest`, Kotlin compilation, and debug lint.
