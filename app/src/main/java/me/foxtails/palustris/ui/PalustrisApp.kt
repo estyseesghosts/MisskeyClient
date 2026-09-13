@@ -939,7 +939,7 @@ fun PalustrisApp(
                                                 onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
                                                onOpenUsername = ::openAccountSearch,
                                            )
-                                            SearchPanel.PhotoGrid -> PhotoGridScreen(
+                                             SearchPanel.PhotoGrid -> AppPhotoGridDestinationContent(
                                                 state = photoGridFeed,
                                                 onRefresh = onRefreshPhotoGrid,
                                                 onLoadMore = onLoadMorePhotoGrid,
