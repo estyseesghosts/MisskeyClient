@@ -396,3 +396,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Kept editor session state and save lifecycle in `ProfileViewModel` because it is coupled to target generation, account binding, and the existing editor sheet callbacks.
 - The existing `EditProfileScreen` remains the presentation boundary; a second session owner would duplicate generation and failure state.
 - Verification passed: existing profile editor tests and source review.
+260913-032505 S48 thread post storage review:
+- Kept the canonical post map and mutation overlays in `PostThreadViewModel` because they are directly coupled to acquisition replacement, confirmed replies, action jobs, listener publication, and tree rebuilds.
+- A separate store would create a second publication boundary without reducing lifecycle ownership.
+- Verification passed: existing thread state/action tests and source review.
+260913-032505 S49 thread refresh policy review:
+- Kept refresh scheduling in `PostThreadViewModel` because foreground state, acquisition generation, continuation, and automatic-refresh cancellation share one lifecycle owner.
+- No pure policy extraction clarified the current boundary.
+- Verification passed: existing thread refresh tests and source review.
