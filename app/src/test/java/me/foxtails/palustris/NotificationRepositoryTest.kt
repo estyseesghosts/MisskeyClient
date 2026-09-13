@@ -21,6 +21,8 @@ import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.NotificationSyncCompleteness
 import me.foxtails.palustris.domain.NotificationUnreadState
+import me.foxtails.palustris.domain.NotificationDestination
+import me.foxtails.palustris.domain.ValidatedUrl
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.Protocol
@@ -394,6 +396,24 @@ class NotificationRepositoryTest {
         val restored = NotificationRepository(store).observe(account).value.items.single().post
 
         assertEquals(post.interactionCounts, restored?.interactionCounts)
+    }
+
+    @Test
+    fun unknownActivityPreservesValidatedNestedDestination() = runBlocking {
+        val store = InMemoryNotificationStore()
+        val repository = NotificationRepository(store)
+        val token = NotificationSyncToken(account, 1)
+        repository.activate(token)
+        val destination = NotificationDestination.Server(
+            ValidatedUrl.https("https://example.org/activity/1")!!,
+        )
+        repository.establishBaseline(token, NotificationPage(
+            listOf(notification("unknown", NotificationActivity.Unknown("Unknown", destination))),
+        ))
+
+        val restored = NotificationRepository(store).observe(account).value.items.single()
+        val activity = restored.activity as NotificationActivity.Unknown
+        assertEquals(destination, activity.validatedDestination)
     }
 
     private fun notification(id: String, activity: NotificationActivity, post: Post? = null) = Notification(

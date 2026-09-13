@@ -1179,7 +1179,13 @@ private fun decodeActivity(json: JSONObject): NotificationActivity = when (json.
         "RoleOrAchievement" -> NotificationActivity.System.RoleOrAchievement(json.optString("title"), json.optString("detail").takeIf { it.isNotBlank() })
         else -> NotificationActivity.System.AppEvent(json.optString("title"), json.optString("detail").takeIf { it.isNotBlank() })
     }
-    else -> NotificationActivity.Unknown(json.optString("fallback", "New activity"))
+    else -> NotificationActivity.Unknown(
+        fallbackText = json.optString("fallback", "New activity"),
+        validatedDestination = json.optString("destination")
+            .takeIf(String::isNotBlank)
+            ?.let(me.foxtails.palustris.domain.ValidatedUrl::https)
+            ?.let(me.foxtails.palustris.domain.NotificationDestination::Server),
+    )
 }
 
 private fun encodeGroup(group: NotificationGroup): JSONObject = JSONObject().apply {

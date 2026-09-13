@@ -45,3 +45,8 @@ S12 filtered Home paging:
 - Avoided automatic unbounded fetching when a page contains only muted rows.
 - Retained the manual continuation control for all-hidden pages.
 - Verification passed: `HomeFeedTest` and lint.
+S23 notification unknown-activity persistence:
+- Restored validated nested destinations when decoding unknown activities.
+- Kept missing and invalid destinations as null for compatibility and safety.
+- Added repository recreation coverage.
+- Verification passed: `NotificationRepositoryTest` and lint.
