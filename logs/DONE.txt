@@ -348,6 +348,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved timeline capability checks, endpoint selection, page loading, and status mapping to `data/mastodon/MastodonTimelineService.kt`.
 - Preserved Home, Local, Federated, unsupported timeline behavior, and opaque cursor handling.
 - Verification passed: `MastodonIntegrationTest`, `MastodonSourceTest`, and Kotlin compilation.
+260913-032505 S34 Misskey timeline service:
+- Moved Misskey timeline capability checks, endpoint selection, request mapping, and response mapping to `data/misskey/MisskeyTimelineService.kt`.
+- Preserved all five timeline variants, capability failure states, file loading, and outer-renote cursor pagination.
+- Verification passed: `MisskeyIntegrationTest`, `MisskeySourceTest`, and Kotlin compilation.
 260913-032505 S57 media test follow-up:
 - Added bounded Compose-clock settling before the return swipe and final request-count assertions.
 - Verification passed: full `test assembleRelease` with 641 tests.

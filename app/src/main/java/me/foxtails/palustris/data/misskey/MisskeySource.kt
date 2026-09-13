@@ -89,32 +89,13 @@ class MisskeySource(
     private val moderationService = accountId?.let { MisskeyModerationService(origin, token, api, it) }
     private val pushService = MisskeyPushService(origin, token, api, accountId)
     private val streamService = MisskeyStreamService(origin, token, api, accountId)
+    private val timelineService = MisskeyTimelineService(origin, token, api)
     private val continuationStore = java.util.concurrent.ConcurrentHashMap<String, ThreadAcquisition>()
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request(invalidateCapabilitiesOnNotFound = true) {
             refreshCapabilities()
-            when (capabilities.timelineStatus(timeline)) {
-                CapabilityStatus.Supported -> Unit
-                CapabilityStatus.Denied -> throw SourceError.AccessDenied("timeline:$timeline")
-                CapabilityStatus.Unsupported -> throw SourceError.Unsupported("timeline:$timeline")
-                CapabilityStatus.TemporarilyUnavailable -> throw SourceError.ServerError("timeline:$timeline")
-                CapabilityStatus.Unknown -> throw SourceError.Unsupported("timeline:$timeline")
-            }
-            val params = JSONObject().put("i", token).put("limit", 30)
-            if (cursor != null) params.put("untilId", cursor)
-            val endpoint = when (timeline) {
-                Timeline.Home -> "notes/timeline"
-                Timeline.Local -> "notes/local-timeline"
-                Timeline.Social -> "notes/hybrid-timeline"
-                Timeline.Bubble -> "notes/bubble-timeline"
-                Timeline.Federated -> "notes/global-timeline"
-            }
-            params.put("withFiles", true)
-            val notes = JSONArray(api.post(origin, endpoint, params).body)
-            Page((0 until notes.length()).map { MisskeyMapper.post(notes.getJSONObject(it), origin) },
-                // Use the OUTER renote ID, not the displayed original note, for pagination.
-                if (notes.length() > 0) notes.getJSONObject(notes.length() - 1).getString("id") else null)
+            timelineService.timeline(timeline, cursor, capabilities)
     }
 
     override suspend fun post(id: EntityId): Post = request {
