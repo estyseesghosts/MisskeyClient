@@ -285,3 +285,7 @@ S50 post-action bubble placement:
 - Moved popup placement geometry and edge fallback calculations into `ui/PostActionBubblePlacement.kt`.
 - Preserved anchor fallback, layout bounds, above/below placement, margins, and bottom-edge behavior.
 - Verification passed: Kotlin compilation and existing Home/Search presentation tests.
+S51 media transition layer:
+- Moved transition image rendering, clipping, frame geometry, crop fitting, and drawable-size handling into `ui/media/MediaViewerTransitionLayer.kt`.
+- Preserved separate image, clip, visible bounds, corner clipping, and request readiness callbacks.
+- Verification passed: `MediaViewerScreenTest`, media carousel tests, and Kotlin compilation.

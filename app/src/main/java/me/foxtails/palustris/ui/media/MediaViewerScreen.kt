@@ -411,7 +411,7 @@ fun MediaViewerScreen(
 }
 
 @Composable
-private fun MediaTransitionImage(
+private fun LegacyMediaTransitionImage(
     frame: MediaTransitionFrame,
     previewRequest: ImageRequest?,
     fullRequest: ImageRequest?,
@@ -428,11 +428,11 @@ private fun MediaTransitionImage(
     }
     val painter = if (useFullImage && fullReady) fullPainter else previewPainter ?: fullPainter
     if (painter == null) return
-    MediaTransitionImageCanvas(painter, frame)
+    LegacyMediaTransitionImageCanvas(painter, frame)
 }
 
 @Composable
-internal fun MediaTransitionImageCanvas(
+internal fun LegacyMediaTransitionImageCanvas(
     painter: Painter,
     frame: MediaTransitionFrame,
 ) {
@@ -503,7 +503,7 @@ private fun mediaRequest(
     }
 }
 
-private fun sourceFrame(
+private fun legacySourceFrame(
     source: MediaTransitionSource?,
     fallbackBounds: Rect,
     attachment: me.foxtails.palustris.domain.Attachment,
@@ -513,14 +513,14 @@ private fun sourceFrame(
     val imageWidth = source?.imageWidth ?: attachment.imageWidth()
     val imageHeight = source?.imageHeight ?: attachment.imageHeight()
     return MediaTransitionFrame(
-        imageBounds = cropRect(fullBounds, imageWidth, imageHeight),
+        imageBounds = legacyCropRect(fullBounds, imageWidth, imageHeight),
         clipBounds = fullBounds,
         visibleBounds = source?.visibleBounds?.takeIf { it.isValid() } ?: fullBounds,
         cornerRadiusPx = source?.cornerRadiusPx ?: 0f,
     )
 }
 
-private fun destinationFrame(
+private fun legacyDestinationFrame(
     viewport: Rect,
     attachment: me.foxtails.palustris.domain.Attachment,
     density: androidx.compose.ui.unit.Density,
@@ -538,7 +538,7 @@ private fun destinationFrame(
     return MediaTransitionFrame(imageBounds, imageBounds, imageBounds)
 }
 
-internal fun cropRect(container: Rect, imageWidth: Float, imageHeight: Float): Rect {
+internal fun legacyCropRect(container: Rect, imageWidth: Float, imageHeight: Float): Rect {
     if (!container.isValid() || imageWidth <= 0f || imageHeight <= 0f) return container
     val scale = max(container.width / imageWidth, container.height / imageHeight)
     val width = imageWidth * scale
