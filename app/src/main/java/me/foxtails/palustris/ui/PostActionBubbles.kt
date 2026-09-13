@@ -59,6 +59,7 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.emoji.EmojiChoiceGrid
+import me.foxtails.palustris.ui.components.PillAction
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 
 private const val BubbleDismissDurationMillis = 150L
@@ -212,28 +213,14 @@ private fun HashtagBubble(
         itemsIndexed(hashtags, key = { index, hashtag -> "$index-$hashtag" }) { _, hashtag ->
             val hashtagDescription = stringResource(R.string.post_action_hashtag_description, hashtag)
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                Surface(
+                PillAction(
+                    label = hashtag,
+                    onClick = { onSelected(hashtag) },
                     modifier = Modifier
                         .widthIn(max = 280.dp)
-                        .clickable(role = Role.Button) { onSelected(hashtag) }
-                        .semantics {
-                            contentDescription = hashtagDescription
-                            role = Role.Button
-                        }
                         .testTag("hashtag_bubble_$hashtag"),
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ) {
-                    androidx.compose.material3.Text(
-                        hashtag,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    )
-                }
+                    contentDescription = hashtagDescription,
+                )
             }
         }
     }

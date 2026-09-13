@@ -8,6 +8,9 @@ import me.foxtails.palustris.domain.ModerationCursor
 import me.foxtails.palustris.domain.ModerationListKind
 import me.foxtails.palustris.domain.ModerationPage
 import me.foxtails.palustris.domain.MutedHashtag
+import me.foxtails.palustris.domain.ProfileRelationship
+import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.ReportRequest
 import me.foxtails.palustris.domain.SourceError
 import org.json.JSONArray
 import org.json.JSONObject
@@ -23,6 +26,41 @@ class MisskeyModerationService(
 
     suspend fun removeBlocked(entry: ModerationAccount) = remove("blocking/delete", "blockId", entry)
     suspend fun removeMuted(entry: ModerationAccount) = remove("mute/delete", "muteId", entry)
+
+    suspend fun setBlocked(target: AccountId, blocked: Boolean): ProfileRelationship {
+        validateTarget(target, "profile.block")
+        if (blocked) {
+            api.post(origin, "blocking/create", JSONObject().put("i", token).put("userId", target.localId))
+        } else {
+            deleteByAccount("blocking", target)
+        }
+        return relationship(target)
+    }
+
+    suspend fun setMuted(target: AccountId, muted: Boolean): ProfileRelationship {
+        validateTarget(target, "profile.mute")
+        if (muted) {
+            api.post(origin, "mute/create", JSONObject().put("i", token).put("userId", target.localId))
+        } else {
+            deleteByAccount("mute", target)
+        }
+        return relationship(target)
+    }
+
+    suspend fun report(request: ReportRequest) {
+        if (request.targetAccountId.connection.origin != origin) throw SourceError.ForeignOrigin("moderation.report")
+        if (request.postId != null) throw SourceError.Unsupported("moderation.report.post")
+        withContext(Dispatchers.IO) {
+            api.post(
+                origin,
+                "users/report",
+                JSONObject()
+                    .put("i", token)
+                    .put("userId", request.targetAccountId.localId)
+                    .put("comment", request.comment),
+            )
+        }
+    }
 
     suspend fun hashtags(cursor: ModerationCursor? = null): ModerationPage<MutedHashtag> {
         // Misskey word mutes include phrases, contexts, and actions; presenting them as
@@ -60,6 +98,45 @@ class MisskeyModerationService(
             throw SourceError.ForeignOrigin("moderation.remove")
         }
         api.post(origin, endpoint, JSONObject().put("i", token).put(parameter, entry.relationshipId))
+    }
+
+    private suspend fun deleteByAccount(kind: String, target: AccountId) {
+        val response = api.post(
+            origin,
+            if (kind == "blocking") "blocking" else "mute/list",
+            JSONObject().put("i", token).put("userId", target.localId).put("limit", PAGE_LIMIT),
+        )
+        val values = JSONArray(response.body)
+        val relationId = (0 until values.length()).asSequence()
+            .mapNotNull { values.optJSONObject(it) }
+            .firstOrNull { entry ->
+                val nested = entry.optJSONObject(if (kind == "blocking") "blockee" else "mutee")
+                    ?: entry.optJSONObject("user")
+                nested?.optString("id") == target.localId
+            }
+            ?.optString("id")
+            ?.takeIf(String::isNotBlank)
+            ?: throw SourceError.Unsupported("profile.${if (kind == "blocking") "unblock" else "unmute"}")
+        api.post(
+            origin,
+            if (kind == "blocking") "blocking/delete" else "mute/delete",
+            JSONObject().put("i", token).put(if (kind == "blocking") "blockId" else "muteId", relationId),
+        )
+    }
+
+    private suspend fun relationship(target: AccountId): ProfileRelationship {
+        val response = api.post(
+            origin,
+            "users/relation",
+            JSONObject().put("i", token).put("userId", target.localId),
+        )
+        return MisskeyMapper.relationship(JSONObject(response.body), target)
+    }
+
+    private fun validateTarget(target: AccountId, feature: String) {
+        if (target.connection.origin != origin || target.localId.isBlank() || target.connection.protocol != Protocol.MISSKEY) {
+            throw SourceError.ForeignOrigin(feature)
+        }
     }
 
     private fun decodeCursor(cursor: ModerationCursor?, kind: ModerationListKind, variant: String): String? {

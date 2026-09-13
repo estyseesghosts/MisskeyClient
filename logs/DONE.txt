@@ -481,3 +481,42 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Preserved unresolved post-specific identities and Unicode pins.
 - Focused verification passed: `EmojiCatalogViewModelTest`.
 - Commit: `ed5bf97`.
+260913-090345 Reaction and indicator correction:
+- Kept compact reaction opening separate from expanded picker opening.
+- Passed the expanded-picker callback through HomeFeed and preserved the existing compact bubble host.
+- Added the normalized favorite/reaction indicator and accessibility coverage.
+- Focused verification passed: reaction gesture, HomeFeed bubble, SignIn interaction, and indicator tests.
+260913-090345 Report and moderation contract slice:
+- Added the protocol-neutral `ReportRequest` contract to `SocialSource`.
+- Mapped account and status reports to Mastodon form fields.
+- Mapped account reports to Misskey and rejected unsupported post reports.
+- Added foreign-origin and adapter request coverage.
+- Focused verification passed: `ModerationServiceTest`.
+260913-090345 Share sheet slice:
+- Added a Compose share sheet for post copy and system sharing.
+- Kept URL preparation in the existing external-link policy.
+- Added visible action tags and Compose coverage.
+- Focused verification passed: `PostShareSheetTest`.
+260913-090345 Setup and branding slice:
+- Added setup-only Noto Sans typography and preserved application typography preferences elsewhere.
+- Reworked the sign-in setup header with the transparent Beeline bee mark and `#F1BE43` branding yellow.
+- Replaced the default launcher background and foreground with the Beeline mark and branding color; `bee.jpg` is not used as launcher artwork.
+- Moved the large transparent logo to `drawable-nodpi` to prevent density-scaled bitmap allocation.
+- Focused verification passed: SignInScreen and resource compilation tests.
+260913-090345 Share surface integration:
+- Routed share actions in standard single-post, photo-grid single-post, feed, and media viewer surfaces through `PostShareSheet`.
+- Preserved the existing system chooser as the final system-share action.
+- Updated stale HomeFeed repost coverage for the confirmation flow.
+- Focused verification passed: HomeFeed, SignInScreen, SinglePostScreen, MediaViewerScreen, and PostShareSheet tests.
+260913-090345 Final branding verification:
+ - Added the supplied Noto Sans variable font for setup-only typography.
+ - Added the transparent black-bee `beeline.png` asset to `drawable-nodpi`.
+ - Set the launcher background and setup branding color to `#F1BE43`.
+ - Confirmed that `bee.jpg` is not used as launcher artwork.
+ - Full verification passed: `test assembleRelease` and `lintDebug`.
+260913-153415 Slice 1:
+- Reused `PillAction` for hashtag bubbles and added minimum-size, alignment, and multiline support.
+- Replaced EntityId moderation commands with account-targeted block and mute operations.
+- Added Mastodon and Misskey report and relationship adapter wiring with origin checks.
+- Verification passed: `compileDebugKotlin`, `PillActionTest`, and `ModerationServiceTest`.
+- Commit: pending.

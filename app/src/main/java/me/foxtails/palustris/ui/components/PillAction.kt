@@ -1,6 +1,8 @@
 package me.foxtails.palustris.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -12,6 +14,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -23,9 +26,12 @@ internal fun PillAction(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     contentDescription: String = label,
+    textAlign: TextAlign = TextAlign.Center,
+    maxLines: Int = 1,
 ) {
     Surface(
         modifier = modifier
+            .defaultMinSize(minHeight = 48.dp)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics {
                 this.contentDescription = contentDescription
@@ -37,10 +43,13 @@ internal fun PillAction(
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .fillMaxWidth(),
             style = MaterialTheme.typography.labelLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            textAlign = textAlign,
+            maxLines = maxLines,
+            overflow = if (maxLines == 1) TextOverflow.Ellipsis else TextOverflow.Clip,
         )
     }
 }

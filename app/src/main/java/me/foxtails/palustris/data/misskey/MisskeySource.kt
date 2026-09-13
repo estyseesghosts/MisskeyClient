@@ -43,6 +43,7 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PushSubscription
 import me.foxtails.palustris.domain.PushSubscriptionSpec
 import me.foxtails.palustris.domain.PushProviderInfo
+import me.foxtails.palustris.domain.ReportRequest
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
@@ -119,6 +120,14 @@ class MisskeySource(
 
     override suspend fun unfollowProfile(id: AccountId): ProfileRelationship = request {
         profileService.unfollow(id)
+    }
+
+    override suspend fun setBlocked(id: AccountId, blocked: Boolean): ProfileRelationship = request {
+        moderationService?.setBlocked(id, blocked) ?: unsupported("profile.block")
+    }
+
+    override suspend fun setMuted(id: AccountId, muted: Boolean): ProfileRelationship = request {
+        moderationService?.setMuted(id, muted) ?: unsupported("profile.mute")
     }
 
     override suspend fun pinnedPosts(id: AccountId): List<Post> = request { profileService.pinnedPosts(id) }
@@ -598,6 +607,10 @@ class MisskeySource(
 
     override suspend fun removeMutedAccount(entry: ModerationAccount) = request {
         moderationService?.removeMuted(entry) ?: unsupported<Unit>("moderation.muted.remove")
+    }
+
+    override suspend fun report(request: ReportRequest) = request {
+        moderationService?.report(request) ?: unsupported<Unit>("moderation.report")
     }
 
     private fun requireAccountId(): AccountId = accountId ?: throw SourceError.Unsupported("notifications.account")

@@ -10,11 +10,14 @@ import me.foxtails.palustris.domain.ModerationListKind
 import me.foxtails.palustris.domain.ModerationListQuery
 import me.foxtails.palustris.domain.ModerationCursor
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.ReportRequest
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.domain.EntityId
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
 import org.junit.After
 import org.junit.Before
@@ -94,6 +97,70 @@ class ModerationServiceTest {
                 "https://foreign.example/api/v1/accounts/blocked?max_id=1",
             )
             assertThrows(SourceError.Unsupported::class.java) { runBlocking { service.blocked(foreignCursor) } }
+        }
+    }
+
+    @Test
+    fun mastodonMapsReportsToAccountAndStatusFields() {
+        runBlocking {
+            val origin = server.url("/").toString().removeSuffix("/")
+            val service = MastodonModerationService(
+                origin,
+                "token",
+                MisskeyApi(),
+                AccountId(Connection(origin, Protocol.MASTODON), "viewer"),
+            )
+            server.enqueue(MockResponse())
+
+            service.report(
+                ReportRequest(
+                    targetAccountId = AccountId(Connection(origin, Protocol.MASTODON), "target"),
+                    postId = EntityId(origin, "status"),
+                    comment = "spam",
+                ),
+            )
+
+            val request = server.takeRequest()
+            assertEquals("/api/v1/reports", request.path)
+            val body = request.body.readUtf8()
+            assertTrue(body.contains("account_id=target"))
+            assertTrue(body.contains("status_ids%5B%5D=status"))
+            assertTrue(body.contains("comment=spam"))
+        }
+    }
+
+    @Test
+    fun misskeyReportsAccountsAndRejectsPostReports() {
+        runBlocking {
+            val origin = server.url("/").toString().removeSuffix("/")
+            val service = MisskeyModerationService(
+                origin,
+                "token",
+                MisskeyApi(),
+                AccountId(Connection(origin, Protocol.MISSKEY), "viewer"),
+            )
+            server.enqueue(MockResponse())
+
+            service.report(
+                ReportRequest(AccountId(Connection(origin, Protocol.MISSKEY), "target"), comment = "abuse"),
+            )
+            val request = server.takeRequest()
+            assertEquals("/api/users/report", request.path)
+            val body = JSONObject(request.body.readUtf8())
+            assertEquals("target", body.getString("userId"))
+            assertEquals("abuse", body.getString("comment"))
+
+            assertThrows(SourceError.Unsupported::class.java) {
+                runBlocking {
+                    service.report(
+                        ReportRequest(
+                            AccountId(Connection(origin, Protocol.MISSKEY), "target"),
+                            EntityId(origin, "status"),
+                            "abuse",
+                        ),
+                    )
+                }
+            }
         }
     }
 

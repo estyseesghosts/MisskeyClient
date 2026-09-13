@@ -1,8 +1,7 @@
 # Active tasks
 
-- Add favorite and reaction indicator state coverage. (in progress)
-- Add report and moderation adapter contracts.
-- Add the Beeline share-action sheet.
-- Replace setup UI.
-- Isolate setup typography.
-- Replace launcher assets and run final verification.
+- Add scoped relationship state and synchronization behavior.
+- Replace the share sheet and connect post entry points.
+- Replace setup composition.
+- Add server validation, navigation, insets, and setup typography.
+- Remove obsolete code and run full verification.

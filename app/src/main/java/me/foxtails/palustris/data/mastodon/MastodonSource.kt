@@ -53,6 +53,7 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.PushSubscription
 import me.foxtails.palustris.domain.PushSubscriptionSpec
 import me.foxtails.palustris.domain.PushProviderInfo
+import me.foxtails.palustris.domain.ReportRequest
 import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
@@ -140,6 +141,14 @@ class MastodonSource(
 
     override suspend fun unfollowProfile(id: AccountId): ProfileRelationship = request {
         profileService.unfollow(id)
+    }
+
+    override suspend fun setBlocked(id: AccountId, blocked: Boolean): ProfileRelationship = request {
+        moderationService.setBlocked(id, blocked)
+    }
+
+    override suspend fun setMuted(id: AccountId, muted: Boolean): ProfileRelationship = request {
+        moderationService.setMuted(id, muted)
     }
 
     override suspend fun pinnedPosts(id: AccountId): List<Post> = request { profileService.pinnedPosts(id) }
@@ -409,6 +418,8 @@ class MastodonSource(
     override suspend fun removeBlockedAccount(entry: ModerationAccount) = request { moderationService.removeBlocked(entry) }
 
     override suspend fun removeMutedAccount(entry: ModerationAccount) = request { moderationService.removeMuted(entry) }
+
+    override suspend fun report(request: ReportRequest) = request { moderationService.report(request) }
 
     override suspend fun queryOwnedPushSubscription(knownEndpoint: ValidatedUrl?): PushSubscription? = request {
         pushService.query(knownEndpoint)

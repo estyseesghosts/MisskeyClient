@@ -88,8 +88,11 @@ interface SocialSource {
     ): PushSubscription = unsupported("notifications.push.policy")
     suspend fun removePushSubscription(subscription: PushSubscription) =
         unsupported<Unit>("notifications.push.remove")
-    suspend fun mute(id: EntityId) = unsupported<Unit>("mute")
-    suspend fun block(id: EntityId) = unsupported<Unit>("block")
+    suspend fun setMuted(id: AccountId, muted: Boolean): ProfileRelationship =
+        unsupported("profile.mute")
+    suspend fun setBlocked(id: AccountId, blocked: Boolean): ProfileRelationship =
+        unsupported("profile.block")
+    suspend fun report(request: ReportRequest) = unsupported<Unit>("moderation.report")
     suspend fun blockedAccounts(cursor: ModerationCursor? = null): ModerationPage<ModerationAccount> =
         unsupported("moderation.blocked")
     suspend fun mutedAccounts(cursor: ModerationCursor? = null): ModerationPage<ModerationAccount> =

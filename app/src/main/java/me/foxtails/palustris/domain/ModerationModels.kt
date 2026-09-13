@@ -29,4 +29,10 @@ data class MutedHashtag(
     val expiresAtEpochMillis: Long? = null,
 )
 
+data class ReportRequest(
+    val targetAccountId: AccountId,
+    val postId: EntityId? = null,
+    val comment: String,
+)
+
 data class ModerationPage<T>(val items: List<T>, val nextCursor: ModerationCursor? = null)
