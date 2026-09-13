@@ -158,17 +158,26 @@ fun HomeFeed(
     val scrollDirectionChanged by rememberUpdatedState(onScrollDirectionChanged)
     val scheme = LocalPalustrisMotionScheme.current
     val mutedHashtags = LocalMutedHashtags.current
+    val hasOwnership = ownedPosts.isNotEmpty()
+    val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
+    val visibleRows = rows.filterNot { ownedPost ->
+        ContentWarningPolicy.matchesHashtagMute(
+            postHashtags(ownedPost.post.text, ownedPost.post.emoji),
+            mutedHashtags,
+        )
+    }
     val statePaneKey = when {
         state.error != null -> "error"
         state.posts.isEmpty() && state.loading -> "loading"
         state.posts.isEmpty() -> "empty"
         else -> "feed"
     }
-    LaunchedEffect(list) {
+    LaunchedEffect(list, visibleRows) {
         snapshotFlow {
             val s = currentState
-            s.nextCursor != null && !s.loading && !s.loadingMore && s.error == null &&
-                (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) >= s.posts.size - 5
+            val lastVisibleIndex = list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            s.nextCursor != null && visibleRows.isNotEmpty() && !s.loading && !s.loadingMore && s.error == null &&
+                lastVisibleIndex >= visibleRows.size - 5
         }.distinctUntilChanged().collect { if (it) loadMore() }
     }
     LaunchedEffect(list) {
@@ -222,15 +231,7 @@ fun HomeFeed(
             if (state.posts.isEmpty() && !state.loading && state.error == null) item {
                 Box(Modifier.fillParentMaxSize()) { EmptyState(AppIcons.Home, stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_subtitle)) }
             }
-             val hasOwnership = ownedPosts.isNotEmpty()
-             val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
-             val visibleRows = rows.filterNot { ownedPost ->
-                 ContentWarningPolicy.matchesHashtagMute(
-                     postHashtags(ownedPost.post.text, ownedPost.post.emoji),
-                     mutedHashtags,
-                 )
-             }
-             val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
+              val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
              items(visibleRows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
                 Column(
                     Modifier.animateItem(

@@ -40,3 +40,8 @@ S10 shared account avatar:
 - Moved `AccountAvatar` and its media loading semantics to `ui/components/AccountAvatar.kt`.
 - Updated profile, feed, notification, direct-message, navigation, and root callers.
 - Verification passed: compile and lint.
+S12 filtered Home paging:
+- Derived the automatic paging threshold from rendered visible rows.
+- Avoided automatic unbounded fetching when a page contains only muted rows.
+- Retained the manual continuation control for all-hidden pages.
+- Verification passed: `HomeFeedTest` and lint.
