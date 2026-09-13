@@ -57,11 +57,18 @@ fun DisplaySettingsScreen(
                 when (scheme) {
                     AppColorScheme.System -> R.string.settings_colour_style_system
                     AppColorScheme.SystemMonochrome -> R.string.settings_colour_style_system_monochrome
+                    AppColorScheme.Palette -> R.string.settings_colour_style_palette
                 },
             )
         }
         Text(stringResource(R.string.settings_colour_palette), Modifier.padding(horizontal = 20.dp, vertical = 12.dp), style = MaterialTheme.typography.titleMedium)
-        PaletteGrid(preferences.colorPalette, onColorPalette)
+        PaletteGrid(
+            selected = preferences.colorPalette.takeIf { preferences.colorScheme == AppColorScheme.Palette },
+            onSelected = { palette ->
+                onColorScheme(AppColorScheme.Palette)
+                onColorPalette(palette)
+            },
+        )
         HorizontalDivider()
         ChoiceGroup("Background", AppBackground.entries, preferences.background, onBackground) { it.name.replace("PureBlack", "Pure black") }
         Text(stringResource(R.string.settings_pure_black_warning), Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
@@ -79,7 +86,7 @@ fun DisplaySettingsScreen(
 }
 
 @Composable
-private fun PaletteGrid(selected: AppColorPalette, onSelected: (AppColorPalette) -> Unit) {
+private fun PaletteGrid(selected: AppColorPalette?, onSelected: (AppColorPalette) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AppColorPalette.entries.chunked(7).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {

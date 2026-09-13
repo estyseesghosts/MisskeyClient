@@ -438,6 +438,7 @@
     <string name="settings_colour_style">Colour style</string>
     <string name="settings_colour_style_system">System</string>
     <string name="settings_colour_style_system_monochrome">System monochrome</string>
+    <string name="settings_colour_style_palette">Colour palette</string>
     <string name="settings_colour_palette">Accent colour</string>
     <string name="settings_palette_pastel_red">Pastel red</string>
     <string name="settings_palette_pastel_orange">Pastel orange</string>

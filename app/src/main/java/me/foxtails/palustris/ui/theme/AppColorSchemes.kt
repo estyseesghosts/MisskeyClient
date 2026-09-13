@@ -30,8 +30,9 @@ fun resolvedAppColorScheme(
         lightColorScheme()
     }
     val base = when (colorScheme) {
-        AppColorScheme.System -> selectedAppColorScheme(palette, darkTheme)
+        AppColorScheme.System -> system
         AppColorScheme.SystemMonochrome -> grayscale(system)
+        AppColorScheme.Palette -> selectedAppColorScheme(palette, darkTheme)
     }
     return when (background) {
         AppBackground.Default -> base
@@ -70,10 +71,10 @@ fun selectedAppColorScheme(
     val secondaryContainer = tone(secondarySeed, if (darkTheme) 0.28f else 0.84f, 0.8f)
     val tertiary = tone(tertiarySeed, if (darkTheme) 0.68f else 0.42f, 0.8f)
     val tertiaryContainer = tone(tertiarySeed, if (darkTheme) 0.28f else 0.84f, 0.8f)
-    val neutralSurface = tone(seed, if (darkTheme) 0.16f else 0.10f, if (darkTheme) 0.07f else 0.985f)
-    val neutralVariant = tone(seed, if (darkTheme) 0.24f else 0.14f, if (darkTheme) 0.18f else 0.91f)
-    val onSurface = tone(seed, if (darkTheme) 0.10f else 0.18f, if (darkTheme) 0.94f else 0.12f)
-    val onSurfaceVariant = tone(seed, if (darkTheme) 0.12f else 0.18f, if (darkTheme) 0.78f else 0.34f)
+    val neutralSurface = tone(seed, if (darkTheme) 0.16f else 0.98f, if (darkTheme) 0.07f else 0.10f)
+    val neutralVariant = tone(seed, if (darkTheme) 0.24f else 0.91f, if (darkTheme) 0.18f else 0.14f)
+    val onSurface = tone(seed, if (darkTheme) 0.94f else 0.18f, if (darkTheme) 0.10f else 0.12f)
+    val onSurfaceVariant = tone(seed, if (darkTheme) 0.78f else 0.34f, if (darkTheme) 0.12f else 0.14f)
     val error = if (darkTheme) Color(0xFFFFB4AB) else Color(0xFFBA1A1A)
     val errorContainer = if (darkTheme) Color(0xFF93000A) else Color(0xFFFFDAD6)
     val base = if (darkTheme) darkColorScheme() else lightColorScheme()
@@ -107,13 +108,13 @@ fun selectedAppColorScheme(
         outline = tone(seed, 0.22f, if (darkTheme) 0.62f else 0.50f),
         outlineVariant = tone(seed, if (darkTheme) 0.16f else 0.12f, if (darkTheme) 0.34f else 0.78f),
         scrim = Color.Black,
-        surfaceBright = tone(seed, if (darkTheme) 0.12f else 0.08f, if (darkTheme) 0.16f else 1f),
-        surfaceDim = tone(seed, if (darkTheme) 0.16f else 0.08f, if (darkTheme) 0.04f else 0.90f),
-        surfaceContainerLowest = tone(seed, if (darkTheme) 0.14f else 0.08f, if (darkTheme) 0.03f else 1f),
-        surfaceContainerLow = tone(seed, if (darkTheme) 0.15f else 0.08f, if (darkTheme) 0.09f else 0.97f),
-        surfaceContainer = tone(seed, if (darkTheme) 0.16f else 0.08f, if (darkTheme) 0.12f else 0.94f),
-        surfaceContainerHigh = tone(seed, if (darkTheme) 0.17f else 0.08f, if (darkTheme) 0.17f else 0.90f),
-        surfaceContainerHighest = tone(seed, if (darkTheme) 0.18f else 0.08f, if (darkTheme) 0.22f else 0.86f),
+        surfaceBright = tone(seed, if (darkTheme) 0.24f else 0.98f, if (darkTheme) 0.16f else 0.04f),
+        surfaceDim = tone(seed, if (darkTheme) 0.10f else 0.90f, if (darkTheme) 0.04f else 0.10f),
+        surfaceContainerLowest = tone(seed, if (darkTheme) 0.11f else 1f, if (darkTheme) 0.03f else 0.02f),
+        surfaceContainerLow = tone(seed, if (darkTheme) 0.13f else 0.97f, if (darkTheme) 0.09f else 0.04f),
+        surfaceContainer = tone(seed, if (darkTheme) 0.16f else 0.94f, if (darkTheme) 0.12f else 0.06f),
+        surfaceContainerHigh = tone(seed, if (darkTheme) 0.20f else 0.90f, if (darkTheme) 0.17f else 0.08f),
+        surfaceContainerHighest = tone(seed, if (darkTheme) 0.24f else 0.86f, if (darkTheme) 0.18f else 0.10f),
     )
 }
 

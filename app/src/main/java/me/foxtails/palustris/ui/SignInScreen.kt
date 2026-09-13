@@ -41,6 +41,7 @@ import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.EmojiCapabilities
+import me.foxtails.palustris.domain.AppColorScheme
 import me.foxtails.palustris.domain.AppPreferencesRepository
 import me.foxtails.palustris.domain.AppPreferencesState
 import me.foxtails.palustris.domain.PostPreferences
@@ -448,7 +449,7 @@ fun ConnectedApp(
                 onRoute = { settingsRoute = it },
                  onBack = { settingsVisible = false },
                  onColorScheme = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(colorScheme = value) } },
-                 onColorPalette = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(colorPalette = value) } },
+                 onColorPalette = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(colorScheme = AppColorScheme.Palette, colorPalette = value) } },
                  onBackground = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(background = value) } },
                 onTextSize = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(textSize = value) } },
                 onFont = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(font = value) } },

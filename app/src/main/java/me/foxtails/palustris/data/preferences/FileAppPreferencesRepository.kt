@@ -73,6 +73,7 @@ class FileAppPreferencesRepository(
         return AppPreferences(
             colorScheme = when (storedColorScheme) {
                 "SystemMonochrome", "Monochrome" -> AppColorScheme.SystemMonochrome
+                "Palette", "Pastel", "Vibrant" -> AppColorScheme.Palette
                 else -> AppColorScheme.System
             },
             colorPalette = when {

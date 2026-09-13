@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -69,7 +70,7 @@ class SettingsDisplayTest {
     }
 
     @Test
-    fun displayScreenShowsTwoStylesAndFourteenPaletteChoices() {
+    fun displayScreenShowsThreeExclusiveStylesAndFourteenPaletteChoices() {
         compose.activity.setContent {
             DisplaySettingsScreen(
                 preferences = AppPreferences(),
@@ -84,6 +85,7 @@ class SettingsDisplayTest {
 
         compose.onNodeWithText("System").assertIsDisplayed()
         compose.onNodeWithText("System monochrome").assertIsDisplayed()
+        compose.onNodeWithText("Colour palette").assertIsDisplayed()
         listOf(
             "Pastel red", "Pastel orange", "Pastel yellow", "Pastel green", "Pastel blue", "Pastel indigo", "Pastel violet",
             "Vibrant red", "Vibrant orange", "Vibrant yellow", "Vibrant green", "Vibrant blue", "Vibrant indigo", "Vibrant violet",
@@ -115,10 +117,11 @@ class SettingsDisplayTest {
     @Test
     fun paletteSelectionChangesPersistedPreference() {
         var selected = AppColorPalette.PastelIndigo
+        var selectedScheme = AppColorScheme.System
         compose.activity.setContent {
             DisplaySettingsScreen(
                 preferences = AppPreferences(colorPalette = selected),
-                onColorScheme = {},
+                onColorScheme = { selectedScheme = it },
                 onColorPalette = { selected = it },
                 onBackground = {},
                 onTextSize = {},
@@ -128,7 +131,10 @@ class SettingsDisplayTest {
         }
 
         compose.onNodeWithContentDescription("Vibrant green").performClick()
-        compose.runOnIdle { assertEquals(AppColorPalette.VibrantGreen, selected) }
+        compose.runOnIdle {
+            assertEquals(AppColorPalette.VibrantGreen, selected)
+            assertEquals(AppColorScheme.Palette, selectedScheme)
+        }
     }
 
     @Test
@@ -142,6 +148,10 @@ class SettingsDisplayTest {
         File(context.noBackupFilesDir, "app-preferences.json").writeText("{\"colorScheme\":\"Monochrome\"}")
         val legacy = FileAppPreferencesRepository(context)
         assertEquals(AppColorScheme.SystemMonochrome, legacy.observe().first { it.loaded }.preferences.colorScheme)
+
+        File(context.noBackupFilesDir, "app-preferences.json").writeText("{\"colorScheme\":\"Palette\"}")
+        val palette = FileAppPreferencesRepository(context)
+        assertEquals(AppColorScheme.Palette, palette.observe().first { it.loaded }.preferences.colorScheme)
     }
 
     @Test
@@ -166,6 +176,53 @@ class SettingsDisplayTest {
     }
 
     @Test
+    fun systemUsesTheDeviceMaterialSchemeInsteadOfTheSelectedPalette() {
+        lateinit var colors: androidx.compose.material3.ColorScheme
+        lateinit var expected: androidx.compose.material3.ColorScheme
+        compose.activity.setContent {
+            val context = LocalContext.current
+            expected = dynamicLightColorScheme(context)
+            colors = resolvedAppColorScheme(
+                context = context,
+                colorScheme = AppColorScheme.System,
+                palette = AppColorPalette.VibrantRed,
+                background = AppBackground.Default,
+                darkTheme = false,
+            )
+        }
+
+        compose.runOnIdle {
+            assertEquals(expected.primary, colors.primary)
+            assertEquals(expected.background, colors.background)
+            assertEquals(expected.onSurface, colors.onSurface)
+        }
+    }
+
+    @Test
+    fun paletteKeepsTextAndSurfaceColorsSeparateInBothModes() {
+        AppColorPalette.entries.forEach { palette ->
+            val light = me.foxtails.palustris.ui.theme.selectedAppColorScheme(palette, darkTheme = false)
+            val dark = me.foxtails.palustris.ui.theme.selectedAppColorScheme(palette, darkTheme = true)
+
+            listOf(light, dark).forEach { scheme ->
+                listOf(
+                    scheme.background to scheme.onBackground,
+                    scheme.surface to scheme.onSurface,
+                    scheme.surfaceVariant to scheme.onSurfaceVariant,
+                    scheme.primary to scheme.onPrimary,
+                    scheme.primaryContainer to scheme.onPrimaryContainer,
+                    scheme.secondary to scheme.onSecondary,
+                    scheme.secondaryContainer to scheme.onSecondaryContainer,
+                    scheme.tertiary to scheme.onTertiary,
+                    scheme.tertiaryContainer to scheme.onTertiaryContainer,
+                ).forEach { (background, text) ->
+                    assertTrue(colorDistance(background, text) > 0.2f)
+                }
+            }
+        }
+    }
+
+    @Test
     fun darkBackgroundUsesNearBlackValue() {
         lateinit var colors: androidx.compose.material3.ColorScheme
         compose.activity.setContent {
@@ -179,5 +236,10 @@ class SettingsDisplayTest {
         }
 
         compose.runOnIdle { assertEquals(Color(0xFF090909), colors.background) }
+    }
+
+    private fun colorDistance(first: Color, second: Color): Float {
+        fun brightness(color: Color) = color.red * 0.2126f + color.green * 0.7152f + color.blue * 0.0722f
+        return kotlin.math.abs(brightness(first) - brightness(second))
     }
 }

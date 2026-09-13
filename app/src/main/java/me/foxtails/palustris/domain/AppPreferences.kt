@@ -17,6 +17,7 @@ data class AppPreferences(
 enum class AppColorScheme {
     System,
     SystemMonochrome,
+    Palette,
 }
 
 enum class AppColorPalette {

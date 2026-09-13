@@ -18,6 +18,7 @@ fun SettingsScreen(
         when (preferences.colorScheme) {
             AppColorScheme.System -> R.string.settings_colour_style_system
             AppColorScheme.SystemMonochrome -> R.string.settings_colour_style_system_monochrome
+            AppColorScheme.Palette -> R.string.settings_colour_style_palette
         },
     )
     SettingsRow(

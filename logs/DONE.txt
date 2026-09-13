@@ -251,3 +251,8 @@ Confirmed that the worktree already contains unrelated changes. No existing file
  - Added settings, back navigation, persistence, palette, grayscale, and background regression coverage.
  - Commits: `31c4e8b`, `bb183e3`.
  - Verification passed: focused `SettingsDisplayTest`, `lintDebug`, `test`, and `assembleRelease`.
+260913-022454 Theme selection repair task:
+  - Restored System to the Android Material color scheme and added exclusive System, System monochrome, and Colour palette modes.
+  - Made palette swatches activate palette mode and corrected generated light and dark surface/content contrast.
+  - Added legacy palette-mode parsing and focused settings, persistence, system-color, and contrast coverage.
+  - Verification passed: focused `SettingsDisplayTest`, `lintDebug`, `test`, and `assembleRelease`.
