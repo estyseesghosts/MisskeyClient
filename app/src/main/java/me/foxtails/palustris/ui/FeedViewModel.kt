@@ -33,7 +33,6 @@ import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.effectiveTargetId
-import me.foxtails.palustris.domain.isExactHashtag
 
 @HiltViewModel(assistedFactory = FeedViewModel.Factory::class)
 class FeedViewModel @AssistedInject constructor(
@@ -62,7 +61,6 @@ class FeedViewModel @AssistedInject constructor(
     val sync = syncCoordinator.observeAccount(accountId)
     private var feedJob: Job? = null
     private var setupJob: Job? = null
-    private var searchJob: Job? = null
     private var publishJob: Job? = null
     private var preferencesJob: Job? = null
     private val actionJobs = mutableMapOf<ActionKey, Job>()
@@ -77,6 +75,12 @@ class FeedViewModel @AssistedInject constructor(
         applyFavouritePreference = ::applyFavouritePreference,
     )
     val photoGridFeed = photoGridController.state
+    private val searchController = SearchController(
+        source = source,
+        scope = viewModelScope,
+        applyFavouritePreference = ::applyFavouritePreference,
+        onStateChanged = { search -> _feed.value = _feed.value.copy(accountSearch = search) },
+    )
 
     init {
         setupJob = viewModelScope.launch {
@@ -210,75 +214,11 @@ class FeedViewModel @AssistedInject constructor(
     }
 
     fun search(query: String) {
-        if (stopped) return
-        val normalized = query.trim()
-        if (normalized.isBlank()) return
-        searchJob?.cancel()
-        val isHashtag = isExactHashtag(normalized)
-        _feed.value = _feed.value.copy(
-            accountSearch = AccountSearchState(
-                query = normalized,
-                tagQuery = normalized.removePrefix("#").takeIf { isHashtag },
-                loading = true,
-            ),
-        )
-        searchJob = viewModelScope.launch {
-            if (isHashtag) searchHashtag(normalized)
-            else searchAccount(normalized)
-        }
-    }
-
-    private suspend fun searchAccount(normalized: String) {
-        _feed.value = _feed.value.copy(accountSearch = AccountSearchState(query = normalized, loading = true))
-        try {
-            val accounts = source.searchAccounts(normalized).distinctBy { it.id }
-            _feed.value = _feed.value.copy(accountSearch = AccountSearchState(query = normalized, accounts = accounts))
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            _feed.value = _feed.value.copy(accountSearch = AccountSearchState(query = normalized, error = sourceErrorMessage(e)))
-        }
-    }
-
-    private suspend fun searchHashtag(normalized: String) {
-        _feed.value = _feed.value.copy(accountSearch = AccountSearchState(query = normalized, tagQuery = normalized.removePrefix("#"), loading = true))
-        try {
-            val page = source.searchHashtag(normalized)
-            _feed.value = _feed.value.copy(
-                accountSearch = AccountSearchState(
-                    query = normalized,
-                    posts = page.items.distinctBy { it.id }.map(::applyFavouritePreference),
-                    tagQuery = normalized.removePrefix("#"),
-                    nextCursor = page.nextCursor,
-                ),
-            )
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            _feed.value = _feed.value.copy(accountSearch = AccountSearchState(query = normalized, tagQuery = normalized.removePrefix("#"), error = sourceErrorMessage(e)))
-        }
+        searchController.search(query)
     }
 
     fun loadMoreSearch() {
-        if (stopped) return
-        val state = _feed.value.accountSearch
-        val tag = state.tagQuery ?: return
-        val cursor = state.nextCursor ?: return
-        if (state.loading || state.loadingMore) return
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            _feed.value = _feed.value.copy(accountSearch = state.copy(loadingMore = true, error = null))
-            try {
-                val page = source.searchHashtag(tag, cursor)
-                val current = _feed.value.accountSearch
-                _feed.value = _feed.value.copy(accountSearch = current.copy(
-                    posts = (current.posts + page.items.map(::applyFavouritePreference)).distinctBy { it.id },
-                    loadingMore = false,
-                    nextCursor = page.nextCursor?.takeUnless { it == cursor },
-                ))
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                _feed.value = _feed.value.copy(accountSearch = _feed.value.accountSearch.copy(loadingMore = false, error = sourceErrorMessage(e)))
-            }
-        }
+        searchController.loadMore()
     }
 
     fun favorite(ownedPost: OwnedPost) {
@@ -394,7 +334,7 @@ class FeedViewModel @AssistedInject constructor(
         stopped = true
         setupJob?.cancel()
         feedJob?.cancel()
-        searchJob?.cancel()
+        searchController.stop()
         publishJob?.cancel()
         preferencesJob?.cancel()
         photoGridController.stop()
@@ -487,11 +427,9 @@ class FeedViewModel @AssistedInject constructor(
                     owned.copy(post = transform(owned.post))
                 } else owned
             },
-            accountSearch = _feed.value.accountSearch.copy(
-                posts = _feed.value.accountSearch.posts.map { if (it.id == id || it.actionTargetId == id) transform(it) else it },
-            ),
         )
         photoGridController.updatePost(id, transform)
+        searchController.updatePost(id, transform)
     }
 
     private fun updateExternalPost(target: EntityId, incoming: Post) {
@@ -504,13 +442,9 @@ class FeedViewModel @AssistedInject constructor(
                     owned.copy(post = mergeExternalActionFields(owned.post, incoming))
                 } else owned
             },
-            accountSearch = _feed.value.accountSearch.copy(
-                posts = _feed.value.accountSearch.posts.map { post ->
-                    if (post.id == target || post.actionTargetId == target) mergeExternalActionFields(post, incoming) else post
-                },
-            ),
         )
         photoGridController.updateExternalPost(target, incoming)
+        searchController.updateExternalPost(target, incoming)
     }
 
     private fun mergeExternalActionFields(existing: Post, incoming: Post): Post = existing.copy(
@@ -531,11 +465,9 @@ class FeedViewModel @AssistedInject constructor(
             ownedPosts = _feed.value.ownedPosts.map { owned ->
                 if (owned.fetchedBy == accountId) owned.copy(post = transformed[owned.post.id] ?: owned.post) else owned
             },
-            accountSearch = _feed.value.accountSearch.copy(
-                posts = _feed.value.accountSearch.posts.map(transform),
-            ),
         )
         photoGridController.updatePosts(transform)
+        searchController.updatePosts(transform)
     }
 
     private fun feedFailure(e: Exception) {
