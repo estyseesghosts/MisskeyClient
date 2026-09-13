@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -84,6 +85,7 @@ internal fun SetupIntroductionScreen(onGetStarted: () -> Unit) {
                     contentDescription = null,
                     modifier = Modifier.fillMaxWidth(.65f),
                     contentScale = ContentScale.Fit,
+                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimaryContainer),
                 )
             }
         }
@@ -125,8 +127,19 @@ internal fun SetupServerScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.height(64.dp))
-        Text(stringResource(if (state.pending) R.string.sign_in_pending_title else R.string.setup_welcome_back), style = MaterialTheme.typography.headlineMedium)
-        if (!state.pending) Text(stringResource(R.string.setup_heart), style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Start))
+        Text(
+            stringResource(if (state.pending) R.string.sign_in_pending_title else R.string.setup_welcome_back),
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        if (!state.pending) {
+            Text(
+                stringResource(R.string.setup_heart),
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.align(Alignment.Start),
+            )
+        }
         Spacer(Modifier.weight(1f, fill = true))
         if (state.pending) {
             Text(
@@ -136,6 +149,7 @@ internal fun SetupServerScreen(
                     state.origin?.removePrefix("https://").orEmpty(),
                 ),
                 style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
             )
             Spacer(Modifier.height(16.dp))
             SetupPrimaryAction(stringResource(R.string.sign_in_button_authorized), onComplete, enabled = !state.busy)
@@ -201,6 +215,7 @@ private fun LogoSurface(modifier: Modifier) {
                 contentDescription = null,
                 modifier = Modifier.fillMaxWidth(.65f),
                 contentScale = ContentScale.Fit,
+                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimaryContainer),
             )
             Spacer(Modifier.weight(1f))
         }
@@ -213,7 +228,7 @@ private fun SetupPrimaryAction(label: String, onClick: () -> Unit, enabled: Bool
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier.fillMaxWidth().height(64.dp).widthIn(max = 480.dp),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(percent = 50),
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -228,11 +243,11 @@ private fun SetupSecondaryAction(label: String, onClick: () -> Unit, enabled: Bo
             .fillMaxWidth()
             .height(64.dp)
             .widthIn(max = 480.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(percent = 50))
             .semantics { role = Role.Button },
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(percent = 50),
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) { Box(contentAlignment = Alignment.Center) { Text(label, style = MaterialTheme.typography.labelLarge) } }
@@ -272,7 +287,7 @@ private fun SetupServerField(
         modifier = Modifier.fillMaxWidth().height(64.dp).widthIn(max = 480.dp).testTag("setup_server_field"),
         decorationBox = { field ->
             Surface(
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(percent = 50),
                 color = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {

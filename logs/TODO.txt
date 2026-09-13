@@ -1,3 +1,4 @@
 # Active tasks
 
+- Complete setup, share-sheet, launcher-resource, and live-device verification work from `docs/FIXTHISSHIT2.md`.
 - Resolve or explicitly accept the pre-existing API 35+ system-bar color assertion failure in connected instrumentation.
