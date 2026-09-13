@@ -52,11 +52,11 @@ import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.components.FilterChipEntry
 import me.foxtails.palustris.ui.components.FilterChipRow
-import me.foxtails.palustris.ui.CompactOverlayHorizontalPadding
-import me.foxtails.palustris.ui.CompactFilterDockHeight
+import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding
+import me.foxtails.palustris.ui.layout.CompactFilterDockHeight
 import me.foxtails.palustris.ui.EmptyState
-import me.foxtails.palustris.ui.compactContextualControlsPositioningInsets
-import me.foxtails.palustris.ui.compactScrollEndClearance
+import me.foxtails.palustris.ui.layout.compactContextualControlsPositioningInsets
+import me.foxtails.palustris.ui.layout.compactScrollEndClearance
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.ExpandableContent
 

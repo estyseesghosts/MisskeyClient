@@ -127,282 +127,22 @@ import me.foxtails.palustris.ui.large.LargeTimelineDockContent
 import me.foxtails.palustris.ui.large.largeLayoutMode
 import me.foxtails.palustris.ui.large.LargeLayoutMode
 import me.foxtails.palustris.ui.thread.PostThreadUiState
+import me.foxtails.palustris.ui.layout.CompactFilterDockHeight as movedCompactFilterDockHeight
+import me.foxtails.palustris.ui.layout.CompactOverlayControlSpacing as movedCompactOverlayControlSpacing
+import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding as movedCompactOverlayHorizontalPadding
+import me.foxtails.palustris.ui.layout.CompactOverlayVerticalPadding as movedCompactOverlayVerticalPadding
+import me.foxtails.palustris.ui.layout.CompactSearchDockHeight as movedCompactSearchDockHeight
+import me.foxtails.palustris.ui.layout.LegacyFeedBottomClearance as movedLegacyFeedBottomClearance
+import me.foxtails.palustris.ui.layout.compactGlobalNavigationPositioningInsets as movedCompactGlobalNavigationPositioningInsets
+import me.foxtails.palustris.ui.layout.compactHomeScrollEndClearance as movedCompactHomeScrollEndClearance
+import me.foxtails.palustris.ui.layout.compactScrollEndClearance as movedCompactScrollEndClearance
+import me.foxtails.palustris.ui.navigation.CompactContextualNavigationBar as movedCompactContextualNavigationBar
+import me.foxtails.palustris.ui.navigation.TimelineSelector as movedTimelineSelector
+import me.foxtails.palustris.ui.navigation.contextualActionFor as movedContextualActionFor
 
 private const val COMPOSER_OVERLAY_KEY = "Composer"
 private const val EDIT_PROFILE_OVERLAY_KEY = "EditProfile"
 private const val NOTIFICATION_SETTINGS_OVERLAY_KEY = "NotificationSettings"
-
-private data class ContextualBottomAction(
-    val icon: ImageVector,
-    val contentDescription: String,
-    val enabled: Boolean,
-    val onClick: () -> Unit,
-)
-
-internal val CompactNavigationHeight = 60.dp
-internal val CompactTimelineSelectorWidth = 168.dp
-internal val CompactTimelineSelectorHeight = 60.dp
-internal val CompactOverlayControlSpacing = 14.dp
-internal val CompactOverlayHorizontalPadding = 16.dp
-internal val CompactOverlayVerticalPadding = 12.dp
-internal val CompactSearchChipRowHeight = 48.dp
-internal val CompactSearchControlsSpacing = 8.dp
-internal val CompactSearchFieldHeight = 56.dp
-internal val CompactFilterDockHeight = CompactSearchChipRowHeight + CompactSearchControlsSpacing
-internal val CompactSearchDockHeight = CompactFilterDockHeight + CompactSearchFieldHeight
-internal val CompactContextualControlsPositioningClearance = CompactNavigationHeight +
-    CompactOverlayControlSpacing + CompactOverlayVerticalPadding
-internal val LegacyFeedBottomClearance = 96.dp
-
-/** Positions the shared navigation pill above the system navigation bar. */
-@Composable
-internal fun compactGlobalNavigationPositioningInsets(): WindowInsets =
-    WindowInsets.navigationBarsIgnoringVisibility.only(WindowInsetsSides.Bottom)
-
-/** Positions a Search/Profile/Notifications control stack above the shared navigation pill. */
-@Composable
-internal fun compactContextualControlsPositioningInsets(
-    navigationVisible: Boolean,
-    ime: WindowInsets = WindowInsets(bottom = 0.dp),
-): WindowInsets = compactGlobalNavigationPositioningInsets()
-    .add(
-        WindowInsets(
-            bottom = if (navigationVisible) CompactContextualControlsPositioningClearance else 0.dp,
-        ),
-    )
-    .union(ime)
-    .only(WindowInsetsSides.Bottom)
-
-/**
- * Adds obstruction clearance to a scroll range without changing the page viewport.
- * The IME can replace the navigation assembly's positioning inset while it is taller.
- */
-@Composable
-internal fun compactScrollEndClearance(
-    controlStackHeight: Dp,
-    navigationVisible: Boolean,
-    ime: WindowInsets = WindowInsets(bottom = 0.dp),
-): Dp {
-    val systemNavigationBottom = WindowInsets.navigationBarsIgnoringVisibility
-        .asPaddingValues()
-        .calculateBottomPadding()
-    val imeBottom = ime.asPaddingValues().calculateBottomPadding()
-    val contextualPositioning = if (navigationVisible) CompactContextualControlsPositioningClearance else 0.dp
-    return maxOf(systemNavigationBottom + contextualPositioning, imeBottom) + controlStackHeight
-}
-
-/** Home has one additional timeline surface above the shared navigation pill. */
-@Composable
-internal fun compactHomeScrollEndClearance(): Dp {
-    val systemNavigationBottom = WindowInsets.navigationBarsIgnoringVisibility
-        .asPaddingValues()
-        .calculateBottomPadding()
-    return systemNavigationBottom + CompactNavigationHeight +
-        CompactOverlayControlSpacing + CompactTimelineSelectorHeight +
-        (CompactOverlayVerticalPadding * 2f)
-}
-
-private fun Modifier.roundPressLayer(pressed: Boolean, color: androidx.compose.ui.graphics.Color): Modifier = clip(CircleShape).drawWithContent {
-    drawContent()
-    if (pressed) {
-        drawRoundRect(
-            color = color,
-            cornerRadius = CornerRadius(minOf(size.width, size.height) / 2f),
-        )
-    }
-}
-
-private fun contextualActionFor(
-    destination: Destination,
-    searchPanel: SearchPanel,
-    notificationsPanel: NotificationsPanel,
-    profileTarget: Account?,
-    authenticatedAccountId: AccountId?,
-    profileState: ProfileUiState,
-    onCompose: () -> Unit,
-    onSearchToggle: () -> Unit,
-    onNotificationsToggle: () -> Unit,
-    onEditProfile: () -> Unit,
-    onFollowProfile: () -> Unit,
-    onUnfollowProfile: () -> Unit,
-): ContextualBottomAction? = when (destination) {
-    Destination.Home -> ContextualBottomAction(AppIcons.Compose, "Compose post", true, onCompose)
-    Destination.Search -> if (searchPanel == SearchPanel.Search) {
-        ContextualBottomAction(AppIcons.WaffleGrid, "Photo grid", true, onSearchToggle)
-    } else {
-        ContextualBottomAction(AppIcons.Search, "Search", true, onSearchToggle)
-    }
-    Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) {
-        ContextualBottomAction(AppIcons.Chat, "Direct messages", true, onNotificationsToggle)
-    } else {
-        ContextualBottomAction(AppIcons.Notifications, "Notifications", true, onNotificationsToggle)
-    }
-    Destination.Profile -> when {
-        profileTarget?.movedTo != null -> null
-        profileTarget?.id == authenticatedAccountId && authenticatedAccountId != null ->
-            ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", profileState.editableSupported, onEditProfile)
-        profileState.relationshipSupported == true && profileState.relationship != null -> {
-            val relationship = profileState.relationship
-            val following = relationship.following || relationship.requested
-            ContextualBottomAction(
-                icon = AppIcons.Person,
-                contentDescription = when {
-                    relationship.following -> "Unfollow profile"
-                    relationship.requested -> "Cancel follow request"
-                    else -> "Follow profile"
-                },
-                enabled = !profileState.relationshipMutation,
-                onClick = if (following) onUnfollowProfile else onFollowProfile,
-            )
-        }
-        else -> null
-    }
-}
-
-@Composable
-private fun TimelineSelector(
-    timeline: Timeline,
-    onClick: () -> Unit,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val scheme = LocalPalustrisMotionScheme.current
-    val pressed by interactionSource.collectIsPressedAsState()
-    val timelineLabel = stringResource(timelineLabelRes(timeline))
-    val chooseTimelineLabel = stringResource(R.string.nav_choose_timeline)
-    val pressColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-    Surface(
-        modifier = Modifier
-            .size(CompactTimelineSelectorWidth, CompactTimelineSelectorHeight)
-            .springPress(interactionSource, pressedScale = scheme.pressedScale)
-            .roundPressLayer(pressed, pressColor)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .semantics { contentDescription = chooseTimelineLabel },
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
-        shadowElevation = 6.dp,
-    ) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
-                timelineLabel,
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
-            )
-        }
-    }
-}
-
-@Composable
-private fun CompactContextualNavigationBar(
-    destination: Destination,
-    searchPanel: SearchPanel,
-    action: ContextualBottomAction?,
-    account: Account?,
-    onOpenAccounts: () -> Unit,
-    onDestinationSelected: (Destination) -> Unit,
-) {
-    val scheme = LocalPalustrisMotionScheme.current
-    Row(Modifier.fillMaxWidth().height(CompactNavigationHeight), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Surface(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
-            shadowElevation = 6.dp,
-        ) {
-            Box(Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
-                val scheme = LocalPalustrisMotionScheme.current
-                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    Destination.entries.forEach { item ->
-                        val selected = destination == item
-                        val photoGridSelected = destination == Destination.Search &&
-                            item == Destination.Search && searchPanel == SearchPanel.PhotoGrid
-                        val label = stringResource(if (photoGridSelected) R.string.nav_photo_grid else item.labelRes)
-                        val icon = if (photoGridSelected) AppIcons.WaffleGrid else item.icon
-                        val interactionSource = remember(item) { MutableInteractionSource() }
-                        val pressed by interactionSource.collectIsPressedAsState()
-                        val selectedTint = rememberSelectedColor(selected, MaterialTheme.colorScheme.onSecondaryContainer, MaterialTheme.colorScheme.onSurfaceVariant)
-                        val selectedScale = rememberSelectedScale(selected)
-                        val itemModifier = if (item == Destination.Profile) {
-                                Modifier
-                                    .size(48.dp)
-                                    .springPress(interactionSource, pressedScale = scheme.compactPressedScale)
-                                    .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                                    .combinedClickable(
-                                    interactionSource = interactionSource,
-                                    indication = LocalIndication.current,
-                                    onClick = { onDestinationSelected(item) },
-                                    onLongClick = onOpenAccounts,
-                                )
-                        } else Modifier
-                            .size(48.dp)
-                            .springPress(interactionSource, pressedScale = scheme.compactPressedScale)
-                            .roundPressLayer(pressed, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                            .clickable(interactionSource = interactionSource, indication = LocalIndication.current) { onDestinationSelected(item) }
-                        Box(itemModifier.semantics { contentDescription = label; this.selected = selected; role = Role.Tab }, contentAlignment = Alignment.Center) {
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = selected,
-                                enter = if (scheme.reducedMotion) EnterTransition.None
-                                else scaleIn(initialScale = 0.86f, animationSpec = scheme.expressive) + fadeIn(scheme.fastFadeIn),
-                                exit = if (scheme.reducedMotion) ExitTransition.None
-                                else scaleOut(targetScale = 0.86f, animationSpec = scheme.expressive) + fadeOut(scheme.fastFadeOut),
-                            ) {
-                                Surface(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .testTag("selected_navigation_indicator"),
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                ) {}
-                            }
-                            if (item == Destination.Profile) {
-                                val avatarModifier = Modifier.size(30.dp).graphicsLayer {
-                                    scaleX = selectedScale
-                                    scaleY = selectedScale
-                                }
-                                if (account != null) AccountAvatar(account, avatarModifier, exposeSemantics = false) else Avatar(avatarModifier, description = null)
-                            } else Icon(
-                                icon,
-                                null,
-                                Modifier.graphicsLayer {
-                                    scaleX = selectedScale
-                                    scaleY = selectedScale
-                                },
-                                tint = selectedTint,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        action?.let { contextualAction ->
-            FilledIconButton(
-                onClick = contextualAction.onClick,
-                enabled = contextualAction.enabled,
-                modifier = Modifier.size(52.dp).semantics { contentDescription = contextualAction.contentDescription },
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            ) {
-                AnimatedContent(
-                    targetState = contextualAction,
-                    contentKey = { it.contentDescription },
-                    transitionSpec = {
-                        if (scheme.reducedMotion) {
-                            EnterTransition.None togetherWith ExitTransition.None
-                        } else {
-                            (fadeIn(scheme.fastFadeIn) + scaleIn(initialScale = 0.86f, animationSpec = scheme.expressive)) togetherWith
-                                (fadeOut(scheme.fastFadeOut) + scaleOut(targetScale = 0.86f, animationSpec = scheme.expressive))
-                        }
-                    },
-                    modifier = Modifier.size(24.dp),
-                    label = "contextualAction",
-                ) { actionState -> Icon(actionState.icon, null) }
-            }
-        }
-    }
-}
 
 @Composable
 fun PalustrisApp(
@@ -1413,19 +1153,19 @@ fun PalustrisApp(
                     ) {
                         // This branch only positions the overlay. Page content remains
                         // full-size behind it; only scroll content owns end clearance.
-                        Box(Modifier.fillMaxWidth().windowInsetsPadding(compactGlobalNavigationPositioningInsets()).padding(horizontal = CompactOverlayHorizontalPadding, vertical = CompactOverlayVerticalPadding), contentAlignment = Alignment.Center) {
+                         Box(Modifier.fillMaxWidth().windowInsetsPadding(movedCompactGlobalNavigationPositioningInsets()).padding(horizontal = movedCompactOverlayHorizontalPadding, vertical = movedCompactOverlayVerticalPadding), contentAlignment = Alignment.Center) {
                             Column(
                                 modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
                                 horizontalAlignment = Alignment.End,
                             ) {
                                 if (destination == Destination.Home) {
-                                     TimelineSelector(timeline) { clearPostActionBubble(); sheet = "Timelines" }
-                                    Spacer(Modifier.height(CompactOverlayControlSpacing))
+                                     movedTimelineSelector(timeline) { clearPostActionBubble(); sheet = "Timelines" }
+                                     Spacer(Modifier.height(movedCompactOverlayControlSpacing))
                                 }
-                                CompactContextualNavigationBar(
+                                 movedCompactContextualNavigationBar(
                                     destination = destination,
                                     searchPanel = searchPanel,
-                                    action = contextualActionFor(
+                                     action = movedContextualActionFor(
                                         destination = destination,
                                         searchPanel = searchPanel,
                                         notificationsPanel = notificationsPanel,
@@ -1465,14 +1205,14 @@ fun PalustrisApp(
             0.dp
         } else {
             when (destination) {
-                Destination.Home -> compactHomeScrollEndClearance()
-                Destination.Search -> compactScrollEndClearance(
-                    controlStackHeight = CompactSearchDockHeight,
+                 Destination.Home -> movedCompactHomeScrollEndClearance()
+                 Destination.Search -> movedCompactScrollEndClearance(
+                     controlStackHeight = movedCompactSearchDockHeight,
                     navigationVisible = navigationVisible,
                     ime = WindowInsets.ime,
                 )
-                Destination.Notifications, Destination.Profile -> compactScrollEndClearance(
-                    controlStackHeight = CompactFilterDockHeight,
+                 Destination.Notifications, Destination.Profile -> movedCompactScrollEndClearance(
+                     controlStackHeight = movedCompactFilterDockHeight,
                     navigationVisible = navigationVisible,
                 )
             }

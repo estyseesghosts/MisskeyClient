@@ -9,3 +9,8 @@ S00 baseline:
 - `gradlew.bat test assembleRelease` passed.
 - Existing tests cover the compact and wide shell boundaries needed for S01.
 - No additional baseline test was required before the metrics move.
+S01 compact overlay metrics:
+- Moved compact layout constants and inset calculations to `ui/layout/CompactOverlayMetrics.kt`.
+- Moved contextual navigation presentation to `ui/navigation/CompactAppNavigation.kt`.
+- Updated all production callers without changing state ownership or calculations.
+- Verification passed: compact/wide navigation, Home, Photo Grid, direct-message Compose tests, compile, and lint.

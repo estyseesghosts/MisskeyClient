@@ -22,7 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.ui.CompactSearchChipRowHeight
+import me.foxtails.palustris.ui.layout.CompactSearchChipRowHeight
 import me.foxtails.palustris.ui.timelineLabelRes
 import me.foxtails.palustris.domain.timelineDisplayOrder
 

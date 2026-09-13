@@ -33,7 +33,8 @@ import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.ui.AccountAvatar
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.EmptyState
-import me.foxtails.palustris.ui.compactScrollEndClearance
+import me.foxtails.palustris.ui.layout.CompactFilterDockHeight
+import me.foxtails.palustris.ui.layout.compactScrollEndClearance
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
 
 @Composable
@@ -48,7 +49,7 @@ fun DirectMessageInboxScreen(
 ) {
     val endClearance = if (compactLayout) {
         compactScrollEndClearance(
-            controlStackHeight = me.foxtails.palustris.ui.CompactFilterDockHeight,
+            controlStackHeight = CompactFilterDockHeight,
             navigationVisible = compactNavigationVisible,
         )
     } else {

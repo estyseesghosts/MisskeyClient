@@ -41,9 +41,9 @@ import me.foxtails.palustris.ui.AccountAvatar
 import me.foxtails.palustris.ui.ActionIcon
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.Avatar
-import me.foxtails.palustris.ui.CompactFilterDockHeight
-import me.foxtails.palustris.ui.compactGlobalNavigationPositioningInsets
-import me.foxtails.palustris.ui.compactScrollEndClearance
+import me.foxtails.palustris.ui.layout.CompactFilterDockHeight
+import me.foxtails.palustris.ui.layout.compactGlobalNavigationPositioningInsets
+import me.foxtails.palustris.ui.layout.compactScrollEndClearance
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
 
 @Composable

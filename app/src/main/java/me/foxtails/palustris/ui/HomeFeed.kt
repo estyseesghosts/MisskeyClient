@@ -58,6 +58,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import me.foxtails.palustris.ui.layout.LegacyFeedBottomClearance
+import me.foxtails.palustris.ui.layout.compactHomeScrollEndClearance
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage

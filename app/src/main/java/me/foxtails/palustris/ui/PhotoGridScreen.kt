@@ -2,6 +2,10 @@
 
 package me.foxtails.palustris.ui
 
+import me.foxtails.palustris.ui.layout.CompactFilterDockHeight
+import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding
+import me.foxtails.palustris.ui.layout.compactContextualControlsPositioningInsets
+import me.foxtails.palustris.ui.layout.compactScrollEndClearance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +47,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import me.foxtails.palustris.ui.layout.CompactFilterDockHeight
+import me.foxtails.palustris.ui.layout.compactContextualControlsPositioningInsets
+import me.foxtails.palustris.ui.layout.compactScrollEndClearance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource

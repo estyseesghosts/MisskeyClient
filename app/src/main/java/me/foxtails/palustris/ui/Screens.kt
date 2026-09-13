@@ -58,6 +58,11 @@ import me.foxtails.palustris.ui.motion.springPress
 import me.foxtails.palustris.ui.large.LargeBottomDock
 import me.foxtails.palustris.ui.large.LargeBottomDockClearance
 import me.foxtails.palustris.ui.large.LargeSearchDockClearance
+import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding
+import me.foxtails.palustris.ui.layout.CompactSearchDockHeight
+import me.foxtails.palustris.ui.layout.CompactSearchControlsSpacing
+import me.foxtails.palustris.ui.layout.compactContextualControlsPositioningInsets
+import me.foxtails.palustris.ui.layout.compactScrollEndClearance
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)

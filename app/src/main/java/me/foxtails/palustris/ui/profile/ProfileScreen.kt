@@ -64,11 +64,11 @@ import me.foxtails.palustris.R
 import me.foxtails.palustris.ui.AccountAvatar
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.EmptyState
-import me.foxtails.palustris.ui.compactContextualControlsPositioningInsets
-import me.foxtails.palustris.ui.compactScrollEndClearance
+import me.foxtails.palustris.ui.layout.compactContextualControlsPositioningInsets
+import me.foxtails.palustris.ui.layout.compactScrollEndClearance
 import me.foxtails.palustris.ui.openExternal
-import me.foxtails.palustris.ui.CompactFilterDockHeight
-import me.foxtails.palustris.ui.CompactOverlayHorizontalPadding
+import me.foxtails.palustris.ui.layout.CompactFilterDockHeight
+import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding
 import me.foxtails.palustris.ui.large.LargeBottomDock
 import me.foxtails.palustris.ui.large.LargeBottomDockClearance
 import me.foxtails.palustris.ui.components.FilterChipEntry
