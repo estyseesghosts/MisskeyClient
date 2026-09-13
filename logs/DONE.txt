@@ -309,3 +309,6 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved Profile destination composition to `ui/AppProfileDestinationContent.kt`.
 - Preserved profile category transitions, self-profile page actions, selected-post clearing, and post callbacks.
 - Verification passed: `ProfileScreenTest`, `NavigationTest`, and Kotlin compilation.
+260913-032505 S14 destination rendering complete:
+- Moved all explicit route bodies out of the root destination scaffold into focused Home, Search, Photo Grid, notifications/DM, local-page, notification-detail, and Profile owners.
+- Kept saveable routing state, destination animation, and root callbacks in `PalustrisApp`.

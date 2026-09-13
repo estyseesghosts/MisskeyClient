@@ -1,7 +1,6 @@
 # Active tasks
 
 260913-032505 decomposition completion:
-- S14 destination body remains to be extracted; its top-bar sub-slice is complete.
 - S24, S26-S28, S30-S34 remain in the notification and protocol-service extraction sequence.
 - S38-S53 and S55 remain in the controller, push, profile, media, and measurement sequence.
 - S12-S13 and S23, S25, S29, S35-S37, S54, and S56-S60 have completed focused implementation slices.
