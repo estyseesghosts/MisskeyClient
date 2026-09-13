@@ -123,3 +123,7 @@ S16 account and timeline selection sheet:
 - Moved selection-sheet rendering to ui/AppSelectionSheets.kt.
 - Preserved the saved sheet identities, account switching, add-account, settings, sign-out, timeline refresh, and translated labels.
 - Verification passed: Kotlin compilation and navigation tests.
+S17 composer sheet:
+- Moved composer sheet chrome to ui/ComposerSheet.kt while keeping draft and publish state in ConnectedApp.
+- Preserved save-before-publish, audience validation, account/origin checks, emoji picker nesting, and failure recovery.
+- Verification passed: Kotlin compilation.

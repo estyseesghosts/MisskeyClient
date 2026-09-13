@@ -1,6 +1,6 @@
 # Active tasks
 
 260913-032505 decomposition completion:
-- S14 through S15, then S17 through S22, are active in the documented order.
+- S18 through S22 are active in the documented order; S14 and S15 remain to be reconciled with their destination/detail extraction contracts.
 - Each completed slice requires focused verification and its own local commit.
 - Increment the application version to v0.2.0 after the slices.

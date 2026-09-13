@@ -1301,58 +1301,73 @@ fun PalustrisApp(
           onRefresh = onRefresh,
       )
 
-    if (overlay == Overlay.Composer) ModalBottomSheet(onDismissRequest = ::closeComposer, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                 Row(verticalAlignment = Alignment.CenterVertically) { ActionIcon(AppIcons.Close, stringResource(R.string.composer_close), ::closeComposer); Text(stringResource(R.string.composer_new_post), style = MaterialTheme.typography.titleLarge) }
-                 TextButton(enabled = (draft.isNotBlank() || composerReplyTo != null) && !closing, onClick = { saveCurrentDraft { overlayKey = null } }) { Text(stringResource(R.string.composer_save_draft)) }
-            }
-             ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, audience = composerAudience, availableAudiences = feedState?.audiences ?: emptySet(), onAudienceChange = { composerAudience = it }, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, quoteTarget = composerTarget, isReply = composerReplyTo != null, onRemoveQuote = { composerTarget = null; composerQuoteOf = null; composerReplyTo = null }, onRequestEmoji = { field ->
-                emojiPickerTarget = EmojiPickerTarget.Composer(field)
-             }, pendingEmojiInsertion = pendingEmojiInsertion, onEmojiInsertionApplied = { pendingEmojiInsertion = null }, onCleanTrackingParameters = { draft = me.foxtails.palustris.domain.TrackingParameterCleaner.cleanText(draft) }, onPublish = {
-                val submittedText = draft; val submittedWarning = warning.takeIf { warningEnabled && it.isNotBlank() }
+    if (overlay == Overlay.Composer) ComposerSheet(
+        onDismiss = ::closeComposer,
+        onSaveDraft = { saveCurrentDraft { overlayKey = null } },
+        saveEnabled = draft.isNotBlank() || composerReplyTo != null,
+        closing = closing,
+    ) {
+        ComposeScreen(
+            text = draft,
+            onTextChange = { draft = it },
+            warning = warning,
+            onWarningChange = { warning = it },
+            warningEnabled = warningEnabled,
+            onWarningEnabled = { warningEnabled = it },
+            account = account,
+            audience = composerAudience,
+            availableAudiences = feedState?.audiences ?: emptySet(),
+            onAudienceChange = { composerAudience = it },
+            canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id),
+            publishing = feedState?.publishing == true,
+            error = feedState?.error ?: draftError,
+            quoteTarget = composerTarget,
+            isReply = composerReplyTo != null,
+            onRemoveQuote = { composerTarget = null; composerQuoteOf = null; composerReplyTo = null },
+            onRequestEmoji = { field -> emojiPickerTarget = EmojiPickerTarget.Composer(field) },
+            pendingEmojiInsertion = pendingEmojiInsertion,
+            onEmojiInsertionApplied = { pendingEmojiInsertion = null },
+            onCleanTrackingParameters = { draft = me.foxtails.palustris.domain.TrackingParameterCleaner.cleanText(draft) },
+            onPublish = {
+                val submittedText = draft
+                val submittedWarning = warning.takeIf { warningEnabled && it.isNotBlank() }
                 val submittedQuote = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
-                 val submittedReply = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
-                   val knownAudiences = feedState?.audiences.orEmpty()
-                   val submittedAudience = if (knownAudiences.isEmpty()) {
-                       composerAudience
-                   } else {
-                       runCatching {
-                           me.foxtails.palustris.domain.PostingVisibilityPolicy.validateExplicit(
-                               composerAudience,
-                               ServerCapabilities(audiences = knownAudiences),
-                           )
-                       }.getOrNull()
-                   }
-                  if (submittedAudience == null) {
-                      draftError = "This audience is not available on this server."
-                  } else {
-                   val publishingAccountId = account?.id
-                   scope.launch {
-                    runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }.onSuccess { saved ->
-                        draftId = saved.id; savedDraft = saved.text; savedWarning = saved.contentWarning.orEmpty()
-                          onPublish(CreatePostRequest(submittedText, audience = submittedAudience, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) { _ ->
-                             scope.launch { store.delete(publishingAccountId, saved.id); reloadDrafts() }
-                            draft = ""
-                            savedDraft = ""
-                            warning = ""
-                            savedWarning = ""
-                            warningEnabled = false
-                            draftId = null
-                            savedQuoteOf = null
-                             savedReplyTo = null
-                             composerAudience = Audience.Public
-                             savedAudience = Audience.Public
-                            composerReplyTo = null
-                            composerQuoteOf = null
-                            composerTarget = null
-                            overlayKey = null
-                        }
-                    }.onFailure { draftError = "Draft could not be saved. Keep the composer open and try again." }
-                   }
-                  }
-             })
-        }
+                val submittedReply = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
+                val knownAudiences = feedState?.audiences.orEmpty()
+                val submittedAudience = if (knownAudiences.isEmpty()) composerAudience else runCatching {
+                    me.foxtails.palustris.domain.PostingVisibilityPolicy.validateExplicit(composerAudience, ServerCapabilities(audiences = knownAudiences))
+                }.getOrNull()
+                if (submittedAudience == null) {
+                    draftError = "This audience is not available on this server."
+                } else {
+                    val publishingAccountId = account?.id
+                    scope.launch {
+                        runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }.onSuccess { saved ->
+                            draftId = saved.id
+                            savedDraft = saved.text
+                            savedWarning = saved.contentWarning.orEmpty()
+                            onPublish(CreatePostRequest(submittedText, audience = submittedAudience, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) {
+                                scope.launch { store.delete(publishingAccountId, saved.id); reloadDrafts() }
+                                draft = ""
+                                savedDraft = ""
+                                warning = ""
+                                savedWarning = ""
+                                warningEnabled = false
+                                draftId = null
+                                savedQuoteOf = null
+                                savedReplyTo = null
+                                composerAudience = Audience.Public
+                                savedAudience = Audience.Public
+                                composerReplyTo = null
+                                composerQuoteOf = null
+                                composerTarget = null
+                                overlayKey = null
+                            }
+                        }.onFailure { draftError = "Draft could not be saved. Keep the composer open and try again." }
+                    }
+                }
+            },
+        )
     }
 
     if (overlay == Overlay.EditProfile && account != null) ModalBottomSheet(onDismissRequest = ::closeProfile, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
