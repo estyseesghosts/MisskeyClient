@@ -825,61 +825,39 @@ fun PalustrisApp(
                                   modifier = Modifier.fillMaxSize(),
                                   contentWarningRules = contentWarningRules,
                              )
-                        } else when (page) {
-                            LocalPage.SavedPosts -> savedPostsState?.let { savedState ->
-                                SavedPostsScreen(
-                                    state = savedState,
-                                    onRefresh = onRefreshSavedPosts,
-                                    onLoadMore = onLoadMoreSavedPosts,
-                                    onUnsave = onUnsaveSavedPost,
-                                    onSignIn = onUpgradeSavedPermissions,
-                                    onUpgradePermissions = onUpgradeSavedPermissions,
-                                    onReact = onReact,
-                                     onReply = handleReply,
-                                     onReshare = onReshare,
-                                      onReaction = onSavedPostReaction,
-                                       onOpenReactionBubble = { ownedPost, bounds ->
-                                           openReactionBubble(ownedPost, bounds, onSavedPostReaction)
-                                       },
-                                       onOpenMedia = ::openMedia,
-                                       onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Saved) },
-                                       largeLayout = largePresentation,
-                                       availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
-                      onOpenProfile = ::openProfile,
-                                      onSearchHashtag = ::openHashtagSearch,
-                                      onOpenHashtagBubble = ::openHashtagBubble,
-                                      onOpenUsername = ::openAccountSearch,
-                                  )
-                              } ?: EmptyState(AppIcons.Bookmark, stringResource(R.string.saved_posts_empty_title), stringResource(R.string.saved_posts_empty_subtitle))
-                              LocalPage.Likes -> likedPostsState?.let { likedState ->
-                                  SavedPostsScreen(
-                                      state = likedState,
-                                      onRefresh = onRefreshLikedPosts,
-                                      onLoadMore = onLoadMoreLikedPosts,
-                                      onUnsave = onUnsaveLikedPost,
-                                      onBookmark = onBookmark,
-                                      onSignIn = onUpgradeSavedPermissions,
-                                      onUpgradePermissions = onUpgradeSavedPermissions,
-                                      onReact = onUnsaveLikedPost,
-                                      onReply = handleReply,
-                                      onReshare = onReshare,
-                                      onReaction = onLikedPostReaction,
-                                      onOpenReactionBubble = { ownedPost, bounds ->
-                                          openReactionBubble(ownedPost, bounds, onLikedPostReaction)
-                                      },
-                                      onOpenMedia = ::openMedia,
-                                      onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Liked) },
-                                      largeLayout = largePresentation,
-                                      availableActions = (feedState?.actions ?: emptySet()) + PostAction.Favorite,
-                                      onOpenProfile = ::openProfile,
-                                      onSearchHashtag = ::openHashtagSearch,
-                                      onOpenHashtagBubble = ::openHashtagBubble,
-                                      onOpenUsername = ::openAccountSearch,
-                                  )
-                              } ?: EmptyState(AppIcons.Heart, stringResource(R.string.liked_posts_empty_title), stringResource(R.string.liked_posts_empty_subtitle))
-                              LocalPage.Drafts -> DraftsScreen(drafts, ::loadDraft, { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } })
-                             LocalPage.About -> EmptyState(AppIcons.Globe, stringResource(R.string.about_empty_title), stringResource(R.string.about_empty_subtitle))
-                              else -> when (animatedDestination) {
+                         } else if (page != null) {
+                             AppLocalPageContent(
+                                 page = page,
+                                 savedPostsState = savedPostsState,
+                                 likedPostsState = likedPostsState,
+                                 drafts = drafts,
+                                 onLoadDraft = ::loadDraft,
+                                 onDeleteDraft = { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } },
+                                 onRefreshSavedPosts = onRefreshSavedPosts,
+                                 onLoadMoreSavedPosts = onLoadMoreSavedPosts,
+                                 onUnsaveSavedPost = onUnsaveSavedPost,
+                                 onRefreshLikedPosts = onRefreshLikedPosts,
+                                 onLoadMoreLikedPosts = onLoadMoreLikedPosts,
+                                 onUnsaveLikedPost = onUnsaveLikedPost,
+                                 onUpgradeSavedPermissions = onUpgradeSavedPermissions,
+                                 onReact = onReact,
+                                 onReply = handleReply,
+                                 onReshare = onReshare,
+                                 onBookmark = onBookmark,
+                                 onSavedPostReaction = onSavedPostReaction,
+                                 onLikedPostReaction = onLikedPostReaction,
+                                 onOpenSavedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onSavedPostReaction) },
+                                 onOpenLikedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onLikedPostReaction) },
+                                 onOpenMedia = ::openMedia,
+                                 onOpenPost = ::openSinglePost,
+                                 onOpenProfile = ::openProfile,
+                                 onSearchHashtag = ::openHashtagSearch,
+                                 onOpenHashtagBubble = ::openHashtagBubble,
+                                 onOpenUsername = ::openAccountSearch,
+                                 availableActions = feedState?.actions ?: emptySet(),
+                                 largeLayout = largePresentation,
+                             )
+                         } else when (animatedDestination) {
                                      Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !largePresentation, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { if (currentDestination == Destination.Home) navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, listState = homeListState, topContentPadding = if (largePresentation) 16.dp else null, bottomContentClearance = if (largePresentation) LargeBottomDockClearance else null, refreshIndicatorTopPadding = if (largePresentation) 16.dp else null, bottomDock = if (largePresentation) ({
                                         LargeTimelineDockContent(availableTimelines, timeline) { item ->
                                             val changed = item != timeline
@@ -1056,12 +1034,11 @@ fun PalustrisApp(
                         onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
                        onOpenUsername = ::openAccountSearch,
                    )
-                              }
-                         }
-                         }
-                         }
-                         }
-                     }
+                               }
+                          }
+                          }
+                      }
+                  }
                  }
                 }
                 if (largePresentation) {
