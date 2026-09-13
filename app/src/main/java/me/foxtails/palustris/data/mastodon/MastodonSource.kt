@@ -2,9 +2,7 @@ package me.foxtails.palustris.data.mastodon
 
 import java.io.InputStream
 import java.net.URLEncoder
-import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -97,6 +95,7 @@ class MastodonSource(
     private val pushService = MastodonPushService(origin, token, api, accountId)
     private val streamService = MastodonStreamService(origin, token, api, accountId)
     private val threadService = MastodonThreadService(origin, token, api, accountId, sessionRevision)
+    private val pageClient = MastodonPageClient(origin, token, api)
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request {
@@ -108,7 +107,7 @@ class MastodonSource(
             Timeline.Federated -> "v1/timelines/public"
             Timeline.Social, Timeline.Bubble -> throw SourceError.Unsupported("timeline:$timeline")
         }
-        val response = getPage(endpoint, cursor)
+        val response = pageClient.getPage(endpoint, cursor)
         val statuses = JSONArray(response.body)
         Page(
             items = (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) },
@@ -358,7 +357,7 @@ class MastodonSource(
     }
 
     override suspend fun savedPosts(cursor: String?): Page<Post> = request {
-        val response = getPage("v1/bookmarks?limit=40", cursor)
+        val response = pageClient.getPage("v1/bookmarks?limit=40", cursor)
         val statuses = JSONArray(response.body)
         Page(
             items = (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) },
@@ -367,7 +366,7 @@ class MastodonSource(
     }
 
     override suspend fun likedPosts(cursor: String?): Page<Post> = request {
-        val response = getPage("v1/favourites?limit=40", cursor)
+        val response = pageClient.getPage("v1/favourites?limit=40", cursor)
         val statuses = JSONArray(response.body)
         Page(
             items = (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) },
@@ -454,7 +453,7 @@ class MastodonSource(
     override suspend fun searchHashtag(tag: String, cursor: String?): Page<Post> = request {
         val normalized = hashtagBody(tag)
         val encodedTag = URLEncoder.encode(normalized, Charsets.UTF_8.name())
-        val response = getPage("v1/timelines/tag/$encodedTag?limit=40", cursor)
+        val response = pageClient.getPage("v1/timelines/tag/$encodedTag?limit=40", cursor)
         val statuses = JSONArray(response.body)
         Page(
             items = (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) },
@@ -469,26 +468,6 @@ class MastodonSource(
             api.get(origin, "v1/accounts/lookup?acct=${URLEncoder.encode(handle, Charsets.UTF_8.name())}", token)
                 .body.toJson(), origin,
         ))
-    }
-
-    private suspend fun getPage(endpoint: String, cursor: String?) = if (cursor == null) {
-        api.get(origin, endpoint, token)
-    } else if (cursor.startsWith("http://") || cursor.startsWith("https://")) {
-        api.getUrl(validatePaginationUrl(cursor).toString(), token)
-    } else {
-        api.get(origin, cursor.removePrefix("/api/"), token)
-    }
-
-    private fun validatePaginationUrl(cursor: String): HttpUrl {
-        val page = cursor.toHttpUrlOrNull() ?: throw SourceError.Unsupported("pagination")
-        val authenticatedOrigin = origin.toHttpUrl()
-        if (page.scheme != authenticatedOrigin.scheme || page.host != authenticatedOrigin.host ||
-            page.port != authenticatedOrigin.port || page.username.isNotEmpty() || page.password.isNotEmpty() ||
-            page.fragment != null
-        ) {
-            throw SourceError.Unsupported("pagination")
-        }
-        return page
     }
 
     private suspend fun refreshCapabilities() {

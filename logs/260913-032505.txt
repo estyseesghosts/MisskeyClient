@@ -217,3 +217,7 @@ S31 Mastodon thread service:
 - Moved Mastodon focal/context requests and thread mapping to `data/mastodon/MastodonThreadService.kt`.
 - Preserved capability checks, continuation session validation, origin mapping, response limits, and refresh hints.
 - Verification passed: `MastodonIntegrationTest` and Kotlin compilation.
+S32 Mastodon page client:
+- Moved shared Mastodon page requests and authenticated cursor validation to `data/mastodon/MastodonPageClient.kt`.
+- Preserved timeline, saved, liked, hashtag, same-origin, credential, and fragment checks.
+- Verification passed: `MastodonIntegrationTest`, `MastodonSourceTest`, and Kotlin compilation.
