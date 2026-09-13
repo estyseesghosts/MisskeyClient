@@ -89,7 +89,6 @@ import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.emoji.EmojiPickerHost
 import me.foxtails.palustris.ui.emoji.EmojiPickerTarget
 import me.foxtails.palustris.ui.navigation.AppRoute
-import me.foxtails.palustris.ui.notifications.NotificationDetailScreen
 import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
 import me.foxtails.palustris.ui.notifications.NotificationSettingsScreen
 import me.foxtails.palustris.ui.notifications.NotificationSettingsSheet
@@ -812,7 +811,7 @@ fun PalustrisApp(
                             modifier = Modifier.fillMaxSize(),
                         ) {
                         if (notificationRoute != null) {
-                            NotificationDetailScreen(
+                            AppNotificationDetailContent(
                                 route = notificationRoute!!,
                                 items = notificationState.items,
                                 onSearchHashtag = ::openHashtagSearch,
@@ -822,8 +821,7 @@ fun PalustrisApp(
                                      { openNotificationTarget(route) }
                                  },
                                   largeLayout = largePresentation,
-                                  modifier = Modifier.fillMaxSize(),
-                                  contentWarningRules = contentWarningRules,
+                                   contentWarningRules = contentWarningRules,
                              )
                          } else if (page != null) {
                              AppLocalPageContent(

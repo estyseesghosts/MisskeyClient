@@ -162,3 +162,7 @@ S14 local-page sub-slice:
 - Moved saved posts, liked posts, drafts, and about page rendering to `ui/AppLocalPageContent.kt`.
 - Preserved page-specific actions, stable page identities, draft deletion, and origin dispatch.
 - Verification passed: `NavigationTest`, `WideNavigationTest`, and Kotlin compilation.
+S14 notification-detail sub-slice:
+- Moved notification detail route rendering to `ui/AppNotificationDetailContent.kt`.
+- Preserved notification target dispatch, post actions, and large-layout content-warning behavior.
+- Verification passed: `NavigationTest`, `NotificationRouteResolverTest`, and Kotlin compilation.
