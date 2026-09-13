@@ -1,3 +1,1 @@
 # Active tasks
-
-- Prepare and verify the 0.1.2 release, then push the release commit and tag.
