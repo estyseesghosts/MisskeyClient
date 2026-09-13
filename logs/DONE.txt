@@ -336,3 +336,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved descendant work and thread acquisition state models to `data/misskey/MisskeyThreadAcquisition.kt`.
 - Preserved continuation identity, request tracking, limits, ancestor/descendant order, and cancellation behavior.
 - Verification passed: `MisskeyIntegrationTest`, `PostThreadViewModelTest`, and Kotlin compilation.
+260913-032505 S31 Mastodon thread service:
+- Moved Mastodon focal/context requests and thread mapping to `data/mastodon/MastodonThreadService.kt`.
+- Preserved capability checks, continuation session validation, origin mapping, response limits, and refresh hints.
+- Verification passed: `MastodonIntegrationTest` and Kotlin compilation.

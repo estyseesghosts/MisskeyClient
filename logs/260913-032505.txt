@@ -213,3 +213,7 @@ S30 Misskey thread-state sub-slice:
 - Moved descendant work and thread acquisition state models to `data/misskey/MisskeyThreadAcquisition.kt`.
 - Preserved continuation identity, request tracking, limits, ancestor/descendant order, and cancellation behavior.
 - Verification passed: `MisskeyIntegrationTest`, `PostThreadViewModelTest`, and Kotlin compilation.
+S31 Mastodon thread service:
+- Moved Mastodon focal/context requests and thread mapping to `data/mastodon/MastodonThreadService.kt`.
+- Preserved capability checks, continuation session validation, origin mapping, response limits, and refresh hints.
+- Verification passed: `MastodonIntegrationTest` and Kotlin compilation.

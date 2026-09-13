@@ -96,6 +96,7 @@ class MastodonSource(
     private val moderationService = MastodonModerationService(origin, token, api, accountId)
     private val pushService = MastodonPushService(origin, token, api, accountId)
     private val streamService = MastodonStreamService(origin, token, api, accountId)
+    private val threadService = MastodonThreadService(origin, token, api, accountId, sessionRevision)
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request {
@@ -132,27 +133,7 @@ class MastodonSource(
         if (continuation != null && continuation.sessionKey != key) {
             throw SourceError.Unsupported("thread.continuation")
         }
-        val path = "v1/statuses/${focalId.value.encodePathSegment()}"
-        val focal = MastodonMapper.post(
-            api.get(origin, path, token, MAX_THREAD_RESPONSE_BYTES).body.toJson(),
-            origin,
-        )
-        val contextResponse = api.get(
-            origin,
-            "$path/context",
-            token,
-            MAX_THREAD_RESPONSE_BYTES,
-        )
-        val context = JSONObject(contextResponse.body)
-        val ancestors = context.optJSONArray("ancestors").toPosts(origin)
-        val descendants = context.optJSONArray("descendants").toPosts(origin)
-        ThreadContext(
-            focal = focal,
-            ancestors = ancestors,
-            descendants = descendants,
-            acquisitionState = ThreadAcquisitionState.Finished,
-            refreshHint = parseRefreshHint(contextResponse.headers["Mastodon-Async-Refresh"]),
-        )
+        threadService.context(focalId, continuation)
     }
 
     override suspend fun profile(id: AccountId): Account = request { profileService.profile(id) }
@@ -548,7 +529,6 @@ class MastodonSource(
 
     private companion object {
         const val DEFAULT_NOTIFICATION_LIMIT = 30
-        const val MAX_THREAD_RESPONSE_BYTES = 4L * 1024L * 1024L
         const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
         val DEFAULT_CAPABILITIES = ServerCapabilities(
             timelines = setOf(Timeline.Home, Timeline.Local, Timeline.Federated),
@@ -569,25 +549,6 @@ class MastodonSource(
     }
 }
 
-private fun JSONArray?.toPosts(origin: String): List<Post> {
-    if (this == null) return emptyList()
-    return (0 until length()).mapNotNull { index ->
-        runCatching { MastodonMapper.post(getJSONObject(index), origin) }.getOrNull()
-    }
-}
-
-private fun parseRefreshHint(header: String?): ThreadRefreshHint? {
-    val value = header?.trim() ?: return null
-    val match = Regex(
-        "^id=\"[^\"]+\"\\s*,\\s*retry=(\\d+)\\s*,\\s*result_count=(\\d+)\\s*$",
-    ).matchEntire(value) ?: return null
-    val retrySeconds = match.groupValues[1].toLongOrNull() ?: return null
-    return ThreadRefreshHint(retrySeconds * 1_000L)
-}
-
-private fun String.encodePathSegment(): String =
-    URLEncoder.encode(this, Charsets.UTF_8.name()).replace("+", "%20")
-
 private fun HttpResponse.optionalPost(origin: String): Post? = runCatching {
     JSONObject(body).takeIf { it.optString("id").isNotBlank() }?.let { MastodonMapper.post(it, origin) }
 }.getOrNull()
@@ -601,8 +562,6 @@ private fun EmojiCapabilities.takeVerifiedOr(previous: EmojiCapabilities): Emoji
 private fun NotificationCapabilities.takeVerifiedOr(previous: NotificationCapabilities): NotificationCapabilities =
     if (this == NotificationCapabilities()) previous else this
 
-private fun String.toJson(): JSONObject = JSONObject(this)
-
 private fun Audience.toMastodonVisibility(): String = when (this) {
     Audience.Public -> "public"
     Audience.Unlisted -> "unlisted"
@@ -611,3 +570,8 @@ private fun Audience.toMastodonVisibility(): String = when (this) {
 }
 
 private const val DIRECT_CONVERSATION_LIMIT = 40
+
+private fun String.encodePathSegment(): String =
+    java.net.URLEncoder.encode(this, Charsets.UTF_8.name()).replace("+", "%20")
+
+private fun String.toJson(): JSONObject = JSONObject(this)
