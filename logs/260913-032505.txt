@@ -197,3 +197,7 @@ S24 notification codec entry-point sub-slice:
 - Moved repository state `encode` and `decode` entry points to `data/notifications/NotificationJsonCodec.kt`.
 - Kept stored version `2`, field names, malformed-entry filtering, and all existing mapping behavior unchanged.
 - Verification passed: `NotificationRepositoryTest`, `NotificationContractTest`, and Kotlin compilation.
+S26 notification page-merge sub-slice:
+- Moved checkpoint and delivery-outbox calculations to `data/notifications/NotificationPageMerge.kt`.
+- Preserved directional cursor ownership, completeness rules, baseline gating, dismissal filtering, and notification identity handling.
+- Verification passed: `NotificationRepositoryTest`, `NotificationContractTest`, and Kotlin compilation.
