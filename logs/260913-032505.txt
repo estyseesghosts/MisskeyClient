@@ -143,3 +143,7 @@ S21 emoji grouping:
 - Moved pure emoji group identity, ordering, matching, pinning, and collapse calculations to ui/emoji/EmojiPickerGrouping.kt.
 - Kept server category text opaque and built-in labels resource-backed at render time.
 - Verification passed: `EmojiPickerTest`, `EmojiGridScrollbarTest`, and Kotlin compilation.
+S22 emoji scrollbar boundary:
+- Moved the existing scrollbar model and math to ui/emoji/EmojiGridScrollbar.kt without changing the algorithm.
+- Kept the existing direct JVM test boundary.
+- Verification passed: `EmojiGridScrollbarTest` and Kotlin compilation.
