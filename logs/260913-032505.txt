@@ -170,3 +170,7 @@ S14 Home sub-slice:
 - Moved Home destination composition to `ui/AppHomeDestinationContent.kt`.
 - Preserved timeline refresh and paging, wide dock behavior, list state, scroll visibility, and post callbacks.
 - Verification passed: `HomeFeedTest`, `NavigationTest`, and Kotlin compilation.
+S14 Search sub-slice:
+- Moved Search destination composition to `ui/AppSearchDestinationContent.kt`.
+- Preserved shared query and tab state, list state, search actions, and compact navigation visibility.
+- Verification passed: `SearchPanelRestorationTest`, `NavigationTest`, and Kotlin compilation.

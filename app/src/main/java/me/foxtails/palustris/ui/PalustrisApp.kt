@@ -908,7 +908,7 @@ fun PalustrisApp(
                                       modifier = Modifier.fillMaxSize(),
                                    ) { panel ->
                                        when (panel) {
-                                           SearchPanel.Search -> SearchScreen(
+                                            SearchPanel.Search -> AppSearchDestinationContent(
                                                accountSearch = feedState?.accountSearch ?: AccountSearchState(),
                                                onSearchAccounts = onSearchAccounts,
                                                onAccountClick = ::openProfile,
@@ -934,7 +934,6 @@ fun PalustrisApp(
                                                listState = searchListState.takeIf { largePresentation },
                                                largeLayout = largePresentation,
                                                compactLayout = !largePresentation,
-                                               compactNavigationVisible = !largePresentation,
                                                mediaOwner = account?.id,
                                                onOpenMedia = ::openMedia,
                                                 onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
