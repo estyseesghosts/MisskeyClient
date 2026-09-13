@@ -96,23 +96,12 @@ class MastodonSource(
     private val streamService = MastodonStreamService(origin, token, api, accountId)
     private val threadService = MastodonThreadService(origin, token, api, accountId, sessionRevision)
     private val pageClient = MastodonPageClient(origin, token, api)
+    private val timelineService = MastodonTimelineService(pageClient, origin)
     override val capabilities: ServerCapabilities get() = _capabilities.value
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request {
         refreshCapabilities()
-        if (timeline !in capabilities.timelines) throw SourceError.Unsupported("timeline:$timeline")
-        val endpoint = when (timeline) {
-            Timeline.Home -> "v1/timelines/home"
-            Timeline.Local -> "v1/timelines/public?local=true"
-            Timeline.Federated -> "v1/timelines/public"
-            Timeline.Social, Timeline.Bubble -> throw SourceError.Unsupported("timeline:$timeline")
-        }
-        val response = pageClient.getPage(endpoint, cursor)
-        val statuses = JSONArray(response.body)
-        Page(
-            items = (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) },
-            nextCursor = response.linkHeaderCursor(),
-        )
+        timelineService.timeline(timeline, cursor, capabilities)
     }
 
     override suspend fun post(id: EntityId): Post = request {
