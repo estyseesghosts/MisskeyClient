@@ -96,6 +96,7 @@ fun ProfileScreen(
     onOpenBookmarks: () -> Unit = {},
     onOpenLikes: () -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
+    onOpenProfileImage: (String) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
     availableActions: Set<PostAction> = emptySet(),
     onReact: (OwnedPost) -> Unit = {},
@@ -151,6 +152,7 @@ fun ProfileScreen(
             state = profileState,
             isSelf = isSelf,
             showSummary = largeShowSummary,
+            onOpenProfileImage = onOpenProfileImage,
             listState = listState,
             endContentClearance = endContentClearance,
             onCategorySelected = onCategorySelected,
@@ -195,7 +197,7 @@ fun ProfileScreen(
             onOpenBookmarks = onOpenBookmarks,
             onRefresh = onRefresh,
             onLoadMore = onLoadMore,
-            onOpenProfile = onOpenProfile,
+                     onOpenProfile = onOpenProfile,
             onSearchHashtag = onSearchHashtag,
             availableActions = availableActions,
             onReact = onReact,
@@ -218,9 +220,10 @@ fun ProfileScreen(
                     onRefresh = onRefresh,
                     onFollow = onFollow,
                     onUnfollow = onUnfollow,
-                    onMessage = { onMessage(displayedAccount) },
-                    onOpenProfile = onOpenProfile,
-                )
+                     onMessage = { onMessage(displayedAccount) },
+                     onOpenProfile = onOpenProfile,
+                     onOpenProfileImage = onOpenProfileImage,
+                 )
             },
             details = { ProfileDetails(displayedAccount) },
             listState = listState,
@@ -302,6 +305,7 @@ private fun LargeProfilePresentation(
     onUnfollow: () -> Unit,
     onMessage: () -> Unit,
     onOpenProfile: (Account) -> Unit,
+    onOpenProfileImage: (String) -> Unit,
     details: @Composable () -> Unit,
     availableActions: Set<PostAction>,
     onReact: (OwnedPost) -> Unit,
@@ -395,6 +399,7 @@ private fun LargeProfilePresentation(
                         onUnfollow = onUnfollow,
                         onMessage = onMessage,
                          onOpenProfile = onOpenProfile,
+                         onOpenProfileImage = onOpenProfileImage,
                          onEditProfile = onEditProfile,
                          largeSummary = showSummary,
                      )
@@ -424,6 +429,7 @@ private fun ProfileHeader(
     onUnfollow: () -> Unit,
     onMessage: () -> Unit,
     onOpenProfile: (Account) -> Unit,
+    onOpenProfileImage: (String) -> Unit = {},
     onEditProfile: (() -> Unit)? = null,
     largeSummary: Boolean = false,
 ) {
@@ -485,7 +491,8 @@ private fun ProfileHeader(
                             Modifier.padding(start = 16.dp, top = 104.dp).size(112.dp)
                         },
                     )
-                    .clip(CircleShape),
+                    .clip(CircleShape)
+                    .then(account.avatarUrl?.let { Modifier.clickable { onOpenProfileImage(it) } } ?: Modifier),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 4.dp,
@@ -493,6 +500,13 @@ private fun ProfileHeader(
                 PopEffect(account.id) {
                     AccountAvatar(account, Modifier.padding(4.dp))
                 }
+            }
+            account.bannerUrl?.let { bannerUrl ->
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .clickable { onOpenProfileImage(bannerUrl) },
+                )
             }
         }
 

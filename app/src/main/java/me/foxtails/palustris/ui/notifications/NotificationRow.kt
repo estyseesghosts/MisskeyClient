@@ -44,8 +44,14 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActionState
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationReadStatus
+import me.foxtails.palustris.domain.ContentWarningDecision
+import me.foxtails.palustris.domain.ContentWarningPolicy
+import me.foxtails.palustris.domain.ContentWarningRules
+import me.foxtails.palustris.domain.HiddenContentPresentation
 import me.foxtails.palustris.ui.AccountAvatar
 import me.foxtails.palustris.ui.Avatar
+import me.foxtails.palustris.ui.LocalContentWarningRules
+import me.foxtails.palustris.ui.LocalHiddenContentPresentation
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.motion.springPress
@@ -58,6 +64,7 @@ fun NotificationRow(
     onOpen: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
     onFollowRequest: ((Boolean) -> Unit)? = null,
+    contentWarningRules: ContentWarningRules = LocalContentWarningRules.current,
     modifier: Modifier = Modifier,
 ) {
     val scheme = LocalPalustrisMotionScheme.current
@@ -151,7 +158,24 @@ fun NotificationRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 notification.post?.let { post ->
-                    if (!post.contentWarning.isNullOrBlank()) {
+                    val locallyMuted = ContentWarningPolicy.matchesHashtagMute(
+                        me.foxtails.palustris.ui.postHashtags(post.text, post.emoji),
+                        me.foxtails.palustris.ui.LocalMutedHashtags.current,
+                    )
+                    val warningDecision = ContentWarningPolicy.decide(
+                        post.contentWarning,
+                         me.foxtails.palustris.ui.postHashtags(post.text, post.emoji),
+                        contentWarningRules,
+                        post.contentVisibility,
+                        post.text,
+                    )
+                    if (locallyMuted) {
+                        Text(stringResource(me.foxtails.palustris.R.string.content_hidden_local_hashtag), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else if (warningDecision == ContentWarningDecision.Hidden) {
+                        if (LocalHiddenContentPresentation.current == HiddenContentPresentation.Placeholder) {
+                            Text(stringResource(me.foxtails.palustris.R.string.content_hidden_settings), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else if (!post.contentWarning.isNullOrBlank()) {
                         me.foxtails.palustris.ui.emoji.InlineEmojiText(
                             post.contentWarning,
                             post.emoji,

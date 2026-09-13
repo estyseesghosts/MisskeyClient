@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EmojiChoice
@@ -501,6 +502,9 @@ fun ComposeScreen(
     warning: String, onWarningChange: (String) -> Unit,
     warningEnabled: Boolean, onWarningEnabled: (Boolean) -> Unit,
     account: Account? = null,
+    audience: Audience = Audience.Public,
+    availableAudiences: Set<Audience> = emptySet(),
+    onAudienceChange: (Audience) -> Unit = {},
     canPublish: Boolean = false,
     publishing: Boolean = false,
     error: String? = null,
@@ -511,6 +515,7 @@ fun ComposeScreen(
     onRequestEmoji: ((me.foxtails.palustris.ui.emoji.ComposerField) -> Unit)? = null,
     pendingEmojiInsertion: Pair<me.foxtails.palustris.domain.EmojiChoice, me.foxtails.palustris.ui.emoji.ComposerField>? = null,
     onEmojiInsertionApplied: () -> Unit = {},
+    onCleanTrackingParameters: () -> Unit = {},
 ) {
     val scheme = LocalPalustrisMotionScheme.current
     val emojiPickerDescription = stringResource(me.foxtails.palustris.R.string.emoji_open_picker)
@@ -582,6 +587,19 @@ fun ComposeScreen(
             }
             Spacer(Modifier.height(12.dp))
         }
+        val audienceOptions = (availableAudiences + audience).toList().sortedBy(Audience::ordinal)
+        if (audienceOptions.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.composer_visibility), style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = {
+                    val current = audienceOptions.indexOf(audience).coerceAtLeast(0)
+                    onAudienceChange(audienceOptions[(current + 1) % audienceOptions.size])
+                }) {
+                    Text(audience.label())
+                }
+            }
+        }
         ExpandableContent(visible = warningEnabled, modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = warningValue,
@@ -591,12 +609,12 @@ fun ComposeScreen(
                 },
                  label = { Text(stringResource(R.string.composer_content_warning)) }, modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {
-                    if (onRequestEmoji != null) {
+                 if (onRequestEmoji != null) {
                         TextButton(
                             onClick = { onRequestEmoji(me.foxtails.palustris.ui.emoji.ComposerField.Warning) },
                             modifier = Modifier.semantics { contentDescription = emojiPickerDescription },
                          ) { Text(stringResource(R.string.composer_emoji)) }
-                    }
+                 }
                 },
             )
         }
@@ -620,8 +638,9 @@ fun ComposeScreen(
                         onClick = { onRequestEmoji(me.foxtails.palustris.ui.emoji.ComposerField.Text) },
                         modifier = Modifier.semantics { contentDescription = emojiPickerDescription },
                     ) { Text(stringResource(me.foxtails.palustris.R.string.emoji_picker_title)) }
-                }
-            }
+                 }
+                 TextButton(onClick = onCleanTrackingParameters) { Text(stringResource(R.string.composer_clean_links)) }
+             }
              Text(pluralStringResource(R.plurals.composer_character_count, text.length, text.length), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
          Text(if (canPublish) stringResource(R.string.composer_publish_enabled) else stringResource(R.string.composer_publish_disabled),
@@ -649,6 +668,14 @@ fun ComposeScreen(
         Spacer(Modifier.height(24.dp))
     }
 }
+
+@Composable
+private fun Audience.label(): String = stringResource(when (this) {
+    Audience.Public -> R.string.audience_everyone
+    Audience.Unlisted -> R.string.audience_unlisted
+    Audience.Followers -> R.string.audience_followers
+    Audience.Direct -> R.string.audience_direct
+})
 
 @Composable
 fun DraftsScreen(drafts: List<me.foxtails.palustris.domain.PostDraft>, onEdit: (me.foxtails.palustris.domain.PostDraft) -> Unit, onDelete: (me.foxtails.palustris.domain.PostDraft) -> Unit) {

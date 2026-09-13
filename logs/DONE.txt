@@ -226,4 +226,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Focused preference tests, full `test assembleRelease`, and standalone `lintDebug` passed.
 - Pushed commit `6fdf69e` and tag `v0.1.2` to GitHub.
 - GitHub release workflow `34730798988` passed all jobs, signed the APK, verified its signature, and published prerelease `https://github.com/estyseesghosts/MisskeyClient/releases/tag/v0.1.2`.
-- Downloaded APK certificate SHA-256 matched the existing GitHub release signer: `471c264b9635b5db8509143b269edef9a3bb305b9315f9ca0b7c905f9331ea65`; published APK SHA-256 is `55620bcc136f0124c6becc3836a0dd78116f11c4b2faa72bc681621508a59ff4`.
+ - Downloaded APK certificate SHA-256 matched the existing GitHub release signer: `471c264b9635b5db8509143b269edef9a3bb305b9315f9ca0b7c905f9331ea65`; published APK SHA-256 is `55620bcc136f0124c6becc3836a0dd78116f11c4b2faa72bc681621508a59ff4`.
+260913-010539 Implement The Everything continuation:
+- Added named Pastel, Vibrant, and Monochrome palette choices, account-scoped content-warning rules, body-text and semantic hashtag matching, and Remove/Placeholder hidden-content presentation.
+- Added honest server moderation contracts and adapter coverage, plus clearly labelled account-scoped local hashtag mutes when server hashtag mappings are unsupported.
+- Added outward tracking-parameter cleanup for opening/sharing and an explicit composer cleanup action; preserved signed URLs.
+- Added profile image viewing, non-gesture edge-swipe back handling, localization resources, and regression coverage for the affected UI and persistence paths.
+- Verification passed: focused UI/domain/adapter tests, full `test`, `:app:lintDebug`, and `assembleRelease`.
+- No commit or push performed; explicit authorization is required before Git history or remotes are changed.

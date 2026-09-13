@@ -13,14 +13,15 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import me.foxtails.palustris.domain.AccountId
-import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
+import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.PostPreferences
 import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.domain.normalizeFavouriteEmoji
+import me.foxtails.palustris.domain.normalizeLocalMutedHashtags
 import org.json.JSONObject
 
 /** Stores non-secret per-account post preferences in no-backup storage. */
-class EncryptedPostPreferencesRepository(context: Context) : PostPreferencesRepository {
+class FilePostPreferencesRepository(context: Context) : PostPreferencesRepository {
     private val file = File(context.noBackupFilesDir, "post-preferences.json")
     private val mutex = Mutex()
     private val values = MutableStateFlow(load())
@@ -55,7 +56,16 @@ class EncryptedPostPreferencesRepository(context: Context) : PostPreferencesRepo
         val accounts = root.optJSONObject("accounts") ?: return emptyMap()
         accounts.keys().asSequence().mapNotNull { key ->
             val value = accounts.optJSONObject(key) ?: return@mapNotNull null
-            key to PostPreferences(normalizeFavouriteEmoji(value.optString("favouriteEmoji")))
+            key to PostPreferences(
+                favouriteEmoji = normalizeFavouriteEmoji(value.optString("favouriteEmoji")),
+                defaultAudience = enumOrDefault(value, "defaultAudience", Audience.Public),
+                repliesUnlisted = value.optBoolean("repliesUnlisted", false),
+                 contentWarningRules = value.optJSONObject("contentWarningRules")?.toContentWarningRules()
+                     ?: me.foxtails.palustris.domain.ContentWarningRules(),
+                 localMutedHashtags = value.optJSONArray("localMutedHashtags")?.let { hashtags ->
+                     (0 until hashtags.length()).mapNotNull { hashtags.optString(it).takeIf(String::isNotBlank) }
+                 }.orEmpty().let(::normalizeLocalMutedHashtags),
+            )
         }.toMap()
     }.getOrDefault(emptyMap())
 
@@ -63,7 +73,12 @@ class EncryptedPostPreferencesRepository(context: Context) : PostPreferencesRepo
         file.parentFile?.mkdirs()
         val accounts = JSONObject()
         values.forEach { (key, preference) ->
-            accounts.put(key, JSONObject().put("favouriteEmoji", preference.favouriteEmoji))
+            accounts.put(key, JSONObject()
+                .put("favouriteEmoji", preference.favouriteEmoji)
+                .put("defaultAudience", preference.defaultAudience.name)
+                 .put("repliesUnlisted", preference.repliesUnlisted)
+                 .put("contentWarningRules", preference.contentWarningRules.toJson())
+                 .put("localMutedHashtags", org.json.JSONArray(preference.localMutedHashtags)))
         }
         val root = JSONObject().put("version", 1).put("accounts", accounts)
         val temporary = File("${file.path}.new")
@@ -93,8 +108,9 @@ class EncryptedPostPreferencesRepository(context: Context) : PostPreferencesRepo
         }
     }
 
-    private fun normalize(preference: PostPreferences): PostPreferences =
-        PostPreferences(normalizeFavouriteEmoji(preference.favouriteEmoji))
+    private fun normalize(preference: PostPreferences): PostPreferences = preference.copy(
+        favouriteEmoji = normalizeFavouriteEmoji(preference.favouriteEmoji),
+    )
 
     private fun keyFor(accountId: AccountId): String {
         val identity = buildString {
@@ -115,10 +131,41 @@ class InMemoryPostPreferencesRepository : PostPreferencesRepository {
 
     override suspend fun update(accountId: AccountId, transform: (PostPreferences) -> PostPreferences) {
         val current = values.value[accountId] ?: PostPreferences()
-        values.value = values.value + (accountId to PostPreferences(normalizeFavouriteEmoji(transform(current).favouriteEmoji)))
+            values.value = values.value + (accountId to transform(current).normalized())
     }
 
     override suspend fun remove(accountId: AccountId) {
         values.value = values.value - accountId
     }
 }
+
+private fun PostPreferences.normalized(): PostPreferences = copy(
+    favouriteEmoji = normalizeFavouriteEmoji(favouriteEmoji),
+    contentWarningRules = contentWarningRules.normalized(),
+    localMutedHashtags = normalizeLocalMutedHashtags(localMutedHashtags),
+)
+
+private fun me.foxtails.palustris.domain.ContentWarningRules.toJson(): JSONObject = JSONObject()
+    .put("hideAll", hideAll)
+    .put("expandAll", expandAll)
+    .put("hideKeywords", org.json.JSONArray(hideKeywords))
+    .put("hideHashtags", org.json.JSONArray(hideHashtags))
+    .put("expandKeywords", org.json.JSONArray(expandKeywords))
+    .put("expandHashtags", org.json.JSONArray(expandHashtags))
+
+private fun JSONObject.toContentWarningRules(): me.foxtails.palustris.domain.ContentWarningRules =
+    me.foxtails.palustris.domain.ContentWarningRules(
+        hideAll = optBoolean("hideAll"),
+        expandAll = optBoolean("expandAll"),
+        hideKeywords = stringList("hideKeywords"),
+        hideHashtags = stringList("hideHashtags"),
+        expandKeywords = stringList("expandKeywords"),
+        expandHashtags = stringList("expandHashtags"),
+    )
+
+private fun JSONObject.stringList(key: String): List<String> = optJSONArray(key)?.let { values ->
+    (0 until values.length()).mapNotNull { values.optString(it).trim().takeIf(String::isNotEmpty) }
+}.orEmpty()
+
+private inline fun <reified T : Enum<T>> enumOrDefault(json: JSONObject, key: String, default: T): T =
+    runCatching { enumValueOf<T>(json.optString(key)) }.getOrDefault(default)

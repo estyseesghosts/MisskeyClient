@@ -45,6 +45,7 @@ internal data class FilterChipEntry(
 internal fun FilterChipRow(
     entries: List<FilterChipEntry>,
     rowContentDescription: String,
+    modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
     LazyRow(
@@ -53,7 +54,7 @@ internal fun FilterChipRow(
             lazyListState = listState,
             snapPosition = androidx.compose.foundation.gestures.snapping.SnapPosition.Start,
         ),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(CompactSearchChipRowHeight)
             .semantics { contentDescription = rowContentDescription },

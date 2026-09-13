@@ -13,6 +13,7 @@ import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PrimaryFavouriteCapability
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
 import me.foxtails.palustris.domain.ProfileCapabilities
+import me.foxtails.palustris.domain.ModerationCapabilities
 import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.SavedPostsCapability
 import me.foxtails.palustris.domain.SavedPostsKind
@@ -135,6 +136,13 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
                 savedPosts = SavedPostsCapability(CapabilityStatus.Supported, SavedPostsKind.Bookmarks),
                 likedPosts = CapabilityStatus.Supported,
                 threads = CapabilityStatus.Supported,
+                moderation = ModerationCapabilities(
+                    read = CapabilityStatus.Supported,
+                    write = CapabilityStatus.Supported,
+                    blocked = CapabilityStatus.Supported,
+                    muted = CapabilityStatus.Supported,
+                    hashtags = CapabilityStatus.Unsupported,
+                ),
                 capabilitiesLastUpdated = System.currentTimeMillis(),
                 capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
             ).withTimelineStatuses(

@@ -5,6 +5,8 @@ package me.foxtails.palustris.ui.emoji
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +48,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -152,6 +156,7 @@ internal data class EmojiPickerGroup(
     val collapsed: Boolean,
     val pinned: Boolean,
     val pinEnabled: Boolean,
+    val hasMatchingChoices: Boolean = true,
 )
 
 internal fun buildEmojiPickerGroups(
@@ -221,34 +226,40 @@ internal fun buildEmojiPickerGroups(
     ): EmojiPickerGroup {
         val collapsed = id in preferences.collapsedGroups
         val pinned = id in preferences.pinnedGroups
+        val matchingChoices = choices.filter(::matches)
         return EmojiPickerGroup(
             id = id,
             title = title,
-            choices = if (collapsed) emptyList() else choices.filter(::matches),
+            choices = if (collapsed) emptyList() else matchingChoices,
             pinnable = pinnable,
             collapsed = collapsed,
             pinned = pinned,
             pinEnabled = pinnable && (pinned || pinCount < 5),
+            hasMatchingChoices = matchingChoices.isNotEmpty(),
         )
     }
 
     return buildList {
-        add(createGroup(EmojiPickerGroupIds.Favorite, "Favorite Emoji", emptyList(), pinnable = false))
+        fun addIfVisible(group: EmojiPickerGroup) {
+            if (query.isEmpty() || group.hasMatchingChoices) add(group)
+        }
+
+        addIfVisible(createGroup(EmojiPickerGroupIds.Favorite, "Favorite Emoji", emptyList(), pinnable = false))
         orderedCustomIds.takeWhile { it in pinnedIds }.forEach { id ->
             val (title, choices) = groups.getValue(id)
-            add(createGroup(id, title, choices, pinnable = true))
+            addIfVisible(createGroup(id, title, choices, pinnable = true))
         }
         if (recentChoices.isNotEmpty()) {
-            add(createGroup(EmojiPickerGroupIds.Recent, "Recent", recentChoices, pinnable = false))
+            addIfVisible(createGroup(EmojiPickerGroupIds.Recent, "Recent", recentChoices, pinnable = false))
         }
         if (postSpecificChoices.isNotEmpty()) {
-            add(createGroup(EmojiPickerGroupIds.PostSpecific, "Post-specific custom emoji", postSpecificChoices, pinnable = false))
+            addIfVisible(createGroup(EmojiPickerGroupIds.PostSpecific, "Post-specific custom emoji", postSpecificChoices, pinnable = false))
         }
         orderedCustomIds.drop(pinnedIds.size).forEach { id ->
             val (title, choices) = groups.getValue(id)
-            add(createGroup(id, title, choices, pinnable = true))
+            addIfVisible(createGroup(id, title, choices, pinnable = true))
         }
-        add(createGroup(EmojiPickerGroupIds.Unicode, "Standard emoji", standardChoices, pinnable = false))
+        addIfVisible(createGroup(EmojiPickerGroupIds.Unicode, "Standard emoji", standardChoices, pinnable = false))
     }
 }
 
@@ -471,6 +482,8 @@ fun EmojiChoiceGrid(
         DefaultUnicodeEmojis.map { EmojiChoice(it, it) }
     }
     val gridState = rememberLazyGridState()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val recentChoices = remember(recents) {
         recents.map { EmojiChoice(it, it) }
     }
@@ -557,6 +570,22 @@ fun EmojiChoiceGrid(
                 .testTag("emoji_picker_search"),
             placeholder = { Text(stringResource(R.string.emoji_picker_search_hint)) },
             singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                keyboardController?.hide()
+                focusManager.clearFocus()
+            }),
+            trailingIcon = {
+                IconButton(
+                    onClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                    },
+                    modifier = Modifier.testTag("emoji_picker_hide_keyboard"),
+                ) {
+                    Icon(AppIcons.Close, stringResource(R.string.emoji_picker_hide_keyboard))
+                }
+            },
             shape = RoundedCornerShape(16.dp),
             colors = TextFieldDefaults.colors(
                 focusedIndicatorColor = Color.Transparent,

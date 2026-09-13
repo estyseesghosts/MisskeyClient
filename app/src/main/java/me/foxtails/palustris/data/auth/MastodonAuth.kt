@@ -147,7 +147,9 @@ class MastodonAuth(
             AccessScope.PrimaryFavouriteWrite to if ("write" in scopes || "write:favourites" in scopes) AccessStatus.Granted else AccessStatus.Denied,
              AccessScope.SavedPostsRead to if ("read" in scopes || "read:bookmarks" in scopes) AccessStatus.Granted else AccessStatus.Denied,
              AccessScope.SavedPostsWrite to if ("write" in scopes || "write:bookmarks" in scopes) AccessStatus.Granted else AccessStatus.Denied,
-             AccessScope.LikedPostsRead to if ("read" in scopes || "read:favourites" in scopes) AccessStatus.Granted else AccessStatus.Denied,
+              AccessScope.LikedPostsRead to if ("read" in scopes || "read:favourites" in scopes) AccessStatus.Granted else AccessStatus.Denied,
+              AccessScope.ModerationRead to if ("read" in scopes) AccessStatus.Granted else AccessStatus.Denied,
+              AccessScope.ModerationWrite to if ("write" in scopes) AccessStatus.Granted else AccessStatus.Denied,
         )
     }
 
@@ -180,7 +182,9 @@ class MastodonAuth(
             AccessScope.PrimaryFavouriteWrite,
              AccessScope.SavedPostsRead,
              AccessScope.SavedPostsWrite,
-             AccessScope.LikedPostsRead,
+              AccessScope.LikedPostsRead,
+              AccessScope.ModerationRead,
+              AccessScope.ModerationWrite,
          )
         const val REDIRECT_URI = "palustris://auth/mastodon"
     }

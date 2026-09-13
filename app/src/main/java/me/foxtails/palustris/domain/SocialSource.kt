@@ -90,6 +90,14 @@ interface SocialSource {
         unsupported<Unit>("notifications.push.remove")
     suspend fun mute(id: EntityId) = unsupported<Unit>("mute")
     suspend fun block(id: EntityId) = unsupported<Unit>("block")
+    suspend fun blockedAccounts(cursor: ModerationCursor? = null): ModerationPage<ModerationAccount> =
+        unsupported("moderation.blocked")
+    suspend fun mutedAccounts(cursor: ModerationCursor? = null): ModerationPage<ModerationAccount> =
+        unsupported("moderation.muted")
+    suspend fun mutedHashtags(cursor: ModerationCursor? = null): ModerationPage<MutedHashtag> =
+        unsupported("moderation.hashtags")
+    suspend fun removeBlockedAccount(entry: ModerationAccount) = unsupported<Unit>("moderation.blocked.remove")
+    suspend fun removeMutedAccount(entry: ModerationAccount) = unsupported<Unit>("moderation.muted.remove")
     fun streamEvents(): kotlinx.coroutines.flow.Flow<Event> = kotlinx.coroutines.flow.emptyFlow()
 }
 

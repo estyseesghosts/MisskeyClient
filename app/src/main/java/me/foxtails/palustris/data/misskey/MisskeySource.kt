@@ -18,6 +18,11 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationAcknowledgement
+import me.foxtails.palustris.domain.ModerationAccount
+import me.foxtails.palustris.domain.ModerationCursor
+import me.foxtails.palustris.domain.ModerationPage
+import me.foxtails.palustris.domain.MutedHashtag
+import me.foxtails.palustris.domain.unsupported
 import me.foxtails.palustris.domain.NotificationCapabilities
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationCheckpoint
@@ -81,6 +86,7 @@ class MisskeySource(
     private val profileService = MisskeyProfileService(origin, token, api, accountId)
     private val directMessageService = MisskeyDirectMessageService(origin, token, api, accountId) { id -> post(id) }
     private val notificationService = MisskeyNotificationService(origin, token, api, accountId, clock)
+    private val moderationService = accountId?.let { MisskeyModerationService(origin, token, api, it) }
     private val pushService = MisskeyPushService(origin, token, api, accountId)
     private val streamService = MisskeyStreamService(origin, token, api, accountId)
     private val continuationStore = java.util.concurrent.ConcurrentHashMap<String, ThreadAcquisition>()
@@ -600,6 +606,26 @@ class MisskeySource(
 
     override suspend fun respondToFollowRequest(targetAccountId: AccountId, accept: Boolean) = request {
         notificationService.respondToFollowRequest(targetAccountId, accept)
+    }
+
+    override suspend fun blockedAccounts(cursor: ModerationCursor?): ModerationPage<ModerationAccount> = request {
+        moderationService?.blocked(cursor) ?: unsupported("moderation.blocked")
+    }
+
+    override suspend fun mutedAccounts(cursor: ModerationCursor?): ModerationPage<ModerationAccount> = request {
+        moderationService?.muted(cursor) ?: unsupported("moderation.muted")
+    }
+
+    override suspend fun mutedHashtags(cursor: ModerationCursor?): ModerationPage<MutedHashtag> = request {
+        moderationService?.hashtags(cursor) ?: unsupported("moderation.hashtags")
+    }
+
+    override suspend fun removeBlockedAccount(entry: ModerationAccount) = request {
+        moderationService?.removeBlocked(entry) ?: unsupported<Unit>("moderation.blocked.remove")
+    }
+
+    override suspend fun removeMutedAccount(entry: ModerationAccount) = request {
+        moderationService?.removeMuted(entry) ?: unsupported<Unit>("moderation.muted.remove")
     }
 
     private fun requireAccountId(): AccountId = accountId ?: throw SourceError.Unsupported("notifications.account")

@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.R
 import me.foxtails.palustris.data.SocialSourceFactory
@@ -40,6 +41,11 @@ import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.EmojiCapabilities
+import me.foxtails.palustris.domain.AppPreferencesRepository
+import me.foxtails.palustris.domain.AppPreferencesState
+import me.foxtails.palustris.domain.PostPreferences
+import me.foxtails.palustris.domain.PostPreferencesRepository
+import me.foxtails.palustris.data.preferences.InMemoryAppPreferencesRepository
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.emoji.EmojiCatalogViewModel
 import me.foxtails.palustris.ui.navigation.AppRoute
@@ -47,6 +53,11 @@ import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
 import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
 import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
+import me.foxtails.palustris.ui.settings.SettingsHost
+import me.foxtails.palustris.ui.settings.ModerationViewModel
+import me.foxtails.palustris.ui.settings.ModerationKind
+import me.foxtails.palustris.domain.ModerationListKind
+import me.foxtails.palustris.ui.settings.SettingsRoute
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.profile.ProfileViewModel
 import me.foxtails.palustris.ui.thread.PostThreadUiState
@@ -66,12 +77,23 @@ fun ConnectedApp(
     draftStore: DraftStore,
     notificationLaunchRouter: NotificationLaunchRouter,
     notificationStreamController: NotificationStreamController = NoOpNotificationStreamController(),
+    appPreferencesRepository: AppPreferencesRepository = InMemoryAppPreferencesRepository(),
+    postPreferencesRepository: PostPreferencesRepository = me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository(),
 ) {
     val state by accountManager.session.collectAsStateWithLifecycle()
     val accountIndex by accountManager.accountIndex.collectAsStateWithLifecycle()
+    val appPreferences by appPreferencesRepository.observe().collectAsStateWithLifecycle(AppPreferencesState())
+    me.foxtails.palustris.ui.links.ExternalLinkHandler.cleanTrackingParameters = appPreferences.preferences.cleanTrackingParameters
     val activeSession by accountManager.activeSession.collectAsStateWithLifecycle()
+    val postPreferences by if (activeSession != null) {
+        postPreferencesRepository.observe(activeSession!!.accountId).collectAsStateWithLifecycle(PostPreferences())
+    } else {
+        remember { mutableStateOf(PostPreferences()) }
+    }
     val pendingNotificationLaunch by notificationLaunchRouter.pending.collectAsStateWithLifecycle()
     var initialNotificationRoute by remember { mutableStateOf<AppRoute?>(null) }
+    var settingsVisible by rememberSaveable { mutableStateOf(false) }
+    var settingsRoute by remember { mutableStateOf<SettingsRoute>(SettingsRoute.Main) }
     val sharedSource = activeSession?.let { session ->
         sourceRegistry.sourceFor(session.accountId) ?: sourceFactory.create(session)
     }
@@ -139,6 +161,24 @@ fun ConnectedApp(
             creationCallback = { factory -> factory.create(session.accountId) },
         )
     }
+    val settingsNotificationAccountId = (settingsRoute as? SettingsRoute.NotificationAccount)?.accountId
+    val settingsNotificationModel = settingsNotificationAccountId?.let { accountId ->
+        hiltViewModel<NotificationSettingsViewModel, NotificationSettingsViewModel.Factory>(
+            key = "settings-notification-settings-$accountId-${state.sessionGeneration}",
+            creationCallback = { factory -> factory.create(accountId) },
+        )
+    }
+    val moderationRoute = settingsRoute as? SettingsRoute.Moderation
+    val moderationModel = moderationRoute?.let { route ->
+        sourceRegistry.sourceFor(route.accountId)?.let { source ->
+            hiltViewModel<ModerationViewModel, ModerationViewModel.Factory>(
+                key = "moderation-${route.accountId}-${route.kind}-${state.sessionGeneration}",
+                creationCallback = { factory ->
+                    factory.create(route.accountId, source, route.kind.toModerationListKind())
+                },
+            )
+        }
+    }
     DisposableEffect(state.sessionGeneration, feedModel, savedPostsModel, likedPostsModel) {
         onDispose {
             feedModel?.stop()
@@ -160,6 +200,10 @@ fun ConnectedApp(
     else remember { mutableStateOf<SavedPostsUiState?>(null) }
     val notificationSettingsState by if (notificationSettingsModel != null) notificationSettingsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationSettingsUiState()) }
+    val settingsNotificationState by if (settingsNotificationModel != null) settingsNotificationModel.state.collectAsStateWithLifecycle()
+    else remember { mutableStateOf(NotificationSettingsUiState()) }
+    val moderationState by if (moderationModel != null) moderationModel.state.collectAsStateWithLifecycle()
+    else remember { mutableStateOf(me.foxtails.palustris.ui.settings.ModerationUiState()) }
     val profileModel = activeSession?.let { session ->
         hiltViewModel<ProfileViewModel, ProfileViewModel.Factory>(
             key = "profile-${session.accountId}-${state.sessionGeneration}",
@@ -248,11 +292,18 @@ fun ConnectedApp(
     }
     val motionScheme = palustrisMotionScheme()
     val topLevelScreen = when {
-        state.starting -> "startup"
+        state.starting || !appPreferences.loaded -> "startup"
         state.account == null || state.addingAccount -> "signin"
         else -> "app"
     }
-    AnimatedContent(
+    PalustrisTheme(preferences = appPreferences.preferences) {
+        CompositionLocalProvider(
+             LocalContentWarningRules provides appPreferences.preferences.contentWarningRules.merge(postPreferences.contentWarningRules),
+             LocalMutedHashtags provides postPreferences.localMutedHashtags.toSet(),
+             LocalHiddenContentPresentation provides appPreferences.preferences.hiddenContentPresentation,
+        ) {
+        Box(Modifier.fillMaxSize()) {
+        AnimatedContent(
         targetState = topLevelScreen,
         transitionSpec = {
             if (motionScheme.reducedMotion) {
@@ -270,12 +321,12 @@ fun ConnectedApp(
         label = "connectedAppState",
     ) { screen ->
         when (screen) {
-            "startup" -> PalustrisTheme { Surface(Modifier.fillMaxSize()) {
+            "startup" -> Surface(Modifier.fillMaxSize()) {
                 Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            } }
-            "signin" -> PalustrisTheme {
+            }
+            "signin" -> {
                 key(state.addingAccount) {
-                    SignInScreen(state, accountManager::signIn, accountManager::finishSignIn, accountManager::reopenBrowser, accountManager::cancelSignIn)
+                     SignInScreen(state, accountManager::signIn, accountManager::finishSignIn, accountManager::reopenBrowser, accountManager::cancelSignIn, onOpenSettings = { settingsVisible = true })
                 }
             }
             else -> key(state.account!!.id) {
@@ -283,6 +334,8 @@ fun ConnectedApp(
                  account = state.account,
                  sessionGeneration = state.sessionGeneration,
                  feedState = feed,
+                  postPreferences = postPreferences,
+                  contentWarningRules = appPreferences.preferences.contentWarningRules.merge(postPreferences.contentWarningRules),
                  photoGridFeed = photoGridFeed,
                  onRefresh = { timeline -> feedModel?.refresh(timeline) },
                  onLoadMore = { timeline -> feedModel?.loadMore(timeline) },
@@ -358,7 +411,8 @@ fun ConnectedApp(
                 onNotificationPermissionChanged = { notificationSettingsModel?.refreshPermission() },
                 onNotificationRefreshDistributors = { notificationSettingsModel?.refreshDistributors() },
                 onNotificationSelectDistributor = { packageName -> notificationSettingsModel?.selectDistributor(packageName) },
-                onNotificationPushConnectionTest = { notificationSettingsModel?.runPushConnectionTest() },
+                  onNotificationPushConnectionTest = { notificationSettingsModel?.runPushConnectionTest() },
+                  onOpenSettings = { settingsRoute = SettingsRoute.Main; settingsVisible = true },
                 profileState = profileState,
                 onProfileShown = { seed -> profileModel?.open(seed) },
                 onProfileCategorySelected = { category -> profileModel?.selectCategory(category) },
@@ -385,7 +439,72 @@ fun ConnectedApp(
             )
             }
         }
+        }
+        if (settingsVisible) {
+            SettingsHost(
+                state = appPreferences,
+                accounts = accountIndex.accounts,
+                route = settingsRoute,
+                onRoute = { settingsRoute = it },
+                onBack = { settingsVisible = false },
+                onColorScheme = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(colorScheme = value) } },
+                onBackground = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(background = value) } },
+                onTextSize = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(textSize = value) } },
+                onFont = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(font = value) } },
+                onRequest60Hz = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(request60Hz = value) } },
+                onLanguage = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(language = value) } },
+                onTrackingCleanup = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(cleanTrackingParameters = value) } },
+                 onContentWarningRules = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(contentWarningRules = value) } },
+                 onHiddenContentPresentation = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(hiddenContentPresentation = value) } },
+                 postPreferences = postPreferences,
+                 postPreferencesAccountLabel = activeSession?.let { session ->
+                     accountIndex.accounts.firstOrNull { it.accountId == session.accountId }?.handle ?: session.accountId.localId
+                 } ?: "Current account",
+                onNotificationAccount = { accountId -> settingsRoute = SettingsRoute.NotificationAccount(accountId) },
+                onModeration = { accountId, kind -> settingsRoute = SettingsRoute.Moderation(accountId, kind) },
+                notificationSettingsState = settingsNotificationState,
+                onNotificationAlertsEnabled = { enabled -> settingsNotificationModel?.setAlertsEnabled(enabled) },
+                onNotificationShowPreviews = { enabled -> settingsNotificationModel?.setShowPreviews(enabled) },
+                onNotificationPeriodicFallback = { enabled -> settingsNotificationModel?.setPeriodicFallbackEnabled(enabled) },
+                onNotificationQuietHours = { enabled -> settingsNotificationModel?.setQuietHours(enabled) },
+                onNotificationCategoryChanged = { category, enabled -> settingsNotificationModel?.setCategoryEnabled(category, enabled) },
+                onNotificationLocalTest = { settingsNotificationModel?.runLocalPresentationTest() },
+                onNotificationRetryRegistration = { settingsNotificationModel?.retryRegistration() },
+                onNotificationPermissionChanged = { settingsNotificationModel?.refreshPermission() },
+                onNotificationRefreshDistributors = { settingsNotificationModel?.refreshDistributors() },
+                onNotificationSelectDistributor = { packageName -> settingsNotificationModel?.selectDistributor(packageName) },
+                onNotificationPushConnectionTest = { settingsNotificationModel?.runPushConnectionTest() },
+                moderationState = moderationState,
+                onModerationRetry = { moderationModel?.load() },
+                  onModerationLoadMore = { moderationModel?.loadMore() },
+                  onModerationRemove = { moderationModel?.remove(it) },
+                  onModerationAddLocalHashtag = { moderationModel?.addLocalHashtag(it) },
+                  onModerationRemoveLocalHashtag = { moderationModel?.removeLocalHashtag(it) },
+                onPostPreferences = { value ->
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate).launch {
+                        activeSession?.accountId?.let { postPreferencesRepository.update(it) { value } }
+                    }
+                },
+            )
+        }
+        }
+        }
     }
+}
+
+private fun settingsViewModelUpdate(
+    repository: AppPreferencesRepository,
+    transform: (me.foxtails.palustris.domain.AppPreferences) -> me.foxtails.palustris.domain.AppPreferences,
+) {
+    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate).launch {
+        repository.update(transform)
+    }
+}
+
+private fun ModerationKind.toModerationListKind() = when (this) {
+    ModerationKind.Blocked -> ModerationListKind.Blocked
+    ModerationKind.Muted -> ModerationListKind.Muted
+    ModerationKind.Hashtags -> ModerationListKind.Hashtags
 }
 
 private val suggestedInstances = listOf(
@@ -394,7 +513,14 @@ private val suggestedInstances = listOf(
 )
 
 @Composable
-fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> Unit, onReopen: () -> Unit, onCancel: () -> Unit) {
+fun SignInScreen(
+    state: SessionUi,
+    onNext: (String) -> Unit,
+    onComplete: () -> Unit,
+    onReopen: () -> Unit,
+    onCancel: () -> Unit,
+    onOpenSettings: () -> Unit = {},
+) {
     var domain by rememberSaveable { mutableStateOf("") }
     val scheme = LocalPalustrisMotionScheme.current
     Scaffold(
@@ -424,6 +550,9 @@ fun SignInScreen(state: SessionUi, onNext: (String) -> Unit, onComplete: () -> U
             Column(Modifier.widthIn(max = 560.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
                 Spacer(Modifier.height(32.dp))
                 Text(stringResource(R.string.app_name), Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.headlineLarge)
+                TextButton(onClick = onOpenSettings, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    Text(stringResource(R.string.settings_title))
+                }
                 Spacer(Modifier.height(40.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer) {

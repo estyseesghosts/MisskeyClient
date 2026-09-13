@@ -18,6 +18,7 @@ import me.foxtails.palustris.domain.NotificationReadSemantics
 import me.foxtails.palustris.domain.NotificationUnreadPrecision
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileCapabilities
+import me.foxtails.palustris.domain.ModerationCapabilities
 import me.foxtails.palustris.domain.PrimaryFavouriteCapability
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
 import me.foxtails.palustris.domain.PushSessionState
@@ -236,9 +237,10 @@ private fun ServerCapabilities.toJson(): JSONObject = JSONObject()
      .put("savedPosts", savedPosts?.let {
          JSONObject().put("status", it.status.name).put("kind", it.kind.name)
      })
-     .put("likedPosts", likedPosts.name)
-     .put("threads", threads.name)
-     .put("capabilitiesLastUpdated", capabilitiesLastUpdated)
+    .put("likedPosts", likedPosts.name)
+    .put("threads", threads.name)
+    .put("moderation", moderation.toJson())
+    .put("capabilitiesLastUpdated", capabilitiesLastUpdated)
     .put("capabilitySchemaVersion", capabilitySchemaVersion)
 
 private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities(
@@ -272,8 +274,24 @@ private fun JSONObject.toCapabilities(): ServerCapabilities = ServerCapabilities
      },
      likedPosts = enumOrDefault("likedPosts", CapabilityStatus.Unknown),
      threads = enumOrDefault("threads", CapabilityStatus.Unknown),
+     moderation = optJSONObject("moderation")?.toModerationCapabilities() ?: ModerationCapabilities(),
      capabilitiesLastUpdated = optLong("capabilitiesLastUpdated"),
     capabilitySchemaVersion = optInt("capabilitySchemaVersion", 0),
+)
+
+private fun ModerationCapabilities.toJson(): JSONObject = JSONObject()
+    .put("read", read.name)
+    .put("write", write.name)
+    .put("blocked", blocked.name)
+    .put("muted", muted.name)
+    .put("hashtags", hashtags.name)
+
+private fun JSONObject.toModerationCapabilities(): ModerationCapabilities = ModerationCapabilities(
+    read = enumOrDefault("read", CapabilityStatus.Unknown),
+    write = enumOrDefault("write", CapabilityStatus.Unknown),
+    blocked = enumOrDefault("blocked", CapabilityStatus.Unknown),
+    muted = enumOrDefault("muted", CapabilityStatus.Unknown),
+    hashtags = enumOrDefault("hashtags", CapabilityStatus.Unknown),
 )
 
 private fun ProfileCapabilities.toJson(): JSONObject = JSONObject()

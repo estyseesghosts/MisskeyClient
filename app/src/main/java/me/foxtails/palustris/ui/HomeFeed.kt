@@ -80,7 +80,7 @@ import me.foxtails.palustris.ui.motion.springPress
 import me.foxtails.palustris.ui.large.LargeBottomDock
 
 internal fun openExternal(context: Context, url: String?) {
-    val uri = url?.toUri() ?: return
+    val uri = url?.let { me.foxtails.palustris.ui.links.ExternalLinkHandler.prepare(it) }?.toUri() ?: return
     if (uri.scheme !in listOf("https", "http") || uri.host.isNullOrBlank()) return
     try { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
     catch (_: android.content.ActivityNotFoundException) { Toast.makeText(context, context.getString(R.string.error_no_app_open_link), Toast.LENGTH_SHORT).show() }
@@ -120,6 +120,8 @@ fun HomeFeed(
     bottomContentClearance: Dp? = null,
     refreshIndicatorTopPadding: Dp? = null,
     bottomDock: (@Composable () -> Unit)? = null,
+    cleanTrackingParameters: Boolean = false,
+    contentWarningRules: ContentWarningRules = LocalContentWarningRules.current,
 ) {
     val list = listState ?: rememberLazyListState()
     val pullToRefreshState = rememberPullToRefreshState()
@@ -136,6 +138,7 @@ fun HomeFeed(
     val loadMore by rememberUpdatedState(onLoadMore)
     val scrollDirectionChanged by rememberUpdatedState(onScrollDirectionChanged)
     val scheme = LocalPalustrisMotionScheme.current
+    val mutedHashtags = LocalMutedHashtags.current
     val statePaneKey = when {
         state.error != null -> "error"
         state.posts.isEmpty() && state.loading -> "loading"
@@ -200,10 +203,16 @@ fun HomeFeed(
             if (state.posts.isEmpty() && !state.loading && state.error == null) item {
                 Box(Modifier.fillParentMaxSize()) { EmptyState(AppIcons.Home, stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_subtitle)) }
             }
-            val hasOwnership = ownedPosts.isNotEmpty()
-            val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
-            val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
-            items(rows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
+             val hasOwnership = ownedPosts.isNotEmpty()
+             val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
+             val visibleRows = rows.filterNot { ownedPost ->
+                 ContentWarningPolicy.matchesHashtagMute(
+                     postHashtags(ownedPost.post.text, ownedPost.post.emoji),
+                     mutedHashtags,
+                 )
+             }
+             val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
+             items(visibleRows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
                 Column(
                     Modifier.animateItem(
                         fadeInSpec = scheme.fastFadeIn,
@@ -230,6 +239,7 @@ fun HomeFeed(
                         largeLayout = !compactLayout,
                         onOpenUrl = onOpenUrl,
                         onOpenUsername = onOpenUsername,
+                        contentWarningRules = contentWarningRules,
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 }
@@ -318,12 +328,19 @@ internal fun PostRow(
     largeLayout: Boolean = false,
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
+    contentWarningRules: ContentWarningRules = ContentWarningRules(),
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
     val presentation = remember(post.text, post.emoji) { parseHashtagBlocks(post.text, post.emoji) }
-    val contentVisible = post.contentWarning == null || expanded
+    val hashtags = remember(post.text, post.emoji) { postHashtags(post.text, post.emoji) }
+    val warningDecision = remember(post.contentWarning, hashtags, contentWarningRules) {
+        ContentWarningPolicy.decide(post.contentWarning, hashtags, contentWarningRules, bodyText = post.text)
+    }
+    val contentVisible = warningDecision != ContentWarningDecision.Hidden &&
+        (post.contentWarning == null || expanded || warningDecision == ContentWarningDecision.ExpandedByDefault)
+    if (warningDecision == ContentWarningDecision.Hidden && LocalHiddenContentPresentation.current == me.foxtails.palustris.domain.HiddenContentPresentation.Remove) return
     val bodyTruncated = truncateBody && postBodyCharacterCount(presentation.visibleText, post.emoji) > PostBodyCharacterLimit
     val bodyText = if (bodyTruncated) truncatedPostBody(presentation.visibleText, post.emoji) else presentation.visibleText
     Column(modifier.fillMaxWidth().testTag("post_row_${post.id.value}")) {
@@ -344,6 +361,10 @@ internal fun PostRow(
             onOpenHashtagBubble = onOpenHashtagBubble,
             postOwned = ownedPost,
         )
+        if (warningDecision == ContentWarningDecision.Hidden) {
+             Text(stringResource(R.string.content_hidden_local_rule), Modifier.padding(horizontal = 16.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@Column
+        }
         if (post.contentVisibility != me.foxtails.palustris.domain.PostContentVisibility.Visible) {
             Text(
                 stringResource(
@@ -419,17 +440,25 @@ internal fun PostRow(
                 }
             }
             post.quote?.let { quote ->
+                val quoteDecision = ContentWarningPolicy.decide(
+                    quote.contentWarning,
+                     postHashtags(quote.text, quote.emoji),
+                    contentWarningRules,
+                    bodyText = quote.text,
+                )
                 OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp), onClick = { openExternal(context, quote.url) }) {
                     Column(Modifier.padding(16.dp)) {
                         AccountDisplayName(quote.author, style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.height(8.dp))
-                        InlineEmojiText(
-                            quote.contentWarning?.ifBlank { stringResource(R.string.content_warning) } ?: quote.text,
-                            quote.emoji,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 5,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        if (quoteDecision != ContentWarningDecision.Hidden) {
+                            InlineEmojiText(
+                                quote.contentWarning?.ifBlank { stringResource(R.string.content_warning) } ?: quote.text,
+                                quote.emoji,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 5,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                         } else Text(stringResource(R.string.content_hidden_quoted), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(stringResource(R.string.post_view_quoted), Modifier.padding(top = 12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -870,8 +899,8 @@ private fun InteractionButton(
     }
 }
 
-internal fun sharePost(context: Context, post: Post) {
-    val text = post.url ?: post.text
+internal fun sharePost(context: Context, post: Post, cleanTrackingParameters: Boolean = false) {
+    val text = post.url?.let { me.foxtails.palustris.ui.links.ExternalLinkHandler.prepare(it) } ?: post.text
     try {
         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"

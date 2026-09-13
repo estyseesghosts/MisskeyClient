@@ -10,6 +10,8 @@ enum class AccessScope {
     SavedPostsRead,
     SavedPostsWrite,
     LikedPostsRead,
+    ModerationRead,
+    ModerationWrite,
 }
 
 enum class AccessStatus { Granted, Denied, Unknown }

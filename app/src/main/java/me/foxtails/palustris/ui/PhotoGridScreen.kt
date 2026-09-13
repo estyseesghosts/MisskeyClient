@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -58,6 +59,9 @@ import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.MediaRequestDecision
 import me.foxtails.palustris.domain.MediaRequestPolicy
+import me.foxtails.palustris.domain.ContentWarningDecision
+import me.foxtails.palustris.domain.ContentWarningPolicy
+import me.foxtails.palustris.domain.ContentWarningRules
 import me.foxtails.palustris.domain.MediaRequestRole
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Timeline
@@ -65,6 +69,8 @@ import me.foxtails.palustris.domain.isExactHashtag
 import me.foxtails.palustris.domain.timelineDisplayOrder
 import me.foxtails.palustris.ui.components.FilterChipEntry
 import me.foxtails.palustris.ui.components.FilterChipRow
+import me.foxtails.palustris.ui.large.LargeBottomDock
+import me.foxtails.palustris.ui.large.LargeBottomDockClearance
 import me.foxtails.palustris.ui.media.SensitiveMediaTile
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -73,12 +79,24 @@ internal data class PhotoGridItem(
     val ownedPost: OwnedPost,
     val attachmentIndex: Int,
     val attachment: Attachment,
+    val hiddenByRules: Boolean = false,
 )
 
-internal fun photoGridItems(posts: List<OwnedPost>): List<PhotoGridItem> = posts.mapNotNull { ownedPost ->
-    ownedPost.post.attachments.withIndex()
+internal fun photoGridItems(posts: List<OwnedPost>, rules: ContentWarningRules = ContentWarningRules(), hiddenPresentation: me.foxtails.palustris.domain.HiddenContentPresentation = me.foxtails.palustris.domain.HiddenContentPresentation.Placeholder, mutedHashtags: Set<String> = emptySet()): List<PhotoGridItem> = posts.mapNotNull { ownedPost ->
+    val post = ownedPost.post
+    val hashtags = postHashtags(post.text, post.emoji)
+    if (ContentWarningPolicy.matchesHashtagMute(hashtags, mutedHashtags)) return@mapNotNull null
+    val hidden = ContentWarningPolicy.decide(
+            post.contentWarning,
+            hashtags,
+            rules,
+            post.contentVisibility,
+            bodyText = post.text,
+        ) == ContentWarningDecision.Hidden
+    if (hidden && hiddenPresentation == me.foxtails.palustris.domain.HiddenContentPresentation.Remove) return@mapNotNull null
+    post.attachments.withIndex()
         .firstOrNull { (_, attachment) -> attachment.isPhotoGridDisplayable() }
-        ?.let { (index, attachment) -> PhotoGridItem(ownedPost, index, attachment) }
+        ?.let { (index, attachment) -> PhotoGridItem(ownedPost, index, attachment, hidden) }
 }
 
 private fun Attachment.isPhotoGridDisplayable(): Boolean =
@@ -112,21 +130,26 @@ fun PhotoGridScreen(
     compactLayout: Boolean = true,
     compactNavigationVisible: Boolean = false,
     gridState: LazyStaggeredGridState? = null,
+    contentWarningRules: ContentWarningRules = LocalContentWarningRules.current,
 ) {
     var addHashtagDialog by rememberSaveable { mutableStateOf(false) }
     var hashtagInput by rememberSaveable { mutableStateOf("") }
     val rows = state.posts
-    val mediaItems = remember(rows) { photoGridItems(rows) }
+    val hiddenPresentation = LocalHiddenContentPresentation.current
+    val mutedHashtags = LocalMutedHashtags.current
+    val mediaItems = remember(rows, contentWarningRules, hiddenPresentation, mutedHashtags) {
+        photoGridItems(rows, contentWarningRules, hiddenPresentation, mutedHashtags)
+    }
     val list = gridState ?: rememberLazyStaggeredGridState()
     val loadMore by rememberUpdatedState(onLoadMore)
     var requestedCursor by remember { mutableStateOf<String?>(null) }
     val bottomClearance = if (compactLayout) {
         compactScrollEndClearance(
-            controlStackHeight = 0.dp,
+            controlStackHeight = CompactFilterDockHeight,
             navigationVisible = compactNavigationVisible,
         )
     } else {
-        0.dp
+        LargeBottomDockClearance
     }
 
     LaunchedEffect(state.selectedFeed, state.initialLoadComplete) {
@@ -188,9 +211,8 @@ fun PhotoGridScreen(
         )
     }
 
-    Column(Modifier.fillMaxSize()) {
-        FilterChipRow(chipEntries, stringResource(R.string.photo_grid_filter_description))
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+    Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
             when {
                 state.loading && mediaItems.isEmpty() -> PhotoGridLoading(Modifier.fillMaxSize().testTag("photo_grid_content"))
                 state.error != null && mediaItems.isEmpty() -> PhotoGridError(
@@ -251,6 +273,24 @@ fun PhotoGridScreen(
                 }
             }
         }
+        if (compactLayout) {
+            FilterChipRow(
+                chipEntries,
+                stringResource(R.string.photo_grid_filter_description),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = CompactOverlayHorizontalPadding)
+                    .windowInsetsPadding(
+                        compactContextualControlsPositioningInsets(compactNavigationVisible),
+                    ),
+            )
+        } else {
+            LargeBottomDock(
+                modifier = Modifier.align(Alignment.BottomStart),
+                content = { FilterChipRow(chipEntries, stringResource(R.string.photo_grid_filter_description)) },
+            )
+        }
     }
 
     if (addHashtagDialog) {
@@ -300,6 +340,15 @@ internal fun PhotoGridTile(
     onOpenPost: (OwnedPost) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (item.hiddenByRules) {
+        Box(
+            modifier.fillMaxWidth().aspectRatio(photoGridAspectRatio(item.attachment))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .semantics { contentDescription = "Content hidden by your settings" },
+            contentAlignment = Alignment.Center,
+        ) { Text(stringResource(R.string.content_hidden_settings), Modifier.padding(12.dp)) }
+        return
+    }
     val context = LocalContext.current
     val density = LocalDensity.current
     val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }

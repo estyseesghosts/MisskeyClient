@@ -21,6 +21,7 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.ValidatedUrl
+import me.foxtails.palustris.domain.ContentWarningRules
 import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.PostRow
 import me.foxtails.palustris.ui.openExternal
@@ -37,6 +38,7 @@ fun NotificationDetailScreen(
     onOpenPost: (OwnedPost) -> Unit = {},
     largeLayout: Boolean = false,
     modifier: Modifier = Modifier,
+    contentWarningRules: ContentWarningRules = me.foxtails.palustris.ui.LocalContentWarningRules.current,
 ) {
     val context = LocalContext.current
     val stateKey = "${route::class.simpleName}:${when (route) {
@@ -87,7 +89,7 @@ fun NotificationDetailScreen(
                     Modifier.fillMaxSize(),
                 )
             } else {
-                NotificationRow(notification)
+                NotificationRow(notification, contentWarningRules = contentWarningRules)
             }
         }
         is AppRoute.Post, is AppRoute.Profile, is AppRoute.Poll, is AppRoute.Conversation -> {
@@ -110,7 +112,7 @@ fun NotificationDetailScreen(
             } else if (route is AppRoute.Post || route is AppRoute.Poll || route is AppRoute.Conversation) {
                 val post = notification.post
                 if (post == null) {
-                    NotificationTargetFallback(notification, onOpenTarget, Modifier.fillMaxSize())
+                    NotificationTargetFallback(notification, onOpenTarget, Modifier.fillMaxSize(), contentWarningRules)
                 } else {
                     val owner = when (route) {
                         is AppRoute.Post -> route.accountId
@@ -133,7 +135,8 @@ fun NotificationDetailScreen(
                             onSearchHashtag = onSearchHashtag,
                              onOpenHashtagBubble = onOpenHashtagBubble,
                              onOpenPost = onOpenPost,
-                             largeLayout = largeLayout,
+                              largeLayout = largeLayout,
+                              contentWarningRules = contentWarningRules,
                           )
                         ValidatedUrl.https(post.url.orEmpty())?.let { url ->
                             Button(
@@ -144,7 +147,7 @@ fun NotificationDetailScreen(
                     }
                 }
             } else {
-                NotificationTargetFallback(notification, onOpenTarget, Modifier.fillMaxSize())
+                NotificationTargetFallback(notification, onOpenTarget, Modifier.fillMaxSize(), contentWarningRules)
             }
         }
     }
@@ -156,12 +159,13 @@ private fun NotificationTargetFallback(
     notification: Notification,
     onOpenTarget: (() -> Unit)?,
     modifier: Modifier,
+    contentWarningRules: ContentWarningRules,
 ) {
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        NotificationRow(notification)
+        NotificationRow(notification, contentWarningRules = contentWarningRules)
         onOpenTarget?.let { openTarget ->
             Button(
                 onClick = openTarget,

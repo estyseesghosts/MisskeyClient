@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -63,6 +64,7 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.CapabilityStatus
+import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EditableProfile
@@ -97,6 +99,11 @@ import me.foxtails.palustris.ui.profile.ProfileScreen as RichProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.MediaViewerScreen
+import me.foxtails.palustris.ui.media.ImageViewerContent
+import me.foxtails.palustris.ui.media.ImageViewerContentScreen
+import me.foxtails.palustris.ui.navigation.NavigationMode
+import me.foxtails.palustris.ui.navigation.NavigationModeObserver
+import me.foxtails.palustris.ui.navigation.edgeSwipeDismiss
 import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.SinglePostScreen
@@ -401,7 +408,9 @@ private fun CompactContextualNavigationBar(
 fun PalustrisApp(
     account: Account? = null,
     sessionGeneration: Long = 0L,
-    feedState: FeedState? = null,
+     feedState: FeedState? = null,
+     postPreferences: me.foxtails.palustris.domain.PostPreferences = me.foxtails.palustris.domain.PostPreferences(),
+     contentWarningRules: me.foxtails.palustris.domain.ContentWarningRules = me.foxtails.palustris.domain.ContentWarningRules(),
     photoGridFeed: PhotoGridFeedState = PhotoGridFeedState(),
     profileState: ProfileUiState = ProfileUiState(),
     onProfileShown: (Account) -> Unit = {},
@@ -421,7 +430,8 @@ fun PalustrisApp(
     onSignOut: () -> Unit = {},
     accounts: List<AccountRef> = emptyList(),
     onSwitchAccount: (AccountId) -> Unit = {},
-    onAddAccount: () -> Unit = {},
+     onAddAccount: () -> Unit = {},
+     onOpenSettings: () -> Unit = {},
     onPublish: (CreatePostRequest, (OwnedPost) -> Unit) -> Unit = { _, _ -> },
     threadState: PostThreadUiState? = null,
     onThreadActivate: (OwnedPost?, Boolean) -> Unit = { _, _ -> },
@@ -490,7 +500,7 @@ fun PalustrisApp(
     onNotificationRefreshDistributors: () -> Unit = {},
     onNotificationSelectDistributor: (String) -> Unit = {},
     onNotificationPushConnectionTest: () -> Unit = {},
-) = PalustrisTheme {
+) {
     val mediaTransitionRegistry = remember { MediaTransitionRegistry() }
     CompositionLocalProvider(LocalMediaTransitionRegistry provides mediaTransitionRegistry) {
     val context = LocalContext.current
@@ -517,6 +527,8 @@ fun PalustrisApp(
     var warning by rememberSaveable { mutableStateOf("") }
     var savedWarning by rememberSaveable { mutableStateOf("") }
     var warningEnabled by rememberSaveable { mutableStateOf(false) }
+    var composerAudience by rememberSaveable { mutableStateOf(Audience.Public) }
+    var savedAudience by rememberSaveable { mutableStateOf(Audience.Public) }
     var draftError by rememberSaveable { mutableStateOf<String?>(null) }
     var savedQuoteOf by remember { mutableStateOf<String?>(null) }
     var composerReplyTo by remember { mutableStateOf<EntityId?>(null) }
@@ -528,6 +540,7 @@ fun PalustrisApp(
     var profileDialog by rememberSaveable { mutableStateOf(false) }
     var signOutDialog by remember { mutableStateOf(false) }
     var mediaRequest by remember { mutableStateOf<MediaOpenRequest?>(null) }
+    var profileImageRequest by remember { mutableStateOf<ImageViewerContent?>(null) }
     var singlePost by remember { mutableStateOf<OwnedPost?>(null) }
     var singlePostOrigin by remember { mutableStateOf(LargePostOrigin.Other) }
     val homeListState = rememberLazyListState()
@@ -549,7 +562,7 @@ fun PalustrisApp(
         NOTIFICATION_SETTINGS_OVERLAY_KEY -> Overlay.NotificationSettings
         else -> null
     }
-    val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog || mediaRequest != null || singlePost != null || emojiPickerTarget != null
+    val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog || mediaRequest != null || profileImageRequest != null || singlePost != null || emojiPickerTarget != null
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
     val profileTargetId = viewedProfile?.id ?: account?.id
     val refreshedProfile = profileState.account?.takeIf { it.id == profileTargetId }
@@ -560,7 +573,8 @@ fun PalustrisApp(
     val hasDraftChanges = draft != savedDraft ||
         (if (warningEnabled) warning else "") != savedWarning ||
         composerQuoteOf?.value != savedQuoteOf ||
-        composerReplyTo?.value != savedReplyTo
+        composerReplyTo?.value != savedReplyTo ||
+        composerAudience != savedAudience
     val editableProfile = profileState.account?.takeIf { it.id == account?.id } ?: account
     val editorBase = profileState.editable
         ?: editableProfile?.let { account ->
@@ -681,6 +695,8 @@ fun PalustrisApp(
         warning = item.contentWarning.orEmpty()
         savedWarning = item.contentWarning.orEmpty()
         warningEnabled = !item.contentWarning.isNullOrBlank()
+        composerAudience = item.audience
+        savedAudience = item.audience
         composerQuoteOf = item.quoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
         composerReplyTo = item.replyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
         composerTarget = draftTarget(item)
@@ -694,7 +710,18 @@ fun PalustrisApp(
         if (overlay == Overlay.Composer) return
         clearPostActionBubble()
         val first = drafts.firstOrNull()
-        if (draft.isBlank() && savedDraft.isBlank() && first != null) loadDraft(first) else overlayKey = COMPOSER_OVERLAY_KEY
+        if (draft.isBlank() && savedDraft.isBlank() && first != null) {
+            loadDraft(first)
+        } else {
+            composerAudience = runCatching {
+                me.foxtails.palustris.domain.PostingVisibilityPolicy.forNewPost(
+                    postPreferences,
+                    ServerCapabilities(audiences = feedState?.audiences.orEmpty()),
+                )
+            }.getOrDefault(postPreferences.defaultAudience)
+            savedAudience = composerAudience
+            overlayKey = COMPOSER_OVERLAY_KEY
+        }
     }
 
     fun openQuote(target: OwnedPost) {
@@ -708,6 +735,14 @@ fun PalustrisApp(
         warning = ""
         savedWarning = ""
         warningEnabled = false
+        composerAudience = runCatching {
+            me.foxtails.palustris.domain.PostingVisibilityPolicy.forReply(
+                postPreferences,
+                ServerCapabilities(audiences = feedState?.audiences.orEmpty()),
+                context = target.post.audience,
+            )
+        }.getOrDefault(target.post.audience)
+        savedAudience = composerAudience
         composerTarget = target
         composerQuoteOf = target.post.id
         composerReplyTo = null
@@ -728,6 +763,14 @@ fun PalustrisApp(
         warning = ""
         savedWarning = ""
         warningEnabled = false
+        composerAudience = runCatching {
+            me.foxtails.palustris.domain.PostingVisibilityPolicy.forReply(
+                postPreferences,
+                ServerCapabilities(audiences = feedState?.audiences.orEmpty()),
+                context = target.post.audience,
+            )
+        }.getOrDefault(target.post.audience)
+        savedAudience = composerAudience
         composerTarget = target
         composerQuoteOf = null
         composerReplyTo = target.post.actionTargetId ?: target.post.id
@@ -746,6 +789,7 @@ fun PalustrisApp(
         id = draftId ?: UUID.randomUUID().toString(),
         accountId = account?.id,
         text = draft,
+        audience = composerAudience,
         contentWarning = warning.takeIf { warningEnabled && it.isNotBlank() },
         quoteOf = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin },
         replyTo = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin },
@@ -770,6 +814,7 @@ fun PalustrisApp(
                     savedWarning = item.contentWarning.orEmpty()
                     savedQuoteOf = item.quoteOf?.value
                     savedReplyTo = item.replyTo?.value
+                    savedAudience = item.audience
                     draftError = null
                     onSaved()
                 }
@@ -919,6 +964,16 @@ fun PalustrisApp(
         mediaRequest = request
     }
 
+    fun openProfileImage(url: String) {
+        if (url.isBlank()) return
+        val owner = viewedProfile?.id ?: account?.id
+        profileImageRequest = ImageViewerContent(
+            url = url,
+            identity = "profile:${owner?.connection?.origin}:${owner?.localId}:$url",
+        )
+        clearPostActionBubble()
+    }
+
     fun openSinglePost(post: OwnedPost, origin: LargePostOrigin = LargePostOrigin.Other) {
         clearPostActionBubble()
         mediaRequest = null
@@ -951,12 +1006,14 @@ fun PalustrisApp(
         val presentationMode = largeLayoutMode(maxWidth.value)
         val largePresentation = presentationMode != LargeLayoutMode.Compact
         val windowWidth = maxWidth
+        val navigationMode = NavigationModeObserver.current(LocalView.current)
         SystemBars(
-            mediaViewerOpen = mediaRequest != null,
+            mediaViewerOpen = mediaRequest != null || profileImageRequest != null,
             largePresentation = largePresentation,
         )
-        BackHandler(enabled = mediaRequest == null && (singlePost != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home)) {
+        fun dismissTopSurface() {
             when {
+                profileImageRequest != null -> profileImageRequest = null
                 largePresentation && overlay == Overlay.NotificationSettings -> closeNotificationSettings()
                 largePresentation && overlay == Overlay.Composer -> closeComposer()
                 largePresentation && overlay == Overlay.EditProfile -> closeProfile()
@@ -969,7 +1026,14 @@ fun PalustrisApp(
                 else -> selectDestination(Destination.Home)
             }
         }
-        Row(Modifier.fillMaxSize()) {
+        BackHandler(enabled = mediaRequest == null && (profileImageRequest != null || singlePost != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home), onBack = ::dismissTopSurface)
+        Row(
+            Modifier.fillMaxSize().edgeSwipeDismiss(
+                enabled = navigationMode == NavigationMode.NonGesture && mediaRequest == null &&
+                    (profileImageRequest != null || singlePost != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home),
+                onDismiss = ::dismissTopSurface,
+            ),
+        ) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 @Composable
                 fun destinationScaffold(paneModifier: Modifier) {
@@ -1023,9 +1087,10 @@ fun PalustrisApp(
                                  onOpenTarget = (notificationRoute as? AppRoute.Profile)?.let { route ->
                                      { openNotificationTarget(route) }
                                  },
-                                 largeLayout = largePresentation,
-                                 modifier = Modifier.fillMaxSize(),
-                            )
+                                  largeLayout = largePresentation,
+                                  modifier = Modifier.fillMaxSize(),
+                                  contentWarningRules = contentWarningRules,
+                             )
                         } else when (page) {
                             LocalPage.SavedPosts -> savedPostsState?.let { savedState ->
                                 SavedPostsScreen(
@@ -1046,7 +1111,7 @@ fun PalustrisApp(
                                        onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Saved) },
                                        largeLayout = largePresentation,
                                        availableActions = (feedState?.actions ?: emptySet()) + PostAction.Bookmark,
-                                      onOpenProfile = ::openProfile,
+                      onOpenProfile = ::openProfile,
                                       onSearchHashtag = ::openHashtagSearch,
                                       onOpenHashtagBubble = ::openHashtagBubble,
                                       onOpenUsername = ::openAccountSearch,
@@ -1088,7 +1153,7 @@ fun PalustrisApp(
                                             timeline = item
                                             if (changed) onRefresh(item)
                                        }
-                                   }) else null, onOpenReactionBubble = { ownedPost, bounds ->
+                                    }) else null, contentWarningRules = contentWarningRules, onOpenReactionBubble = { ownedPost, bounds ->
                                       openReactionBubble(ownedPost, bounds, onReaction)
                                      }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia, onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Home) }, onOpenUsername = ::openAccountSearch) else Box(Modifier.fillMaxSize()) {
                                         EmptyState(AppIcons.Home, stringResource(R.string.feed_timeline_empty_title), stringResource(R.string.feed_timeline_empty_subtitle, stringResource(timelineLabelRes(timeline))))
@@ -1149,9 +1214,10 @@ fun PalustrisApp(
                                                 onClearPreferenceError = onClearPhotoGridPreferenceError,
                                                  onOpenPost = { post -> openSinglePost(post, LargePostOrigin.PhotoGrid) },
                                                compactLayout = !largePresentation,
-                                               compactNavigationVisible = !largePresentation,
-                                                gridState = photoGridScrollState,
-                                           )
+                                                 compactNavigationVisible = !largePresentation,
+                                                 gridState = photoGridScrollState,
+                                                 contentWarningRules = contentWarningRules,
+                                            )
                                        }
                                    }
                                  Destination.Notifications -> AnimatedStatePane(
@@ -1174,7 +1240,8 @@ fun PalustrisApp(
                                     },
                                     onSelectQuery = onSelectNotificationQuery,
                                     onMarkAllRead = onMarkAllNotificationsRead,
-                                     onOpenSettings = {
+                                      contentWarningRules = contentWarningRules,
+                                      onOpenSettings = {
                                          if (account != null) {
                                              clearPostActionBubble()
                                               overlayKey = NOTIFICATION_SETTINGS_OVERLAY_KEY
@@ -1224,7 +1291,8 @@ fun PalustrisApp(
                     onLoadMore = onLoadMoreProfile,
                     onFollow = onFollowProfile,
                      onUnfollow = onUnfollowProfile,
-                     onMessage = ::openDirectMessage,
+                      onMessage = ::openDirectMessage,
+                      onOpenProfileImage = ::openProfileImage,
                      onEditProfile = ::openProfileEditor,
                      onOpenDrafts = {
                          if (largePresentation) clearSelectedPost()
@@ -1318,6 +1386,7 @@ fun PalustrisApp(
                                      threadState = selectedThreadState.takeIf { threadEnabled },
                                      onThreadRefresh = onThreadRefresh,
                                      onThreadContinue = onThreadContinue,
+                                     contentWarningRules = contentWarningRules,
                                     quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
                                     onQuote = ::openQuote,
                                     modifier = paneModifier,
@@ -1456,22 +1525,27 @@ fun PalustrisApp(
                       threadState = selectedThreadState.takeIf { selectedThreadState != null && singlePostOrigin.supportsComments() },
                       onThreadRefresh = onThreadRefresh,
                       onThreadContinue = onThreadContinue,
+                      contentWarningRules = contentWarningRules,
                   )
              }
          }
      }
 
-    mediaRequest?.let { request ->
-        MediaViewerScreen(
+     mediaRequest?.let { request ->
+         MediaViewerScreen(
             request = request,
             onClose = { mediaRequest = null },
             onReact = onReact,
             onReply = handleReply,
             onReshare = onReshare,
-        )
-    }
+         )
+     }
 
-    if (sheet != null) ModalBottomSheet(onDismissRequest = { sheet = null }) {
+     profileImageRequest?.let { request ->
+         ImageViewerContentScreen(request, onClose = { profileImageRequest = null })
+     }
+
+     if (sheet != null) ModalBottomSheet(onDismissRequest = { sheet = null }) {
         Text(sheet!!, Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.headlineSmall)
         if (sheet == "Timelines") {
              me.foxtails.palustris.domain.timelineDisplayOrder.filter { it in availableTimelines }.forEach { item ->
@@ -1485,6 +1559,7 @@ fun PalustrisApp(
             }
             if (accounts.isEmpty()) ListItem(headlineContent = { Text(account?.displayName ?: "No accounts connected") }, supportingContent = { Text(account?.handle ?: "Account connections are not available in this preview.") }, leadingContent = { if (account != null) AccountAvatar(account, Modifier.size(48.dp)) else Avatar(Modifier.size(48.dp)) })
              if (account != null) TextButton(onClick = { sheet = null; onAddAccount() }, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.account_add)) }
+             TextButton(onClick = { sheet = null; onOpenSettings() }, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.settings_title)) }
              if (account != null) TextButton(onClick = { sheet = null; signOutDialog = true }, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.account_sign_out)) }
             Spacer(Modifier.height(32.dp))
         }
@@ -1496,17 +1571,31 @@ fun PalustrisApp(
                  Row(verticalAlignment = Alignment.CenterVertically) { ActionIcon(AppIcons.Close, stringResource(R.string.composer_close), ::closeComposer); Text(stringResource(R.string.composer_new_post), style = MaterialTheme.typography.titleLarge) }
                  TextButton(enabled = (draft.isNotBlank() || composerReplyTo != null) && !closing, onClick = { saveCurrentDraft { overlayKey = null } }) { Text(stringResource(R.string.composer_save_draft)) }
             }
-            ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, quoteTarget = composerTarget, isReply = composerReplyTo != null, onRemoveQuote = { composerTarget = null; composerQuoteOf = null; composerReplyTo = null }, onRequestEmoji = { field ->
+             ComposeScreen(text = draft, onTextChange = { draft = it }, warning = warning, onWarningChange = { warning = it }, warningEnabled = warningEnabled, onWarningEnabled = { warningEnabled = it }, account = account, audience = composerAudience, availableAudiences = feedState?.audiences ?: emptySet(), onAudienceChange = { composerAudience = it }, canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id), publishing = feedState?.publishing == true, error = feedState?.error ?: draftError, quoteTarget = composerTarget, isReply = composerReplyTo != null, onRemoveQuote = { composerTarget = null; composerQuoteOf = null; composerReplyTo = null }, onRequestEmoji = { field ->
                 emojiPickerTarget = EmojiPickerTarget.Composer(field)
-            }, pendingEmojiInsertion = pendingEmojiInsertion, onEmojiInsertionApplied = { pendingEmojiInsertion = null }, onPublish = {
+             }, pendingEmojiInsertion = pendingEmojiInsertion, onEmojiInsertionApplied = { pendingEmojiInsertion = null }, onCleanTrackingParameters = { draft = me.foxtails.palustris.domain.TrackingParameterCleaner.cleanText(draft) }, onPublish = {
                 val submittedText = draft; val submittedWarning = warning.takeIf { warningEnabled && it.isNotBlank() }
                 val submittedQuote = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
                  val submittedReply = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
-                 val publishingAccountId = account?.id
-                scope.launch {
+                   val knownAudiences = feedState?.audiences.orEmpty()
+                   val submittedAudience = if (knownAudiences.isEmpty()) {
+                       composerAudience
+                   } else {
+                       runCatching {
+                           me.foxtails.palustris.domain.PostingVisibilityPolicy.validateExplicit(
+                               composerAudience,
+                               ServerCapabilities(audiences = knownAudiences),
+                           )
+                       }.getOrNull()
+                   }
+                  if (submittedAudience == null) {
+                      draftError = "This audience is not available on this server."
+                  } else {
+                   val publishingAccountId = account?.id
+                   scope.launch {
                     runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }.onSuccess { saved ->
                         draftId = saved.id; savedDraft = saved.text; savedWarning = saved.contentWarning.orEmpty()
-                         onPublish(CreatePostRequest(submittedText, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) { _ ->
+                          onPublish(CreatePostRequest(submittedText, audience = submittedAudience, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) { _ ->
                              scope.launch { store.delete(publishingAccountId, saved.id); reloadDrafts() }
                             draft = ""
                             savedDraft = ""
@@ -1515,15 +1604,18 @@ fun PalustrisApp(
                             warningEnabled = false
                             draftId = null
                             savedQuoteOf = null
-                            savedReplyTo = null
+                             savedReplyTo = null
+                             composerAudience = Audience.Public
+                             savedAudience = Audience.Public
                             composerReplyTo = null
                             composerQuoteOf = null
                             composerTarget = null
                             overlayKey = null
                         }
                     }.onFailure { draftError = "Draft could not be saved. Keep the composer open and try again." }
-                }
-            })
+                   }
+                  }
+             })
         }
     }
 

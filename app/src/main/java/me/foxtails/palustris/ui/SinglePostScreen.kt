@@ -55,6 +55,10 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.ContentWarningDecision
+import me.foxtails.palustris.domain.ContentWarningPolicy
+import me.foxtails.palustris.domain.HiddenContentPresentation
+import me.foxtails.palustris.ui.LocalHiddenContentPresentation
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
 import me.foxtails.palustris.ui.emoji.AccountDisplayName
 import me.foxtails.palustris.ui.media.MediaOpenRequest
@@ -90,6 +94,7 @@ internal fun SinglePostScreen(
     onThreadContinue: () -> Unit = {},
     quoteEnabled: Boolean = false,
     onQuote: (OwnedPost) -> Unit = {},
+    contentWarningRules: me.foxtails.palustris.domain.ContentWarningRules = LocalContentWarningRules.current,
     modifier: Modifier = Modifier,
 ) {
     val post = ownedPost.post
@@ -136,7 +141,8 @@ internal fun SinglePostScreen(
                             quoteEnabled = quoteEnabled,
                             onQuote = onQuote,
                             onOpenUrl = onOpenUrl,
-                            onOpenUsername = onOpenUsername,
+                             onOpenUsername = onOpenUsername,
+                             contentWarningRules = contentWarningRules,
                         )
                     }
                 }
@@ -159,12 +165,30 @@ internal fun SinglePostScreen(
                         quoteEnabled = quoteEnabled,
                         onQuote = onQuote,
                         onOpenUrl = onOpenUrl,
-                        onOpenUsername = onOpenUsername,
+                         onOpenUsername = onOpenUsername,
+                         contentWarningRules = contentWarningRules,
                     )
                 } else {
             val presentation = remember(post.text, post.emoji) { parseHashtagBlocks(post.text, post.emoji) }
             var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
-            val contentVisible = post.contentWarning == null || expanded
+             val hashtags = remember(post.text, post.emoji) { postHashtags(post.text, post.emoji) }
+             val warningDecision = remember(post.contentWarning, hashtags, contentWarningRules) {
+                 ContentWarningPolicy.decide(post.contentWarning, hashtags, contentWarningRules, post.contentVisibility, post.text)
+            }
+             val contentVisible = warningDecision != ContentWarningDecision.Hidden &&
+                 (post.contentWarning == null || expanded || warningDecision == ContentWarningDecision.ExpandedByDefault)
+             val locallyMuted = ContentWarningPolicy.matchesHashtagMute(
+                 hashtags,
+                 LocalMutedHashtags.current,
+             )
+
+             if (locallyMuted) {
+                 Text(stringResource(R.string.content_hidden_local_hashtag), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+             } else if (warningDecision == ContentWarningDecision.Hidden) {
+                if (LocalHiddenContentPresentation.current == HiddenContentPresentation.Placeholder) {
+                     Text(stringResource(R.string.content_hidden_settings), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
 
             PostMetadataRow(
                 post = post,
@@ -269,6 +293,7 @@ internal fun SinglePostScreen(
             }
                     }
                 }
+            }
                 threadState?.let { state ->
                     item("thread-heading", contentType = "thread-heading") {
                         Text(

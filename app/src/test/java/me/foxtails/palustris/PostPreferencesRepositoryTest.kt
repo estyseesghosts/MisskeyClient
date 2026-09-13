@@ -5,11 +5,12 @@ import androidx.test.core.app.ApplicationProvider
 import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import me.foxtails.palustris.data.preferences.EncryptedPostPreferencesRepository
+import me.foxtails.palustris.data.preferences.FilePostPreferencesRepository
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
 import me.foxtails.palustris.domain.PostPreferences
+import me.foxtails.palustris.domain.ContentWarningRules
 import me.foxtails.palustris.domain.Protocol
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -40,25 +41,27 @@ class PostPreferencesRepositoryTest {
     @Test
     fun valuesAreAccountScopedAndSurviveReload() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val repository = EncryptedPostPreferencesRepository(context)
+        val repository = FilePostPreferencesRepository(context)
         assertEquals(DEFAULT_FAVOURITE_EMOJI, repository.observe(first).first().favouriteEmoji)
 
-        repository.update(first) { PostPreferences(":blobcat:") }
+        repository.update(first) { PostPreferences(":blobcat:", contentWarningRules = ContentWarningRules(hideKeywords = listOf("spoiler")), localMutedHashtags = listOf("#cats")) }
         repository.update(second) { PostPreferences("🎉") }
         assertEquals(":blobcat:", repository.observe(first).first().favouriteEmoji)
         assertEquals("🎉", repository.observe(second).first().favouriteEmoji)
         assertTrue(file.exists())
         assertFalse(file.readText().contains("token", ignoreCase = true))
 
-        val reloaded = EncryptedPostPreferencesRepository(context)
+        val reloaded = FilePostPreferencesRepository(context)
         assertEquals(":blobcat:", reloaded.observe(first).first().favouriteEmoji)
+        assertEquals(listOf("spoiler"), reloaded.observe(first).first().contentWarningRules.hideKeywords)
+        assertEquals(listOf("cats"), reloaded.observe(first).first().localMutedHashtags)
         assertEquals("🎉", reloaded.observe(second).first().favouriteEmoji)
     }
 
     @Test
     fun invalidValuesFallBackAndRemovalDoesNotAffectOtherAccounts() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val repository = EncryptedPostPreferencesRepository(context)
+        val repository = FilePostPreferencesRepository(context)
         repository.update(first) { PostPreferences("\u0000invalid") }
         repository.update(second) { PostPreferences("👍") }
 

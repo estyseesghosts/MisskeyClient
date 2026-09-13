@@ -1,6 +1,7 @@
 package me.foxtails.palustris.ui
 
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
@@ -15,6 +16,7 @@ data class FeedState(
     val timeline: Timeline = Timeline.Home,
     val timelines: Set<Timeline> = setOf(Timeline.Home),
     val canPublish: Boolean = false,
+    val audiences: Set<Audience> = emptySet(),
     val actions: Set<PostAction> = emptySet(),
     val quoteStatus: CapabilityStatus = CapabilityStatus.Unknown,
     val savedPosts: SavedPostsCapability? = null,

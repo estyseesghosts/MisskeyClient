@@ -18,7 +18,8 @@ import me.foxtails.palustris.data.auth.AppRegistrationCache
 import me.foxtails.palustris.data.auth.AuthGateway
 import me.foxtails.palustris.data.auth.DetectingAuthGateway
 import me.foxtails.palustris.data.auth.EncryptedSessionStore
-import me.foxtails.palustris.data.preferences.EncryptedPostPreferencesRepository
+import me.foxtails.palustris.data.preferences.FileAppPreferencesRepository
+import me.foxtails.palustris.data.preferences.FilePostPreferencesRepository
 import me.foxtails.palustris.data.preferences.FileEmojiPickerPreferencesRepository
 import me.foxtails.palustris.data.preferences.FilePhotoGridPreferencesRepository
 import me.foxtails.palustris.data.auth.DraftStore
@@ -57,6 +58,7 @@ import me.foxtails.palustris.data.emoji.EmojiCacheDatabase
 import me.foxtails.palustris.data.emoji.EmojiAssetStore
 import me.foxtails.palustris.data.emoji.RoomEmojiCatalogRepository
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.AppPreferencesRepository
 import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
 import me.foxtails.palustris.domain.Protocol
@@ -114,6 +116,13 @@ object NetworkModule {
 object StorageModule {
     @Provides
     @Singleton
+    fun provideAppPreferencesRepository(
+        @ApplicationContext context: Context,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    ): AppPreferencesRepository = FileAppPreferencesRepository(context, ioDispatcher)
+
+    @Provides
+    @Singleton
     fun provideEmojiCatalogClock(): Clock = Clock.systemUTC()
 
     @Provides
@@ -134,7 +143,7 @@ object StorageModule {
     @Singleton
     fun providePostPreferencesRepository(
         @ApplicationContext context: Context,
-    ): PostPreferencesRepository = EncryptedPostPreferencesRepository(context)
+    ): PostPreferencesRepository = FilePostPreferencesRepository(context)
 
     @Provides
     @Singleton

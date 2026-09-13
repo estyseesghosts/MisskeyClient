@@ -28,6 +28,9 @@ class AccountSourceRegistry @Inject constructor() {
     fun sourceFor(accountId: AccountId): SocialSource? = entries[accountId]?.source
 
     @Synchronized
+    fun isCurrent(accountId: AccountId, source: SocialSource): Boolean = entries[accountId]?.source === source
+
+    @Synchronized
     fun remove(accountId: AccountId, generation: Long? = null) {
         val current = entries[accountId]
         if (generation == null || current?.generation == generation) entries.remove(accountId)

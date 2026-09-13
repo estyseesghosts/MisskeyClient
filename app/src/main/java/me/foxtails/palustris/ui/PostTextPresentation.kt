@@ -111,6 +111,16 @@ internal fun parseHashtagBlocks(
     return PostTextPresentation(visibleText, filteredHashtags, filteredRanges)
 }
 
+/** Returns every semantic hashtag, including inline tags retained in visible text. */
+internal fun postHashtags(
+    text: String,
+    emoji: Map<String, CustomEmoji> = emptyMap(),
+): List<String> {
+    val normalizedText = normalizeMarkdownHashtagLinks(text)
+    val emojiRanges = if (emoji.isEmpty()) emptyList() else EmojiTextParser.parse(normalizedText, emoji).emojiRanges
+    return findHashtagTokens(normalizedText, emojiRanges).map { it.value }
+}
+
 private fun findHashtagTokens(text: String, emojiRanges: List<IntRange>): List<HashtagToken> {
     val tokens = mutableListOf<HashtagToken>()
     var searchStart = 0

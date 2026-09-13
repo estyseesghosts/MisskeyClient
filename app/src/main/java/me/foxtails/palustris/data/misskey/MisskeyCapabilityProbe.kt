@@ -7,6 +7,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EditableProfileCapabilities
 import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.NotificationCapabilities
+import me.foxtails.palustris.domain.ModerationCapabilities
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PrimaryFavouriteCapability
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
@@ -75,6 +76,13 @@ class MisskeyCapabilityProbe(
                 webPush = meta.optString("swPublickey").takeIf(String::isNotBlank)
                     ?.let { CapabilityStatus.Supported }
                     ?: CapabilityStatus.Unsupported,
+            ),
+            moderation = ModerationCapabilities(
+                read = if (token.isNullOrBlank()) CapabilityStatus.Denied else CapabilityStatus.Supported,
+                write = if (token.isNullOrBlank()) CapabilityStatus.Denied else CapabilityStatus.Supported,
+                blocked = if (token.isNullOrBlank()) CapabilityStatus.Denied else CapabilityStatus.Supported,
+                muted = if (token.isNullOrBlank()) CapabilityStatus.Denied else CapabilityStatus.Supported,
+                hashtags = CapabilityStatus.Unsupported,
             ),
             capabilitiesLastUpdated = System.currentTimeMillis(),
             capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,

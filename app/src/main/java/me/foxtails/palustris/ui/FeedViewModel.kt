@@ -134,6 +134,7 @@ class FeedViewModel @AssistedInject constructor(
                     timeline = timeline,
                     timelines = source.capabilities.timelines,
                     canPublish = source.capabilities.canPublish,
+                    audiences = source.capabilities.audiences,
                     actions = effectiveActions(),
                     quoteStatus = source.capabilities.quotes,
                     savedPosts = source.capabilities.savedPosts,

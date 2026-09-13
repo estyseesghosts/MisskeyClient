@@ -17,6 +17,7 @@ data class ServerCapabilities(
     val savedPosts: SavedPostsCapability? = null,
     val likedPosts: CapabilityStatus = CapabilityStatus.Unknown,
     val threads: CapabilityStatus = CapabilityStatus.Unknown,
+    val moderation: ModerationCapabilities = ModerationCapabilities(),
     /** Bumps when capability shapes change; older snapshots force a fresh probe. */
     val capabilitySchemaVersion: Int = CURRENT_CAPABILITY_SCHEMA_VERSION,
 ) {

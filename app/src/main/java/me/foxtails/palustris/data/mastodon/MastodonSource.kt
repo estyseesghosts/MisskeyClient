@@ -32,6 +32,10 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Event
 import me.foxtails.palustris.domain.NotificationCheckpoint
+import me.foxtails.palustris.domain.ModerationAccount
+import me.foxtails.palustris.domain.ModerationCursor
+import me.foxtails.palustris.domain.ModerationPage
+import me.foxtails.palustris.domain.MutedHashtag
 import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationCapabilities
@@ -89,6 +93,7 @@ class MastodonSource(
     private val selfProfileService = MastodonSelfProfileService(origin, token, api, accountId)
     private val directMessageService = MastodonDirectMessageService(origin, token, api, accountId, profileService)
     private val notificationService = MastodonNotificationService(origin, token, api, accountId, clock)
+    private val moderationService = MastodonModerationService(origin, token, api, accountId)
     private val pushService = MastodonPushService(origin, token, api, accountId)
     private val streamService = MastodonStreamService(origin, token, api, accountId)
     override val capabilities: ServerCapabilities get() = _capabilities.value
@@ -411,6 +416,22 @@ class MastodonSource(
     }
 
     override suspend fun dismissNotification(id: EntityId) = request { notificationService.dismiss(id) }
+
+    override suspend fun blockedAccounts(cursor: ModerationCursor?): ModerationPage<ModerationAccount> = request {
+        moderationService.blocked(cursor)
+    }
+
+    override suspend fun mutedAccounts(cursor: ModerationCursor?): ModerationPage<ModerationAccount> = request {
+        moderationService.muted(cursor)
+    }
+
+    override suspend fun mutedHashtags(cursor: ModerationCursor?): ModerationPage<MutedHashtag> = request {
+        moderationService.hashtags(cursor)
+    }
+
+    override suspend fun removeBlockedAccount(entry: ModerationAccount) = request { moderationService.removeBlocked(entry) }
+
+    override suspend fun removeMutedAccount(entry: ModerationAccount) = request { moderationService.removeMuted(entry) }
 
     override suspend fun queryOwnedPushSubscription(knownEndpoint: ValidatedUrl?): PushSubscription? = request {
         pushService.query(knownEndpoint)
