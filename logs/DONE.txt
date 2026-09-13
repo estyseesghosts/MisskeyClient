@@ -365,3 +365,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved account and hashtag search state, query replacement, hashtag paging, cancellation guards, and search-result updates into `ui/SearchController.kt`.
 - Retained the `FeedViewModel` facade and existing search result publication shape.
 - Verification passed: search reaction, Photo Grid, Home/Search, and compilation checks.
+260913-032505 S40 action-transform review:
+- Kept `PostReactionReducer` as the canonical shared pure reaction transform.
+- Did not extract a broader action transform because Feed, Saved Posts, Profile, and Thread have different rollback, collection, and lifecycle semantics.
+- Verification passed: existing reaction and action test coverage plus source review.
