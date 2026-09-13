@@ -138,27 +138,31 @@ internal fun SetupServerScreen(
                 style = MaterialTheme.typography.bodyLarge,
             )
             Spacer(Modifier.height(16.dp))
+            SetupPrimaryAction(stringResource(R.string.sign_in_button_authorized), onComplete, enabled = !state.busy)
+            Spacer(Modifier.height(12.dp))
             SetupSecondaryAction(stringResource(R.string.sign_in_open_browser_again), onReopen, enabled = !state.busy)
             Spacer(Modifier.height(8.dp))
             SetupTextAction(stringResource(if (state.addingAccount) R.string.sign_in_cancel else R.string.sign_in_different_instance), onCancel, enabled = !state.busy)
         } else {
-            validationError?.let {
-                Text(it, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), color = MaterialTheme.colorScheme.error)
-            }
-            SetupServerField(server, !state.busy, submit) { value ->
-                if (value.any(Char::isWhitespace)) {
-                    validationError = whitespaceError
-                } else {
-                    server = value.trim()
-                    validationError = null
+            Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding()) {
+                validationError?.let {
+                    Text(it, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), color = MaterialTheme.colorScheme.error)
                 }
+                SetupServerField(server, !state.busy, submit) { value ->
+                    if (value.any(Char::isWhitespace)) {
+                        validationError = whitespaceError
+                    } else {
+                        server = value.trim()
+                        validationError = null
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                SetupSecondaryAction(
+                    label = stringResource(R.string.setup_next),
+                    onClick = submit,
+                    enabled = server.isNotBlank() && !state.busy,
+                )
             }
-            Spacer(Modifier.height(12.dp))
-            SetupSecondaryAction(
-                label = stringResource(R.string.setup_next),
-                onClick = submit,
-                enabled = server.isNotBlank() && !state.busy,
-            )
         }
         Spacer(Modifier.height(16.dp))
     }

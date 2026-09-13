@@ -542,4 +542,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added setup-only typography with bundled Noto Sans and negative character spacing.
 - Added setup structure, introduction, and server-input regression coverage.
 - Verification passed: `SignInScreenTest` and `compileDebugKotlin`.
+- Commit: `6ec2595`.
+260913-153415 Slice 5:
+- Added HTTPS-origin normalization on submit and rejection of internal whitespace edits.
+- Routed keyboard Go and Next through one submit path.
+- Added route-scoped resize mode restoration and one navigation/IME inset group.
+- Preserved pending authorization restoration, browser reopening, cancellation, and account addition behavior.
+- Verification passed: `SignInScreenTest` and `compileDebugKotlin`.
 - Commit: pending.

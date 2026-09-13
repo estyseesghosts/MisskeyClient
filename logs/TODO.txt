@@ -1,4 +1,3 @@
 # Active tasks
 
-- Add server validation, navigation, insets, and setup typography.
 - Remove obsolete code and run full verification.

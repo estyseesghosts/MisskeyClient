@@ -1,6 +1,8 @@
 package me.foxtails.palustris.ui
 
 import android.widget.Toast
+import android.app.Activity
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
@@ -43,12 +45,21 @@ fun SignInScreen(
     }
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    val activity = context as? Activity
     val motion = LocalPalustrisMotionScheme.current
     LaunchedEffect(state.pending, state.addingAccount) {
         destination = when {
             state.pending -> SetupDestination.Pending
             state.addingAccount -> SetupDestination.Server
             else -> destination
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(activity) {
+        val window = activity?.window
+        val previousMode = window?.attributes?.softInputMode
+        window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        onDispose {
+            if (window != null && previousMode != null) window.setSoftInputMode(previousMode)
         }
     }
     BackHandler(enabled = destination != SetupDestination.Initial) {
