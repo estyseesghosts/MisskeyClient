@@ -193,6 +193,11 @@ class SavedPostsViewModel @AssistedInject constructor(
         )
     }
 
+    fun applyPublishedPost(request: me.foxtails.palustris.domain.CreatePostRequest) {
+        request.replyTo?.let { parent -> incrementKnownReplyCount(parent) }
+        request.quoteOf?.let { target -> incrementKnownQuoteCount(target) }
+    }
+
     fun stop() {
         if (stopped) return
         stopped = true
@@ -203,8 +208,22 @@ class SavedPostsViewModel @AssistedInject constructor(
 
     private fun updatePost(id: me.foxtails.palustris.domain.EntityId, transform: (me.foxtails.palustris.domain.Post) -> me.foxtails.palustris.domain.Post) {
         _state.value = _state.value.copy(posts = _state.value.posts.map { owned ->
-            if (owned.post.id == id && owned.fetchedBy == accountId) owned.copy(post = transform(owned.post)) else owned
+            if ((owned.post.id == id || owned.effectiveTargetId() == id) && owned.fetchedBy == accountId) {
+                owned.copy(post = transform(owned.post))
+            } else owned
         })
+    }
+
+    private fun incrementKnownReplyCount(target: me.foxtails.palustris.domain.EntityId) = updatePost(target) { post ->
+        post.copy(interactionCounts = post.interactionCounts.copy(
+            replyCount = post.interactionCounts.replyCount.adjustedBy(1),
+        ))
+    }
+
+    private fun incrementKnownQuoteCount(target: me.foxtails.palustris.domain.EntityId) = updatePost(target) { post ->
+        post.copy(interactionCounts = post.interactionCounts.copy(
+            quoteRepostCount = post.interactionCounts.quoteRepostCount.adjustedBy(1),
+        ))
     }
 
     private fun mergeExternalActionFields(

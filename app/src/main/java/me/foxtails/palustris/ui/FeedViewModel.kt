@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.collectLatest
 import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
 import me.foxtails.palustris.data.preferences.InMemoryPhotoGridPreferencesRepository
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
@@ -62,6 +63,7 @@ class FeedViewModel @AssistedInject constructor(
     private var preferencesJob: Job? = null
     private var favouriteEmoji = DEFAULT_FAVOURITE_EMOJI
     private var stopped = false
+    private val postProjectionListeners = mutableSetOf<(OwnedPost) -> Unit>()
     private val interactionMutations = PostInteractionMutationOwner(
         accountId = accountId,
         source = source,
@@ -250,6 +252,32 @@ class FeedViewModel @AssistedInject constructor(
         updateExternalPost(target, updated.post)
     }
 
+    fun addPostProjectionListener(listener: (OwnedPost) -> Unit) {
+        if (!stopped) postProjectionListeners += listener
+    }
+
+    fun applyPublishedPost(request: CreatePostRequest) {
+        if (stopped) return
+        request.replyTo?.let { parent ->
+            updatePost(parent) { post ->
+                post.copy(interactionCounts = post.interactionCounts.copy(
+                    replyCount = post.interactionCounts.replyCount.adjustedBy(1),
+                ))
+            }
+        }
+        request.quoteOf?.let { target ->
+            updatePost(target) { post ->
+                post.copy(interactionCounts = post.interactionCounts.copy(
+                    quoteRepostCount = post.interactionCounts.quoteRepostCount.adjustedBy(1),
+                ))
+            }
+        }
+    }
+
+    fun removePostProjectionListener(listener: (OwnedPost) -> Unit) {
+        postProjectionListeners -= listener
+    }
+
     fun stop() {
         if (stopped) return
         stopped = true
@@ -282,14 +310,20 @@ class FeedViewModel @AssistedInject constructor(
     }
 
     private fun updatePost(id: EntityId, transform: (Post) -> Post) {
+        val currentOwnedPosts = _feed.value.ownedPosts
+        val projected = currentOwnedPosts.map { owned ->
+            if (owned.effectiveTargetId() == id && owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision) {
+                owned.copy(post = transform(owned.post))
+            } else {
+                owned
+            }
+        }
         _feed.value = _feed.value.copy(
             posts = _feed.value.posts.map { if (it.id == id || it.actionTargetId == id) transform(it) else it },
-            ownedPosts = _feed.value.ownedPosts.map { owned ->
-                if (owned.effectiveTargetId() == id && owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision) {
-                    owned.copy(post = transform(owned.post))
-                } else owned
-            },
+            ownedPosts = projected,
         )
+        projected.filterIndexed { index, owned -> owned !== currentOwnedPosts[index] }
+            .forEach { updated -> postProjectionListeners.toList().forEach { it(updated) } }
         photoGridController.updatePost(id, transform)
         searchController.updatePost(id, transform)
     }

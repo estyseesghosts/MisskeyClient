@@ -446,3 +446,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Preserved opaque action targets, account/session validation, optimistic updates, reconciliation, rollback, and favorite/reaction deduplication.
 - Focused verification passed: `FeedViewModelReactionTest` and `compileDebugKotlin`.
 - Commit: pending.
+260913-075234 Notification and publication slice:
+- Enabled notification detail post actions through the application reaction popup and composer callbacks.
+- Added notification-specific post overlays and Feed projection listeners for saved, liked, profile, and notification copies.
+- Added known reply and quote count updates after successful publication without changing unknown counts.
+- Focused verification passed: notification, navigation, profile, saved-post, thread, and Kotlin compilation checks.
+- Commit: pending.

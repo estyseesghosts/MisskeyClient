@@ -240,12 +240,26 @@ fun ConnectedApp(
     DisposableEffect(state.sessionGeneration, threadModel) {
         onDispose { threadModel?.stop() }
     }
-    LaunchedEffect(threadModel, feedModel, savedPostsModel, likedPostsModel, profileModel) {
+    DisposableEffect(threadModel, feedModel, savedPostsModel, likedPostsModel, profileModel, notificationsModel) {
         threadModel?.setPostUpdateListener { updated ->
             feedModel?.applyExternalPost(updated)
             savedPostsModel?.applyExternalPost(updated)
             likedPostsModel?.applyExternalPost(updated)
             profileModel?.applyExternalPost(updated)
+            notificationsModel?.applyExternalPost(updated)
+        }
+        val feedProjection: ((me.foxtails.palustris.domain.OwnedPost) -> Unit)? = feedModel?.let { _ ->
+            { updated ->
+                savedPostsModel?.applyExternalPost(updated)
+                likedPostsModel?.applyExternalPost(updated)
+                profileModel?.applyExternalPost(updated)
+                notificationsModel?.applyExternalPost(updated)
+            }
+        }
+        feedProjection?.let { listener -> feedModel?.addPostProjectionListener(listener) }
+        onDispose {
+            threadModel?.setPostUpdateListener(null)
+            feedProjection?.let { listener -> feedModel?.removePostProjectionListener(listener) }
         }
     }
     DisposableEffect(threadModel, lifecycleOwner) {
@@ -366,12 +380,18 @@ fun ConnectedApp(
                 accounts = accountIndex.accounts,
                 onSwitchAccount = accountManager::switchAccount,
                 onAddAccount = accountManager::beginAddAccount,
-                 onPublish = { request, onSuccess ->
-                     feedModel?.create(request) { created ->
-                         threadModel?.acceptPublishedReply(created)
-                         onSuccess(created)
-                     }
-                 },
+                  onPublish = { request, onSuccess ->
+                      feedModel?.create(request) { created ->
+                          feedModel?.applyPublishedPost(request)
+                          savedPostsModel?.applyPublishedPost(request)
+                          likedPostsModel?.applyPublishedPost(request)
+                          profileModel?.applyPublishedPost(request)
+                          notificationsModel?.applyPublishedPost(request)
+                          threadModel?.acceptPublishedReply(created)
+                          threadModel?.acceptPublishedQuote(request.quoteOf)
+                          onSuccess(created)
+                      }
+                  },
                  threadState = threadState.takeIf { it.focal != null },
                  onThreadActivate = { post, enabled -> threadModel?.activate(post, enabled) },
                  onThreadDeactivate = { threadModel?.deactivate() },

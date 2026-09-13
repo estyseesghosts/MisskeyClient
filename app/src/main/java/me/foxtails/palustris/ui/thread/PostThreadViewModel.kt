@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
@@ -190,6 +191,15 @@ class PostThreadViewModel @AssistedInject constructor(
         automaticRefreshJob = viewModelScope.launch {
             delay(REPLY_REFRESH_DELAY_MILLIS)
             if (!stopped && activeKey == key) loadFresh(allowAutomaticRefresh = false)
+        }
+    }
+
+    fun acceptPublishedQuote(target: EntityId?) {
+        if (stopped || target == null || activeKey?.focalId?.connection != target.connection) return
+        updateMatching(target) { post ->
+            post.copy(interactionCounts = post.interactionCounts.copy(
+                quoteRepostCount = post.interactionCounts.quoteRepostCount.adjustedBy(1),
+            ))
         }
     }
 

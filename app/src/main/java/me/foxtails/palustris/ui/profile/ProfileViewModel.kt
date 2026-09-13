@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EditableProfileCapabilities
@@ -260,6 +261,11 @@ class ProfileViewModel @AssistedInject constructor(
         }
     }
 
+    fun applyPublishedPost(request: me.foxtails.palustris.domain.CreatePostRequest) {
+        request.replyTo?.let { parent -> incrementKnownReplyCount(parent) }
+        request.quoteOf?.let { target -> incrementKnownQuoteCount(target) }
+    }
+
     fun follow() {
         mutateRelationship { source.followProfile(it) }
     }
@@ -319,6 +325,18 @@ class ProfileViewModel @AssistedInject constructor(
                 owned.copy(post = transform(owned.post))
             } else owned
         }
+    }
+
+    private fun incrementKnownReplyCount(target: EntityId) = updateOwnedPost(target) { post ->
+        post.copy(interactionCounts = post.interactionCounts.copy(
+            replyCount = post.interactionCounts.replyCount.adjustedBy(1),
+        ))
+    }
+
+    private fun incrementKnownQuoteCount(target: EntityId) = updateOwnedPost(target) { post ->
+        post.copy(interactionCounts = post.interactionCounts.copy(
+            quoteRepostCount = post.interactionCounts.quoteRepostCount.adjustedBy(1),
+        ))
     }
 
     private fun loadDetails(target: AccountId, targetGeneration: Long) {

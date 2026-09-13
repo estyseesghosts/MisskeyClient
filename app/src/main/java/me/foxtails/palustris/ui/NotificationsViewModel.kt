@@ -18,6 +18,7 @@ import me.foxtails.palustris.data.notifications.NotificationSynchronizer
 import me.foxtails.palustris.data.notifications.NotificationSyncIntents
 import me.foxtails.palustris.data.notifications.SourceBackedNotificationSyncIntents
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActionState
@@ -25,8 +26,11 @@ import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.NotificationUnreadState
+import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.SocialSource
+import me.foxtails.palustris.domain.effectiveTargetId
 
 data class NotificationsUiState(
     val items: List<Notification> = emptyList(),
@@ -40,6 +44,7 @@ data class NotificationsUiState(
     val error: String? = null,
     val actionStates: Map<EntityId, NotificationActionState> = emptyMap(),
     val actionErrors: Map<EntityId, String> = emptyMap(),
+    val postOverlays: Map<EntityId, Post> = emptyMap(),
 ) {
     val isEmpty: Boolean get() = items.isEmpty() && !loading && !refreshing
 }
@@ -74,7 +79,7 @@ class NotificationsViewModel @AssistedInject constructor(
             query.collectLatest { selectedQuery ->
                 repository.observeInbox(accountId, selectedQuery).collectLatest { snapshot ->
                     _state.value = _state.value.copy(
-                        items = snapshot.items,
+                        items = snapshot.items.map(::applyPostOverlay),
                         query = selectedQuery,
                         unreadState = snapshot.unreadState,
                         checkpoint = snapshot.checkpoint,
@@ -170,6 +175,48 @@ class NotificationsViewModel @AssistedInject constructor(
             }
             repository.dismissFromInbox(currentToken(), notification.id, remoteApplied)
         }
+    }
+
+    /** Keeps optimistic interaction fields local to notification presentation. */
+    fun applyExternalPost(updated: OwnedPost) {
+        if (updated.fetchedBy != accountId) return
+        val target = updated.effectiveTargetId()
+        val overlays = _state.value.postOverlays +
+            (target to updated.post) + (updated.post.id to updated.post)
+        _state.value = _state.value.copy(
+            postOverlays = overlays,
+            items = _state.value.items.map { notification -> applyPostOverlay(notification, overlays) },
+        )
+    }
+
+    fun applyPublishedPost(request: me.foxtails.palustris.domain.CreatePostRequest) {
+        _state.value = _state.value.copy(items = _state.value.items.map { notification ->
+            val post = notification.post ?: return@map notification
+            val updated = when {
+                request.replyTo != null && (post.id == request.replyTo || post.effectiveTargetId() == request.replyTo) ->
+                    post.copy(interactionCounts = post.interactionCounts.copy(
+                        replyCount = post.interactionCounts.replyCount.adjustedBy(1),
+                    ))
+                request.quoteOf != null && (post.id == request.quoteOf || post.effectiveTargetId() == request.quoteOf) ->
+                    post.copy(interactionCounts = post.interactionCounts.copy(
+                        quoteRepostCount = post.interactionCounts.quoteRepostCount.adjustedBy(1),
+                    ))
+                else -> post
+            }
+            notification.copy(post = updated)
+        })
+    }
+
+    private fun applyPostOverlay(notification: Notification): Notification =
+        applyPostOverlay(notification, _state.value.postOverlays)
+
+    private fun applyPostOverlay(
+        notification: Notification,
+        overlays: Map<EntityId, Post>,
+    ): Notification {
+        val post = notification.post ?: return notification
+        val overlay = overlays[post.id] ?: overlays[post.effectiveTargetId()]
+        return notification.copy(post = overlay ?: post)
     }
 
     fun respondToFollowRequest(notification: Notification, accept: Boolean) {
