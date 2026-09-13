@@ -710,6 +710,7 @@ private fun show(
 
         compose.onNodeWithContentDescription("Reply").performClick()
         compose.onNodeWithContentDescription("Repost").performClick()
+        compose.onNodeWithTag("repost_confirmation", useUnmergedTree = true).performClick()
         compose.onNodeWithContentDescription("Favorite").performClick()
         compose.onNodeWithContentDescription("Bookmark").performClick()
 

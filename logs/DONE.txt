@@ -569,3 +569,8 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Verified light and dark icon contrast through Android Settings. The device launcher uses text-only presentation.
 - Incremented the Beeline version to `0.2.1` after live verification.
 - Focused setup/share tests, full `test`, and `assembleRelease` passed.
+260913-172803 Application release preparation:
+- Fixed compact reaction-picker gesture ownership and prevented duplicate picker callbacks.
+- Added interaction-indicator and repost-confirmation regression coverage.
+- Added the referenced Beeline launcher mark, setup font, and local debug/release build scripts.
+- Verification passed: `:app:testDebugUnitTest`, `:app:lintDebug`, `test`, and `assembleRelease`.

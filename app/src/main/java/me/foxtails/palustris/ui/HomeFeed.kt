@@ -97,7 +97,7 @@ fun HomeFeed(
     }
     val openReactionBubble: (OwnedPost, Rect) -> Unit = { ownedPost, bounds ->
         onOpenReactionBubble?.invoke(ownedPost, bounds)
-        onOpenReactionPicker(ownedPost)
+        if (onOpenReactionBubble == null) onOpenReactionPicker(ownedPost)
     }
     val currentState by rememberUpdatedState(state)
     val loadMore by rememberUpdatedState(onLoadMore)
@@ -158,7 +158,7 @@ fun HomeFeed(
                     val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
                     items(visibleRows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
                         Column(Modifier.animateItem(fadeInSpec = scheme.fastFadeIn, fadeOutSpec = scheme.fastFadeOut, placementSpec = scheme.gentleOffset)) {
-                            PostRow(ownedPost, enabledActions, onReact, onReply, onReshare, onBookmark, onReaction, onOpenProfile, onSearchHashtag, onOpenHashtagBubble = openHashtagBubble, quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported, onQuote = onQuote, onOpenReactionBubble = openReactionBubble, onOpenMedia = onOpenMedia, onOpenPost = onOpenPost, largeLayout = !compactLayout, onOpenUrl = onOpenUrl, onOpenUsername = onOpenUsername, contentWarningRules = contentWarningRules)
+                            PostRow(ownedPost, enabledActions, onReact, onReply, onReshare, onBookmark, onReaction, onOpenProfile, onSearchHashtag, onOpenHashtagBubble = openHashtagBubble, quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported, onQuote = onQuote, onOpenReactionBubble = openReactionBubble, onOpenReactionPicker = onOpenReactionPicker, onOpenMedia = onOpenMedia, onOpenPost = onOpenPost, largeLayout = !compactLayout, onOpenUrl = onOpenUrl, onOpenUsername = onOpenUsername, contentWarningRules = contentWarningRules)
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                         }
                     }
