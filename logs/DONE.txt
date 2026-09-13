@@ -312,3 +312,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 260913-032505 S14 destination rendering complete:
 - Moved all explicit route bodies out of the root destination scaffold into focused Home, Search, Photo Grid, notifications/DM, local-page, notification-detail, and Profile owners.
 - Kept saveable routing state, destination animation, and root callbacks in `PalustrisApp`.
+260913-032505 S24 notification state-model sub-slice:
+- Moved `NotificationRepositoryState` and `NotificationInboxSnapshot` to `data/notifications/NotificationRepositoryState.kt`.
+- Preserved account-scoped state, checkpoint compatibility, dismissal tombstones, delivery state, settings, and push registration fields.
+- Verification passed: `NotificationRepositoryTest`, `NotificationContractTest`, and Kotlin compilation.

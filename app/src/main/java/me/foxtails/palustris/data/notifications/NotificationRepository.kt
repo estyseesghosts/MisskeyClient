@@ -48,28 +48,6 @@ import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class NotificationRepositoryState(
-    val items: List<Notification> = emptyList(),
-    val unreadState: NotificationUnreadState = NotificationUnreadState.Unknown,
-    val checkpoint: NotificationCheckpoint? = null,
-    val lastSyncedAtEpochMillis: Long = 0,
-    /** Checkpoints are keyed by the stable query fingerprint, never shared between filters. */
-    val checkpoints: Map<String, NotificationCheckpoint> = emptyMap(),
-    /** Tombstones make local-only dismissal survive refetch, restart, and older-page ingestion. */
-    val dismissedIds: Set<EntityId> = emptySet(),
-    val deliveries: Map<EntityId, NotificationDeliveryRecord> = emptyMap(),
-    val settings: NotificationSettings = NotificationSettings(),
-    val pushRegistration: PushRegistration? = null,
-)
-
-data class NotificationInboxSnapshot(
-    val items: List<Notification>,
-    val unreadState: NotificationUnreadState,
-    val checkpoint: NotificationCheckpoint?,
-    val lastSyncedAtEpochMillis: Long,
-    val hasIncompleteSync: Boolean,
-)
-
 /**
  * One account-scoped merge point for REST pages, cache state, local visibility, and unread knowledge.
  * Writes require the source generation that produced them, so late requests cannot recreate removed state.
