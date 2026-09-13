@@ -102,3 +102,7 @@ S02 Search composition:
 - Moved SearchScreen, controls, and account/hashtag result lists to ui/SearchScreen.kt.
 - Preserved shared query/tab state, list state, insets, result actions, and empty-state behavior.
 - Verification passed: Search chip Compose test and Kotlin compilation.
+S03 composer UI:
+- Moved ComposeScreen and Audience.label() to ui/ComposerScreen.kt.
+- Preserved reply, visibility, content warning, emoji insertion, link cleanup, and publish callbacks.
+- Verification passed: `ReplyComposerTest` and debug lint.
