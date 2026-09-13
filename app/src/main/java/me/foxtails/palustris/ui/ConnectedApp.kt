@@ -361,9 +361,10 @@ fun ConnectedApp(
                 }
             }
             else -> key(state.account!!.id) {
-            PalustrisApp(
-                 account = state.account,
-                 sessionGeneration = state.sessionGeneration,
+             PalustrisApp(
+                  account = state.account,
+                  sessionGeneration = state.sessionGeneration,
+                  actionSource = sharedSource,
                  feedState = feed,
                   postPreferences = postPreferences,
                   contentWarningRules = appPreferences.preferences.contentWarningRules.merge(postPreferences.contentWarningRules),

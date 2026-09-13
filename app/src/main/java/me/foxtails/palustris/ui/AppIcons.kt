@@ -75,6 +75,7 @@ object AppIcons {
     val Check = tracedIcon("Check", SvgIconPaths.Check)
     val Paperclip = icon("Paperclip", "M16.5,6v11.5c0,2.21-1.79,4-4,4s-4-1.79-4-4V5c0-1.66,1.34-3,3-3s3,1.34,3,3v10.5c0,.55-.45,1-1,1s-1-.45-1-1V6H11v9.5c0,1.1,.9,2,2,2s2-.9,2-2V5c0-2.21-1.79-4-4-4S7,2.79,7,5v12.5c0,3.04,2.46,5.5,5.5,5.5s5.5-2.46,5.5-5.5V6z")
     val Chat = tracedIcon("Chat", SvgIconPaths.Chat)
+    val Link = icon("Link", "M10,13a5,5 0,0 0,7.1,0l2-2a5,5 0,0 0,-7.1,-7.1l-1.1,1.1 1.4,1.4 1.1,-1.1a3,3 0,0 1,4.2,4.2l-2,2a3,3 0,0 1,-4.2,0z M14,11a5,5 0,0 0,-7.1,0l-2,2A5,5 0,0 0,12,20.1l1.1,-1.1 -1.4,-1.4 -1.1,1.1a3,3 0,0 1,-4.2,-4.2l2,-2a3,3 0,0 1,4.2,0z")
     val Reply = tracedIcon("Reply", SvgIconPaths.Reply)
     val Repost = tracedIcon("Repost", SvgIconPaths.Repost)
     val Heart = tracedIcon("Heart", SvgIconPaths.Heart)

@@ -1,6 +1,5 @@
 # Active tasks
 
-- Replace the share sheet and connect post entry points.
 - Replace setup composition.
 - Add server validation, navigation, insets, and setup typography.
 - Remove obsolete code and run full verification.

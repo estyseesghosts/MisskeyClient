@@ -4,8 +4,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,11 +33,13 @@ internal fun PillAction(
     contentDescription: String = label,
     textAlign: TextAlign = TextAlign.Center,
     maxLines: Int = 1,
+    loading: Boolean = false,
+    fillContent: Boolean = false,
 ) {
     Surface(
         modifier = modifier
             .defaultMinSize(minHeight = 48.dp)
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled && !loading, role = Role.Button, onClick = onClick)
             .semantics {
                 this.contentDescription = contentDescription
                 role = Role.Button
@@ -41,15 +48,25 @@ internal fun PillAction(
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
-        Text(
-            text = label,
+        Row(
             modifier = Modifier
-                .padding(horizontal = 14.dp, vertical = 10.dp)
-                .fillMaxWidth(),
-            style = MaterialTheme.typography.labelLarge,
-            textAlign = textAlign,
-            maxLines = maxLines,
-            overflow = if (maxLines == 1) TextOverflow.Ellipsis else TextOverflow.Clip,
-        )
+                .then(if (fillContent) Modifier.fillMaxWidth() else Modifier)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            if (loading) {
+                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                text = label,
+                modifier = Modifier.then(if (fillContent) Modifier.fillMaxWidth() else Modifier),
+                style = MaterialTheme.typography.labelLarge,
+                textAlign = textAlign,
+                maxLines = maxLines,
+                overflow = if (maxLines == 1) TextOverflow.Ellipsis else TextOverflow.Clip,
+            )
+        }
     }
 }

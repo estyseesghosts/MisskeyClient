@@ -70,7 +70,7 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.openExternal
-import me.foxtails.palustris.ui.sharePost
+import me.foxtails.palustris.ui.posts.LocalPostActionOwner
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -97,6 +97,7 @@ fun MediaViewerScreen(
     val fullReadyPages = remember(request.transitionKey) { mutableStateMapOf<Int, Boolean>() }
     val fullDimensions = remember(request.transitionKey) { mutableStateMapOf<Int, Size>() }
     var menuVisible by rememberSaveable { mutableStateOf(false) }
+    val postActionOwner = LocalPostActionOwner.current
     var chromeVisible by rememberSaveable { mutableStateOf(true) }
     var descriptionVisible by rememberSaveable { mutableStateOf(false) }
     var closeRequested by remember(request.transitionKey) { mutableStateOf(false) }
@@ -377,7 +378,7 @@ fun MediaViewerScreen(
                     onReact = { onReact(request.ownedPost) },
                     onReply = { onReply(request.ownedPost) },
                     onReshare = { onReshare(request.ownedPost) },
-                    onShare = { sharePost(context, request.ownedPost.post) },
+                     onShare = { postActionOwner?.open(request.ownedPost, Rect.Zero) },
                     enabled = transition.phase == MediaViewerPhase.Open,
                     alpha = transition.chromeAlpha,
                 )

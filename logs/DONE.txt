@@ -527,3 +527,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added focused duplicate-request and mutation-target coverage.
 - Verification passed: `PostActionOwnerTest` and `compileDebugKotlin`.
 - Commit: `b5502bc`.
+260913-153415 Slice 3:
+- Replaced the generic bottom sheet with one anchored action card.
+- Added Follow, Unfollow, Requested, Block, Unblock, Mute, Unmute, Report, PM, Copy link, and Share controls.
+- Added account-scoped report submission, URL-only copy behavior, and system-share integration.
+- Routed feed rows, single-post details, and media viewers through one root-owned popup target.
+- Added structure regression coverage and preserved the existing hashtag and repost popup behavior.
+- Verification passed: `PostShareSheetTest`, `HomeFeedTest`, and `compileDebugKotlin`.
+- Commit: pending.

@@ -129,6 +129,10 @@ import me.foxtails.palustris.ui.large.LargeLayoutMode
 import me.foxtails.palustris.ui.thread.PostThreadUiState
 import me.foxtails.palustris.ui.posts.LocalPostRepostConfirmationOwner
 import me.foxtails.palustris.ui.posts.PostRepostConfirmationOwner
+import me.foxtails.palustris.ui.posts.LocalPostActionOwner
+import me.foxtails.palustris.ui.posts.PostActionOwner
+import me.foxtails.palustris.ui.posts.PostShareSheet
+import me.foxtails.palustris.ui.posts.copyPostShareContent
 import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.layout.CompactFilterDockHeight as movedCompactFilterDockHeight
 import me.foxtails.palustris.ui.layout.CompactOverlayControlSpacing as movedCompactOverlayControlSpacing
@@ -151,6 +155,7 @@ private const val NOTIFICATION_SETTINGS_OVERLAY_KEY = "NotificationSettings"
 fun PalustrisApp(
     account: Account? = null,
     sessionGeneration: Long = 0L,
+     actionSource: me.foxtails.palustris.domain.SocialSource? = null,
      feedState: FeedState? = null,
      postPreferences: me.foxtails.palustris.domain.PostPreferences = me.foxtails.palustris.domain.PostPreferences(),
      contentWarningRules: me.foxtails.palustris.domain.ContentWarningRules = me.foxtails.palustris.domain.ContentWarningRules(),
@@ -248,13 +253,17 @@ fun PalustrisApp(
 ) {
     val mediaTransitionRegistry = remember { MediaTransitionRegistry() }
     val repostConfirmationOwner = remember(account?.id, sessionGeneration) { PostRepostConfirmationOwner() }
+    val scope = rememberCoroutineScope()
+    val postActionOwner = remember(account?.id, sessionGeneration, actionSource) {
+        account?.let { PostActionOwner(it.id, sessionGeneration, actionSource, scope, onRefreshProfile) }
+    }
     CompositionLocalProvider(
         LocalMediaTransitionRegistry provides mediaTransitionRegistry,
         LocalPostRepostConfirmationOwner provides repostConfirmationOwner,
+        LocalPostActionOwner provides postActionOwner,
     ) {
     val context = LocalContext.current
     val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
-    val scope = rememberCoroutineScope()
     var destination by rememberSaveable { mutableStateOf(Destination.Home) }
     var destinationTransitionDirection by rememberSaveable { mutableIntStateOf(0) }
     var timeline by rememberSaveable { mutableStateOf(Timeline.Home) }
@@ -404,8 +413,10 @@ fun PalustrisApp(
     LaunchedEffect(destination, page, overlayKey, sheet, profileDialog, signOutDialog, mediaRequest, singlePost, notificationRoute) {
         postActionBubbleTarget = null
         postReactionHandler = null
+        postActionOwner?.dismiss()
         pendingExpandedReactionTarget = null
         repostConfirmationOwner.dismiss()
+        postActionOwner?.dismiss()
     }
     LaunchedEffect(pendingExpandedReactionTarget, postActionBubbleTarget) {
         val pending = pendingExpandedReactionTarget ?: return@LaunchedEffect
@@ -1210,7 +1221,7 @@ fun PalustrisApp(
                 )
             }
         }
-        PostActionBubbleHost(
+          PostActionBubbleHost(
             target = postActionBubbleTarget,
             emojiCatalog = emojiCatalogState,
              emojiCapabilities = emojiCapabilities,
@@ -1234,7 +1245,27 @@ fun PalustrisApp(
             },
             onReactionModeChanged = { expanded -> postActionBubbleTarget = expanded },
              hashtagBottomClearance = hashtagBottomClearance,
-         )
+          )
+          postActionOwner?.target?.let { target ->
+              PostShareSheet(
+                  target = target,
+                  relationship = postActionOwner.relationship,
+                  report = postActionOwner.report,
+                  onDismiss = postActionOwner::dismiss,
+                  onRelationshipAction = postActionOwner::mutate,
+                  onSubmitReport = postActionOwner::submitReport,
+                  onOpenDirectMessage = {
+                      val recipient = target.author
+                      postActionOwner.dismiss()
+                      onStartDirectConversation(recipient)
+                  },
+                  onCopyLink = { copyPostShareContent(context, target.post) },
+                  onShare = {
+                      sharePost(context, target.post)
+                      postActionOwner.dismiss()
+                  },
+              )
+          }
          if (!largePresentation) {
              singlePost?.let { post ->
                   SinglePostScreen(

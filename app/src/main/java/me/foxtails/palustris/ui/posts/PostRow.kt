@@ -88,6 +88,7 @@ import me.foxtails.palustris.ui.motion.springPress
 import me.foxtails.palustris.ui.large.LargeBottomDock
 import me.foxtails.palustris.ui.posts.reactionPickerGesture
 import me.foxtails.palustris.ui.components.PillAction
+import me.foxtails.palustris.ui.posts.LocalPostActionOwner
 import me.foxtails.palustris.ui.posts.LocalPostRepostConfirmationOwner
 import me.foxtails.palustris.ui.posts.PostRepostConfirmationOwner
 
@@ -154,6 +155,7 @@ internal fun PostRow(
     val warningDecision = remember(post.contentWarning, hashtags, contentWarningRules) {
         ContentWarningPolicy.decide(post.contentWarning, hashtags, contentWarningRules, bodyText = post.text)
     }
+    val postActionOwner = LocalPostActionOwner.current
     LaunchedEffect(ownedPost.fetchedBy, post.id, ownedPost.sessionRevision, post.reposted) {
         repostConfirmationOwner.reconcile(ownedPost)
     }
@@ -322,13 +324,16 @@ internal fun PostRow(
              onOpenReactionPicker = onOpenReactionPicker,
              onRepostConfirmationRequest = { target, bounds -> repostConfirmationOwner.request(target, bounds) },
              repostConfirmationOwner = repostConfirmationOwner,
-             onShare = { sharePost(context, post) },
-        )
-    }
-}
+              onShare = { target, bounds -> postActionOwner?.open(target, bounds) },
+          )
+      }
+ }
 
 internal fun actionsForPost(availableActions: Set<PostAction>, post: Post): Set<PostAction> =
     if (post.availableActions.isEmpty()) availableActions else availableActions.intersect(post.availableActions)
+
+internal fun Post.hasVisibleInteractionSelection(): Boolean =
+    favourited || myReaction != null || selectedReactions.isNotEmpty()
 
 @Composable
 internal fun PostBodyText(
@@ -643,7 +648,7 @@ internal fun InteractionRow(
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onRepostConfirmationRequest: (OwnedPost, Rect) -> Unit = { _, _ -> },
     repostConfirmationOwner: PostRepostConfirmationOwner = LocalPostRepostConfirmationOwner.current,
-    onShare: () -> Unit,
+    onShare: (OwnedPost, Rect) -> Unit,
 ) {
     val context = LocalContext.current
     val actionDescription = stringResource(R.string.post_actions)
@@ -684,8 +689,9 @@ internal fun InteractionRow(
                 modifier = Modifier.fillMaxWidth(),
                 icon = AppIcons.Heart,
                 label = stringResource(if (ownedPost.post.favourited) R.string.post_action_unfavorite else R.string.post_action_favorite),
-                enabled = favouriteEnabled || reactionEnabled,
-                isSelected = ownedPost.post.favourited,
+             enabled = favouriteEnabled || reactionEnabled,
+             isSelected = ownedPost.post.hasVisibleInteractionSelection(),
+             selectedIndicator = if (ownedPost.post.hasVisibleInteractionSelection()) "(:" else null,
                 onClick = {
                     when {
                         favouriteEnabled -> onReact(ownedPost)
@@ -695,13 +701,14 @@ internal fun InteractionRow(
                     if (!favouriteEnabled) openReactionBubble(bounds)
                 }) else null,
                  reactionGestureKey = "${ownedPost.fetchedBy}:${ownedPost.post.id}:${ownedPost.sessionRevision}",
-                 reactionLongPressEnabled = reactionEnabled,
+                 reactionLongPressEnabled = true,
                  onReactionCompact = { bounds -> openReactionBubble(bounds) },
                  onReactionExpanded = { bounds ->
-                     onOpenReactionBubble(ownedPost, bounds)
-                     onOpenReactionPicker(ownedPost)
-                 },
-             )
+                      onOpenReactionBubble(ownedPost, bounds)
+                      onOpenReactionPicker(ownedPost)
+                  },
+                 onLongClick = if (reactionEnabled) ::openReactionBubble else null,
+              )
         }
         InteractionButton(
             Modifier.weight(1f),
@@ -711,7 +718,13 @@ internal fun InteractionRow(
             isSelected = ownedPost.post.saved,
             onClick = { onBookmark(ownedPost) },
         )
-         InteractionButton(Modifier.weight(1f), AppIcons.Share, stringResource(R.string.post_action_share), onClick = onShare)
+          InteractionButton(
+              Modifier.weight(1f),
+              AppIcons.Share,
+              stringResource(R.string.post_action_share),
+              onClick = {},
+              onClickWithBounds = { bounds -> onShare(ownedPost, bounds) },
+          )
     }
     if (pendingRepost?.fetchedBy == ownedPost.fetchedBy && pendingRepost.postId == ownedPost.post.id) {
         Popup(
@@ -741,6 +754,7 @@ private fun InteractionButton(
     label: String,
     enabled: Boolean = true,
     isSelected: Boolean = false,
+    selectedIndicator: String? = null,
     onClick: () -> Unit,
     onClickWithBounds: ((Rect) -> Unit)? = null,
     onLongClick: ((Rect) -> Unit)? = null,
@@ -757,6 +771,7 @@ private fun InteractionButton(
     val scheme = LocalPalustrisMotionScheme.current
     val density = LocalDensity.current
     val selectedDescription = stringResource(if (isSelected) R.string.post_action_selected else R.string.post_action_not_selected)
+    val interactionSelectedDescription = stringResource(R.string.post_action_interaction_selected)
     Box(
         modifier = modifier
             .height(PostInteractionRowHeight)
@@ -809,6 +824,16 @@ private fun InteractionButton(
                 Modifier.size(PostInteractionIconSize),
                 tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.38f),
             )
+            selectedIndicator?.let { indicator ->
+                Text(
+                    text = indicator,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .semantics { contentDescription = interactionSelectedDescription },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }

@@ -67,6 +67,7 @@ import me.foxtails.palustris.ui.media.PostMediaCarousel
 import me.foxtails.palustris.ui.thread.PostThreadPhase
 import me.foxtails.palustris.ui.thread.PostThreadUiState
 import me.foxtails.palustris.ui.thread.ThreadedReplyRow
+import me.foxtails.palustris.ui.posts.LocalPostActionOwner
 
 internal enum class SinglePostPresentation { Standard, PhotoGrid }
 
@@ -99,6 +100,7 @@ internal fun SinglePostScreen(
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
+    val postActionOwner = LocalPostActionOwner.current
     val photos = post.attachments.filter { it.kind == MediaKind.Image || it.kind == MediaKind.AnimatedImage }
 
     key(ownedPost.fetchedBy, post.id.connection, post.id.value, presentation) {
@@ -223,8 +225,8 @@ internal fun SinglePostScreen(
                  quoteEnabled = quoteEnabled,
                  onQuote = onQuote,
                   onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
-                  onShare = { sharePost(context, post) },
-              )
+                   onShare = { target, bounds -> postActionOwner?.open(target, bounds) },
+                )
               if (post.reactions.any { it.count > 0 }) {
                   ReactionRow(
                       reactions = post.reactions,
