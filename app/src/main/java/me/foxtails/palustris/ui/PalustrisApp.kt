@@ -195,6 +195,7 @@ fun PalustrisApp(
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onSavedPostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     onProfilePostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     emojiCatalogState: EmojiCatalogState = EmojiCatalogState(),
@@ -291,6 +292,7 @@ fun PalustrisApp(
     val profileListState = rememberLazyListState()
     var emojiPickerTarget by remember { mutableStateOf<EmojiPickerTarget?>(null) }
     var postActionBubbleTarget by remember { mutableStateOf<PostActionBubbleTarget?>(null) }
+    var pendingExpandedReactionTarget by remember { mutableStateOf<OwnedPost?>(null) }
     var postReactionHandler by remember { mutableStateOf<((OwnedPost, EmojiChoice) -> Unit)?>(null) }
     var pendingEmojiInsertion by remember { mutableStateOf<Pair<EmojiChoice, ComposerField>?>(null) }
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
@@ -335,6 +337,7 @@ fun PalustrisApp(
 
     fun clearPostActionBubble() {
         postActionBubbleTarget = null
+        pendingExpandedReactionTarget = null
         postReactionHandler = null
     }
 
@@ -394,6 +397,15 @@ fun PalustrisApp(
     LaunchedEffect(destination, page, overlayKey, sheet, profileDialog, signOutDialog, mediaRequest, singlePost, notificationRoute) {
         postActionBubbleTarget = null
         postReactionHandler = null
+        pendingExpandedReactionTarget = null
+    }
+    LaunchedEffect(pendingExpandedReactionTarget, postActionBubbleTarget) {
+        val pending = pendingExpandedReactionTarget ?: return@LaunchedEffect
+        val current = postActionBubbleTarget as? PostActionBubbleTarget.Reaction ?: return@LaunchedEffect
+        if (current.ownedPost.fetchedBy == pending.fetchedBy && current.postId == pending.post.id) {
+            postActionBubbleTarget = current.copy(mode = ReactionBubbleMode.Expanded)
+            pendingExpandedReactionTarget = null
+        }
     }
     LaunchedEffect(initialNotificationRoute) {
         notificationRoute = initialNotificationRoute
@@ -601,6 +613,14 @@ fun PalustrisApp(
         if (ownedPost.fetchedBy != owner.id || emojiCapabilities.reactionMutation != CapabilityStatus.Supported) return
         postReactionHandler = handler
         postActionBubbleTarget = PostActionBubbleTarget.Reaction(ownedPost, bounds)
+    }
+    fun expandReactionPicker(target: OwnedPost) {
+        pendingExpandedReactionTarget = target
+        val current = postActionBubbleTarget as? PostActionBubbleTarget.Reaction ?: return
+        if (current.ownedPost.fetchedBy == target.fetchedBy && current.postId == target.post.id) {
+            postActionBubbleTarget = current.copy(mode = ReactionBubbleMode.Expanded)
+            pendingExpandedReactionTarget = null
+        }
     }
     fun selectDestination(item: Destination) {
         clearPostActionBubble()
@@ -828,7 +848,7 @@ fun PalustrisApp(
                                  onReaction = onReaction,
                                  onQuote = ::openQuote,
                                  quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
-                                 onOpenReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onReaction) },
+                                  onOpenReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onReaction) },
                                  sessionRevision = sessionGeneration,
                                  largeLayout = largePresentation,
                                    contentWarningRules = contentWarningRules,
@@ -854,8 +874,9 @@ fun PalustrisApp(
                                  onBookmark = onBookmark,
                                  onSavedPostReaction = onSavedPostReaction,
                                  onLikedPostReaction = onLikedPostReaction,
-                                 onOpenSavedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onSavedPostReaction) },
-                                 onOpenLikedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onLikedPostReaction) },
+                                  onOpenSavedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onSavedPostReaction) },
+                                  onOpenLikedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onLikedPostReaction) },
+                                  onOpenReactionPicker = ::expandReactionPicker,
                                  onOpenMedia = ::openMedia,
                                  onOpenPost = ::openSinglePost,
                                  onOpenProfile = ::openProfile,
@@ -879,7 +900,8 @@ fun PalustrisApp(
                                           onReshare = onReshare,
                                           onBookmark = onBookmark,
                                           onReaction = onReaction,
-                                          onOpenReactionBubble = { ownedPost, bounds -> openReactionBubble(ownedPost, bounds, onReaction) },
+                                           onOpenReactionBubble = { ownedPost, bounds -> openReactionBubble(ownedPost, bounds, onReaction) },
+                                           onOpenReactionPicker = ::expandReactionPicker,
                                           onQuote = ::openQuote,
                                           onOpenProfile = ::openProfile,
                                           onSearchHashtag = ::openHashtagSearch,
@@ -928,9 +950,10 @@ fun PalustrisApp(
                                                onReshare = onReshare,
                                                onBookmark = onBookmark,
                                                onReaction = onReaction,
-                                               onOpenReactionBubble = { ownedPost, bounds ->
-                                                   openReactionBubble(ownedPost, bounds, onReaction)
-                                               },
+                                                onOpenReactionBubble = { ownedPost, bounds ->
+                                                    openReactionBubble(ownedPost, bounds, onReaction)
+                                                },
+                                                onOpenReactionPicker = ::expandReactionPicker,
                                                quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
                                                onQuote = ::openQuote,
                                                onSearchHashtag = ::openHashtagSearch,
@@ -1039,9 +1062,10 @@ fun PalustrisApp(
                      onReshare = onReshare,
                      onBookmark = onBookmark,
                      onReaction = onProfilePostReaction,
-                     onOpenReactionBubble = { ownedPost, bounds ->
-                         openReactionBubble(ownedPost, bounds, onProfilePostReaction)
-                     },
+                      onOpenReactionBubble = { ownedPost, bounds ->
+                          openReactionBubble(ownedPost, bounds, onProfilePostReaction)
+                      },
+                      onOpenReactionPicker = ::expandReactionPicker,
                      onOpenMedia = ::openMedia,
                      onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
                      onOpenUsername = ::openAccountSearch,

@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.ui.*
 import me.foxtails.palustris.domain.*
@@ -267,5 +268,32 @@ class SignInScreenTest {
         compose.onNodeWithTag("reaction_bubble_compact", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("emoji_picker_cell_🎉", useUnmergedTree = true).performClick()
         assertEquals("🎉", chosenReaction)
+    }
+
+    @Test fun longPressAndUpwardDragOpensOnlyTheExpandedReactionPicker() {
+        val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
+        val post = Post(EntityId("https://example.org", "post"), account, "Post", System.currentTimeMillis(), Audience.Public)
+        val ownedPost = OwnedPost(account.id, post)
+        compose.activity.runOnUiThread { compose.activity.setContent {
+            PalustrisApp(
+                account = account,
+                feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React)),
+                emojiCapabilities = EmojiCapabilities(
+                    reactionListing = CapabilityStatus.Supported,
+                    reactionMutation = CapabilityStatus.Supported,
+                    selectionMode = ReactionSelectionMode.Single,
+                ),
+            )
+        } }
+
+        compose.onNodeWithContentDescription("Favorite").performTouchInput {
+            down(center)
+            advanceEventTime(600)
+            moveBy(Offset(0f, -150f))
+            up()
+        }
+
+        compose.onNodeWithTag("reaction_bubble_expanded", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("reaction_bubble_compact", useUnmergedTree = true).assertDoesNotExist()
     }
 }

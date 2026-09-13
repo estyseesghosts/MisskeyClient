@@ -46,6 +46,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -83,6 +84,7 @@ import me.foxtails.palustris.ui.motion.PopEffect
 import me.foxtails.palustris.ui.motion.rememberSelectedColor
 import me.foxtails.palustris.ui.motion.springPress
 import me.foxtails.palustris.ui.large.LargeBottomDock
+import me.foxtails.palustris.ui.posts.reactionPickerGesture
 
 internal fun openExternal(context: Context, url: String?) {
     val uri = url?.let { me.foxtails.palustris.ui.links.ExternalLinkHandler.prepare(it) }?.toUri() ?: return
@@ -305,11 +307,11 @@ internal fun PostRow(
             onReaction = onReaction,
             quoteEnabled = quoteEnabled,
             onQuote = onQuote,
-            onOpenReactionBubble = { target, bounds ->
-                onOpenReactionBubble(target, bounds)
-                onOpenReactionPicker(target)
-            },
-            onShare = { sharePost(context, post) },
+             onOpenReactionBubble = { target, bounds ->
+                 onOpenReactionBubble(target, bounds)
+             },
+             onOpenReactionPicker = onOpenReactionPicker,
+             onShare = { sharePost(context, post) },
         )
     }
 }
@@ -627,6 +629,7 @@ internal fun InteractionRow(
     quoteEnabled: Boolean,
     onQuote: (OwnedPost) -> Unit,
     onOpenReactionBubble: (OwnedPost, Rect) -> Unit,
+    onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onShare: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -676,8 +679,14 @@ internal fun InteractionRow(
                 onClickWithBounds = if (reactionEnabled) ({ bounds ->
                     if (!favouriteEnabled) openReactionBubble(bounds)
                 }) else null,
-                onLongClick = if (reactionEnabled) ::openReactionBubble else null,
-            )
+                 reactionGestureKey = "${ownedPost.fetchedBy}:${ownedPost.post.id}:${ownedPost.sessionRevision}",
+                 reactionLongPressEnabled = reactionEnabled,
+                 onReactionCompact = { bounds -> openReactionBubble(bounds) },
+                 onReactionExpanded = { bounds ->
+                     onOpenReactionBubble(ownedPost, bounds)
+                     onOpenReactionPicker(ownedPost)
+                 },
+             )
         }
         InteractionButton(
             Modifier.weight(1f),
@@ -701,6 +710,10 @@ private fun InteractionButton(
     onClick: () -> Unit,
     onClickWithBounds: ((Rect) -> Unit)? = null,
     onLongClick: ((Rect) -> Unit)? = null,
+    reactionGestureKey: Any? = null,
+    reactionLongPressEnabled: Boolean = false,
+    onReactionCompact: ((Rect) -> Unit)? = null,
+    onReactionExpanded: ((Rect) -> Unit)? = null,
     customActionLabel: String? = null,
     onCustomAction: (() -> Boolean)? = null,
 ) {
@@ -708,11 +721,25 @@ private fun InteractionButton(
     var popTrigger by remember { mutableIntStateOf(0) }
     val interactionSource = remember { MutableInteractionSource() }
     val scheme = LocalPalustrisMotionScheme.current
+    val density = LocalDensity.current
     val selectedDescription = stringResource(if (isSelected) R.string.post_action_selected else R.string.post_action_not_selected)
     Box(
         modifier = modifier
             .height(PostInteractionRowHeight)
             .onGloballyPositioned { bounds = it.boundsInWindow() }
+            .then(
+                if (reactionLongPressEnabled && onReactionCompact != null && onReactionExpanded != null) {
+                    Modifier.reactionPickerGesture(
+                        enabled = enabled,
+                        gestureKey = reactionGestureKey ?: Unit,
+                        thresholdPx = with(density) { 36.dp.toPx() },
+                        onCompact = { onReactionCompact(bounds) },
+                        onExpanded = { onReactionExpanded(bounds) },
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .springPress(interactionSource, enabled, scheme.compactPressedScale)
             .combinedClickable(
                 enabled = enabled,

@@ -120,6 +120,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - An empty query hides the keyboard, clears focus, and closes only through the modal host.
 - Added coverage for query clearing, sheet retention, empty-query dismissal, and IME completion.
 - Focused verification passed: EmojiPickerTest.
+260913-090345 Reaction gesture slice:
+- Added account- and session-keyed heart gesture classification with platform long-press timing, slop handling, directional thresholds, cancellation, and one-shot picker callbacks.
+- Preserved the compact bubble upward-drag recognizer for the second-stage gesture.
+- Focused verification passed: ReactionPickerGestureTest and the app-level expanded-picker test.
  - Pushed the six stabilization commits to `origin/feature/foldable-ui` through `d548130`.
 260910-131102 Release pipeline:
 - Added a tag-driven signed APK workflow with test and lint gates.
