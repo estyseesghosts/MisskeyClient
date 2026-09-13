@@ -355,21 +355,6 @@ class MisskeySource(
         else -> MisskeyErrorMapper.map(error)
     }
 
-    private data class ChildWork(val parentId: EntityId, val depth: Int, val cursor: String?)
-
-    private data class ThreadAcquisition(
-        val key: ThreadSessionKey,
-        val focal: Post,
-        val ancestors: MutableList<Post>,
-        val descendants: MutableList<Post>,
-        val pending: ArrayDeque<ChildWork>,
-        val visitedRequests: MutableSet<ChildWork>,
-        val limitations: MutableList<ThreadLimitation>,
-        var requestsUsed: Int,
-        var token: String? = null,
-        var hardLimitReached: Boolean = false,
-    )
-
     override suspend fun create(post: CreatePostRequest): Post = request {
         if (post.attachments.isNotEmpty()) throw SourceError.Unsupported("create.attachments")
         post.replyTo?.let { validatePostId(it, "create.reply-origin") }

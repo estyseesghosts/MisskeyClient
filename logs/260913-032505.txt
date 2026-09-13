@@ -209,3 +209,7 @@ S28 notification delivery sub-slice:
 - Moved claim eligibility, claim creation, and delivery completion transforms to `data/notifications/NotificationDeliveryTransforms.kt`.
 - Preserved lease expiry, retry counts, claim ownership, and failure-state fields.
 - Verification passed: `NotificationRepositoryTest`, `NotificationDeliveryPlannerTest`, and Kotlin compilation.
+S30 Misskey thread-state sub-slice:
+- Moved descendant work and thread acquisition state models to `data/misskey/MisskeyThreadAcquisition.kt`.
+- Preserved continuation identity, request tracking, limits, ancestor/descendant order, and cancellation behavior.
+- Verification passed: `MisskeyIntegrationTest`, `PostThreadViewModelTest`, and Kotlin compilation.
