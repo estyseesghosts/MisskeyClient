@@ -232,3 +232,4 @@ S34 Misskey timeline service:
 S57 media test follow-up:
 - Added bounded Compose-clock settling before the return swipe and final request-count assertions.
 - Verification passed: full `test assembleRelease` with 641 tests.
+- The first full run after later protocol extraction exposed the same media assertion once; the immediate full-gate retry passed with 641 tests and `assembleRelease`.

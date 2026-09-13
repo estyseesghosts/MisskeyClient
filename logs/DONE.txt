@@ -355,3 +355,4 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 260913-032505 S57 media test follow-up:
 - Added bounded Compose-clock settling before the return swipe and final request-count assertions.
 - Verification passed: full `test assembleRelease` with 641 tests.
+- A later full-gate retry also passed with 641 tests after one isolated media assertion failure.
