@@ -526,4 +526,4 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Serialized conflicting relationship commands and retained confirmed state after failures.
 - Added focused duplicate-request and mutation-target coverage.
 - Verification passed: `PostActionOwnerTest` and `compileDebugKotlin`.
-- Commit: pending.
+- Commit: `b5502bc`.

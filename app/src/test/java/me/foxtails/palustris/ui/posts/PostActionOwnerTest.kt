@@ -1,6 +1,6 @@
-package me.foxtails.palustris.ui.posts
-
 @file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
+package me.foxtails.palustris.ui.posts
 
 import androidx.compose.ui.geometry.Rect
 import kotlinx.coroutines.test.runTest
