@@ -388,3 +388,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved wide profile summary, timeline, and dock composition into `ui/profile/ProfileLargePresentation.kt`.
 - Preserved wide ratios, selected tabs, list state, detail rendering, and dock actions.
 - Verification passed: `ProfileScreenTest` and Kotlin compilation.
+260913-032505 S46 profile timeline pager:
+- Added `ProfileTimelinePager` for per-tab jobs, cursor tracking, generation validation, page merging, empty-page continuation, and failure state.
+- Kept target generation ownership and public profile ViewModel methods unchanged.
+- Verification passed: profile ViewModel and screen tests plus Kotlin compilation.

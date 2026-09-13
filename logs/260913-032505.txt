@@ -265,3 +265,7 @@ S45 wide profile presentation:
 - Moved wide profile summary, timeline, and dock composition into `ui/profile/ProfileLargePresentation.kt`.
 - Preserved wide ratios, selected tabs, list state, detail rendering, and dock actions.
 - Verification passed: `ProfileScreenTest` and Kotlin compilation.
+S46 profile timeline pager:
+- Added `ProfileTimelinePager` for per-tab jobs, cursor tracking, generation validation, page merging, empty-page continuation, and failure state.
+- Kept target generation ownership and public profile ViewModel methods unchanged.
+- Verification passed: profile ViewModel and screen tests plus Kotlin compilation.

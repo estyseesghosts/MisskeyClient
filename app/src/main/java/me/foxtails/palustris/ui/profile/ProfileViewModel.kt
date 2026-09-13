@@ -40,6 +40,12 @@ class ProfileViewModel @AssistedInject constructor(
 ) : ViewModel() {
     private val _state = MutableStateFlow(ProfileUiState())
     val state = _state.asStateFlow()
+    private val timelinePager = ProfileTimelinePager(
+        accountId = accountId,
+        source = source,
+        scope = viewModelScope,
+        onPagesChanged = { pages -> if (!stopped) _state.value = _state.value.copy(pages = pages) },
+    )
 
     private var generation = 0L
     private var editorGeneration = 0L
@@ -78,6 +84,7 @@ class ProfileViewModel @AssistedInject constructor(
             account = seed,
             editableSupported = editableSupported(source.capabilities.profile.editable),
         )
+        timelinePager.setTarget(seed.id, targetGeneration)
         loadDetails(seed.id, targetGeneration)
         loadRelationshipIfNeeded(seed.id, targetGeneration)
         loadPinned(seed.id, targetGeneration)
@@ -108,39 +115,15 @@ class ProfileViewModel @AssistedInject constructor(
     }
 
     fun refreshSelected() {
-        if (stopped) return
         val target = _state.value.targetId ?: return
         val tab = _state.value.selectedTab.timelineTab ?: return
-        pageJobs[tab]?.cancel()
-        requestedCursors[tab] = mutableSetOf()
-        val previous = _state.value.pages[tab] ?: ProfilePageState()
-        _state.value = _state.value.copy(
-            pages = _state.value.pages + (tab to previous.copy(
-                initialLoading = previous.posts.isEmpty(),
-                refreshing = previous.posts.isNotEmpty(),
-                loadingMore = false,
-                nextCursor = previous.nextCursor,
-                error = null,
-                needsSignIn = false,
-                terminal = false,
-                consecutiveEmptyPages = 0,
-            )),
-        )
-        loadPage(target, tab, cursor = null, targetGeneration = generation, refreshing = true)
+        timelinePager.refresh(target, generation, tab)
     }
 
     fun loadMoreSelected() {
-        if (stopped) return
         val target = _state.value.targetId ?: return
         val tab = _state.value.selectedTab.timelineTab ?: return
-        val page = _state.value.pages[tab] ?: return
-        val cursor = page.nextCursor ?: return
-        if (page.initialLoading || page.refreshing || page.loadingMore || page.terminal || page.needsSignIn) return
-        if (pageJobs[tab]?.isActive == true) return
-        _state.value = _state.value.copy(
-            pages = _state.value.pages + (tab to page.copy(loadingMore = true, error = null)),
-        )
-        loadPage(target, tab, cursor, generation, refreshing = false)
+        timelinePager.loadMore(target, generation, tab)
     }
 
     fun openEditor() {
@@ -288,6 +271,7 @@ class ProfileViewModel @AssistedInject constructor(
     fun stop() {
         if (stopped) return
         stopped = true
+        timelinePager.stop()
         generation += 1
         cancelProfileRequests()
         reactionJobs.values.forEach(Job::cancel)
@@ -330,6 +314,11 @@ class ProfileViewModel @AssistedInject constructor(
                 })
             },
         )
+        timelinePager.updatePosts { owned ->
+            if (owned.post.id == postId || owned.effectiveTargetId() == postId) {
+                owned.copy(post = transform(owned.post))
+            } else owned
+        }
     }
 
     private fun loadDetails(target: AccountId, targetGeneration: Long) {
@@ -581,6 +570,7 @@ class ProfileViewModel @AssistedInject constructor(
         pinnedJob = null
         editJob = null
         pageJobs.clear()
+        timelinePager.cancel()
     }
 
     private fun isCurrent(targetGeneration: Long, target: AccountId): Boolean =
