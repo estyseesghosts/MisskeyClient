@@ -55,6 +55,8 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -627,7 +629,6 @@ internal fun InteractionRow(
     onOpenReactionBubble: (OwnedPost, Rect) -> Unit,
     onShare: () -> Unit,
 ) {
-    var repostMenuVisible by rememberSaveable(ownedPost.post.id.connection, ownedPost.post.id.value) { mutableStateOf(false) }
     val context = LocalContext.current
     val actionDescription = stringResource(R.string.post_actions)
 
@@ -646,23 +647,17 @@ internal fun InteractionRow(
             enabled = PostAction.Reply in availableActions,
             onClick = { onReply(ownedPost) },
         )
-        Box(Modifier.weight(1f)) {
-            InteractionButton(
-                modifier = Modifier.fillMaxWidth(),
-                icon = AppIcons.Repost,
-                label = stringResource(if (ownedPost.post.reposted) R.string.post_action_undo_repost else R.string.post_action_repost),
-                enabled = PostAction.Reshare in availableActions,
-                isSelected = ownedPost.post.reposted,
-                onClick = { onReshare(ownedPost) },
-                onLongClick = if (quoteEnabled) ({ repostMenuVisible = true }) else null,
-            )
-            DropdownMenu(expanded = repostMenuVisible, onDismissRequest = { repostMenuVisible = false }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.post_action_quote)) },
-                    onClick = { repostMenuVisible = false; onQuote(ownedPost) },
-                )
-            }
-        }
+        InteractionButton(
+            Modifier.weight(1f),
+            AppIcons.Repost,
+            stringResource(if (ownedPost.post.reposted) R.string.post_action_undo_repost else R.string.post_action_repost),
+            enabled = PostAction.Reshare in availableActions,
+            isSelected = ownedPost.post.reposted,
+            onClick = { onReshare(ownedPost) },
+            onLongClick = if (quoteEnabled) ({ onQuote(ownedPost) }) else null,
+            customActionLabel = if (quoteEnabled) stringResource(R.string.post_action_quote) else null,
+            onCustomAction = if (quoteEnabled) ({ onQuote(ownedPost); true }) else null,
+        )
         Box(Modifier.weight(1f)) {
             val favouriteEnabled = PostAction.Favorite in availableActions
             val reactionEnabled = PostAction.React in availableActions
@@ -706,6 +701,8 @@ private fun InteractionButton(
     onClick: () -> Unit,
     onClickWithBounds: ((Rect) -> Unit)? = null,
     onLongClick: ((Rect) -> Unit)? = null,
+    customActionLabel: String? = null,
+    onCustomAction: (() -> Boolean)? = null,
 ) {
     var bounds by remember { mutableStateOf(Rect.Zero) }
     var popTrigger by remember { mutableIntStateOf(0) }
@@ -737,7 +734,10 @@ private fun InteractionButton(
                 contentDescription = label
                 role = Role.Button
                 this.selected = isSelected
-                    stateDescription = selectedDescription
+                stateDescription = selectedDescription
+                if (customActionLabel != null && onCustomAction != null) {
+                    customActions = listOf(CustomAccessibilityAction(customActionLabel, onCustomAction))
+                }
             },
         contentAlignment = Alignment.Center,
     ) {

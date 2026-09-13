@@ -429,4 +429,15 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Preserved version-one category preferences and exact Unicode/custom identities while rejecting invalid and duplicate pins.
 - Added ViewModel toggle support and Favorite-group ordering with duplicate removal.
 - Focused verification passed: `EmojiPickerPreferencesRepositoryTest` and `EmojiPickerTest`.
+- Commit: `be74bc4`.
+260913-075234 Emoji picker confirmation slice:
+- Added combined click and long-click picker cells with window-anchored pin/remove confirmation.
+- Threaded account-scoped pin actions through the modal picker and reaction bubble.
+- Added localized questions, actions, accessibility pin state, and test tags.
+- Focused verification passed: `EmojiPickerTest` (14 tests).
+- Commit: `be98220`.
+260913-075234 Boost gesture slice:
+- Replaced boost long press menu behavior with direct quote opening.
+- Preserved boost tap behavior and added an accessibility quote custom action.
+- Focused verification passed: `compileDebugKotlin`.
 - Commit: pending.
