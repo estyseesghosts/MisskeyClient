@@ -1,6 +1,6 @@
 # Beeline - an opinionated fediverse metaclient. 
 
-![screenshots](https://files.catbox.moe/5zem98.webp)
+![screenshots](https://files.catbox.moe/fggzs7.webp)
 
 ## manifesto - readme starts below
 
@@ -24,6 +24,16 @@ this is nowhere near the end. i would still call this app an unfinished prototyp
 native misskey chats are not implemented and are currently not planned - private message posts from mastodon are reimplemented here for misskey. native misskey chats are bound only to the local instance, and are not globally interoperable. private messages are NOT secure or encrypted at this point in time, in any way. you should only use them for sharing memes. 
 
 this project is open source and licenced under the gpl v3. see license.md. please take inspiration from it. the fediverse is already something beautiful. it feels like the last safe space away from corporate social media. reddit, twitter, instagram and tiktok, facebook, using them anymore just feels like rotting. i think we as a society deserve better than that. 
+
+## so what does it do?
+
+as of now?
+
+- load your misskey and mastodon timelines & profiles & notifications
+- folds hashtags and links into nice little bubbles
+- federated direct messaging
+- load a grid of photos from your timeline (todo: photo grid by lists of hashtags/users && photo grid by misskey antennae)
+
 
 ## todo
 
