@@ -519,4 +519,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Replaced EntityId moderation commands with account-targeted block and mute operations.
 - Added Mastodon and Misskey report and relationship adapter wiring with origin checks.
 - Verification passed: `compileDebugKotlin`, `PillActionTest`, and `ModerationServiceTest`.
+- Commit: `ddf78a3`.
+260913-153415 Slice 2:
+- Added account- and session-bound `PostActionOwner` state.
+- Rejected stale post targets and stale relationship responses.
+- Serialized conflicting relationship commands and retained confirmed state after failures.
+- Added focused duplicate-request and mutation-target coverage.
+- Verification passed: `PostActionOwnerTest` and `compileDebugKotlin`.
 - Commit: pending.
