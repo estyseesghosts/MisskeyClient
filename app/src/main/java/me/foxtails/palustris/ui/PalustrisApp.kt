@@ -954,59 +954,39 @@ fun PalustrisApp(
                                             )
                                        }
                                    }
-                                 Destination.Notifications -> AnimatedStatePane(
-                                     stateKey = notificationsPanel,
-                                     modifier = Modifier.fillMaxSize(),
-                                 ) { panel -> if (panel == NotificationsPanel.Notifications) NotificationsScreen(
-                                    connected = account != null,
-                                     compactLayout = !largePresentation,
-                                    accountIdentity = notificationAccountIdentity,
-                                    notificationState = notificationState,
-                                    onRefreshNotifications = onRefreshNotifications,
-                                    onLoadMoreNotifications = onLoadMoreNotifications,
-                                    onMarkNotificationSeen = onMarkNotificationSeen,
-                                    onDismissNotification = onDismissNotification,
-                                    onFollowRequest = onFollowRequest,
+                                  Destination.Notifications -> AppNotificationsDestinationContent(
+                                      panel = notificationsPanel,
+                                      account = account,
+                                      compactLayout = !largePresentation,
+                                      compactNavigationVisible = navigationVisible,
+                                      notificationAccountIdentity = notificationAccountIdentity,
+                                      notificationState = notificationState,
+                                      onRefreshNotifications = onRefreshNotifications,
+                                      onLoadMoreNotifications = onLoadMoreNotifications,
+                                      onMarkNotificationSeen = onMarkNotificationSeen,
+                                      onDismissNotification = onDismissNotification,
+                                      onFollowRequest = onFollowRequest,
                                       onOpenNotification = { notification ->
                                           clearPostActionBubble()
                                           if (largePresentation) clearSelectedPost()
                                           notificationRoute = NotificationRouteResolver.resolve(notification)
-                                    },
-                                    onSelectQuery = onSelectNotificationQuery,
-                                    onMarkAllRead = onMarkAllNotificationsRead,
-                                      contentWarningRules = contentWarningRules,
+                                      },
+                                      onSelectQuery = onSelectNotificationQuery,
+                                      onMarkAllRead = onMarkAllNotificationsRead,
                                       onOpenSettings = {
-                                         if (account != null) {
-                                             clearPostActionBubble()
+                                          if (account != null) {
+                                              clearPostActionBubble()
                                               overlayKey = NOTIFICATION_SETTINGS_OVERLAY_KEY
-                                         }
-                                    },
-                                   ) else if (account == null) {
-                                       EmptyState(
-                                           AppIcons.Chat,
-                                           stringResource(R.string.direct_messages_connect_title),
-                                           stringResource(R.string.direct_messages_connect_subtitle),
-                                       )
-                                  } else if (directMessageState.selectedConversationId != null || directMessageState.recipient != null) {
-                                      DirectMessageConversationScreen(
-                                          accountId = account.id,
-                                          state = directMessageState,
-                                           compactLayout = !largePresentation,
-                                          compactNavigationVisible = navigationVisible,
-                                          onBack = onBackDirectConversation,
-                                          onSend = onSendDirectMessage,
-                                      )
-                                  } else {
-                                      DirectMessageInboxScreen(
-                                          accountId = account.id,
-                                          state = directMessageState,
-                                           compactLayout = !largePresentation,
-                                          compactNavigationVisible = navigationVisible,
-                                          onRefresh = onRefreshDirectMessages,
-                                          onLoadMore = onLoadMoreDirectMessages,
-                                          onOpenConversation = onOpenDirectConversation,
-                                      )
-                                  } }
+                                          }
+                                      },
+                                      directMessageState = directMessageState,
+                                      onRefreshDirectMessages = onRefreshDirectMessages,
+                                      onLoadMoreDirectMessages = onLoadMoreDirectMessages,
+                                      onOpenDirectConversation = onOpenDirectConversation,
+                                      onBackDirectConversation = onBackDirectConversation,
+                                      onSendDirectMessage = onSendDirectMessage,
+                                      contentWarningRules = contentWarningRules,
+                                  )
                 Destination.Profile -> RichProfileScreen(
                     account = displayedProfile,
                      profileState = profileState,

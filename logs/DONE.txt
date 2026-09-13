@@ -301,3 +301,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved Photo Grid destination composition to `ui/AppPhotoGridDestinationContent.kt`.
 - Preserved independent grid state, timeline selection, hashtag preference callbacks, and navigation visibility.
 - Verification passed: `PhotoGridScreenTest`, `NavigationTest`, and Kotlin compilation.
+260913-032505 S14 Notifications and Direct Messages sub-slice:
+- Moved the notifications and direct-message destination branch to `ui/AppNotificationsDestinationContent.kt`.
+- Preserved panel restoration, notification route opening, settings entry, conversation routing, and account gating.
+- Verification passed: `NavigationTest`, `DirectMessageSourceTest`, and Kotlin compilation.
