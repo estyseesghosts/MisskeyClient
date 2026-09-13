@@ -1,0 +1,9 @@
+# Display settings and theme task
+
+- Remove the duplicate Display section heading from the settings root.
+- Make Android back navigate within and out of settings instead of closing the activity.
+- Replace the old pastel/vibrant/monochrome scheme choices with System, System monochrome, and 14 persisted ROYGBIV swatches.
+- Derive the complete Material color scheme from the selected swatch and grayscale system colors for System monochrome.
+- Change the dark background color to #090909.
+- Add focused persistence, theme, settings, and navigation coverage.
+- Run focused tests, lintDebug, test, and assembleRelease.
