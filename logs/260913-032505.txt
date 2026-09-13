@@ -19,3 +19,9 @@ S06 settings command ownership:
 - Captured the selected account before a suspended post-preference update.
 - Kept command failures contained instead of launching unmanaged Main scopes.
 - Verification passed: sign-in and application-preference tests, and lint.
+S07 post preference storage:
+- Added asynchronous readiness for file-backed post preferences.
+- Moved persistence work to the injected I/O dispatcher.
+- Applied one normalization function to file and in-memory repositories.
+- Added parity coverage for account-scoped normalization.
+- Verification passed: `PostPreferencesRepositoryTest` and lint.

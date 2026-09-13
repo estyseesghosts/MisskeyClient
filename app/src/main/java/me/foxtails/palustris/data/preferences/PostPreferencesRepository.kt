@@ -9,9 +9,18 @@ import java.util.Base64
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.PostPreferences
@@ -21,31 +30,46 @@ import me.foxtails.palustris.domain.normalizeLocalMutedHashtags
 import org.json.JSONObject
 
 /** Stores non-secret per-account post preferences in no-backup storage. */
-class FilePostPreferencesRepository(context: Context) : PostPreferencesRepository {
+class FilePostPreferencesRepository(
+    context: Context,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+) : PostPreferencesRepository {
     private val file = File(context.noBackupFilesDir, "post-preferences.json")
     private val mutex = Mutex()
-    private val values = MutableStateFlow(load())
+    private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    private val ready = kotlinx.coroutines.CompletableDeferred<Unit>()
+    private val values = MutableStateFlow<Map<String, PostPreferences>>(emptyMap())
 
-    override fun observe(accountId: AccountId): Flow<PostPreferences> = values
-        .map { it[keyFor(accountId)] ?: PostPreferences() }
-        .distinctUntilChanged()
+    init {
+        scope.launch {
+            mutex.withLock { values.value = withContext(ioDispatcher) { load() } }
+            ready.complete(Unit)
+        }
+    }
+
+    override fun observe(accountId: AccountId): Flow<PostPreferences> = flow {
+        ready.await()
+        emitAll(values.map { it[keyFor(accountId)] ?: PostPreferences() }.distinctUntilChanged())
+    }
 
     override suspend fun update(accountId: AccountId, transform: (PostPreferences) -> PostPreferences) {
+        ready.await()
         mutex.withLock {
             val key = keyFor(accountId)
-            val next = normalize(transform(values.value[key] ?: PostPreferences()))
+            val next = normalizePostPreferences(transform(values.value[key] ?: PostPreferences()))
             val updated = values.value.toMutableMap().apply { put(key, next) }.toMap()
-            persist(updated)
+            withContext(ioDispatcher) { persist(updated) }
             values.value = updated
         }
     }
 
     override suspend fun remove(accountId: AccountId) {
+        ready.await()
         mutex.withLock {
             val key = keyFor(accountId)
             if (key !in values.value) return
             val updated = values.value.toMutableMap().apply { remove(key) }.toMap()
-            persist(updated)
+            withContext(ioDispatcher) { persist(updated) }
             values.value = updated
         }
     }
@@ -108,10 +132,6 @@ class FilePostPreferencesRepository(context: Context) : PostPreferencesRepositor
         }
     }
 
-    private fun normalize(preference: PostPreferences): PostPreferences = preference.copy(
-        favouriteEmoji = normalizeFavouriteEmoji(preference.favouriteEmoji),
-    )
-
     private fun keyFor(accountId: AccountId): String {
         val identity = buildString {
             append(accountId.connection.origin)
@@ -131,7 +151,7 @@ class InMemoryPostPreferencesRepository : PostPreferencesRepository {
 
     override suspend fun update(accountId: AccountId, transform: (PostPreferences) -> PostPreferences) {
         val current = values.value[accountId] ?: PostPreferences()
-            values.value = values.value + (accountId to transform(current).normalized())
+            values.value = values.value + (accountId to normalizePostPreferences(transform(current)))
     }
 
     override suspend fun remove(accountId: AccountId) {
@@ -139,10 +159,10 @@ class InMemoryPostPreferencesRepository : PostPreferencesRepository {
     }
 }
 
-private fun PostPreferences.normalized(): PostPreferences = copy(
-    favouriteEmoji = normalizeFavouriteEmoji(favouriteEmoji),
-    contentWarningRules = contentWarningRules.normalized(),
-    localMutedHashtags = normalizeLocalMutedHashtags(localMutedHashtags),
+private fun normalizePostPreferences(preferences: PostPreferences): PostPreferences = preferences.copy(
+    favouriteEmoji = normalizeFavouriteEmoji(preferences.favouriteEmoji),
+    contentWarningRules = preferences.contentWarningRules.normalized(),
+    localMutedHashtags = normalizeLocalMutedHashtags(preferences.localMutedHashtags),
 )
 
 private fun me.foxtails.palustris.domain.ContentWarningRules.toJson(): JSONObject = JSONObject()

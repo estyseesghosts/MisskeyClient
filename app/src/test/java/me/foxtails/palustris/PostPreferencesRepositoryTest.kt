@@ -6,6 +6,7 @@ import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.preferences.FilePostPreferencesRepository
+import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
@@ -70,5 +71,24 @@ class PostPreferencesRepositoryTest {
         assertEquals(DEFAULT_FAVOURITE_EMOJI, repository.observe(first).first().favouriteEmoji)
         assertEquals("👍", repository.observe(second).first().favouriteEmoji)
         assertNotEquals(first, second)
+    }
+
+    @Test
+    fun fileAndMemoryRepositoriesApplyTheSameNormalization() = runBlocking {
+        val input = PostPreferences(
+            favouriteEmoji = "  :blobcat:  ",
+            contentWarningRules = ContentWarningRules(
+                hideKeywords = listOf(" Spoiler ", "spoiler"),
+                hideHashtags = listOf("#Cats", "cats"),
+            ),
+            localMutedHashtags = listOf("#Dogs", " dogs "),
+        )
+        val fileRepository = FilePostPreferencesRepository(ApplicationProvider.getApplicationContext())
+        val memoryRepository = InMemoryPostPreferencesRepository()
+
+        fileRepository.update(first) { input }
+        memoryRepository.update(first) { input }
+
+        assertEquals(memoryRepository.observe(first).first(), fileRepository.observe(first).first())
     }
 }
