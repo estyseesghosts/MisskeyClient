@@ -115,3 +115,7 @@ S05 connected application wiring:
 - Kept sign-in-specific state, suggested instances, and UI in ui/SignInScreen.kt.
 - Preserved ViewModel keys, lifecycle effects, settings ownership, and root composition order.
 - Verification passed: `SignInScreenTest`, Kotlin compilation, and debug lint.
+S11 shared post presentation:
+- Moved HomeFeed composition to ui/HomeFeed.kt and the shared post presentation family to ui/posts/PostRow.kt.
+- Preserved feed paging, refresh, scroll-direction observation, fallback hashtag bubble behavior, row actions, counts, content warnings, and media callbacks.
+- Verification passed: Kotlin compilation, HomeFeedTest, and SinglePostScreenTest.
