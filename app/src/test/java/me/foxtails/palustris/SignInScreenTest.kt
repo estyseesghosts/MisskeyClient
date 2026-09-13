@@ -33,11 +33,13 @@ class SignInScreenTest {
             File("build/ui-screenshots/$name.png").apply { parentFile?.mkdirs() }.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
     }
-    @Test fun firstStartShowsSignInAndInstanceButtonsFillTheField() {
-        compose.waitUntil(5000) { compose.onAllNodesWithText("Welcome!").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Next").assertIsNotEnabled()
-        compose.onNodeWithText("sharkey.world").performScrollTo().performClick()
-        compose.onNodeWithText("Next").assertIsEnabled()
+    @Test fun firstStartShowsSparseSetupAndServerEntryFillsTheField() {
+        compose.waitUntil(5000) { compose.onAllNodesWithText("sign in").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("i'm new, what's this?").assertIsDisplayed()
+        compose.onNodeWithText("sign in").performClick()
+        compose.onNodeWithText("next").assertIsNotEnabled()
+        compose.onNodeWithTag("setup_server_field").performTextInput("sharkey.world")
+        compose.onNodeWithText("next").assertIsEnabled()
         compose.onNode(hasSetTextAction()).assertTextContains("sharkey.world")
         capture("sign-in")
     }
@@ -270,6 +272,23 @@ class SignInScreenTest {
         compose.onNodeWithTag("reaction_bubble_compact", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("emoji_picker_cell_🎉", useUnmergedTree = true).performClick()
         assertEquals("🎉", chosenReaction)
+    }
+
+    @Test fun introductionKeepsItsPlaceholderAction() {
+        compose.activity.runOnUiThread {
+            compose.activity.setContent { PalustrisTheme { SetupIntroductionPreview() } }
+        }
+
+        compose.onNodeWithText("welcome to").assertIsDisplayed()
+        compose.onNodeWithText("the fediverse").assertIsDisplayed()
+        compose.onNodeWithText("get started").assertIsDisplayed()
+    }
+
+    @Test fun serverFieldRejectsInternalWhitespaceWithoutChangingItsValue() {
+        compose.onNodeWithText("sign in").performClick()
+        compose.onNodeWithTag("setup_server_field").performTextInput("example .org")
+
+        compose.onNodeWithText("A server address cannot contain spaces.").assertIsDisplayed()
     }
 
     @Test fun longPressAndUpwardDragOpensOnlyTheExpandedReactionPicker() {

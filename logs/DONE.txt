@@ -534,4 +534,12 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Routed feed rows, single-post details, and media viewers through one root-owned popup target.
 - Added structure regression coverage and preserved the existing hashtag and repost popup behavior.
 - Verification passed: `PostShareSheetTest`, `HomeFeedTest`, and `compileDebugKotlin`.
+- Commit: `6b867d5`.
+260913-153415 Slice 4:
+- Replaced the cluttered setup screen with sparse Initial, server-entry, and introduction presentations.
+- Added the lowercase Beeline wordmark, bee surface, welcome hierarchy, and placeholder new-user action.
+- Removed setup-local color overrides and kept the application color scheme unchanged.
+- Added setup-only typography with bundled Noto Sans and negative character spacing.
+- Added setup structure, introduction, and server-input regression coverage.
+- Verification passed: `SignInScreenTest` and `compileDebugKotlin`.
 - Commit: pending.
