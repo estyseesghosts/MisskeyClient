@@ -233,3 +233,8 @@ S57 media test follow-up:
 - Added bounded Compose-clock settling before the return swipe and final request-count assertions.
 - Verification passed: full `test assembleRelease` with 641 tests.
 - The first full run after later protocol extraction exposed the same media assertion once; the immediate full-gate retry passed with 641 tests and `assembleRelease`.
+S38 Photo Grid controller:
+- Moved Photo Grid state, paging, capability selection, preference observation, external updates, and hashtag saving into `ui/PhotoGridController.kt`.
+- Retained the `FeedViewModel` facade and account/session checks.
+- Retained and canceled the hashtag-save job during controller stop.
+- Verification passed: `PhotoGridFeedViewModelTest` and debug lint.

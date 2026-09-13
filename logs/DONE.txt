@@ -356,3 +356,8 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added bounded Compose-clock settling before the return swipe and final request-count assertions.
 - Verification passed: full `test assembleRelease` with 641 tests.
 - A later full-gate retry also passed with 641 tests after one isolated media assertion failure.
+260913-032505 S38 Photo Grid controller:
+- Moved Photo Grid state, paging, capability selection, preference observation, external updates, and hashtag saving into `ui/PhotoGridController.kt`.
+- Retained the `FeedViewModel` facade and account/session checks.
+- Retained and canceled the hashtag-save job during controller stop.
+- Verification passed: `PhotoGridFeedViewModelTest` and debug lint.
