@@ -246,3 +246,6 @@ S40 action-transform review:
 - Kept `PostReactionReducer` as the canonical shared pure reaction transform.
 - Did not extract a broader action transform because Feed, Saved Posts, Profile, and Thread have different rollback, collection, and lifecycle semantics.
 - Verification passed: existing reaction and action test coverage plus source review.
+S41 push interface:
+- Moved `PushRegistrationManager`, `PushRegistrationWorkResult`, and `NoOpPushRegistrationManager` into `data/notifications/push/PushRegistrationManager.kt`.
+- Preserved manager construction and worker imports.

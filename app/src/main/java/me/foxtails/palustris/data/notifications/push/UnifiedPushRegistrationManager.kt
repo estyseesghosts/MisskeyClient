@@ -44,25 +44,6 @@ import org.unifiedpush.android.connector.data.PushEndpoint
 import org.unifiedpush.android.connector.data.PushMessage
 import org.unifiedpush.android.connector.keys.DefaultKeyManager
 
-interface PushRegistrationManager {
-    fun onSessionAvailable(accountId: AccountId)
-    suspend fun enable(accountId: AccountId)
-    suspend fun retry(accountId: AccountId)
-    suspend fun processPendingEndpoint(accountId: AccountId): PushRegistrationWorkResult
-    suspend fun disable(accountId: AccountId)
-}
-
-enum class PushRegistrationWorkResult { NoWork, Success, Retry, Terminal }
-
-class NoOpPushRegistrationManager : PushRegistrationManager {
-    override fun onSessionAvailable(accountId: AccountId) = Unit
-    override suspend fun enable(accountId: AccountId) = Unit
-    override suspend fun retry(accountId: AccountId) = Unit
-    override suspend fun processPendingEndpoint(accountId: AccountId): PushRegistrationWorkResult =
-        PushRegistrationWorkResult.NoWork
-    override suspend fun disable(accountId: AccountId) = Unit
-}
-
 /** Bridges the distributor callbacks to an account-scoped, authenticated source. */
 @Singleton
 class UnifiedPushRegistrationManager @Inject constructor(

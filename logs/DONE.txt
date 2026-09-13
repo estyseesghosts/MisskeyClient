@@ -369,3 +369,6 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Kept `PostReactionReducer` as the canonical shared pure reaction transform.
 - Did not extract a broader action transform because Feed, Saved Posts, Profile, and Thread have different rollback, collection, and lifecycle semantics.
 - Verification passed: existing reaction and action test coverage plus source review.
+260913-032505 S41 push interface:
+- Moved `PushRegistrationManager`, `PushRegistrationWorkResult`, and `NoOpPushRegistrationManager` into `data/notifications/push/PushRegistrationManager.kt`.
+- Preserved manager construction and worker imports.
