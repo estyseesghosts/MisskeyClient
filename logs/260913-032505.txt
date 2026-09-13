@@ -92,3 +92,6 @@ S58 navigation screenshot output:
 - Made diagnostic PNG output opt-in through `beeline.captureScreenshots=true`.
 - Preserved native bitmap and bounds assertions.
 - Verification will include the navigation suite in the final gate.
+S59 account and timeline sheet labels:
+- Replaced direct string state and English timeline descriptions with resource-backed labels.
+- Preserved stored sheet identities and timeline values.

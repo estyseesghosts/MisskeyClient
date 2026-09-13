@@ -8,6 +8,16 @@
     <string name="nav_switch_account">Switch account</string>
     <string name="nav_compose">Compose post</string>
     <string name="nav_choose_timeline">Choose timeline</string>
+    <string name="a11y_selected">Selected</string>
+    <string name="timeline_detected">Timelines are detected from this server</string>
+    <string name="timeline_preview">Timeline preview</string>
+    <string name="account_none_connected">No accounts connected</string>
+    <string name="account_preview_unavailable">Account connections are not available in this preview.</string>
+    <string name="timeline_description_home">Posts from people you follow</string>
+    <string name="timeline_description_local">Posts from your server</string>
+    <string name="timeline_description_social">Posts from your server and people it follows</string>
+    <string name="timeline_description_bubble">Posts from servers in the local bubble</string>
+    <string name="timeline_description_federated">Posts from across the fediverse</string>
     <string name="a11y_current_account">Current account; long press to switch account</string>
     <string name="collection_favourites">Favourites</string>
     <string name="collection_bookmarks">Bookmarks</string>

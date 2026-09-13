@@ -62,6 +62,15 @@ internal fun timelineLabelRes(timeline: Timeline): Int = when (timeline) {
     Timeline.Federated -> R.string.timeline_federated
 }
 
+@StringRes
+internal fun timelineDescriptionRes(timeline: Timeline): Int = when (timeline) {
+    Timeline.Home -> R.string.timeline_description_home
+    Timeline.Local -> R.string.timeline_description_local
+    Timeline.Social -> R.string.timeline_description_social
+    Timeline.Bubble -> R.string.timeline_description_bubble
+    Timeline.Federated -> R.string.timeline_description_federated
+}
+
 internal fun editableProfilePatch(base: EditableProfile, edited: EditableProfile): EditableProfilePatch = EditableProfilePatch(
     displayName = edited.displayName.takeIf { it != base.displayName },
     biography = edited.biography.takeIf { it != base.biography },
