@@ -1,6 +1,6 @@
 # Active tasks
 
 260913-032505 decomposition completion:
-- S60 is active in the documented order.
+- No remaining documented slices are active.
 - Each completed slice requires focused verification and its own local commit.
 - Increment the application version to v0.2.0 after the slices.

@@ -148,9 +148,18 @@ internal fun calculateEmojiGridScrollbarThumb(
     )
 }
 
+internal sealed interface EmojiPickerGroupLabel {
+    data object Favorite : EmojiPickerGroupLabel
+    data object Recent : EmojiPickerGroupLabel
+    data object PostSpecific : EmojiPickerGroupLabel
+    data object Standard : EmojiPickerGroupLabel
+    data object Custom : EmojiPickerGroupLabel
+    data class ServerCategory(val value: String) : EmojiPickerGroupLabel
+}
+
 internal data class EmojiPickerGroup(
     val id: String,
-    val title: String,
+    val label: EmojiPickerGroupLabel,
     val choices: List<EmojiChoice>,
     val pinnable: Boolean,
     val collapsed: Boolean,
@@ -198,11 +207,12 @@ internal fun buildEmojiPickerGroups(
         }
     }.distinctBy { it.submissionValue }
 
-    val groups = linkedMapOf<String, Pair<String, MutableList<EmojiChoice>>>()
+    val groups = linkedMapOf<String, Pair<EmojiPickerGroupLabel, MutableList<EmojiChoice>>>()
     catalogItems.filter { it.visibleInPicker }.forEach { emoji ->
-        val id = EmojiPickerGroupIds.server(emoji.category?.takeIf(String::isNotBlank))
-        val title = emoji.category?.takeIf(String::isNotBlank) ?: "Custom emoji"
-        groups.getOrPut(id) { title to mutableListOf() }.second +=
+        val category = emoji.category?.takeIf(String::isNotBlank)
+        val id = EmojiPickerGroupIds.server(category)
+        val label = category?.let(EmojiPickerGroupLabel::ServerCategory) ?: EmojiPickerGroupLabel.Custom
+        groups.getOrPut(id) { label to mutableListOf() }.second +=
             (catalogChoices[emoji.submissionValue] ?: EmojiChoice(emoji.submissionValue, emoji.token, emoji))
     }
 
@@ -220,7 +230,7 @@ internal fun buildEmojiPickerGroups(
 
     fun createGroup(
         id: String,
-        title: String,
+        label: EmojiPickerGroupLabel,
         choices: List<EmojiChoice>,
         pinnable: Boolean,
     ): EmojiPickerGroup {
@@ -229,7 +239,7 @@ internal fun buildEmojiPickerGroups(
         val matchingChoices = choices.filter(::matches)
         return EmojiPickerGroup(
             id = id,
-            title = title,
+            label = label,
             choices = if (collapsed) emptyList() else matchingChoices,
             pinnable = pinnable,
             collapsed = collapsed,
@@ -244,22 +254,22 @@ internal fun buildEmojiPickerGroups(
             if (query.isEmpty() || group.hasMatchingChoices) add(group)
         }
 
-        addIfVisible(createGroup(EmojiPickerGroupIds.Favorite, "Favorite Emoji", emptyList(), pinnable = false))
+        addIfVisible(createGroup(EmojiPickerGroupIds.Favorite, EmojiPickerGroupLabel.Favorite, emptyList(), pinnable = false))
         orderedCustomIds.takeWhile { it in pinnedIds }.forEach { id ->
-            val (title, choices) = groups.getValue(id)
-            addIfVisible(createGroup(id, title, choices, pinnable = true))
+            val (label, choices) = groups.getValue(id)
+            addIfVisible(createGroup(id, label, choices, pinnable = true))
         }
         if (recentChoices.isNotEmpty()) {
-            addIfVisible(createGroup(EmojiPickerGroupIds.Recent, "Recent", recentChoices, pinnable = false))
+            addIfVisible(createGroup(EmojiPickerGroupIds.Recent, EmojiPickerGroupLabel.Recent, recentChoices, pinnable = false))
         }
         if (postSpecificChoices.isNotEmpty()) {
-            addIfVisible(createGroup(EmojiPickerGroupIds.PostSpecific, "Post-specific custom emoji", postSpecificChoices, pinnable = false))
+            addIfVisible(createGroup(EmojiPickerGroupIds.PostSpecific, EmojiPickerGroupLabel.PostSpecific, postSpecificChoices, pinnable = false))
         }
         orderedCustomIds.drop(pinnedIds.size).forEach { id ->
-            val (title, choices) = groups.getValue(id)
-            addIfVisible(createGroup(id, title, choices, pinnable = true))
+            val (label, choices) = groups.getValue(id)
+            addIfVisible(createGroup(id, label, choices, pinnable = true))
         }
-        addIfVisible(createGroup(EmojiPickerGroupIds.Unicode, "Standard emoji", standardChoices, pinnable = false))
+        addIfVisible(createGroup(EmojiPickerGroupIds.Unicode, EmojiPickerGroupLabel.Standard, standardChoices, pinnable = false))
     }
 }
 
@@ -268,14 +278,25 @@ private fun EmojiChoice.isCustomIdentity(): Boolean = emoji != null || submissio
 private fun String.isCustomIdentity(): Boolean = startsWith(":")
 
 @Composable
+private fun EmojiPickerGroup.labelText(): String = when (val label = label) {
+    EmojiPickerGroupLabel.Favorite -> stringResource(R.string.emoji_group_favorite)
+    EmojiPickerGroupLabel.Recent -> stringResource(R.string.emoji_group_recent)
+    EmojiPickerGroupLabel.PostSpecific -> stringResource(R.string.emoji_group_post_specific)
+    EmojiPickerGroupLabel.Standard -> stringResource(R.string.emoji_group_standard)
+    EmojiPickerGroupLabel.Custom -> stringResource(R.string.emoji_group_custom)
+    is EmojiPickerGroupLabel.ServerCategory -> label.value
+}
+
+@Composable
 private fun EmojiGroupHeader(
     group: EmojiPickerGroup,
     onToggleCollapsed: (String) -> Unit,
     onTogglePinned: (String) -> Unit,
 ) {
+    val label = group.labelText()
     val collapseDescription = stringResource(
         if (group.collapsed) R.string.emoji_expand_group else R.string.emoji_collapse_group,
-        group.title,
+        label,
     )
     Row(
         modifier = Modifier
@@ -283,17 +304,17 @@ private fun EmojiGroupHeader(
             .padding(top = 8.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            group.title,
+            Text(
+            label,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (group.pinnable) {
             val pinDescription = when {
-                group.pinned -> stringResource(R.string.emoji_unpin_group, group.title)
-                group.pinEnabled -> stringResource(R.string.emoji_pin_group, group.title)
-                else -> stringResource(R.string.emoji_pin_limit_group, group.title)
+                group.pinned -> stringResource(R.string.emoji_unpin_group, label)
+                group.pinEnabled -> stringResource(R.string.emoji_pin_group, label)
+                else -> stringResource(R.string.emoji_pin_limit_group, label)
             }
             IconButton(
                 onClick = { onTogglePinned(group.id) },

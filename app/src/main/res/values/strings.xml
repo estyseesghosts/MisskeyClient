@@ -177,6 +177,11 @@
     <string name="emoji_picker_retry">Retry</string>
     <string name="emoji_picker_empty">No emoji matched your search.</string>
     <string name="emoji_picker_unsupported">This server does not provide a custom emoji catalog.</string>
+    <string name="emoji_group_favorite">Favorite Emoji</string>
+    <string name="emoji_group_recent">Recent</string>
+    <string name="emoji_group_post_specific">Post-specific custom emoji</string>
+    <string name="emoji_group_standard">Standard emoji</string>
+    <string name="emoji_group_custom">Custom emoji</string>
     <string name="emoji_unicode_section">Standard emoji</string>
     <string name="emoji_recent_section">Recent</string>
     <string name="emoji_collapse_group">Collapse %1$s</string>

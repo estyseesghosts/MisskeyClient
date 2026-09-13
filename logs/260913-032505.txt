@@ -95,3 +95,6 @@ S58 navigation screenshot output:
 S59 account and timeline sheet labels:
 - Replaced direct string state and English timeline descriptions with resource-backed labels.
 - Preserved stored sheet identities and timeline values.
+S60 emoji group labels:
+- Separated built-in group labels from server category names.
+- Kept group IDs unchanged for pin and collapse preferences.
