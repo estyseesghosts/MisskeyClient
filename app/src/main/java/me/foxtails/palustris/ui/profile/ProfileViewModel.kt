@@ -270,7 +270,7 @@ class ProfileViewModel @AssistedInject constructor(
                 selectedReactions = updated.post.selectedReactions,
                 reactions = updated.post.reactions,
                 reposted = updated.post.reposted,
-                reshareCount = updated.post.reshareCount,
+                interactionCounts = existing.interactionCounts.merge(updated.post.interactionCounts),
                 ownRepostId = updated.post.ownRepostId,
                 saved = updated.post.saved,
             )

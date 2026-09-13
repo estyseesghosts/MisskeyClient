@@ -35,6 +35,7 @@ import me.foxtails.palustris.domain.ThreadTreeBuilder
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
 import me.foxtails.palustris.domain.normalizeFavouriteEmoji
+import me.foxtails.palustris.domain.adjustedBy
 
 @HiltViewModel(assistedFactory = PostThreadViewModel.Factory::class)
 class PostThreadViewModel @AssistedInject constructor(
@@ -178,7 +179,11 @@ class PostThreadViewModel @AssistedInject constructor(
         posts[created.post.id] = created
         overlays[created.post.id] = MutationOverlay(confirmedReply = true)
         posts[parentId]?.let { parent ->
-            posts[parentId] = parent.copy(post = parent.post.copy(replyCount = parent.post.replyCount + 1))
+            posts[parentId] = parent.copy(post = parent.post.copy(
+                interactionCounts = parent.post.interactionCounts.copy(
+                    replyCount = parent.post.interactionCounts.replyCount.adjustedBy(1),
+                ),
+            ))
         }
         rebuildState()
         automaticRefreshJob?.cancel()
@@ -191,13 +196,24 @@ class PostThreadViewModel @AssistedInject constructor(
     fun favorite(ownedPost: OwnedPost) {
         val selected = !ownedPost.post.favourited
         val target = ownedPost.effectiveTargetId()
+        val reactionFavourite = source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction
         runAction(ownedPost, PostAction.Favorite, target, { post ->
-            post.copy(
-                favourited = selected,
-                myReaction = if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) {
-                    if (selected) favouriteEmoji else null
-                } else post.myReaction,
-            )
+            if (reactionFavourite) {
+                PostReactionReducer.apply(
+                    post,
+                    EmojiChoice(favouriteEmoji, favouriteEmoji),
+                    selected,
+                    source.capabilities.emoji.selectionMode,
+                    favouriteEmoji,
+                )
+            } else {
+                post.copy(
+                    favourited = selected,
+                    interactionCounts = post.interactionCounts.copy(
+                        favouriteCount = post.interactionCounts.favouriteCount.adjustedBy(if (selected) 1 else -1),
+                    ),
+                )
+            }
         }) {
             if (selected && source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) {
                 ownedPost.post.myReaction?.takeIf { it != favouriteEmoji }?.let { source.removeReaction(target, it) }
@@ -210,7 +226,12 @@ class PostThreadViewModel @AssistedInject constructor(
         val selected = !ownedPost.post.reposted
         val target = ownedPost.effectiveTargetId()
         runAction(ownedPost, PostAction.Reshare, target, { post ->
-            post.copy(reposted = selected, reshareCount = (post.reshareCount + if (selected) 1 else -1).coerceAtLeast(0))
+            post.copy(
+                reposted = selected,
+                interactionCounts = post.interactionCounts.copy(
+                    repostCount = post.interactionCounts.repostCount.adjustedBy(if (selected) 1 else -1),
+                ),
+            )
         }) { source.setReshared(target, selected, ownedPost.post.ownRepostId) }
     }
 
@@ -412,7 +433,7 @@ class PostThreadViewModel @AssistedInject constructor(
 
     private fun reconcile(action: PostAction, current: Post, result: PostActionResult): Post {
         val server = result.post?.takeIf { it.id == current.id }
-        val base = server ?: current
+        val base = server?.copy(interactionCounts = current.interactionCounts.merge(server.interactionCounts)) ?: current
         return when (action) {
             PostAction.Favorite -> base.copy(
                 favourited = result.selected ?: base.favourited,
@@ -430,14 +451,23 @@ class PostThreadViewModel @AssistedInject constructor(
     }
 
     private fun restore(action: PostAction, current: Post, before: Post): Post = when (action) {
-        PostAction.Favorite -> current.copy(favourited = before.favourited, myReaction = before.myReaction)
-        PostAction.Reshare -> current.copy(reposted = before.reposted, reshareCount = before.reshareCount, ownRepostId = before.ownRepostId)
+        PostAction.Favorite -> current.copy(
+            favourited = before.favourited,
+            myReaction = before.myReaction,
+            interactionCounts = before.interactionCounts,
+        )
+        PostAction.Reshare -> current.copy(
+            reposted = before.reposted,
+            interactionCounts = before.interactionCounts,
+            ownRepostId = before.ownRepostId,
+        )
         PostAction.Bookmark -> current.copy(saved = before.saved)
         PostAction.React -> current.copy(
             reactions = before.reactions,
             myReaction = before.myReaction,
             selectedReactions = before.selectedReactions,
             favourited = before.favourited,
+            interactionCounts = before.interactionCounts,
         )
         PostAction.Reply -> current
     }
@@ -472,7 +502,9 @@ class PostThreadViewModel @AssistedInject constructor(
         val favourited: Boolean? = null,
         val myReaction: String? = null,
         val reposted: Boolean? = null,
-        val reshareCount: Int? = null,
+        val favouriteCount: Int? = null,
+        val reactionCount: Int? = null,
+        val repostCount: Int? = null,
         val ownRepostId: me.foxtails.palustris.domain.EntityId? = null,
         val myReactionOverride: Boolean = false,
         val ownRepostIdOverride: Boolean = false,
@@ -484,32 +516,50 @@ class PostThreadViewModel @AssistedInject constructor(
             PostAction.Favorite -> copy(
                 favourited = post.favourited,
                 myReaction = post.myReaction.takeIf { favoriteOwnsReaction },
+                favouriteCount = post.interactionCounts.favouriteCount.takeUnless { favoriteOwnsReaction },
+                reactionCount = post.interactionCounts.reactionCount.takeIf { favoriteOwnsReaction },
                 myReactionOverride = favoriteOwnsReaction,
             )
             PostAction.Reshare -> copy(
                 reposted = post.reposted,
-                reshareCount = post.reshareCount,
+                repostCount = post.interactionCounts.repostCount,
                 ownRepostId = post.ownRepostId,
                 ownRepostIdOverride = true,
             )
             PostAction.Bookmark -> copy(saved = post.saved)
-            PostAction.React -> copy(reactionState = ReactionState(post.reactions, post.myReaction, post.selectedReactions, post.favourited))
+            PostAction.React -> copy(reactionState = ReactionState(
+                post.reactions,
+                post.myReaction,
+                post.selectedReactions,
+                post.favourited,
+                post.interactionCounts.reactionCount,
+            ))
             PostAction.Reply -> this
         }
 
         fun without(action: PostAction) = when (action) {
-            PostAction.Favorite -> copy(favourited = null, myReaction = null, myReactionOverride = false)
-            PostAction.Reshare -> copy(reposted = null, reshareCount = null, ownRepostId = null, ownRepostIdOverride = false)
+            PostAction.Favorite -> copy(
+                favourited = null,
+                myReaction = null,
+                favouriteCount = null,
+                reactionCount = null,
+                myReactionOverride = false,
+            )
+            PostAction.Reshare -> copy(reposted = null, repostCount = null, ownRepostId = null, ownRepostIdOverride = false)
             PostAction.Bookmark -> copy(saved = null)
             PostAction.React -> copy(reactionState = null)
             PostAction.Reply -> this
         }
 
         fun applyTo(post: Post) = post.copy(
-            favourited = favourited ?: post.favourited,
+            favourited = reactionState?.favourited ?: favourited ?: post.favourited,
             myReaction = if (myReactionOverride) myReaction else post.myReaction,
             reposted = reposted ?: post.reposted,
-            reshareCount = reshareCount ?: post.reshareCount,
+            interactionCounts = post.interactionCounts.copy(
+                favouriteCount = favouriteCount ?: post.interactionCounts.favouriteCount,
+                reactionCount = reactionState?.reactionCount ?: reactionCount ?: post.interactionCounts.reactionCount,
+                repostCount = repostCount ?: post.interactionCounts.repostCount,
+            ),
             ownRepostId = if (ownRepostIdOverride) ownRepostId else post.ownRepostId,
             saved = saved ?: post.saved,
             reactions = reactionState?.reactions ?: post.reactions,
@@ -522,6 +572,7 @@ class PostThreadViewModel @AssistedInject constructor(
         val myReaction: String?,
         val selectedReactions: List<EmojiChoice>,
         val favourited: Boolean,
+        val reactionCount: Int?,
     )
 
     private fun PostAction.family(): String = when (this) {

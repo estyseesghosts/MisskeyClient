@@ -144,6 +144,76 @@ class MisskeyMapperTest {
     }
 
     @Test
+    fun noteMapsInteractionCountsAndDistinguishesMissingReactionsFromEmpty() {
+        val note = JSONObject()
+            .put("id", "counts")
+            .put("createdAt", "2026-09-06T10:00:00Z")
+            .put("text", "counts")
+            .put("user", JSONObject().put("id", "u").put("username", "u").put("name", "U"))
+            .put("reactions", JSONObject().put(":one:", 1).put("👍", 2))
+            .put("repliesCount", 0)
+            .put("renoteCount", 0)
+
+        val post = MisskeyMapper.post(note, origin)
+        assertEquals(3, post.interactionCounts.reactionCount)
+        assertEquals(0, post.interactionCounts.replyCount)
+        assertEquals(0, post.interactionCounts.repostCount)
+
+        val empty = MisskeyMapper.post(note.put("reactions", JSONObject()), origin)
+        assertEquals(0, empty.interactionCounts.reactionCount)
+
+        val missing = MisskeyMapper.post(note.put("reactions", JSONObject.NULL), origin)
+        assertNull(missing.interactionCounts.reactionCount)
+    }
+
+    @Test
+    fun noteCountMappingRejectsInvalidValuesAndDoesNotInferQuotes() {
+        val note = JSONObject()
+            .put("id", "invalid-counts")
+            .put("createdAt", "2026-09-06T10:00:00Z")
+            .put("text", "counts")
+            .put("user", JSONObject().put("id", "u").put("username", "u").put("name", "U"))
+            .put("repliesCount", -1)
+            .put("renoteCount", "bad")
+            .put("renote", JSONObject()
+                .put("id", "nested")
+                .put("createdAt", "2026-09-06T09:00:00Z")
+                .put("text", "nested")
+                .put("user", JSONObject().put("id", "u").put("username", "u").put("name", "U")))
+
+        val post = MisskeyMapper.post(note, origin)
+
+        assertNull(post.interactionCounts.replyCount)
+        assertNull(post.interactionCounts.repostCount)
+        assertNull(post.interactionCounts.quoteRepostCount)
+    }
+
+    @Test
+    fun pureRenoteKeepsDisplayedNoteInteractionCounts() {
+        val original = JSONObject()
+            .put("id", "original-counts")
+            .put("createdAt", "2026-09-06T10:00:00Z")
+            .put("text", "Original")
+            .put("user", JSONObject().put("id", "u").put("username", "u").put("name", "U"))
+            .put("repliesCount", 4)
+            .put("renoteCount", 3)
+        val renote = JSONObject()
+            .put("id", "outer-counts")
+            .put("createdAt", "2026-09-06T11:00:00Z")
+            .put("text", JSONObject.NULL)
+            .put("user", JSONObject().put("id", "u").put("username", "u").put("name", "U"))
+            .put("repliesCount", 1)
+            .put("renoteCount", 2)
+            .put("renote", original)
+
+        val post = MisskeyMapper.post(renote, origin)
+
+        assertEquals(4, post.interactionCounts.replyCount)
+        assertEquals(3, post.interactionCounts.repostCount)
+        assertNull(post.interactionCounts.quoteRepostCount)
+    }
+
+    @Test
     fun misskeyAvifImagePreservesMissingThumbnail() {
         val attachment = MisskeyMapper.post(noteWithFile("image/avif", "image.avif"), origin).attachments.single()
 

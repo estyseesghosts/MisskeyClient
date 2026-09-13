@@ -954,8 +954,11 @@ private fun encodePost(post: me.foxtails.palustris.domain.Post): JSONObject = JS
     put("reactions", JSONArray(post.reactions.map(::encodeReaction)))
     put("availableActions", JSONArray(post.availableActions.map { it.name }))
     post.url?.let { put("url", it) }
-    put("replyCount", post.replyCount)
-    put("reshareCount", post.reshareCount)
+    post.interactionCounts.replyCount?.let { put("replyCount", it) }
+    post.interactionCounts.repostCount?.let { put("reshareCount", it) }
+    post.interactionCounts.favouriteCount?.let { put("favouriteCount", it) }
+    post.interactionCounts.reactionCount?.let { put("reactionCount", it) }
+    post.interactionCounts.quoteRepostCount?.let { put("quoteRepostCount", it) }
     post.quote?.let { put("quote", encodePost(it)) }
     put("pollOptions", JSONArray(post.pollOptions.map { option ->
         JSONObject().put("text", option.text).put("votes", option.votes)
@@ -998,8 +1001,13 @@ private fun decodePost(json: JSONObject): me.foxtails.palustris.domain.Post =
             }
         }?.toSet().orEmpty(),
         url = json.optString("url").takeIf { it.isNotBlank() },
-        replyCount = json.optInt("replyCount"),
-        reshareCount = json.optInt("reshareCount"),
+        interactionCounts = me.foxtails.palustris.domain.PostInteractionCounts(
+            favouriteCount = json.optionalNonNegativeInt("favouriteCount"),
+            reactionCount = json.optionalNonNegativeInt("reactionCount"),
+            repostCount = json.optionalNonNegativeInt("reshareCount"),
+            quoteRepostCount = json.optionalNonNegativeInt("quoteRepostCount"),
+            replyCount = json.optionalNonNegativeInt("replyCount"),
+        ),
         quote = json.optJSONObject("quote")?.let { runCatching { decodePost(it) }.getOrNull() },
         pollOptions = json.optJSONArray("pollOptions")?.let { values ->
             (0 until values.length()).mapNotNull { index ->
@@ -1243,6 +1251,18 @@ private fun meFoxtailsNotificationCursor(value: String) = me.foxtails.palustris.
 private fun Notification.matches(query: NotificationQuery): Boolean {
     if (query.isAll) return true
     return query.categories.any(activity::matchesCategory)
+}
+
+private fun JSONObject.optionalNonNegativeInt(key: String): Int? {
+    if (!has(key) || isNull(key)) return null
+    val value = opt(key) ?: return null
+    val raw = when (value) {
+        is Number, is String -> value.toString()
+        else -> return null
+    }
+    return runCatching { java.math.BigDecimal(raw).toBigIntegerExact().intValueExact() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
 }
 
 private fun stableNotificationId(id: EntityId): Int = (id.connection + "\u0000" + id.value).hashCode()

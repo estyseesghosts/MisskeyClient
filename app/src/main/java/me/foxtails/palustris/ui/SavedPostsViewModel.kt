@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.SavedPostsKind
@@ -106,7 +107,16 @@ class SavedPostsViewModel @AssistedInject constructor(
         unsaveJobs[key]?.cancel()
         val before = ownedPost.post
         val selected = before.favourited
-        updatePost(before.id) { it.copy(favourited = !selected) }
+        val reactionFavourite = source.capabilities.primaryFavourite.mode == me.foxtails.palustris.domain.PrimaryFavouriteMode.Reaction
+        updatePost(before.id) { post ->
+            post.copy(
+                favourited = !selected,
+                interactionCounts = post.interactionCounts.copy(
+                    favouriteCount = post.interactionCounts.favouriteCount.adjustedBy(if (reactionFavourite) 0 else if (selected) -1 else 1),
+                    reactionCount = post.interactionCounts.reactionCount.adjustedBy(if (reactionFavourite) if (selected) -1 else 1 else 0),
+                ),
+            )
+        }
         val job = viewModelScope.launch {
             try {
                 val target = before.actionTargetId ?: before.id
@@ -206,7 +216,7 @@ class SavedPostsViewModel @AssistedInject constructor(
         selectedReactions = incoming.selectedReactions,
         reactions = incoming.reactions,
         reposted = incoming.reposted,
-        reshareCount = incoming.reshareCount,
+        interactionCounts = existing.interactionCounts.merge(incoming.interactionCounts),
         ownRepostId = incoming.ownRepostId,
         saved = incoming.saved,
     )

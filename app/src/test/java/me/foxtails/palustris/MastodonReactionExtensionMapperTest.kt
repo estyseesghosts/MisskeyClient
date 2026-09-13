@@ -121,4 +121,19 @@ class MastodonReactionExtensionMapperTest {
                 .map { it.submissionValue },
         )
     }
+
+    @Test
+    fun aggregateCountIsUnavailableWhenAnEntryIsDiscarded() {
+        val json = statusWith(JSONArray()
+            .put(JSONObject().put("name", ":ok:").put("count", 2))
+            .put(JSONObject().put("name", "").put("count", 3)))
+
+        assertNull(MastodonReactionExtensionMapper.aggregateCount(json, statusEmoji))
+    }
+
+    @Test
+    fun aggregateCountPreservesAnEmptyExtensionAsZero() {
+        assertTrue(MastodonReactionExtensionMapper.hasReactionExtension(statusWith(JSONArray())))
+        assertEquals(0, MastodonReactionExtensionMapper.aggregateCount(statusWith(JSONArray()), statusEmoji))
+    }
 }

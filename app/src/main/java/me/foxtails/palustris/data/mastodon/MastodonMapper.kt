@@ -21,6 +21,7 @@ import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PostContentVisibility
+import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.ProfileRelationship
@@ -174,6 +175,16 @@ object MastodonMapper {
         val contentVisibility = if (filtered) PostContentVisibility.Filtered else PostContentVisibility.Visible
         val emoji = MastodonEmojiMapper.parseEmojis(json.optJSONArray("emojis"), origin)
         val extensionReactions = MastodonReactionExtensionMapper.reactions(json, emoji)
+        val interactionCounts = PostInteractionCounts(
+            favouriteCount = json.optionalNonNegativeInt("favourites_count"),
+            reactionCount = MastodonReactionExtensionMapper.aggregateCount(json, emoji),
+            repostCount = checkedSum(
+                json.optionalNonNegativeInt("reblogs_count"),
+                json.optionalNonNegativeInt("quotes_count"),
+            ),
+            quoteRepostCount = json.optionalNonNegativeInt("quotes_count"),
+            replyCount = json.optionalNonNegativeInt("replies_count"),
+        )
         val selectedReactions = MastodonReactionExtensionMapper.selectedChoices(
             json, emoji, independentSelection = true,
         ).orEmpty()
@@ -197,8 +208,7 @@ object MastodonMapper {
                 ?.let { AccountId(Connection(origin, Protocol.MASTODON), it) },
             availableActions = if (filtered) emptySet() else MASTODON_ACTIONS,
             url = json.nullableString("url") ?: json.nullableString("uri"),
-            replyCount = json.optInt("replies_count"),
-            reshareCount = json.optInt("reblogs_count"),
+            interactionCounts = interactionCounts,
             quote = if (filtered) null else quotedStatus?.takeIf { depth < MAX_NESTING_DEPTH }?.let { post(it, origin, depth + 1) },
             pollOptions = poll?.optJSONArray("options")?.let { options ->
                 (0 until options.length()).map { option ->
@@ -269,6 +279,24 @@ private fun JSONObject.optionalNonNegativeLong(key: String): Long? {
         else -> null
     }
     return parsed?.takeIf { it >= 0L }
+}
+
+private fun JSONObject.optionalNonNegativeInt(key: String): Int? {
+    if (!has(key) || isNull(key)) return null
+    val value = opt(key) ?: return null
+    val raw = when (value) {
+        is Number, is String -> value.toString()
+        else -> return null
+    }
+    return runCatching { java.math.BigDecimal(raw).toBigIntegerExact().intValueExact() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+}
+
+private fun checkedSum(first: Int?, second: Int?): Int? = when {
+    first == null -> null
+    second == null -> first
+    else -> runCatching { Math.addExact(first, second) }.getOrNull()
 }
 
 private fun String.toMastodonMimeType(): String = when (this) {
