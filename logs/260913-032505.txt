@@ -249,3 +249,7 @@ S40 action-transform review:
 S41 push interface:
 - Moved `PushRegistrationManager`, `PushRegistrationWorkResult`, and `NoOpPushRegistrationManager` into `data/notifications/push/PushRegistrationManager.kt`.
 - Preserved manager construction and worker imports.
+S42 push message handling:
+- Moved distributor message decoding, Misskey notification/chat/read-all handling, protocol dispatch, catch-up scheduling, and cancellation handling into `UnifiedPushMessageHandler`.
+- Kept registration orchestration, endpoint ownership, and its mutex in `UnifiedPushRegistrationManager`.
+- Verification passed: push parser/repository/connector tests and Kotlin compilation.
