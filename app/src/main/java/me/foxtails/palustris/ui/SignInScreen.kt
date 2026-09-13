@@ -34,6 +34,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.R
 import me.foxtails.palustris.data.SocialSourceFactory
@@ -82,6 +83,7 @@ fun ConnectedApp(
     postPreferencesRepository: PostPreferencesRepository = me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository(),
 ) {
     val state by accountManager.session.collectAsStateWithLifecycle()
+    val settingsScope = rememberCoroutineScope()
     val accountIndex by accountManager.accountIndex.collectAsStateWithLifecycle()
     val appPreferences by appPreferencesRepository.observe().collectAsStateWithLifecycle(AppPreferencesState())
     me.foxtails.palustris.ui.links.ExternalLinkHandler.cleanTrackingParameters = appPreferences.preferences.cleanTrackingParameters
@@ -448,16 +450,16 @@ fun ConnectedApp(
                 route = settingsRoute,
                 onRoute = { settingsRoute = it },
                  onBack = { settingsVisible = false },
-                 onColorScheme = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(colorScheme = value) } },
-                 onColorPalette = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(colorScheme = AppColorScheme.Palette, colorPalette = value) } },
-                 onBackground = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(background = value) } },
-                onTextSize = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(textSize = value) } },
-                onFont = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(font = value) } },
-                onRequest60Hz = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(request60Hz = value) } },
-                onLanguage = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(language = value) } },
-                onTrackingCleanup = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(cleanTrackingParameters = value) } },
-                 onContentWarningRules = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(contentWarningRules = value) } },
-                 onHiddenContentPresentation = { value -> settingsViewModelUpdate(appPreferencesRepository) { it.copy(hiddenContentPresentation = value) } },
+                  onColorScheme = { value -> settingsViewModelUpdate(settingsScope, appPreferencesRepository) { it.copy(colorScheme = value) } },
+                  onColorPalette = { value -> settingsViewModelUpdate(settingsScope, appPreferencesRepository) { it.copy(colorScheme = AppColorScheme.Palette, colorPalette = value) } },
+                  onBackground = { value -> settingsViewModelUpdate(settingsScope, appPreferencesRepository) { it.copy(background = value) } },
+                 onTextSize = { value -> settingsViewModelUpdate(settingsScope, appPreferencesRepository) { it.copy(textSize = value) } },
+                 onFont = { value -> settingsViewModelUpdate(settingsScope, appPreferencesRepository) { it.copy(font = value) } },
+                 onRequest60Hz = { value -> settingsViewModelUpdate(settingsScope, appPreferencesRepository) { it.copy(request60Hz = value) } },
+                 onLanguage = { value -> settingsViewModelUpdate(settingsScope, appPreferencesRepository) { it.copy(language = value) } },
+                 onTrackingCleanup = { value -> settingsViewModelUpdate(settingsScope, appPreferencesRepository) { it.copy(cleanTrackingParameters = value) } },
+                  onContentWarningRules = { value -> settingsViewModelUpdate(settingsScope, appPreferencesRepository) { it.copy(contentWarningRules = value) } },
+                  onHiddenContentPresentation = { value -> settingsViewModelUpdate(settingsScope, appPreferencesRepository) { it.copy(hiddenContentPresentation = value) } },
                  postPreferences = postPreferences,
                  postPreferencesAccountLabel = activeSession?.let { session ->
                      accountIndex.accounts.firstOrNull { it.accountId == session.accountId }?.handle ?: session.accountId.localId
@@ -482,11 +484,14 @@ fun ConnectedApp(
                   onModerationRemove = { moderationModel?.remove(it) },
                   onModerationAddLocalHashtag = { moderationModel?.addLocalHashtag(it) },
                   onModerationRemoveLocalHashtag = { moderationModel?.removeLocalHashtag(it) },
-                onPostPreferences = { value ->
-                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate).launch {
-                        activeSession?.accountId?.let { postPreferencesRepository.update(it) { value } }
-                    }
-                },
+                 onPostPreferences = { value ->
+                     val accountId = activeSession?.accountId
+                     settingsScope.launch {
+                         runCatching {
+                             accountId?.let { postPreferencesRepository.update(it) { value } }
+                         }
+                     }
+                 },
             )
         }
         }
@@ -495,11 +500,12 @@ fun ConnectedApp(
 }
 
 private fun settingsViewModelUpdate(
+    scope: CoroutineScope,
     repository: AppPreferencesRepository,
     transform: (me.foxtails.palustris.domain.AppPreferences) -> me.foxtails.palustris.domain.AppPreferences,
 ) {
-    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate).launch {
-        repository.update(transform)
+    scope.launch {
+        runCatching { repository.update(transform) }
     }
 }
 

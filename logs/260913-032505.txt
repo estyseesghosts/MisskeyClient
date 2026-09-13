@@ -14,3 +14,8 @@ S01 compact overlay metrics:
 - Moved contextual navigation presentation to `ui/navigation/CompactAppNavigation.kt`.
 - Updated all production callers without changing state ownership or calculations.
 - Verification passed: compact/wide navigation, Home, Photo Grid, direct-message Compose tests, compile, and lint.
+S06 settings command ownership:
+- Routed active settings and post-preference commands through the connected composition scope.
+- Captured the selected account before a suspended post-preference update.
+- Kept command failures contained instead of launching unmanaged Main scopes.
+- Verification passed: sign-in and application-preference tests, and lint.
