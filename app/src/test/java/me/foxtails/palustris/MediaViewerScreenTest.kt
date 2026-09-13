@@ -248,10 +248,14 @@ class MediaViewerScreenTest {
                 }
             }
             compose.waitUntil(timeoutMillis = 3_000) { firstFullRequests.get() > 0 }
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle()
             val firstRequestsBeforeSwipes = firstFullRequests.get()
             compose.onNodeWithContentDescription("Media viewer").performTouchInput {
                 swipe(center, center + Offset(-1_200f, 0f), durationMillis = 180)
             }
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle()
             compose.waitUntil(timeoutMillis = 3_000) { secondFullRequests.get() > 0 }
             val firstRequestsAfterForwardSwipe = firstFullRequests.get()
             val secondRequestsAfterForwardSwipe = secondFullRequests.get()

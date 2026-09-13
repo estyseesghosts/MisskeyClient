@@ -147,3 +147,6 @@ S22 emoji scrollbar boundary:
 - Moved the existing scrollbar model and math to ui/emoji/EmojiGridScrollbar.kt without changing the algorithm.
 - Kept the existing direct JVM test boundary.
 - Verification passed: `EmojiGridScrollbarTest` and Kotlin compilation.
+Media test follow-up:
+- Advanced the Compose test clock through viewer opening and pager settling before bounded request assertions.
+- Verification passed: `MediaViewerScreenTest.selectedAttachmentsRemainOnFullQualityAfterSwipingBack`.
