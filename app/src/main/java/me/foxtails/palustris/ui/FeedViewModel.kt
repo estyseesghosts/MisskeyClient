@@ -555,20 +555,20 @@ class FeedViewModel @AssistedInject constructor(
         optimistic: (Post) -> Post,
         operation: suspend () -> PostActionResult,
     ) {
-        if (stopped || ownedPost.fetchedBy != accountId) return
+        if (stopped || ownedPost.fetchedBy != accountId || ownedPost.sessionRevision != sessionRevision) return
         if (action !in _feed.value.actions) return
-        val key = ActionKey(action, ownedPost.post.id)
+        val key = ActionKey(actionFamily(action), ownedPost.effectiveTargetId())
         if (actionJobs[key]?.isActive == true) return
         val before = ownedPost.post
         val optimisticPost = optimistic(before)
-        updatePost(ownedPost.post.id) { optimisticPost }
+        updatePost(ownedPost.effectiveTargetId()) { optimisticPost }
         val job = viewModelScope.launch {
             _feed.value = _feed.value.copy(error = null, needsSignIn = false)
             try {
                 val result = operation()
-                updatePost(ownedPost.post.id) { current -> reconcileAction(action, current, result) }
+                updatePost(ownedPost.effectiveTargetId()) { current -> reconcileAction(action, current, result) }
             } catch (e: Exception) {
-                updatePost(ownedPost.post.id) { before }
+                updatePost(ownedPost.effectiveTargetId()) { current -> rollbackAction(action, current, before) }
                 if (e is CancellationException) throw e
                 feedFailure(e)
             } finally {
@@ -628,12 +628,14 @@ class FeedViewModel @AssistedInject constructor(
 
     private fun updatePost(id: EntityId, transform: (Post) -> Post) {
         _feed.value = _feed.value.copy(
-            posts = _feed.value.posts.map { if (it.id == id) transform(it) else it },
+            posts = _feed.value.posts.map { if (it.id == id || it.actionTargetId == id) transform(it) else it },
             ownedPosts = _feed.value.ownedPosts.map { owned ->
-                if (owned.post.id == id && owned.fetchedBy == accountId) owned.copy(post = transform(owned.post)) else owned
+                if (owned.effectiveTargetId() == id && owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision) {
+                    owned.copy(post = transform(owned.post))
+                } else owned
             },
             accountSearch = _feed.value.accountSearch.copy(
-                posts = _feed.value.accountSearch.posts.map { if (it.id == id) transform(it) else it },
+                posts = _feed.value.accountSearch.posts.map { if (it.id == id || it.actionTargetId == id) transform(it) else it },
             ),
         )
         _photoGridFeed.value = _photoGridFeed.value.copy(
@@ -716,6 +718,50 @@ class FeedViewModel @AssistedInject constructor(
     override fun onCleared() {
         stop()
         super.onCleared()
+    }
+
+    private fun actionFamily(action: PostAction): PostAction = when (action) {
+        PostAction.Favorite, PostAction.React -> PostAction.Favorite
+        else -> action
+    }
+
+    private fun rollbackAction(action: PostAction, current: Post, before: Post): Post = when (action) {
+        PostAction.Favorite -> if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) {
+            current.copy(
+                favourited = before.favourited,
+                myReaction = before.myReaction,
+                selectedReactions = before.selectedReactions,
+                reactions = before.reactions,
+                interactionCounts = current.interactionCounts.copy(
+                    reactionCount = before.interactionCounts.reactionCount,
+                ),
+            )
+        } else {
+            current.copy(
+                favourited = before.favourited,
+                interactionCounts = current.interactionCounts.copy(
+                    favouriteCount = before.interactionCounts.favouriteCount,
+                ),
+            )
+        }
+        PostAction.React -> current.copy(
+            favourited = before.favourited,
+            myReaction = before.myReaction,
+            selectedReactions = before.selectedReactions,
+            reactions = before.reactions,
+            interactionCounts = current.interactionCounts.copy(
+                reactionCount = before.interactionCounts.reactionCount,
+            ),
+        )
+        PostAction.Reshare -> current.copy(
+            reposted = before.reposted,
+            ownRepostId = before.ownRepostId,
+            interactionCounts = current.interactionCounts.copy(
+                repostCount = before.interactionCounts.repostCount,
+            ),
+        )
+        PostAction.Bookmark -> current.copy(saved = before.saved)
+        PostAction.Reply -> current
     }
 
     private data class ActionKey(val action: PostAction, val postId: EntityId)

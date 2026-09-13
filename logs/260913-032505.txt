@@ -56,3 +56,9 @@ S25 notification checkpoint ownership:
 - Rejected foreign pages without publication or checkpoint changes.
 - Added foreign checkpoint and entity-origin coverage.
 - Verification passed: `NotificationRepositoryTest` and lint.
+S36 concurrent post action rollback:
+- Serialized favourite and reaction actions by effective target identity.
+- Rejected stale-session mutation inputs.
+- Limited rollback to the action family and preserved unrelated action fields and counts.
+- Updated wrapper posts through their effective target.
+- Verification passed: reaction/session tests and lint.
