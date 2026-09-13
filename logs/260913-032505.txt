@@ -289,3 +289,7 @@ S51 media transition layer:
 - Moved transition image rendering, clipping, frame geometry, crop fitting, and drawable-size handling into `ui/media/MediaViewerTransitionLayer.kt`.
 - Preserved separate image, clip, visible bounds, corner clipping, and request readiness callbacks.
 - Verification passed: `MediaViewerScreenTest`, media carousel tests, and Kotlin compilation.
+S52 media dismiss gesture review:
+- Kept vertical dismiss interpretation in `MediaViewerScreen` because its pointer pass, pager arbitration, zoom cancellation, velocity handling, and close handoff are still tested only through the integrated viewer.
+- No isolated event contract exists that would make a separate gesture owner safer.
+- Verification passed: existing media viewer gesture coverage and source review.
