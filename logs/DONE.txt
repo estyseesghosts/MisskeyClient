@@ -277,3 +277,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved local-page and notification-route top-bar rendering to `ui/AppDestinationTopBar.kt`.
 - Preserved saved page identities, resource titles, and root Back behavior.
 - Verification passed: `NavigationTest`.
+260913-032505 S15 wide detail assembly:
+- Moved wide selected-post detail rendering to `ui/AppLargeDetailPane.kt`.
+- Kept latest selected-post lookup, origin-specific actions, thread gating, and callbacks in the root coordinator.
+- Verification passed: `WideNavigationTest`, `NavigationTest`, and Kotlin compilation.

@@ -1076,61 +1076,39 @@ fun PalustrisApp(
                         onOpenAccounts = { clearPostActionBubble(); sheet = "Accounts" },
                         onCompose = ::openComposer,
                         primaryContent = { paneModifier -> destinationScaffold(paneModifier) },
-                        detailContent = { paneModifier ->
-                             val selected = selectedThreadState?.focal ?: latestSelectedPost()
-                             if (selected != null) {
-                                 val threadEnabled = selectedThreadState != null && singlePostOrigin.supportsComments()
-                                  SinglePostScreen(
-                                      ownedPost = selected,
-                                      presentation = singlePostOrigin.singlePostPresentation(),
-                                      onClose = { singlePost = null },
-                                     availableActions = (feedState?.actions ?: emptySet()) +
-                                         if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
-                                      onReact = if (threadEnabled) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
-                                     onReply = handleReply,
-                                     onReshare = if (threadEnabled) onThreadReshare else onReshare,
-                                     onBookmark = if (threadEnabled) onThreadBookmark else onBookmark,
-                                      onReaction = if (threadEnabled) onThreadReaction else when (singlePostOrigin) {
-                                         LargePostOrigin.Profile -> onProfilePostReaction
-                                         LargePostOrigin.Saved -> onSavedPostReaction
-                                         LargePostOrigin.Liked -> onLikedPostReaction
-                                         else -> onReaction
-                                    },
-                                    onOpenProfile = ::openProfile,
-                                    onSearchHashtag = ::openHashtagSearch,
-                                    onOpenHashtagBubble = ::openHashtagBubble,
-                                    onOpenReactionBubble = { post, bounds ->
-                                        openReactionBubble(
-                                            post,
-                                            bounds,
-                                         when {
-                                             threadEnabled -> onThreadReaction
-                                             else -> when (singlePostOrigin) {
-                                          LargePostOrigin.Profile -> onProfilePostReaction
-                                          LargePostOrigin.Saved -> onSavedPostReaction
-                                          LargePostOrigin.Liked -> onLikedPostReaction
-                                          else -> onReaction
-                                             }
-                                         },
-                                        )
-                                    },
-                                    onOpenMedia = ::openMedia,
-                                    onOpenUsername = ::openAccountSearch,
-                                    embedded = true,
-                                     threadState = selectedThreadState.takeIf { threadEnabled },
-                                     onThreadRefresh = onThreadRefresh,
-                                     onThreadContinue = onThreadContinue,
-                                     contentWarningRules = contentWarningRules,
-                                    quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
-                                    onQuote = ::openQuote,
-                                    modifier = paneModifier,
-                                )
-                            } else {
-                                Box(paneModifier, contentAlignment = Alignment.Center) {
-                                     EmptyState(AppIcons.Home, stringResource(R.string.post_select_title), stringResource(R.string.post_select_subtitle))
-                                }
-                            }
-                        },
+                         detailContent = { paneModifier ->
+                             val threadEnabled = selectedThreadState != null && singlePostOrigin.supportsComments()
+                             val detailReaction = if (threadEnabled) onThreadReaction else when (singlePostOrigin) {
+                                 LargePostOrigin.Profile -> onProfilePostReaction
+                                 LargePostOrigin.Saved -> onSavedPostReaction
+                                 LargePostOrigin.Liked -> onLikedPostReaction
+                                 else -> onReaction
+                             }
+                             AppLargeDetailPane(
+                                 selected = selectedThreadState?.focal ?: latestSelectedPost(),
+                                 origin = singlePostOrigin,
+                                 availableActions = feedState?.actions ?: emptySet(),
+                                 threadState = selectedThreadState,
+                                 onClose = { singlePost = null },
+                                 onReact = if (threadEnabled) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
+                                 onReply = handleReply,
+                                 onReshare = if (threadEnabled) onThreadReshare else onReshare,
+                                 onBookmark = if (threadEnabled) onThreadBookmark else onBookmark,
+                                 onReaction = detailReaction,
+                                 onOpenProfile = ::openProfile,
+                                 onSearchHashtag = ::openHashtagSearch,
+                                 onOpenHashtagBubble = ::openHashtagBubble,
+                                 onOpenReactionBubble = { post, bounds, handler -> openReactionBubble(post, bounds, handler) },
+                                 onOpenMedia = ::openMedia,
+                                 onOpenUsername = ::openAccountSearch,
+                                 onThreadRefresh = onThreadRefresh,
+                                 onThreadContinue = onThreadContinue,
+                                 contentWarningRules = contentWarningRules,
+                                 quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
+                                 onQuote = ::openQuote,
+                                 modifier = paneModifier,
+                             )
+                         },
                     )
                 } else {
                     destinationScaffold(Modifier.fillMaxSize())
