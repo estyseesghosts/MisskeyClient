@@ -856,16 +856,41 @@ fun PalustrisApp(
                                  largeLayout = largePresentation,
                              )
                          } else when (animatedDestination) {
-                                     Destination.Home -> if (feedState != null) HomeFeed(state = feedState, compactLayout = !largePresentation, onRefresh = { onRefresh(timeline) }, onLoadMore = { onLoadMore(timeline) }, onSignIn = onSignOut, ownedPosts = ownedPosts ?: feedState.ownedPosts, onScrollDirectionChanged = { if (currentDestination == Destination.Home) navigationVisible = it }, onReact = onReact, onReply = handleReply, onReshare = onReshare, onBookmark = onBookmark, onReaction = onReaction, listState = homeListState, topContentPadding = if (largePresentation) 16.dp else null, bottomContentClearance = if (largePresentation) LargeBottomDockClearance else null, refreshIndicatorTopPadding = if (largePresentation) 16.dp else null, bottomDock = if (largePresentation) ({
-                                        LargeTimelineDockContent(availableTimelines, timeline) { item ->
+                                      Destination.Home -> if (feedState != null) AppHomeDestinationContent(
+                                          state = feedState,
+                                          compactLayout = !largePresentation,
+                                          onRefresh = { onRefresh(timeline) },
+                                          onLoadMore = { onLoadMore(timeline) },
+                                          onSignIn = onSignOut,
+                                          ownedPosts = ownedPosts ?: feedState.ownedPosts,
+                                          onScrollDirectionChanged = { if (currentDestination == Destination.Home) navigationVisible = it },
+                                          onReact = onReact,
+                                          onReply = handleReply,
+                                          onReshare = onReshare,
+                                          onBookmark = onBookmark,
+                                          onReaction = onReaction,
+                                          onOpenReactionBubble = { ownedPost, bounds -> openReactionBubble(ownedPost, bounds, onReaction) },
+                                          onQuote = ::openQuote,
+                                          onOpenProfile = ::openProfile,
+                                          onSearchHashtag = ::openHashtagSearch,
+                                          onOpenHashtagBubble = ::openHashtagBubble,
+                                          onOpenMedia = ::openMedia,
+                                          onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Home) },
+                                          onOpenUsername = ::openAccountSearch,
+                                          listState = homeListState,
+                                          topContentPadding = if (largePresentation) 16.dp else null,
+                                          bottomContentClearance = if (largePresentation) LargeBottomDockClearance else null,
+                                          refreshIndicatorTopPadding = if (largePresentation) 16.dp else null,
+                                          bottomDock = if (largePresentation) ({
+                                         LargeTimelineDockContent(availableTimelines, timeline) { item ->
                                             val changed = item != timeline
                                             if (changed) clearSelectedPost()
                                             timeline = item
                                             if (changed) onRefresh(item)
                                        }
-                                    }) else null, contentWarningRules = contentWarningRules, onOpenReactionBubble = { ownedPost, bounds ->
-                                      openReactionBubble(ownedPost, bounds, onReaction)
-                                     }, onQuote = ::openQuote, onOpenProfile = ::openProfile, onSearchHashtag = ::openHashtagSearch, onOpenHashtagBubble = ::openHashtagBubble, onOpenMedia = ::openMedia, onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Home) }, onOpenUsername = ::openAccountSearch) else Box(Modifier.fillMaxSize()) {
+                                     }) else null,
+                                          contentWarningRules = contentWarningRules,
+                                      ) else Box(Modifier.fillMaxSize()) {
                                         EmptyState(AppIcons.Home, stringResource(R.string.feed_timeline_empty_title), stringResource(R.string.feed_timeline_empty_subtitle, stringResource(timelineLabelRes(timeline))))
                                        if (largePresentation) {
                                            LargeBottomDock(modifier = Modifier.align(Alignment.BottomStart), content = {

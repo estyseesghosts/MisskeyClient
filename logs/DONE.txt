@@ -289,3 +289,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved notification detail route rendering to `ui/AppNotificationDetailContent.kt`.
 - Preserved notification target dispatch, post actions, and large-layout content-warning behavior.
 - Verification passed: `NavigationTest`, `NotificationRouteResolverTest`, and Kotlin compilation.
+260913-032505 S14 Home sub-slice:
+- Moved Home destination composition to `ui/AppHomeDestinationContent.kt`.
+- Preserved timeline refresh and paging, wide dock behavior, list state, scroll visibility, and post callbacks.
+- Verification passed: `HomeFeedTest`, `NavigationTest`, and Kotlin compilation.
