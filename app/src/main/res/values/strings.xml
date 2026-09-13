@@ -298,6 +298,8 @@
     <string name="post_action_bookmark">Bookmark</string>
     <string name="post_action_remove_bookmark">Remove bookmark</string>
     <string name="post_action_share">Share</string>
+    <string name="post_action_repost_confirmation">repost?</string>
+    <string name="post_action_undo_repost_confirmation">undo repost?</string>
     <string name="post_action_share_post">Share post</string>
     <string name="post_action_selected">Selected</string>
     <string name="post_action_not_selected">Not selected</string>

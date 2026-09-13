@@ -1,7 +1,6 @@
 # Active tasks
 
-- Add repost confirmation state. (in progress)
-- Add favorite and reaction indicator state coverage.
+- Add favorite and reaction indicator state coverage. (in progress)
 - Add report and moderation adapter contracts.
 - Add the Beeline share-action sheet.
 - Replace setup UI.

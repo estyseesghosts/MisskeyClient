@@ -127,6 +127,8 @@ import me.foxtails.palustris.ui.large.LargeTimelineDockContent
 import me.foxtails.palustris.ui.large.largeLayoutMode
 import me.foxtails.palustris.ui.large.LargeLayoutMode
 import me.foxtails.palustris.ui.thread.PostThreadUiState
+import me.foxtails.palustris.ui.posts.LocalPostRepostConfirmationOwner
+import me.foxtails.palustris.ui.posts.PostRepostConfirmationOwner
 import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.layout.CompactFilterDockHeight as movedCompactFilterDockHeight
 import me.foxtails.palustris.ui.layout.CompactOverlayControlSpacing as movedCompactOverlayControlSpacing
@@ -245,7 +247,11 @@ fun PalustrisApp(
     onNotificationPushConnectionTest: () -> Unit = {},
 ) {
     val mediaTransitionRegistry = remember { MediaTransitionRegistry() }
-    CompositionLocalProvider(LocalMediaTransitionRegistry provides mediaTransitionRegistry) {
+    val repostConfirmationOwner = remember(account?.id, sessionGeneration) { PostRepostConfirmationOwner() }
+    CompositionLocalProvider(
+        LocalMediaTransitionRegistry provides mediaTransitionRegistry,
+        LocalPostRepostConfirmationOwner provides repostConfirmationOwner,
+    ) {
     val context = LocalContext.current
     val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
     val scope = rememberCoroutineScope()
@@ -380,6 +386,7 @@ fun PalustrisApp(
         postActionBubbleTarget = null
         postReactionHandler = null
         pendingEmojiInsertion = null
+        repostConfirmationOwner.dismiss()
         onThreadDeactivate()
     }
     LaunchedEffect(destination, searchPanel, account?.id, sessionGeneration) {
@@ -398,6 +405,7 @@ fun PalustrisApp(
         postActionBubbleTarget = null
         postReactionHandler = null
         pendingExpandedReactionTarget = null
+        repostConfirmationOwner.dismiss()
     }
     LaunchedEffect(pendingExpandedReactionTarget, postActionBubbleTarget) {
         val pending = pendingExpandedReactionTarget ?: return@LaunchedEffect

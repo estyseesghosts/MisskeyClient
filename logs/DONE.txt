@@ -124,6 +124,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added account- and session-keyed heart gesture classification with platform long-press timing, slop handling, directional thresholds, cancellation, and one-shot picker callbacks.
 - Preserved the compact bubble upward-drag recognizer for the second-stage gesture.
 - Focused verification passed: ReactionPickerGestureTest and the app-level expanded-picker test.
+260913-090345 Repost confirmation slice:
+- Added account- and session-bound UI confirmation state with stale projected-state reconciliation and replacement behavior.
+- Repost taps now open an anchored reusable pill and execute the existing mutation only after confirmation.
+- Back, outside taps, navigation, and account changes dismiss pending confirmation.
+- Focused verification passed: PostRepostConfirmationOwnerTest and updated account-ownership UI tests.
  - Pushed the six stabilization commits to `origin/feature/foldable-ui` through `d548130`.
 260910-131102 Release pipeline:
 - Added a tag-driven signed APK workflow with test and lint gates.

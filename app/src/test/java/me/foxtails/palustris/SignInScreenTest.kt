@@ -132,6 +132,7 @@ class SignInScreenTest {
 
         compose.onNodeWithContentDescription("Favorite").performClick()
         compose.onNodeWithContentDescription("Repost").performClick()
+        compose.onNodeWithText("repost?").performClick()
         assertEquals(fetchingAccount.id, favoritedPost?.fetchedBy)
         assertEquals(fetchingAccount.id, resharedPost?.fetchedBy)
     }
@@ -215,6 +216,7 @@ class SignInScreenTest {
         compose.onNodeWithText("Local").assertDoesNotExist()
         compose.onAllNodesWithText("Federated").onLast().performClick()
         compose.onNodeWithContentDescription("Repost").performClick()
+        compose.onNodeWithText("repost?").performClick()
         assertEquals(second.id, actionPost?.fetchedBy)
     }
 

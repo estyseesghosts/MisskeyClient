@@ -48,6 +48,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -85,6 +87,9 @@ import me.foxtails.palustris.ui.motion.rememberSelectedColor
 import me.foxtails.palustris.ui.motion.springPress
 import me.foxtails.palustris.ui.large.LargeBottomDock
 import me.foxtails.palustris.ui.posts.reactionPickerGesture
+import me.foxtails.palustris.ui.components.PillAction
+import me.foxtails.palustris.ui.posts.LocalPostRepostConfirmationOwner
+import me.foxtails.palustris.ui.posts.PostRepostConfirmationOwner
 
 internal fun openExternal(context: Context, url: String?) {
     val uri = url?.let { me.foxtails.palustris.ui.links.ExternalLinkHandler.prepare(it) }?.toUri() ?: return
@@ -142,11 +147,15 @@ internal fun PostRow(
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
+    val repostConfirmationOwner = LocalPostRepostConfirmationOwner.current
     var expanded by rememberSaveable(post.id.connection, post.id.value) { mutableStateOf(false) }
     val presentation = remember(post.text, post.emoji) { parseHashtagBlocks(post.text, post.emoji) }
     val hashtags = remember(post.text, post.emoji) { postHashtags(post.text, post.emoji) }
     val warningDecision = remember(post.contentWarning, hashtags, contentWarningRules) {
         ContentWarningPolicy.decide(post.contentWarning, hashtags, contentWarningRules, bodyText = post.text)
+    }
+    LaunchedEffect(ownedPost.fetchedBy, post.id, ownedPost.sessionRevision, post.reposted) {
+        repostConfirmationOwner.reconcile(ownedPost)
     }
     val contentVisible = warningDecision != ContentWarningDecision.Hidden &&
         (post.contentWarning == null || expanded || warningDecision == ContentWarningDecision.ExpandedByDefault)
@@ -311,6 +320,8 @@ internal fun PostRow(
                  onOpenReactionBubble(target, bounds)
              },
              onOpenReactionPicker = onOpenReactionPicker,
+             onRepostConfirmationRequest = { target, bounds -> repostConfirmationOwner.request(target, bounds) },
+             repostConfirmationOwner = repostConfirmationOwner,
              onShare = { sharePost(context, post) },
         )
     }
@@ -630,10 +641,13 @@ internal fun InteractionRow(
     onQuote: (OwnedPost) -> Unit,
     onOpenReactionBubble: (OwnedPost, Rect) -> Unit,
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
+    onRepostConfirmationRequest: (OwnedPost, Rect) -> Unit = { _, _ -> },
+    repostConfirmationOwner: PostRepostConfirmationOwner = LocalPostRepostConfirmationOwner.current,
     onShare: () -> Unit,
 ) {
     val context = LocalContext.current
     val actionDescription = stringResource(R.string.post_actions)
+    val pendingRepost = repostConfirmationOwner.pending
 
     Row(
         modifier = Modifier
@@ -654,10 +668,11 @@ internal fun InteractionRow(
             Modifier.weight(1f),
             AppIcons.Repost,
             stringResource(if (ownedPost.post.reposted) R.string.post_action_undo_repost else R.string.post_action_repost),
-            enabled = PostAction.Reshare in availableActions,
-            isSelected = ownedPost.post.reposted,
-            onClick = { onReshare(ownedPost) },
-            onLongClick = if (quoteEnabled) ({ onQuote(ownedPost) }) else null,
+             enabled = PostAction.Reshare in availableActions,
+             isSelected = ownedPost.post.reposted,
+             onClick = {},
+             onClickWithBounds = { bounds -> onRepostConfirmationRequest(ownedPost, bounds) },
+             onLongClick = if (quoteEnabled) ({ onQuote(ownedPost) }) else null,
             customActionLabel = if (quoteEnabled) stringResource(R.string.post_action_quote) else null,
             onCustomAction = if (quoteEnabled) ({ onQuote(ownedPost); true }) else null,
         )
@@ -696,7 +711,26 @@ internal fun InteractionRow(
             isSelected = ownedPost.post.saved,
             onClick = { onBookmark(ownedPost) },
         )
-        InteractionButton(Modifier.weight(1f), AppIcons.Share, stringResource(R.string.post_action_share), onClick = onShare)
+         InteractionButton(Modifier.weight(1f), AppIcons.Share, stringResource(R.string.post_action_share), onClick = onShare)
+    }
+    if (pendingRepost?.fetchedBy == ownedPost.fetchedBy && pendingRepost.postId == ownedPost.post.id) {
+        Popup(
+            popupPositionProvider = WindowAnchorPositionProvider(
+                pendingRepost.anchorBounds,
+                BubblePlacement.Below,
+            ),
+            onDismissRequest = repostConfirmationOwner::dismiss,
+            properties = PopupProperties(focusable = true, dismissOnBackPress = true, dismissOnClickOutside = true),
+        ) {
+            PillAction(
+                label = stringResource(
+                    if (pendingRepost.selected) R.string.post_action_undo_repost_confirmation
+                    else R.string.post_action_repost_confirmation,
+                ),
+                onClick = { repostConfirmationOwner.confirm(ownedPost, onReshare) },
+                modifier = Modifier.testTag("repost_confirmation"),
+            )
+        }
     }
 }
 
