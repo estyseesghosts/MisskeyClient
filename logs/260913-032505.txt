@@ -221,3 +221,6 @@ S32 Mastodon page client:
 - Moved shared Mastodon page requests and authenticated cursor validation to `data/mastodon/MastodonPageClient.kt`.
 - Preserved timeline, saved, liked, hashtag, same-origin, credential, and fragment checks.
 - Verification passed: `MastodonIntegrationTest`, `MastodonSourceTest`, and Kotlin compilation.
+S57 media test follow-up:
+- Added bounded Compose-clock settling before the return swipe and final request-count assertions.
+- Verification passed: full `test assembleRelease` with 641 tests.
