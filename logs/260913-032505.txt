@@ -67,3 +67,7 @@ S37 thread reaction overlays:
 - Restored reaction lists, selected reactions, nullable identity, and reaction counts on failure.
 - Preserved unrelated interaction counts during rollback.
 - Verification passed: `PostThreadViewModelTest` and lint.
+S29 Misskey ancestor failure normalization:
+- Normalized focal and ancestor note request failures inside the local thread boundary.
+- Preserved cancellation, focal failure propagation, and partial unavailable-parent context.
+- Verification passed: Misskey integration, thread tree, and lint tests.

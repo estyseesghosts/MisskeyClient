@@ -304,15 +304,21 @@ class MisskeySource(
 
     private suspend fun loadThreadPost(id: EntityId): Post {
         validatePostId(id, "thread")
-        val response = api.post(
-            origin,
-            "notes/show",
-            JSONObject().put("i", token).put("noteId", id.value),
-            MAX_THREAD_RESPONSE_BYTES,
-        )
-        val value = MisskeyMapper.post(JSONObject(response.body), origin)
-        if (value.id.connection != origin) throw SourceError.ForeignOrigin("thread")
-        return value
+        return try {
+            val response = api.post(
+                origin,
+                "notes/show",
+                JSONObject().put("i", token).put("noteId", id.value),
+                MAX_THREAD_RESPONSE_BYTES,
+            )
+            val value = MisskeyMapper.post(JSONObject(response.body), origin)
+            if (value.id.connection != origin) throw SourceError.ForeignOrigin("thread")
+            value
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            throw normalizeThreadError(error)
+        }
     }
 
     private fun reserveRequest(state: ThreadAcquisition): Boolean {
