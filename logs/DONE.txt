@@ -217,3 +217,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Commits created: `e5cdeb5`, `68cec1a`.
 - Refreshed body-tap callback state across recomposition.
 - Verification passed: focused UI tests, full `:app:testDebugUnitTest`, `lintDebug`, and `test assembleRelease`.
+260912-212035 Version 0.1.2 release preparation:
+- Verified authenticated Photo Grid still-image detail on the connected foldable in open, half-opened, and closed postures without a fatal exception; compact mode retained bottom navigation and in-bounds post actions.
+- Confirmed the file Photo Grid preference repository serializes load, update, and removal under one mutex; no additional synchronization change was needed.
+- Updated the default app version to `0.1.2` and Android version code to `1002`.
+- Confirmed the local unsigned release artifact reports version `0.1.2` and code `1002`.
+- Confirmed GitHub's `release` environment contains the protected keystore and credential secrets; the published `v0.1.0` APK uses certificate SHA-256 prefix `471c264b`.
+- Focused preference tests, full `test assembleRelease`, and standalone `lintDebug` passed.
