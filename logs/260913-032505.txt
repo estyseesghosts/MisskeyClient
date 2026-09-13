@@ -62,3 +62,8 @@ S36 concurrent post action rollback:
 - Limited rollback to the action family and preserved unrelated action fields and counts.
 - Updated wrapper posts through their effective target.
 - Verification passed: reaction/session tests and lint.
+S37 thread reaction overlays:
+- Stored complete reaction state for reaction-backed favourites.
+- Restored reaction lists, selected reactions, nullable identity, and reaction counts on failure.
+- Preserved unrelated interaction counts during rollback.
+- Verification passed: `PostThreadViewModelTest` and lint.

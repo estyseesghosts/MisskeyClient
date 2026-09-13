@@ -451,15 +451,30 @@ class PostThreadViewModel @AssistedInject constructor(
     }
 
     private fun restore(action: PostAction, current: Post, before: Post): Post = when (action) {
-        PostAction.Favorite -> current.copy(
-            favourited = before.favourited,
-            myReaction = before.myReaction,
-            interactionCounts = before.interactionCounts,
-        )
+        PostAction.Favorite -> if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) {
+            current.copy(
+                favourited = before.favourited,
+                myReaction = before.myReaction,
+                selectedReactions = before.selectedReactions,
+                reactions = before.reactions,
+                interactionCounts = current.interactionCounts.copy(
+                    reactionCount = before.interactionCounts.reactionCount,
+                ),
+            )
+        } else {
+            current.copy(
+                favourited = before.favourited,
+                interactionCounts = current.interactionCounts.copy(
+                    favouriteCount = before.interactionCounts.favouriteCount,
+                ),
+            )
+        }
         PostAction.Reshare -> current.copy(
             reposted = before.reposted,
-            interactionCounts = before.interactionCounts,
             ownRepostId = before.ownRepostId,
+            interactionCounts = current.interactionCounts.copy(
+                repostCount = before.interactionCounts.repostCount,
+            ),
         )
         PostAction.Bookmark -> current.copy(saved = before.saved)
         PostAction.React -> current.copy(
@@ -467,7 +482,9 @@ class PostThreadViewModel @AssistedInject constructor(
             myReaction = before.myReaction,
             selectedReactions = before.selectedReactions,
             favourited = before.favourited,
-            interactionCounts = before.interactionCounts,
+            interactionCounts = current.interactionCounts.copy(
+                reactionCount = before.interactionCounts.reactionCount,
+            ),
         )
         PostAction.Reply -> current
     }
@@ -518,6 +535,13 @@ class PostThreadViewModel @AssistedInject constructor(
                 myReaction = post.myReaction.takeIf { favoriteOwnsReaction },
                 favouriteCount = post.interactionCounts.favouriteCount.takeUnless { favoriteOwnsReaction },
                 reactionCount = post.interactionCounts.reactionCount.takeIf { favoriteOwnsReaction },
+                reactionState = ReactionState(
+                    reactions = post.reactions,
+                    myReaction = post.myReaction,
+                    selectedReactions = post.selectedReactions,
+                    favourited = post.favourited,
+                    reactionCount = post.interactionCounts.reactionCount,
+                ).takeIf { favoriteOwnsReaction },
                 myReactionOverride = favoriteOwnsReaction,
             )
             PostAction.Reshare -> copy(
