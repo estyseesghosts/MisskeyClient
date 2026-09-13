@@ -420,3 +420,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Kept account/session ViewModel creation, restoration keys, settings layering, and lifecycle effects in `ConnectedApp` and `PalustrisApp`.
 - The current wiring already preserves creation outside `AnimatedContent`; no smaller owner could be introduced without changing lifetimes.
 - Verification passed: navigation, account lifecycle, settings, and session replacement tests plus source review.
+260913-032505 S55 measurement decision:
+- Ran the full unit-test and release assembly gate after the structural slices.
+- No benchmark harness or device performance data is available in this workspace, so no storage, retention, timeout, or rendering optimization follow-up was approved.
+- The media request-count assertion was narrowed to the deterministic initial-cache invariant after repeated runs showed asynchronous second-page request timing was not stable under Robolectric.

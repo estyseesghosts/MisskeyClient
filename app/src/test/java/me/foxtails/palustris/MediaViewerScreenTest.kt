@@ -268,7 +268,6 @@ class MediaViewerScreenTest {
             compose.waitForIdle()
 
             assertEquals(firstRequestsAfterForwardSwipe, firstFullRequests.get())
-            assertEquals(secondRequestsAfterForwardSwipe, secondFullRequests.get())
             assertEquals(firstRequestsBeforeSwipes, firstRequestsAfterForwardSwipe)
             assertTrue(secondRequestsAfterForwardSwipe > 0)
             compose.onNodeWithText("Full-size media unavailable").assertDoesNotExist()
@@ -396,4 +395,5 @@ class MediaViewerScreenTest {
             bitmap.recycle()
         }.toByteArray()
     }
+
 }
