@@ -518,18 +518,6 @@ class NotificationRepository @Inject constructor(
         }
     }
 
-    private fun Notification.mergeReadState(previous: NotificationReadState?): Notification {
-        val known = readState.status.takeUnless { it == NotificationReadStatus.Unknown }
-            ?: previous?.status ?: NotificationReadStatus.Unknown
-        return copy(readState = readState.copy(
-            status = known,
-            locallySeen = readState.locallySeen || previous?.locallySeen == true,
-            serverAcknowledged = readState.serverAcknowledged || previous?.serverAcknowledged == true,
-            androidPresented = readState.androidPresented || previous?.androidPresented == true,
-            androidDismissed = readState.androidDismissed || previous?.androidDismissed == true,
-        ))
-    }
-
     private fun stateForLocked(accountId: AccountId): MutableStateFlow<NotificationRepositoryState> =
         states.getOrPut(accountId) { MutableStateFlow(store.read(accountId) ?: NotificationRepositoryState()) }
 

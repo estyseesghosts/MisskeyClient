@@ -201,3 +201,7 @@ S26 notification page-merge sub-slice:
 - Moved checkpoint and delivery-outbox calculations to `data/notifications/NotificationPageMerge.kt`.
 - Preserved directional cursor ownership, completeness rules, baseline gating, dismissal filtering, and notification identity handling.
 - Verification passed: `NotificationRepositoryTest`, `NotificationContractTest`, and Kotlin compilation.
+S27 notification read-state sub-slice:
+- Moved the shared notification read-state merge transform to `data/notifications/NotificationReadStateMerge.kt`.
+- Preserved server status precedence and local seen, acknowledgement, Android presentation, and dismissal flags.
+- Verification passed: `NotificationRepositoryTest`, `NotificationContractTest`, and Kotlin compilation.
