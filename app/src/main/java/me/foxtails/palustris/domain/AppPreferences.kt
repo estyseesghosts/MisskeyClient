@@ -3,6 +3,7 @@ package me.foxtails.palustris.domain
 /** Global presentation and local content preferences. Secrets never belong here. */
 data class AppPreferences(
     val colorScheme: AppColorScheme = AppColorScheme.System,
+    val colorPalette: AppColorPalette = AppColorPalette.PastelIndigo,
     val background: AppBackground = AppBackground.Default,
     val textSize: AppTextSize = AppTextSize.Device,
     val font: AppFont = AppFont.Device,
@@ -15,9 +16,24 @@ data class AppPreferences(
 
 enum class AppColorScheme {
     System,
-    Pastel,
-    Vibrant,
-    Monochrome,
+    SystemMonochrome,
+}
+
+enum class AppColorPalette {
+    PastelRed,
+    PastelOrange,
+    PastelYellow,
+    PastelGreen,
+    PastelBlue,
+    PastelIndigo,
+    PastelViolet,
+    VibrantRed,
+    VibrantOrange,
+    VibrantYellow,
+    VibrantGreen,
+    VibrantBlue,
+    VibrantIndigo,
+    VibrantViolet,
 }
 
 enum class HiddenContentPresentation { Remove, Placeholder }

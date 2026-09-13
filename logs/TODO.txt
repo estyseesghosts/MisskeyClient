@@ -1,1 +1,4 @@
 # Active tasks
+
+- Implement display settings model, UI, persistence, theme derivation, and back navigation.
+- Add focused tests and run required verification.

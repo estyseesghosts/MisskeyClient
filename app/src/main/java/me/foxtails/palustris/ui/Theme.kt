@@ -17,7 +17,7 @@ fun PalustrisTheme(
 ) {
     val context = LocalContext.current
     val motionScheme = palustrisMotionScheme()
-    val colorScheme = resolvedAppColorScheme(context, preferences.colorScheme, preferences.background)
+    val colorScheme = resolvedAppColorScheme(context, preferences.colorScheme, preferences.colorPalette, preferences.background)
     CompositionLocalProvider(LocalPalustrisMotionScheme provides motionScheme) {
         MaterialTheme(
             colorScheme = colorScheme,

@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import me.foxtails.palustris.domain.AppBackground
+import me.foxtails.palustris.domain.AppColorPalette
 import me.foxtails.palustris.domain.AppColorScheme
 import me.foxtails.palustris.domain.AppFont
 import me.foxtails.palustris.domain.AppLanguage
@@ -68,8 +69,17 @@ class FileAppPreferencesRepository(
         if (!file.exists()) return AppPreferences()
         val json = JSONObject(file.readText(Charsets.UTF_8))
         val warning = json.optJSONObject("contentWarningRules")
+        val storedColorScheme = json.optString("colorScheme")
         return AppPreferences(
-            colorScheme = enumOrDefault(json, "colorScheme", AppColorScheme.System),
+            colorScheme = when (storedColorScheme) {
+                "SystemMonochrome", "Monochrome" -> AppColorScheme.SystemMonochrome
+                else -> AppColorScheme.System
+            },
+            colorPalette = when {
+                json.has("colorPalette") -> enumOrDefault(json, "colorPalette", AppColorPalette.PastelIndigo)
+                storedColorScheme == "Vibrant" -> AppColorPalette.VibrantBlue
+                else -> AppColorPalette.PastelIndigo
+            },
             background = enumOrDefault(json, "background", AppBackground.Default),
             textSize = enumOrDefault(json, "textSize", AppTextSize.Device),
             font = enumOrDefault(json, "font", AppFont.Device),
@@ -86,6 +96,7 @@ class FileAppPreferencesRepository(
         val json = JSONObject()
             .put("version", VERSION)
             .put("colorScheme", preferences.colorScheme.name)
+            .put("colorPalette", preferences.colorPalette.name)
             .put("background", preferences.background.name)
             .put("textSize", preferences.textSize.name)
             .put("font", preferences.font.name)

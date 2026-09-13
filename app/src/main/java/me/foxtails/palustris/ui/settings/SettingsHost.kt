@@ -1,5 +1,6 @@
 package me.foxtails.palustris.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +30,7 @@ fun SettingsHost(
     onRoute: (SettingsRoute) -> Unit,
     onBack: () -> Unit,
     onColorScheme: (me.foxtails.palustris.domain.AppColorScheme) -> Unit = {},
+    onColorPalette: (me.foxtails.palustris.domain.AppColorPalette) -> Unit = {},
     onBackground: (me.foxtails.palustris.domain.AppBackground) -> Unit = {},
     onTextSize: (me.foxtails.palustris.domain.AppTextSize) -> Unit = {},
     onFont: (me.foxtails.palustris.domain.AppFont) -> Unit = {},
@@ -62,6 +64,7 @@ fun SettingsHost(
     onModerationRemoveLocalHashtag: (String) -> Unit = {},
 ) {
     val navigateBack: () -> Unit = if (route == SettingsRoute.Main) onBack else { { onRoute(SettingsRoute.Main) } }
+    BackHandler(onBack = navigateBack)
     val title = when (route) {
         SettingsRoute.Main -> stringResource(R.string.settings_title)
         SettingsRoute.Display -> stringResource(R.string.settings_display)
@@ -100,7 +103,7 @@ fun SettingsHost(
                     onPrivacy = { onRoute(SettingsRoute.Privacy) },
                     onLanguage = { onRoute(SettingsRoute.Language) },
                 )
-                SettingsRoute.Display -> DisplaySettingsScreen(state.preferences, onColorScheme, onBackground, onTextSize, onFont, onRequest60Hz)
+                SettingsRoute.Display -> DisplaySettingsScreen(state.preferences, onColorScheme, onColorPalette, onBackground, onTextSize, onFont, onRequest60Hz)
                 SettingsRoute.Language -> LanguageSettingsScreen(state.preferences.language, onLanguage)
                 SettingsRoute.Notifications -> NotificationAccountsScreen(accounts, onNotificationAccount)
                 is SettingsRoute.NotificationAccount -> NotificationSettingsScreen(
