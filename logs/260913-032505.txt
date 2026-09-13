@@ -25,3 +25,8 @@ S07 post preference storage:
 - Applied one normalization function to file and in-memory repositories.
 - Added parity coverage for account-scoped normalization.
 - Verification passed: `PostPreferencesRepositoryTest` and lint.
+S08 global preference load errors:
+- Preserve a final loaded state with safe defaults and the read error.
+- Clear the error only after a successful update.
+- Added malformed-file and recovery coverage.
+- Verification passed: `AppPreferencesRepositoryTest` and lint.

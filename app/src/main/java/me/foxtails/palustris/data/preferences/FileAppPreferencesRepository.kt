@@ -46,9 +46,16 @@ class FileAppPreferencesRepository(
     init {
         scope.launch {
             val loaded = runCatching { read() }
-                .onFailure { values.value = AppPreferencesState(loaded = true, error = it.message) }
-                .getOrDefault(AppPreferences())
-            values.value = AppPreferencesState(loaded = true, preferences = loaded)
+            values.value = loaded.fold(
+                onSuccess = { AppPreferencesState(loaded = true, preferences = it) },
+                onFailure = { error ->
+                    AppPreferencesState(
+                        loaded = true,
+                        preferences = AppPreferences(),
+                        error = error.message ?: "Application preferences could not be loaded.",
+                    )
+                },
+            )
             ready.complete(Unit)
         }
     }
@@ -60,8 +67,16 @@ class FileAppPreferencesRepository(
         mutex.withLock {
             val current = values.value.preferences
             val next = transform(current)
-            withContext(ioDispatcher) { persist(next) }
-            values.value = AppPreferencesState(loaded = true, preferences = next)
+            try {
+                withContext(ioDispatcher) { persist(next) }
+                values.value = AppPreferencesState(loaded = true, preferences = next)
+            } catch (error: Throwable) {
+                values.value = values.value.copy(
+                    loaded = true,
+                    error = error.message ?: "Application preferences could not be saved.",
+                )
+                throw error
+            }
         }
     }
 
