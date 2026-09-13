@@ -1,7 +1,3 @@
 # Active tasks
 
-- [ ] Implement interaction count domain and adapter mapping.
-- [ ] Update optimistic state, persistence, and post-opening data flow.
-- [ ] Implement feed/detail presentation and localization.
-- [ ] Add or update interaction-count regression tests.
-- [ ] Run required verification, commit slices, and push `feature/interaction-counts`.
+- [ ] Push the completed `feature/interaction-counts` branch.

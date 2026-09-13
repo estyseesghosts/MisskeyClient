@@ -227,3 +227,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Pushed commit `6fdf69e` and tag `v0.1.2` to GitHub.
 - GitHub release workflow `34730798988` passed all jobs, signed the APK, verified its signature, and published prerelease `https://github.com/estyseesghosts/MisskeyClient/releases/tag/v0.1.2`.
 - Downloaded APK certificate SHA-256 matched the existing GitHub release signer: `471c264b9635b5db8509143b269edef9a3bb305b9315f9ca0b7c905f9331ea65`; published APK SHA-256 is `55620bcc136f0124c6becc3836a0dd78116f11c4b2faa72bc681621508a59ff4`.
+260913-001335 Interaction counts task:
+- Added nullable protocol-neutral favourite, reaction, repost, quote-repost, and reply counts with null-preserving merge and optimistic reaction updates.
+- Mapped validated counts from Mastodon and Misskey, preserved detailed reactions through sparse external updates, and persisted notification counts.
+- Added localized detailed summaries for Hashtag Search and focal post views while keeping regular feeds, profiles, saved posts, notifications, and thread rows compact.
+- Added mapper, state, persistence, and Compose regression coverage. Commits: `df791fc`, `320c5e1`, `b1c650e`.
+- Verification passed: focused interaction tests, `lintDebug`, `test`, and `assembleRelease`.
