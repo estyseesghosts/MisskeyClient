@@ -560,3 +560,12 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - `test assembleRelease` passed.
 - `:app:lintDebug` passed.
 - Connected instrumentation installed successfully and ran 10 tests manually on `SM-F926W`; 9 passed and the existing system-bar color assertion failed. The failure is recorded in `logs/BUGS.txt`.
+260913-165755 Setup, share-sheet, and launcher correction task:
+- Applied setup theme-aware foreground colors and true pill geometry without changing setup behavior.
+- Constrained the share card to two thirds of the display width with a maintainable 360dp cap.
+- Shortened the lower share labels to `Copy` and `Share`.
+- Replaced stale Android robot density fallbacks with adaptive v26 resources and light/dark foreground contrast.
+- Verified setup input, keyboard placement, `next`, and browser handoff on the connected `SM-F926W` running API 35.
+- Verified light and dark icon contrast through Android Settings. The device launcher uses text-only presentation.
+- Incremented the Beeline version to `0.2.1` after live verification.
+- Focused setup/share tests, full `test`, and `assembleRelease` passed.

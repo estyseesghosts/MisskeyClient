@@ -26,3 +26,13 @@ Follow `docs/FIXTHISSHIT2.md`. Correct setup-screen theme contrast and pill geom
 - Share-card width must work on phones and large displays.
 - Launcher verification must cover adaptive and themed resources, not only installer display.
 - Existing connected instrumentation has a known Android 15 system-bar assertion failure.
+
+## Results
+
+- Setup controls now use theme-aware foreground colors and true pill shapes.
+- The share card now stays within two thirds of the display width and uses `Copy` and `Share` labels.
+- Adaptive launcher resources use version-qualified XML, scaled foreground artwork, monochrome support, and light/dark contrast resources.
+- Connected `SM-F926W` on API 35 showed readable light and dark setup screens, editable server input, enabled `next`, and browser handoff.
+- Connected Settings showed the adaptive icon with a dark bee on a light background and a light bee on a dark background.
+- Version `0.2.1` was committed after device verification.
+- `gradlew.bat test assembleRelease` passed.

@@ -26,3 +26,17 @@
 260913-001335: Interaction count behavior was verified with unit and Robolectric Compose tests; live-server payloads and physical-device rendering remain unverified.
 260913-022454: Version-one preference files that stored System with a palette cannot identify whether the user intended system colors or the palette. The repaired default treats them as System.
 260913-022454: Theme rendering was verified with Robolectric Compose tests. Physical light and dark device rendering remains unverified.
+
+260913-153415: Full JVM verification passed. Connected instrumentation installed both APKs and ran 10 tests; 9 passed. `SystemBarAppearanceInstrumentedTest.navigationBarModeUsesBlackViewerAndRestoresThemeAppearance` fails at line 56 on SM-F926W with expected black navigation-bar color (`-16777216`) and observed transparent (`0`). The target SDK is 37 and Android 15 edge-to-edge behavior may make the existing color assertion invalid; viewer icon-mode assertions pass.
+
+260913-030503: Decomposition review found source-level defects. No application code changed and no runtime reproduction ran.
+- docs/decomposition.md R1-R4: Unowned settings write jobs, blocking/inconsistent post preferences, lost preference load errors, and stale moderation paging.
+- docs/decomposition.md R5-R6: Unknown activity destination loss in notification JSON and inconsistent checkpoint account validation.
+- docs/decomposition.md R7-R8: Cross-action rollback can undo unrelated state. Thread reaction overlays omit stored reaction identity and complete rollback fields.
+- docs/decomposition.md R9-R11: Misskey parent API failures can escape partial-context handling, Mastodon temporary reaction failures downgrade support, and Home paging uses the unfiltered count.
+- docs/decomposition.md R12: Build metadata still derives user-facing identity from a stale product name.
+- docs/decomposition.md P1-P6: Storage/retention costs, Room schema debt, thread bounds, rendering work, lifecycle/origin gaps, and localization need separate checks.
+ - Required follow-up tests and device/live-server checks are specified in the guide. These findings remain unresolved.
+
+260913-165755: The connected SM-F926W uses a text-only launcher, so home-screen and app-drawer icon presentation could not be independently verified. Android Settings displayed the adaptive icon in light and dark modes.
+260913-165755: No authenticated account was available on the connected device. Share-sheet actions were verified by focused Compose tests, but live follow/unfollow, block, mute, report, PM, copy, and Android share actions remain unverified.
