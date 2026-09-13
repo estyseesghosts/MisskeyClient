@@ -160,6 +160,7 @@ internal fun SinglePostScreen(
                         onQuote = onQuote,
                         onOpenUrl = onOpenUrl,
                         onOpenUsername = onOpenUsername,
+                        interactionPresentation = PostInteractionPresentation.Detailed,
                     )
                 } else {
             val presentation = remember(post.text, post.emoji) { parseHashtagBlocks(post.text, post.emoji) }
@@ -189,7 +190,7 @@ internal fun SinglePostScreen(
              HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
              InteractionRow(
                  ownedPost = ownedPost,
-                 availableActions = availableActions,
+                  availableActions = actionsForPost(availableActions, post),
                  onReply = onReply,
                  onReact = onReact,
                  onReshare = onReshare,
@@ -197,9 +198,18 @@ internal fun SinglePostScreen(
                  onReaction = onReaction,
                  quoteEnabled = quoteEnabled,
                  onQuote = onQuote,
-                 onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
-                 onShare = { sharePost(context, post) },
-             )
+                  onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
+                  onShare = { sharePost(context, post) },
+              )
+              if (post.reactions.any { it.count > 0 }) {
+                  ReactionRow(
+                      reactions = post.reactions,
+                      ownedPost = ownedPost,
+                      enabled = PostAction.React in actionsForPost(availableActions, post),
+                      onReaction = onReaction,
+                      showReactionNumbers = true,
+                  )
+              }
              if (post.contentWarning != null) {
                 InlineEmojiText(
                     post.contentWarning.ifBlank { stringResource(R.string.content_warning) },
@@ -238,7 +248,8 @@ internal fun SinglePostScreen(
                     }
                 }
             }
-            post.pollOptions.forEach { option ->
+             InteractionSummaryRow(post.interactionCounts)
+             post.pollOptions.forEach { option ->
                 Surface(
                     Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(),
                     shape = MaterialTheme.shapes.medium,

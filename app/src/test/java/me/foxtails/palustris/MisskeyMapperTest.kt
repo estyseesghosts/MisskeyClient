@@ -189,6 +189,18 @@ class MisskeyMapperTest {
     }
 
     @Test
+    fun invalidReactionCountMakesReactionTotalUnavailable() {
+        val note = JSONObject()
+            .put("id", "invalid-reaction-count")
+            .put("createdAt", "2026-09-06T10:00:00Z")
+            .put("text", "counts")
+            .put("user", JSONObject().put("id", "u").put("username", "u").put("name", "U"))
+            .put("reactions", JSONObject().put("👍", 2).put(":bad:", "not-a-count"))
+
+        assertNull(MisskeyMapper.post(note, origin).interactionCounts.reactionCount)
+    }
+
+    @Test
     fun pureRenoteKeepsDisplayedNoteInteractionCounts() {
         val original = JSONObject()
             .put("id", "original-counts")

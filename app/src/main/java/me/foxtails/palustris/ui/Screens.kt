@@ -164,9 +164,9 @@ fun SearchScreen(
                 onOpenUrl = onOpenUrl,
                 onOpenUsername = onOpenUsername,
                 onSearchHashtag = onSearchHashtag,
-                onOpenHashtagBubble = onOpenHashtagBubble,
-                listState = listState,
-                largeLayout = largeLayout,
+                 onOpenHashtagBubble = onOpenHashtagBubble,
+                 listState = listState,
+                 largeLayout = largeLayout,
             )
             LargeBottomDock(
                 content = {
@@ -298,13 +298,13 @@ private fun SearchContent(
                     endClearance = endClearance,
                     mediaOwner = mediaOwner,
                     onOpenMedia = onOpenMedia,
-                    onSearchHashtag = onSearchHashtag,
+                     onSearchHashtag = onSearchHashtag,
                      onOpenHashtagBubble = onOpenHashtagBubble,
                      listState = listState,
                      largeLayout = largeLayout,
-                       onOpenPost = onOpenPost,
-                      onOpenUrl = onOpenUrl,
-                      onOpenUsername = onOpenUsername,
+                     onOpenPost = onOpenPost,
+                     onOpenUrl = onOpenUrl,
+                     onOpenUsername = onOpenUsername,
                 ) else AccountSearchResults(
                     query = query,
                     state = accountSearch,
@@ -428,13 +428,14 @@ private fun HashtagSearchResults(
                         quoteEnabled = quoteEnabled,
                         onQuote = onQuote,
                         onSearchHashtag = onSearchHashtag,
-                        onOpenHashtagBubble = onOpenHashtagBubble,
+                         onOpenHashtagBubble = onOpenHashtagBubble,
                          onOpenMedia = if (mediaOwner != null) onOpenMedia else { _: MediaOpenRequest -> },
                          onOpenPost = onOpenPost,
                          onOpenUrl = onOpenUrl,
                          onOpenUsername = onOpenUsername,
                          largeLayout = largeLayout,
-                      )
+                         interactionPresentation = PostInteractionPresentation.Detailed,
+                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 }
             }

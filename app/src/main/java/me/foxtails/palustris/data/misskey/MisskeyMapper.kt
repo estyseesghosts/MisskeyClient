@@ -204,8 +204,8 @@ private fun JSONObject.optionalNonNegativeInt(key: String): Int? {
 
 private fun JSONObject.reactionTotal(): Int? {
     var total = 0
-    keys().forEach { emoji ->
-        val count = optionalNonNegativeInt(emoji) ?: return@forEach
+    for (emoji in keys()) {
+        val count = optionalNonNegativeInt(emoji) ?: return null
         total = runCatching { Math.addExact(total, count) }.getOrNull() ?: return null
     }
     return total

@@ -268,7 +268,7 @@ class ProfileViewModel @AssistedInject constructor(
                 favourited = updated.post.favourited,
                 myReaction = updated.post.myReaction,
                 selectedReactions = updated.post.selectedReactions,
-                reactions = updated.post.reactions,
+                reactions = updated.post.reactions.ifEmpty { existing.reactions },
                 reposted = updated.post.reposted,
                 interactionCounts = existing.interactionCounts.merge(updated.post.interactionCounts),
                 ownRepostId = updated.post.ownRepostId,

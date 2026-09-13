@@ -18,6 +18,8 @@ import me.foxtails.palustris.domain.MediaKind
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PostInteractionCounts
+import me.foxtails.palustris.domain.Reaction
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.SinglePostPresentation
@@ -148,6 +150,77 @@ class SinglePostScreenTest {
 
         compose.onNodeWithText("Standard detail body").assertIsDisplayed()
         compose.onNodeWithTag("single_post_photo_pager").assertDoesNotExist()
+    }
+
+    @Test
+    fun standardFocalPostShowsDetailedCountsAndHidesNumericOne() {
+        val post = Post(
+            EntityId("https://example.org", "detailed"),
+            account,
+            "Detailed body",
+            0,
+            Audience.Public,
+            reactions = listOf(Reaction("❤️", 1, false), Reaction("👍", 4, false)),
+            interactionCounts = PostInteractionCounts(
+                favouriteCount = 0,
+                reactionCount = 5,
+                repostCount = 2,
+                quoteRepostCount = 0,
+                replyCount = 3,
+            ),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SinglePostScreen(OwnedPost(account.id, post), onClose = {})
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("interaction_summary", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("0 favorites").assertIsDisplayed()
+        compose.onNodeWithText("5 reactions").assertIsDisplayed()
+        compose.onNodeWithTag("reaction_count_👍", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("reaction_count_❤️", useUnmergedTree = true).assertDoesNotExist()
+        val summaryTop = compose.onNodeWithTag("interaction_summary", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.top
+        val metadataBottom = compose.onNodeWithContentDescription("Post metadata", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.bottom
+        assertTrue(summaryTop >= metadataBottom)
+    }
+
+    @Test
+    fun photoGridFocalPostOrdersActionsReactionsBodyAndSummary() {
+        val post = Post(
+            EntityId("https://example.org", "photo-detailed"),
+            account,
+            "Photo detailed body",
+            0,
+            Audience.Public,
+            attachments = listOf(image("photo-detailed")),
+            reactions = listOf(Reaction("👍", 2, false)),
+            interactionCounts = PostInteractionCounts(replyCount = 0, repostCount = 0),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SinglePostScreen(
+                    ownedPost = OwnedPost(account.id, post),
+                    presentation = SinglePostPresentation.PhotoGrid,
+                    onClose = {},
+                    availableActions = PostAction.entries.toSet(),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        val actions = compose.onNodeWithContentDescription("Post actions", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val reaction = compose.onNodeWithTag("reaction_chip_👍", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val body = compose.onNodeWithText("Photo detailed body").fetchSemanticsNode().boundsInRoot
+        val summary = compose.onNodeWithTag("interaction_summary", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue(actions.bottom <= reaction.top)
+        assertTrue(reaction.bottom <= body.top)
+        assertTrue(body.bottom <= summary.top)
+        compose.onNodeWithText("0 replies").assertIsDisplayed()
+        compose.onNodeWithText("0 reposts").assertIsDisplayed()
     }
 
     private fun image(id: String) = Attachment(

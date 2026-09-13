@@ -214,7 +214,7 @@ class SavedPostsViewModel @AssistedInject constructor(
         favourited = incoming.favourited,
         myReaction = incoming.myReaction,
         selectedReactions = incoming.selectedReactions,
-        reactions = incoming.reactions,
+        reactions = incoming.reactions.ifEmpty { existing.reactions },
         reposted = incoming.reposted,
         interactionCounts = existing.interactionCounts.merge(incoming.interactionCounts),
         ownRepostId = incoming.ownRepostId,
