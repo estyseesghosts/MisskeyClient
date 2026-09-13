@@ -147,7 +147,7 @@ fun ProfileScreen(
     }
 
     if (largeLayout) {
-        LargeProfilePresentation(
+        ProfileLargePresentation(
             account = displayedAccount,
             state = profileState,
             isSelf = isSelf,
@@ -288,7 +288,7 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun LargeProfilePresentation(
+private fun LegacyLargeProfilePresentation(
     account: Account,
     state: ProfileUiState,
     isSelf: Boolean,
