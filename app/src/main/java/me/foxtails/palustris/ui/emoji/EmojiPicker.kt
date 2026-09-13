@@ -217,7 +217,8 @@ fun EmojiPickerHost(
     onToggleGroupCollapsed: (String) -> Unit = {},
     onToggleGroupPinned: (String) -> Unit = {},
     onTogglePinnedEmoji: (String) -> Unit = {},
-) {
+    onCloseRequest: () -> Unit = {},
+ ) {
     if (target == null) return
     LaunchedEffect(target) { onLoadCatalog() }
     val readOnlyReactions = target is EmojiPickerTarget.Reaction && !mutationSupported
@@ -295,7 +296,8 @@ fun EmojiPickerHost(
                         }.orEmpty(),
                         onToggleGroupCollapsed = onToggleGroupCollapsed,
                         onToggleGroupPinned = onToggleGroupPinned,
-                        onTogglePinnedEmoji = onTogglePinnedEmoji,
+                         onTogglePinnedEmoji = onTogglePinnedEmoji,
+                         onCloseRequest = onDismiss,
                         onEmojiSelected = { choice ->
                             onEmojiSelected(choice)
                             onDismiss()
@@ -360,6 +362,7 @@ fun EmojiChoiceGrid(
     onToggleGroupCollapsed: (String) -> Unit = {},
     onToggleGroupPinned: (String) -> Unit = {},
     onTogglePinnedEmoji: (String) -> Unit = {},
+    onCloseRequest: () -> Unit = {},
     onEmojiSelected: (EmojiChoice) -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -483,8 +486,13 @@ fun EmojiChoiceGrid(
             trailingIcon = {
                 IconButton(
                     onClick = {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
+                        if (query.isNotEmpty()) {
+                            query = ""
+                        } else {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            onCloseRequest()
+                        }
                     },
                     modifier = Modifier.testTag("emoji_picker_hide_keyboard"),
                 ) {

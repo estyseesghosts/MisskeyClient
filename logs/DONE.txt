@@ -114,6 +114,12 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added a reusable Material 3 pill action component with the existing shape, palette, typography, padding, and ellipsis behavior.
 - Added Compose semantics and click coverage.
 - Focused verification passed: PillActionTest.
+260913-090345 Full picker close slice:
+- Added an explicit close callback to the reusable picker grid.
+- The trailing X now clears a nonempty query without closing the picker.
+- An empty query hides the keyboard, clears focus, and closes only through the modal host.
+- Added coverage for query clearing, sheet retention, empty-query dismissal, and IME completion.
+- Focused verification passed: EmojiPickerTest.
  - Pushed the six stabilization commits to `origin/feature/foldable-ui` through `d548130`.
 260910-131102 Release pipeline:
 - Added a tag-driven signed APK workflow with test and lint gates.

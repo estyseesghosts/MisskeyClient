@@ -1,0 +1,16 @@
+Task goal: Complete the Beeline release interaction, moderation, share, setup, typography, and launcher slices.
+
+Planned slices:
+1. Add reusable pill action presentation.
+2. Correct full-picker close behavior.
+3. Replace reaction long-press gesture handling.
+4. Add repost confirmation state.
+5. Add favorite and reaction indicator state coverage.
+6. Add report and moderation adapter contracts.
+7. Add the Beeline share-action sheet.
+8. Replace setup UI.
+9. Isolate setup typography.
+10. Replace launcher assets and run final verification.
+
+Initial affected areas: ui/components, ui/emoji, ui/posts, domain, data adapters, ConnectedApp, setup UI, resources, and tests.
+Important risks: preserve unrelated worktree changes, account and session ownership, protocol boundaries, opaque origins, picker gestures, adaptive layouts, and launcher compatibility.

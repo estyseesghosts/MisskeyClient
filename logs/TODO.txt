@@ -1,7 +1,6 @@
 # Active tasks
 
-- Correct full-picker close behavior.
-- Replace reaction long-press gesture handling.
+- Replace reaction long-press gesture handling. (in progress)
 - Add repost confirmation state.
 - Add favorite and reaction indicator state coverage.
 - Add report and moderation adapter contracts.

@@ -12,6 +12,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.longClick
 import me.foxtails.palustris.MainActivity
 import me.foxtails.palustris.domain.Account
@@ -86,6 +88,7 @@ class EmojiPickerTest {
         onEmojiSelected: (EmojiChoice) -> Unit = {},
         onTogglePinnedEmoji: (String) -> Unit = {},
         onLoadCatalog: () -> Unit = {},
+        onDismiss: () -> Unit = {},
     ) {
         compose.activity.runOnUiThread {
             compose.activity.setContent {
@@ -96,7 +99,7 @@ class EmojiPickerTest {
                     mutationSupported = mutationSupported,
                     onLoadCatalog = onLoadCatalog,
                     onRetryCatalog = {},
-                    onDismiss = {},
+                    onDismiss = onDismiss,
                     onEmojiSelected = onEmojiSelected,
                     onTogglePinnedEmoji = onTogglePinnedEmoji,
                 )
@@ -144,6 +147,46 @@ class EmojiPickerTest {
         compose.onNodeWithTag("emoji_picker_search").performTextInput("wave")
         compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("emoji_picker_cell_:blob:", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun searchCloseClearsQueryWithoutDismissingSheet() {
+        show(target = EmojiPickerTarget.Composer(ComposerField.Text))
+
+        compose.onNodeWithTag("emoji_picker_search").performTextInput("wave")
+        compose.onNodeWithTag("emoji_picker_hide_keyboard").performClick()
+
+        compose.onNodeWithTag("emoji_picker_sheet").assertIsDisplayed()
+        compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("emoji_picker_cell_:blob:", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun emptySearchCloseDismissesThroughTheHost() {
+        var dismissed = false
+        show(
+            target = EmojiPickerTarget.Composer(ComposerField.Text),
+            onDismiss = { dismissed = true },
+        )
+
+        compose.onNodeWithTag("emoji_picker_hide_keyboard").performClick()
+
+        compose.runOnIdle { assertTrue(dismissed) }
+    }
+
+    @Test
+    fun keyboardDoneHidesKeyboardWithoutDismissingSheet() {
+        var dismissed = false
+        show(
+            target = EmojiPickerTarget.Composer(ComposerField.Text),
+            onDismiss = { dismissed = true },
+        )
+
+        compose.onNodeWithTag("emoji_picker_search").performTextInput("wave")
+        compose.onNodeWithTag("emoji_picker_search").performImeAction()
+
+        compose.onNodeWithTag("emoji_picker_sheet").assertIsDisplayed()
+        compose.runOnIdle { assertTrue(!dismissed) }
     }
 
     @Test
