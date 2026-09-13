@@ -6,8 +6,6 @@
     <string name="notifications_dismiss">閉じる</string>
     <string name="direct_messages_connect_title">アカウントを接続してメッセージを表示</string>
     <string name="direct_messages_connect_subtitle">サインインしてプライベートな会話を開きます。</string>
-    <string name="sign_in_title">ようこそ！</string>
-    <string name="sign_in_button_next">次へ</string>
     <string name="sign_in_cancel">キャンセル</string>
     <string name="notification_settings_sheet_title">通知設定</string>
     <string name="notifications_settings_alerts">端末の通知</string>

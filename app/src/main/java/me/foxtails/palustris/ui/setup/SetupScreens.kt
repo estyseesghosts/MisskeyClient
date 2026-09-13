@@ -126,7 +126,7 @@ internal fun SetupServerScreen(
     ) {
         Spacer(Modifier.height(64.dp))
         Text(stringResource(if (state.pending) R.string.sign_in_pending_title else R.string.setup_welcome_back), style = MaterialTheme.typography.headlineMedium)
-        if (!state.pending) Text("<3", style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Start))
+        if (!state.pending) Text(stringResource(R.string.setup_heart), style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Start))
         Spacer(Modifier.weight(1f, fill = true))
         if (state.pending) {
             Text(
@@ -149,10 +149,11 @@ internal fun SetupServerScreen(
                     Text(it, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), color = MaterialTheme.colorScheme.error)
                 }
                 SetupServerField(server, !state.busy, submit) { value ->
-                    if (value.any(Char::isWhitespace)) {
+                    val trimmed = value.trim()
+                    if (trimmed.any(Char::isWhitespace)) {
                         validationError = whitespaceError
                     } else {
-                        server = value.trim()
+                        server = trimmed
                         validationError = null
                     }
                 }

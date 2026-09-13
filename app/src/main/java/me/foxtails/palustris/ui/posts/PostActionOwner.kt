@@ -2,6 +2,7 @@ package me.foxtails.palustris.ui.posts
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
 import kotlinx.coroutines.CancellationException
@@ -11,6 +12,7 @@ import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.ProfileRelationship
+import me.foxtails.palustris.domain.ReportRequest
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.ui.sourceErrorMessage
 
@@ -34,6 +36,14 @@ data class PostRelationshipState(
     val error: String? = null,
 )
 
+data class PostReportState(
+    val submitting: Boolean = false,
+    val error: String? = null,
+    val submitted: Boolean = false,
+)
+
+internal val LocalPostActionOwner = staticCompositionLocalOf<PostActionOwner?> { null }
+
 /** Owns one post-action popup and its account-scoped relationship requests. */
 class PostActionOwner(
     private val accountId: AccountId,
@@ -46,6 +56,8 @@ class PostActionOwner(
         private set
     var relationship by mutableStateOf(PostRelationshipState())
         private set
+    var report by mutableStateOf(PostReportState())
+        private set
 
     private var requestGeneration = 0L
     private var requestJob: Job? = null
@@ -57,6 +69,7 @@ class PostActionOwner(
         val generation = requestGeneration
         target = PostActionTarget(ownedPost, anchorBounds, accountId, sessionRevision)
         relationship = PostRelationshipState(target = ownedPost.post.author.id, loading = true)
+        report = PostReportState()
         val relationshipSource = source ?: run {
             relationship = relationship.copy(loading = false, error = "Relationship actions are unavailable.")
             return
@@ -97,6 +110,7 @@ class PostActionOwner(
         requestJob = null
         target = null
         relationship = PostRelationshipState()
+        report = PostReportState()
     }
 
     fun mutate(mutation: RelationshipMutation) {
@@ -126,6 +140,31 @@ class PostActionOwner(
             } catch (error: Exception) {
                 if (isCurrent(generation, authorId)) {
                     relationship = relationship.copy(mutation = null, error = sourceErrorMessage(error))
+                }
+            }
+        }
+    }
+
+    fun submitReport(comment: String) {
+        val currentTarget = target ?: return
+        val reportSource = source ?: return
+        if (report.submitting || report.submitted || currentTarget.author.id == accountId) return
+        val generation = requestGeneration
+        report = PostReportState(submitting = true)
+        scope.launch {
+            try {
+                reportSource.report(
+                    ReportRequest(
+                        targetAccountId = currentTarget.author.id,
+                        comment = comment,
+                    ),
+                )
+                if (isCurrent(generation, currentTarget.author.id)) report = PostReportState(submitted = true)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (isCurrent(generation, currentTarget.author.id)) {
+                    report = PostReportState(error = sourceErrorMessage(error))
                 }
             }
         }

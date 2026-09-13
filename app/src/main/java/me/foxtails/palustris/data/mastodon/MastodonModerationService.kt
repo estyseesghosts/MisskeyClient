@@ -12,6 +12,7 @@ import me.foxtails.palustris.domain.ModerationListKind
 import me.foxtails.palustris.domain.ModerationPage
 import me.foxtails.palustris.domain.MutedHashtag
 import me.foxtails.palustris.domain.ProfileRelationship
+import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ReportRequest
 import me.foxtails.palustris.domain.SourceError
 import org.json.JSONObject
@@ -102,7 +103,9 @@ class MastodonModerationService(
 
     private fun validateTarget(target: AccountId, feature: String) {
         if (target.connection.origin != origin) throw SourceError.ForeignOrigin(feature)
-        if (target.localId.isBlank()) throw SourceError.Unsupported(feature)
+        if (target.connection.protocol != Protocol.MASTODON || target.localId.isBlank()) {
+            throw SourceError.Unsupported(feature)
+        }
     }
 
     private fun validateOrigin(targetOrigin: String, feature: String) {

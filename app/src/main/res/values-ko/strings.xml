@@ -6,8 +6,6 @@
     <string name="notifications_dismiss">닫기</string>
     <string name="direct_messages_connect_title">메시지를 보려면 계정을 연결하세요</string>
     <string name="direct_messages_connect_subtitle">비공개 대화를 열려면 로그인하세요.</string>
-    <string name="sign_in_title">환영합니다!</string>
-    <string name="sign_in_button_next">다음</string>
     <string name="sign_in_cancel">취소</string>
     <string name="notification_settings_sheet_title">알림 설정</string>
     <string name="notifications_settings_alerts">기기 알림</string>

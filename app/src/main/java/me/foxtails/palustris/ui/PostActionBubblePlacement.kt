@@ -13,6 +13,7 @@ internal enum class BubblePlacement { Above, Below }
 internal class WindowAnchorPositionProvider(
     private val targetBounds: Rect,
     private val placement: BubblePlacement,
+    private val edgeMargin: Int = 8,
 ) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -27,7 +28,7 @@ internal class WindowAnchorPositionProvider(
             anchorBounds.bottom.toFloat(),
         )
         val anchor = targetBounds.takeIf { it.width > 0f && it.height > 0f } ?: fallback
-        val margin = 8
+        val margin = edgeMargin
         val preferredX = when (placement) {
             BubblePlacement.Above -> anchor.center.x.roundToInt() - popupContentSize.width / 2
             BubblePlacement.Below -> anchor.right.roundToInt() - popupContentSize.width

@@ -46,6 +46,7 @@ fun SignInScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val activity = context as? Activity
+    val signupNotReady = stringResource(R.string.setup_not_ready)
     val motion = LocalPalustrisMotionScheme.current
     LaunchedEffect(state.pending, state.addingAccount) {
         destination = when {
@@ -83,7 +84,7 @@ fun SignInScreen(
             when (screen) {
                 SetupDestination.Initial -> SetupInitialScreen(
                     onNewUser = {
-                        Toast.makeText(context, context.getString(R.string.setup_not_ready), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, signupNotReady, Toast.LENGTH_SHORT).show()
                     },
                     onSignIn = { destination = SetupDestination.Server },
                 )

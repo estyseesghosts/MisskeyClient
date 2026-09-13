@@ -64,7 +64,7 @@ internal fun PostShareSheet(
     onShare: () -> Unit,
 ) {
     Popup(
-        popupPositionProvider = WindowAnchorPositionProvider(target.anchorBounds, BubblePlacement.Above),
+        popupPositionProvider = WindowAnchorPositionProvider(target.anchorBounds, BubblePlacement.Above, edgeMargin = 16),
         onDismissRequest = onDismiss,
         properties = PopupProperties(
             focusable = true,
@@ -337,7 +337,11 @@ private fun ReportForm(
 
 internal fun copyPostShareContent(context: Context, post: Post) {
     val value = post.url?.takeIf(String::isNotBlank)?.let(ExternalLinkHandler::prepare) ?: return
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+    if (clipboard == null) {
+        Toast.makeText(context, context.getString(R.string.post_share_copy_failed), Toast.LENGTH_SHORT).show()
+        return
+    }
     clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.post_share_clip_label), value))
     Toast.makeText(context, context.getString(R.string.post_share_copied), Toast.LENGTH_SHORT).show()
 }

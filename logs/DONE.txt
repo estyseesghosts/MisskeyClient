@@ -549,4 +549,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added route-scoped resize mode restoration and one navigation/IME inset group.
 - Preserved pending authorization restoration, browser reopening, cancellation, and account addition behavior.
 - Verification passed: `SignInScreenTest` and `compileDebugKotlin`.
+- Commit: `a68f017`.
+260913-153415 Slice 6:
+- Removed stale setup and share resource entries after checking all references.
+- Added the exact setup heart label, leading and trailing whitespace trimming, and clipboard failure feedback.
+- Added action-card edge clearance and protocol validation for account moderation targets.
+- Verification passed: `LocalizationResourceTest` and `lint`.
 - Commit: pending.
