@@ -416,3 +416,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Kept vertical dismiss interpretation in `MediaViewerScreen` because its pointer pass, pager arbitration, zoom cancellation, velocity handling, and close handoff are still tested only through the integrated viewer.
 - No isolated event contract exists that would make a separate gesture owner safer.
 - Verification passed: existing media viewer gesture coverage and source review.
+260913-032505 S53 connected-session wiring review:
+- Kept account/session ViewModel creation, restoration keys, settings layering, and lifecycle effects in `ConnectedApp` and `PalustrisApp`.
+- The current wiring already preserves creation outside `AnimatedContent`; no smaller owner could be introduced without changing lifetimes.
+- Verification passed: navigation, account lifecycle, settings, and session replacement tests plus source review.

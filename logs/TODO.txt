@@ -1,7 +1,7 @@
 # Active tasks
 
 260913-032505 decomposition completion:
-  - S52-S53 and S55 remain in the controller, push, profile, media, and measurement sequence.
+  - S55 remains in the measurement sequence.
 - S12-S15, S23-S34, S35-S37, and S54-S60 have completed focused implementation slices.
 - Each completed slice requires focused verification and its own local commit.
  - Increment the application version to v0.2.0 after the slices.
