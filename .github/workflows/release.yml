@@ -108,13 +108,13 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' "$RELEASE_KEYSTORE_BASE64" \
-            | base64 --decode > "$RUNNER_TEMP/misskeyclient-release.p12"
-          chmod 600 "$RUNNER_TEMP/misskeyclient-release.p12"
-          test -s "$RUNNER_TEMP/misskeyclient-release.p12"
+            | base64 --decode > "$RUNNER_TEMP/beeline-release.p12"
+          chmod 600 "$RUNNER_TEMP/beeline-release.p12"
+          test -s "$RUNNER_TEMP/beeline-release.p12"
 
       - name: Build signed release APK
         env:
-          RELEASE_STORE_FILE: ${{ runner.temp }}/misskeyclient-release.p12
+          RELEASE_STORE_FILE: ${{ runner.temp }}/beeline-release.p12
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
@@ -132,7 +132,7 @@ jobs:
           test -n "$apksigner"
           "$apksigner" verify --verbose "$APK"
 
-      - name: Create GitHub prerelease
+      - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
@@ -142,14 +142,19 @@ jobs:
           set -euo pipefail
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" "$APK" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Beeline $VERSION_NAME" \
+              --notes "Minimum viable client." \
+              --draft=false \
+              --prerelease=false
           else
             gh release create "$RELEASE_TAG" "$APK" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "MisskeyClient $VERSION_NAME" \
-              --generate-notes \
-              --prerelease
+              --title "Beeline $VERSION_NAME" \
+              --notes "Minimum viable client."
           fi
 
       - name: Remove release keystore
         if: always()
-        run: rm -f "$RUNNER_TEMP/misskeyclient-release.p12"
+        run: rm -f "$RUNNER_TEMP/beeline-release.p12"
