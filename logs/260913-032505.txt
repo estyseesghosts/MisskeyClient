@@ -127,3 +127,7 @@ S17 composer sheet:
 - Moved composer sheet chrome to ui/ComposerSheet.kt while keeping draft and publish state in ConnectedApp.
 - Preserved save-before-publish, audience validation, account/origin checks, emoji picker nesting, and failure recovery.
 - Verification passed: Kotlin compilation.
+S18 profile editor sheet:
+- Moved profile editor sheet rendering to ui/profile/EditProfileSheet.kt.
+- Moved editableProfilePatch into the profile feature package and kept dirty-field comparison unchanged.
+- Verification passed: Kotlin compilation.

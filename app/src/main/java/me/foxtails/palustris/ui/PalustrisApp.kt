@@ -97,6 +97,7 @@ import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfileScreen as RichProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
+import me.foxtails.palustris.ui.profile.editableProfilePatch
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.MediaViewerScreen
 import me.foxtails.palustris.ui.media.ImageViewerContent
@@ -1370,27 +1371,24 @@ fun PalustrisApp(
         )
     }
 
-    if (overlay == Overlay.EditProfile && account != null) ModalBottomSheet(onDismissRequest = ::closeProfile, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        me.foxtails.palustris.ui.profile.EditProfileScreen(
-            editor = profileEditor,
-            capabilities = profileState.editorCapabilities,
-            emoji = profileState.account?.emoji ?: emptyMap(),
-            handle = account!!.handle,
-            loading = profileState.editableLoading,
-            saving = profileState.savingProfile,
-            error = profileState.editError ?: profileState.editableError,
-            onEditorChange = { profileEditor = it },
-            onSave = {
-                val base = editorBase ?: return@EditProfileScreen
-                val edited = profileEditor ?: return@EditProfileScreen
-                onUpdateProfile(editableProfilePatch(base, edited)) {
-                    profileEditor = null
-                    overlayKey = null
-                }
-            },
-            onClose = ::closeProfile,
-        )
-    }
+    if (overlay == Overlay.EditProfile && account != null) me.foxtails.palustris.ui.profile.EditProfileSheet(
+        account = account,
+        editor = profileEditor,
+        editorBase = editorBase,
+        capabilities = profileState.editorCapabilities,
+        emoji = profileState.account?.emoji ?: emptyMap(),
+        loading = profileState.editableLoading,
+        saving = profileState.savingProfile,
+        error = profileState.editError ?: profileState.editableError,
+        onEditorChange = { profileEditor = it },
+        onSave = { patch ->
+            onUpdateProfile(patch) {
+                profileEditor = null
+                overlayKey = null
+            }
+        },
+        onClose = ::closeProfile,
+    )
 
     if (emojiPickerTarget != null) {
         EmojiPickerHost(
