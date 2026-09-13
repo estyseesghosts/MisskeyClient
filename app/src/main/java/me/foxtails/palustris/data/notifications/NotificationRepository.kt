@@ -623,46 +623,7 @@ internal fun AccountId.stableFileName(): String {
     return MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }
 
-internal fun encode(state: NotificationRepositoryState): JSONObject = JSONObject().apply {
-    put("version", 2)
-    put("items", JSONArray(state.items.map(::encodeNotification)))
-    put("unread", encodeUnread(state.unreadState))
-    state.checkpoint?.let { checkpoint -> put("checkpoint", encodeCheckpoint(checkpoint)) }
-    put("lastSyncedAt", state.lastSyncedAtEpochMillis)
-    put("dismissedIds", JSONArray(state.dismissedIds.map(::encodeEntity)))
-    put("checkpoints", JSONObject().apply {
-        state.checkpoints.forEach { (key, checkpoint) -> put(key, encodeCheckpoint(checkpoint)) }
-    })
-    put("deliveries", JSONArray(state.deliveries.values.map(::encodeDelivery)))
-    put("settings", encodeSettings(state.settings))
-    state.pushRegistration?.let { put("pushRegistration", encodePushRegistration(it)) }
-}
-
-internal fun decode(json: JSONObject): NotificationRepositoryState {
-    val items = json.optJSONArray("items")?.let { values ->
-        (0 until values.length()).mapNotNull { index -> runCatching { decodeNotification(values.getJSONObject(index)) }.getOrNull() }
-    }.orEmpty()
-    return NotificationRepositoryState(
-        items = items,
-        unreadState = decodeUnread(json.optJSONObject("unread")),
-        checkpoint = json.optJSONObject("checkpoint")?.let(::decodeCheckpoint),
-        lastSyncedAtEpochMillis = json.optLong("lastSyncedAt", 0),
-        dismissedIds = json.optJSONArray("dismissedIds")?.let { values ->
-            (0 until values.length()).mapNotNull { index -> runCatching { decodeEntity(values.getJSONObject(index)) }.getOrNull() }
-        }?.toSet().orEmpty(),
-        checkpoints = json.optJSONObject("checkpoints")?.let { values ->
-            values.keys().asSequence().mapNotNull { key -> runCatching { key to decodeCheckpoint(values.getJSONObject(key)) }.getOrNull() }
-                .toMap()
-        }.orEmpty(),
-        deliveries = json.optJSONArray("deliveries")?.let { values ->
-            (0 until values.length()).mapNotNull { index -> runCatching { decodeDelivery(values.getJSONObject(index)) }.getOrNull() }
-        }?.associateBy { it.notificationId }.orEmpty(),
-        settings = decodeSettings(json.optJSONObject("settings")),
-        pushRegistration = json.optJSONObject("pushRegistration")?.let(::decodePushRegistration),
-    )
-}
-
-private fun encodePushRegistration(registration: PushRegistration): JSONObject = JSONObject().apply {
+internal fun encodePushRegistration(registration: PushRegistration): JSONObject = JSONObject().apply {
     put("accountId", encodeAccountId(registration.accountId))
     put("generation", registration.generation)
     put("sessionRevision", registration.sessionRevision)
@@ -682,7 +643,7 @@ private fun encodePushRegistration(registration: PushRegistration): JSONObject =
     put("nextRetryAt", registration.nextRetryAtEpochMillis)
 }
 
-private fun decodePushRegistration(json: JSONObject): PushRegistration {
+internal fun decodePushRegistration(json: JSONObject): PushRegistration {
     val endpoint = json.optString("endpoint").takeIf { it.isNotBlank() }?.let { ValidatedUrl.https(it) }
     val state = runCatching { NotificationPushRegistrationState.valueOf(json.optString("state")) }
         .getOrDefault(NotificationPushRegistrationState.Off)
@@ -720,7 +681,7 @@ private fun decodePushRegistration(json: JSONObject): PushRegistration {
     )
 }
 
-private fun encodeSettings(settings: NotificationSettings): JSONObject = JSONObject().apply {
+internal fun encodeSettings(settings: NotificationSettings): JSONObject = JSONObject().apply {
     put("alertsEnabled", settings.alertsEnabled)
     put("categories", JSONArray(settings.categories.map { it.name }))
     put("showPreviews", settings.showPreviews)
@@ -730,7 +691,7 @@ private fun encodeSettings(settings: NotificationSettings): JSONObject = JSONObj
     settings.selectedDistributor?.let { put("selectedDistributor", it) }
 }
 
-private fun decodeSettings(json: JSONObject?): NotificationSettings {
+internal fun decodeSettings(json: JSONObject?): NotificationSettings {
     if (json == null) return NotificationSettings()
     val categories = json.optJSONArray("categories")?.let { values ->
         (0 until values.length()).mapNotNull { index ->
@@ -749,7 +710,7 @@ private fun decodeSettings(json: JSONObject?): NotificationSettings {
     )
 }
 
-private fun encodeDelivery(record: NotificationDeliveryRecord): JSONObject = JSONObject().apply {
+internal fun encodeDelivery(record: NotificationDeliveryRecord): JSONObject = JSONObject().apply {
     put("accountId", encodeAccountId(record.accountId))
     put("notificationId", encodeEntity(record.notificationId))
     put("state", record.state.name)
@@ -762,7 +723,7 @@ private fun encodeDelivery(record: NotificationDeliveryRecord): JSONObject = JSO
     put("claimExpiresAt", record.claimExpiresAtEpochMillis)
 }
 
-private fun decodeDelivery(json: JSONObject): NotificationDeliveryRecord = NotificationDeliveryRecord(
+internal fun decodeDelivery(json: JSONObject): NotificationDeliveryRecord = NotificationDeliveryRecord(
     accountId = decodeAccountId(json.getJSONObject("accountId")),
     notificationId = decodeEntity(json.getJSONObject("notificationId")),
     state = runCatching { NotificationDeliveryState.valueOf(json.optString("state")) }
@@ -776,7 +737,7 @@ private fun decodeDelivery(json: JSONObject): NotificationDeliveryRecord = Notif
     claimExpiresAtEpochMillis = json.optLong("claimExpiresAt"),
 )
 
-private fun encodeNotification(notification: Notification): JSONObject = JSONObject().apply {
+internal fun encodeNotification(notification: Notification): JSONObject = JSONObject().apply {
     put("id", encodeEntity(notification.id))
     put("accountId", encodeAccountId(notification.accountId))
     put("createdAt", notification.createdAtEpochMillis)
@@ -794,7 +755,7 @@ private fun encodeNotification(notification: Notification): JSONObject = JSONObj
     notification.group?.let { put("group", encodeGroup(it)) }
 }
 
-private fun decodeNotification(json: JSONObject): Notification = Notification(
+internal fun decodeNotification(json: JSONObject): Notification = Notification(
     id = decodeEntity(json.getJSONObject("id")),
     accountId = decodeAccountId(json.getJSONObject("accountId")),
     createdAtEpochMillis = json.optLong("createdAt"),
@@ -818,33 +779,33 @@ private fun decodeNotification(json: JSONObject): Notification = Notification(
     group = json.optJSONObject("group")?.let(::decodeGroup),
 )
 
-private fun encodeDestination(destination: NotificationDestination): JSONObject = JSONObject().apply {
+internal fun encodeDestination(destination: NotificationDestination): JSONObject = JSONObject().apply {
     when (destination) {
         is NotificationDestination.InApp -> put("kind", "in_app").put("target", encodeTarget(destination.target))
         is NotificationDestination.Server -> put("kind", "server").put("url", destination.url.value)
     }
 }
 
-private fun decodeDestination(json: JSONObject): NotificationDestination? = when (json.optString("kind")) {
+internal fun decodeDestination(json: JSONObject): NotificationDestination? = when (json.optString("kind")) {
     "in_app" -> json.optJSONObject("target")?.let { NotificationDestination.InApp(decodeTarget(it)) }
     "server" -> json.optString("url").takeIf { it.isNotBlank() }?.let { ValidatedUrl.https(it) }
         ?.let(NotificationDestination::Server)
     else -> null
 }
 
-private fun encodeEntity(id: EntityId): JSONObject = JSONObject().put("connection", id.connection).put("value", id.value)
+internal fun encodeEntity(id: EntityId): JSONObject = JSONObject().put("connection", id.connection).put("value", id.value)
 
-private fun decodeEntity(json: JSONObject): EntityId = EntityId(json.getString("connection"), json.getString("value"))
+internal fun decodeEntity(json: JSONObject): EntityId = EntityId(json.getString("connection"), json.getString("value"))
 
-private fun encodeAccountId(id: AccountId): JSONObject = JSONObject()
+internal fun encodeAccountId(id: AccountId): JSONObject = JSONObject()
     .put("origin", id.connection.origin).put("protocol", id.connection.protocol.name).put("localId", id.localId)
 
-private fun decodeAccountId(json: JSONObject): AccountId = AccountId(
+internal fun decodeAccountId(json: JSONObject): AccountId = AccountId(
     Connection(json.getString("origin"), Protocol.valueOf(json.getString("protocol"))),
     json.getString("localId"),
 )
 
-private fun encodeAccount(account: Account): JSONObject = JSONObject()
+internal fun encodeAccount(account: Account): JSONObject = JSONObject()
     .put("id", encodeAccountId(account.id)).put("displayName", account.displayName)
     .put("handle", account.handle).put("avatarUrl", account.avatarUrl)
     .put("biography", account.biography)
@@ -860,7 +821,7 @@ private fun encodeAccount(account: Account): JSONObject = JSONObject()
     .put("emoji", encodeEmojiMap(account.emoji))
     .put("movedTo", account.movedTo?.let(::encodeAccount))
 
-private fun decodeAccount(json: JSONObject): Account = Account(
+internal fun decodeAccount(json: JSONObject): Account = Account(
     id = decodeAccountId(json.getJSONObject("id")),
     displayName = json.optString("displayName"),
     handle = json.optString("handle"),
@@ -883,7 +844,7 @@ private fun decodeAccount(json: JSONObject): Account = Account(
     movedTo = json.optJSONObject("movedTo")?.let { runCatching { decodeAccount(it) }.getOrNull() },
 )
 
-private fun encodeEmoji(emoji: me.foxtails.palustris.domain.CustomEmoji): JSONObject = JSONObject()
+internal fun encodeEmoji(emoji: me.foxtails.palustris.domain.CustomEmoji): JSONObject = JSONObject()
     .put("shortcode", emoji.shortcode)
     .put("animatedUrl", emoji.animatedUrl?.value)
     .put("staticUrl", emoji.staticUrl?.value)
@@ -892,7 +853,7 @@ private fun encodeEmoji(emoji: me.foxtails.palustris.domain.CustomEmoji): JSONOb
     .put("visibleInPicker", emoji.visibleInPicker)
     .put("submissionValue", emoji.submissionValue)
 
-private fun decodeEmoji(json: JSONObject): me.foxtails.palustris.domain.CustomEmoji? {
+internal fun decodeEmoji(json: JSONObject): me.foxtails.palustris.domain.CustomEmoji? {
     val shortcode = json.optString("shortcode").takeIf { it.isNotBlank() } ?: return null
     return me.foxtails.palustris.domain.CustomEmoji(
         shortcode = shortcode,
@@ -909,10 +870,10 @@ private fun decodeEmoji(json: JSONObject): me.foxtails.palustris.domain.CustomEm
     )
 }
 
-private fun encodeEmojiMap(emoji: Map<String, me.foxtails.palustris.domain.CustomEmoji>): JSONObject =
+internal fun encodeEmojiMap(emoji: Map<String, me.foxtails.palustris.domain.CustomEmoji>): JSONObject =
     JSONObject().apply { emoji.forEach { (key, value) -> put(key, encodeEmoji(value)) } }
 
-private fun decodeEmojiMap(json: JSONObject?): Map<String, me.foxtails.palustris.domain.CustomEmoji> {
+internal fun decodeEmojiMap(json: JSONObject?): Map<String, me.foxtails.palustris.domain.CustomEmoji> {
     if (json == null) return emptyMap()
     val result = linkedMapOf<String, me.foxtails.palustris.domain.CustomEmoji>()
     json.keys().asSequence().forEach { key ->
@@ -921,7 +882,7 @@ private fun decodeEmojiMap(json: JSONObject?): Map<String, me.foxtails.palustris
     return result
 }
 
-private fun encodePost(post: me.foxtails.palustris.domain.Post): JSONObject = JSONObject().apply {
+internal fun encodePost(post: me.foxtails.palustris.domain.Post): JSONObject = JSONObject().apply {
     put("id", encodeEntity(post.id))
     put("author", encodeAccount(post.author))
     put("text", post.text)
@@ -954,7 +915,7 @@ private fun encodePost(post: me.foxtails.palustris.domain.Post): JSONObject = JS
     post.actionTargetId?.let { put("actionTargetId", encodeEntity(it)) }
 }
 
-private fun decodePost(json: JSONObject): me.foxtails.palustris.domain.Post =
+internal fun decodePost(json: JSONObject): me.foxtails.palustris.domain.Post =
     me.foxtails.palustris.domain.Post(
         id = decodeEntity(json.getJSONObject("id")),
         author = decodeAccount(json.getJSONObject("author")),
@@ -1011,7 +972,7 @@ private fun decodePost(json: JSONObject): me.foxtails.palustris.domain.Post =
         actionTargetId = json.optJSONObject("actionTargetId")?.let(::decodeEntity),
     )
 
-private fun encodeAttachment(attachment: me.foxtails.palustris.domain.Attachment): JSONObject = JSONObject()
+internal fun encodeAttachment(attachment: me.foxtails.palustris.domain.Attachment): JSONObject = JSONObject()
     .put("url", attachment.url)
     .put("mimeType", attachment.mimeType)
     .put("description", attachment.description)
@@ -1026,7 +987,7 @@ private fun encodeAttachment(attachment: me.foxtails.palustris.domain.Attachment
     .put("blurhash", attachment.blurhash)
     .put("remoteOriginalUrl", attachment.remoteOriginalUrl)
 
-private fun decodeAttachment(json: JSONObject): me.foxtails.palustris.domain.Attachment {
+internal fun decodeAttachment(json: JSONObject): me.foxtails.palustris.domain.Attachment {
     val mimeType = json.optString("mimeType").takeIf { it.isNotBlank() } ?: "application/octet-stream"
     return me.foxtails.palustris.domain.Attachment(
         url = json.optString("url").takeIf { it.isNotBlank() },
@@ -1046,13 +1007,13 @@ private fun decodeAttachment(json: JSONObject): me.foxtails.palustris.domain.Att
     )
 }
 
-private fun encodeReaction(reaction: me.foxtails.palustris.domain.Reaction): JSONObject = JSONObject()
+internal fun encodeReaction(reaction: me.foxtails.palustris.domain.Reaction): JSONObject = JSONObject()
     .put("emoji", reaction.emoji)
     .put("count", reaction.count)
     .put("selected", reaction.selected)
     .put("emojiMetadata", reaction.emojiMetadata?.let(::encodeEmoji))
 
-private fun decodeReaction(json: JSONObject): me.foxtails.palustris.domain.Reaction =
+internal fun decodeReaction(json: JSONObject): me.foxtails.palustris.domain.Reaction =
     me.foxtails.palustris.domain.Reaction(
         emoji = json.optString("emoji"),
         count = json.optInt("count").coerceAtLeast(0),
@@ -1060,12 +1021,12 @@ private fun decodeReaction(json: JSONObject): me.foxtails.palustris.domain.React
         emojiMetadata = json.optJSONObject("emojiMetadata")?.let(::decodeEmoji),
     )
 
-private fun encodeEmojiChoice(choice: me.foxtails.palustris.domain.EmojiChoice): JSONObject = JSONObject()
+internal fun encodeEmojiChoice(choice: me.foxtails.palustris.domain.EmojiChoice): JSONObject = JSONObject()
     .put("submissionValue", choice.submissionValue)
     .put("displayText", choice.displayText)
     .put("emoji", choice.emoji?.let(::encodeEmoji))
 
-private fun decodeEmojiChoice(json: JSONObject): me.foxtails.palustris.domain.EmojiChoice =
+internal fun decodeEmojiChoice(json: JSONObject): me.foxtails.palustris.domain.EmojiChoice =
     me.foxtails.palustris.domain.EmojiChoice(
         submissionValue = json.optString("submissionValue"),
         displayText = json.optString("displayText"),
@@ -1078,7 +1039,7 @@ private fun JSONObject.optLongOrNull(key: String): Long? =
 private fun JSONObject.optIntOrNull(key: String): Int? =
     if (has(key) && !isNull(key)) optInt(key) else null
 
-private fun encodeTarget(target: NotificationTarget): JSONObject = JSONObject().apply {    when (target) {
+internal fun encodeTarget(target: NotificationTarget): JSONObject = JSONObject().apply {    when (target) {
         is NotificationTarget.Post -> put("kind", "post").put("id", encodeEntity(target.id))
         is NotificationTarget.Profile -> put("kind", "profile").put("id", encodeAccountId(target.id))
         is NotificationTarget.Poll -> put("kind", "poll").put("id", encodeEntity(target.id))
@@ -1086,7 +1047,7 @@ private fun encodeTarget(target: NotificationTarget): JSONObject = JSONObject().
     }
 }
 
-private fun decodeTarget(json: JSONObject): NotificationTarget = when (json.getString("kind")) {
+internal fun decodeTarget(json: JSONObject): NotificationTarget = when (json.getString("kind")) {
     "post" -> NotificationTarget.Post(decodeEntity(json.getJSONObject("id")))
     "profile" -> NotificationTarget.Profile(decodeAccountId(json.getJSONObject("id")))
     "poll" -> NotificationTarget.Poll(decodeEntity(json.getJSONObject("id")))
@@ -1094,7 +1055,7 @@ private fun decodeTarget(json: JSONObject): NotificationTarget = when (json.getS
     else -> error("Unknown notification target")
 }
 
-private fun encodeActivity(activity: NotificationActivity): JSONObject = JSONObject().apply {
+internal fun encodeActivity(activity: NotificationActivity): JSONObject = JSONObject().apply {
     when (activity) {
         NotificationActivity.Mention -> put("kind", "mention")
         NotificationActivity.Reply -> put("kind", "reply")
@@ -1125,7 +1086,7 @@ private fun encodeActivity(activity: NotificationActivity): JSONObject = JSONObj
     }
 }
 
-private fun decodeActivity(json: JSONObject): NotificationActivity = when (json.optString("kind")) {
+internal fun decodeActivity(json: JSONObject): NotificationActivity = when (json.optString("kind")) {
     "mention" -> NotificationActivity.Mention
     "reply" -> NotificationActivity.Reply
     "reshare" -> NotificationActivity.Reshare
@@ -1169,12 +1130,12 @@ private fun decodeActivity(json: JSONObject): NotificationActivity = when (json.
     )
 }
 
-private fun encodeGroup(group: NotificationGroup): JSONObject = JSONObject().apply {
+internal fun encodeGroup(group: NotificationGroup): JSONObject = JSONObject().apply {
     put("accountId", encodeAccountId(group.id.accountId)).put("value", group.id.value)
     put("actors", JSONArray(group.actorPreviews.map(::encodeAccount))).put("totalCount", group.totalCount)
 }
 
-private fun decodeGroup(json: JSONObject): NotificationGroup = NotificationGroup(
+internal fun decodeGroup(json: JSONObject): NotificationGroup = NotificationGroup(
     id = NotificationGroupId(decodeAccountId(json.getJSONObject("accountId")), json.getString("value")),
     actorPreviews = json.optJSONArray("actors")?.let { values ->
         (0 until values.length()).mapNotNull { index -> runCatching { decodeAccount(values.getJSONObject(index)) }.getOrNull() }
@@ -1182,7 +1143,7 @@ private fun decodeGroup(json: JSONObject): NotificationGroup = NotificationGroup
     totalCount = json.optInt("totalCount").takeIf { it > 0 },
 )
 
-private fun encodeUnread(state: NotificationUnreadState): JSONObject = JSONObject().apply {
+internal fun encodeUnread(state: NotificationUnreadState): JSONObject = JSONObject().apply {
     when (state) {
         is NotificationUnreadState.Exact -> put("kind", "exact").put("count", state.count)
         is NotificationUnreadState.AtLeast -> put("kind", "at_least").put("count", state.count)
@@ -1192,7 +1153,7 @@ private fun encodeUnread(state: NotificationUnreadState): JSONObject = JSONObjec
     }
 }
 
-private fun decodeUnread(json: JSONObject?): NotificationUnreadState = when (json?.optString("kind")) {
+internal fun decodeUnread(json: JSONObject?): NotificationUnreadState = when (json?.optString("kind")) {
     "exact" -> NotificationUnreadState.Exact(json.optInt("count").coerceAtLeast(0))
     "at_least" -> NotificationUnreadState.AtLeast(json.optInt("count").coerceAtLeast(0))
     "present" -> NotificationUnreadState.Present
@@ -1200,7 +1161,7 @@ private fun decodeUnread(json: JSONObject?): NotificationUnreadState = when (jso
     else -> NotificationUnreadState.Unknown
 }
 
-private fun encodeCheckpoint(checkpoint: NotificationCheckpoint): JSONObject = JSONObject().apply {
+internal fun encodeCheckpoint(checkpoint: NotificationCheckpoint): JSONObject = JSONObject().apply {
     put("accountId", encodeAccountId(checkpoint.accountId)).put("capturedAt", checkpoint.capturedAtEpochMillis)
     put("query", JSONObject().put("categories", JSONArray(checkpoint.query.categories.map { it.name }))
         .put("limit", checkpoint.query.limit).put("grouped", checkpoint.query.grouped))
@@ -1212,7 +1173,7 @@ private fun encodeCheckpoint(checkpoint: NotificationCheckpoint): JSONObject = J
     put("baselineEstablished", checkpoint.baselineEstablished)
 }
 
-private fun decodeCheckpoint(json: JSONObject): NotificationCheckpoint {
+internal fun decodeCheckpoint(json: JSONObject): NotificationCheckpoint {
     val queryJson = json.getJSONObject("query")
     val categories = queryJson.optJSONArray("categories")?.let { values ->
         (0 until values.length()).mapNotNull { index -> runCatching {
