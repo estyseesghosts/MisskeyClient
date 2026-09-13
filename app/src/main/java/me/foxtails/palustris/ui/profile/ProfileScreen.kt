@@ -420,7 +420,7 @@ private fun LargeProfilePresentation(
 }
 
 @Composable
-private fun ProfileHeader(
+private fun LegacyProfileHeader(
     account: Account,
     state: ProfileUiState,
     isSelf: Boolean,
@@ -616,7 +616,7 @@ private fun ProfileHeader(
 }
 
 @Composable
-private fun ProfileRedirectBanner(
+internal fun ProfileRedirectBanner(
     account: Account,
     destination: Account,
     onOpenProfile: () -> Unit,
@@ -689,7 +689,7 @@ private fun ProfileRedirectBanner(
 }
 
 @Composable
-private fun ProfileStats(account: Account) {
+internal fun ProfileStats(account: Account) {
     val stats = listOfNotNull(
         account.postsCount?.let { "${formatProfileCount(it)} posts" },
         account.followersCount?.let { "${formatProfileCount(it)} followers" },
@@ -708,62 +708,7 @@ private fun ProfileStats(account: Account) {
 }
 
 @Composable
-private fun ProfileDetails(account: Account) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .testTag("profile_details"),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(stringResource(R.string.profile_details), style = MaterialTheme.typography.titleLarge)
-        if (account.profileFields.isEmpty()) {
-            Text(
-                stringResource(R.string.profile_no_details),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            account.profileFields.forEachIndexed { index, field ->
-                val context = LocalContext.current
-                val clickable = field.value.isWebAddress()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .then(
-                            if (clickable) Modifier.clickable { openExternal(context, field.value) }
-                            else Modifier,
-                        )
-                        .padding(vertical = 4.dp)
-                        .testTag("profile_field_$index"),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    InlineEmojiText(
-                        text = field.name,
-                        emoji = account.emoji,
-                        modifier = Modifier.width(112.dp),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                    )
-                    InlineEmojiText(
-                        text = field.value,
-                        emoji = account.emoji,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = if (clickable) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface,
-                        ),
-                    )
-                }
-                if (index < account.profileFields.lastIndex) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProfileBadge(text: String) {
+internal fun ProfileBadge(text: String) {
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -777,7 +722,7 @@ private fun ProfileBadge(text: String) {
 }
 
 @Composable
-private fun LinearProfileProgress(description: String) {
+internal fun LinearProfileProgress(description: String) {
     Column(Modifier.fillMaxWidth().padding(top = 12.dp).testTag("profile_detail_loading")) {
         Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
@@ -786,7 +731,7 @@ private fun LinearProfileProgress(description: String) {
 }
 
 @Composable
-private fun ProfileStatus(
+internal fun ProfileStatus(
     message: String,
     action: String,
     onAction: () -> Unit,
@@ -806,13 +751,13 @@ private fun ProfileStatus(
     }
 }
 
-private fun formatProfileCount(value: Long): String = when {
+internal fun formatProfileCount(value: Long): String = when {
     value >= 1_000_000 -> "%.1fM".format(value / 1_000_000.0)
     value >= 1_000 -> "%.1fK".format(value / 1_000.0)
     else -> value.toString()
 }
 
-private fun Account.hasUsableProfileIdentity(): Boolean = id.localId.isNotBlank() &&
+internal fun Account.hasUsableProfileIdentity(): Boolean = id.localId.isNotBlank() &&
     (displayName.isNotBlank() || handle.removePrefix("@").substringBefore("@").isNotBlank() || avatarUrl != null)
 
 private fun String.isWebAddress(): Boolean =

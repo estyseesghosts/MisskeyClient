@@ -380,3 +380,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Kept registration reconciliation, endpoint replacement, retry, disable, and stale-callback checks in `UnifiedPushRegistrationManager`.
 - The manager remains the single mutex owner; extracting a second reconciler would add indirection without changing ownership or behavior.
 - Verification passed: push registration tests and source review.
+260913-032505 S44 profile header and details:
+- Moved profile header presentation into `ui/profile/ProfileHeader.kt` and profile field/details presentation into `ui/profile/ProfileDetails.kt`.
+- Preserved redirect handling, image opening, badges, relationship actions, test tags, and detail links.
+- Verification passed: `ProfileScreenTest` and Kotlin compilation.
