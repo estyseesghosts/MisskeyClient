@@ -1,6 +1,3 @@
 # Active tasks
 
-260913-075234 individual emoji pins and post interactions:
-- Emoji pinning and post interactions are tracked as separate implementation slices.
-- Current slice: add focused regression coverage and complete full verification.
-- Risks: storage migration, session isolation, and network rollback.
+No active tasks.

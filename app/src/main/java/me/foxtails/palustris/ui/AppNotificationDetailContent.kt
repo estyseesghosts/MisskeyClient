@@ -7,6 +7,8 @@ import androidx.compose.ui.Modifier
 import me.foxtails.palustris.domain.ContentWarningRules
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.EmojiChoice
+import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.ui.notifications.NotificationDetailScreen
 import me.foxtails.palustris.ui.navigation.AppRoute
 
@@ -20,6 +22,16 @@ internal fun AppNotificationDetailContent(
     onOpenTarget: (() -> Unit)?,
     largeLayout: Boolean,
     contentWarningRules: ContentWarningRules,
+    availableActions: Set<PostAction>,
+    onReact: (OwnedPost) -> Unit,
+    onReply: (OwnedPost) -> Unit,
+    onReshare: (OwnedPost) -> Unit,
+    onBookmark: (OwnedPost) -> Unit,
+    onReaction: (OwnedPost, EmojiChoice) -> Unit,
+    onQuote: (OwnedPost) -> Unit,
+    quoteEnabled: Boolean,
+    onOpenReactionBubble: (OwnedPost, Rect) -> Unit,
+    sessionRevision: Long,
 ) {
     NotificationDetailScreen(
         route = route,
@@ -31,5 +43,15 @@ internal fun AppNotificationDetailContent(
         largeLayout = largeLayout,
         modifier = Modifier.fillMaxSize(),
         contentWarningRules = contentWarningRules,
+        availableActions = availableActions,
+        onReact = onReact,
+        onReply = onReply,
+        onReshare = onReshare,
+        onBookmark = onBookmark,
+        onReaction = onReaction,
+        onQuote = onQuote,
+        quoteEnabled = quoteEnabled,
+        onOpenReactionBubble = onOpenReactionBubble,
+        sessionRevision = sessionRevision,
     )
 }

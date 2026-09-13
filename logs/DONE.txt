@@ -440,15 +440,20 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Replaced boost long press menu behavior with direct quote opening.
 - Preserved boost tap behavior and added an accessibility quote custom action.
 - Focused verification passed: `compileDebugKotlin`.
-- Commit: pending.
+- Commit: `6ba7530`.
 260913-075234 Post mutation owner slice:
 - Extracted Feed favorite, reaction, boost, and bookmark mutations into `PostInteractionMutationOwner`.
 - Preserved opaque action targets, account/session validation, optimistic updates, reconciliation, rollback, and favorite/reaction deduplication.
 - Focused verification passed: `FeedViewModelReactionTest` and `compileDebugKotlin`.
-- Commit: pending.
+- Commit: `f2aaee3`.
 260913-075234 Notification and publication slice:
 - Enabled notification detail post actions through the application reaction popup and composer callbacks.
 - Added notification-specific post overlays and Feed projection listeners for saved, liked, profile, and notification copies.
 - Added known reply and quote count updates after successful publication without changing unknown counts.
 - Focused verification passed: notification, navigation, profile, saved-post, thread, and Kotlin compilation checks.
-- Commit: pending.
+- Commit: `931ecde`.
+260913-075234 Final verification:
+- Focused emoji, Feed interaction, notification, navigation, profile, saved-post, and thread tests passed.
+- `test assembleRelease` passed.
+- `lintDebug` passed.
+- Compact, wide, system-font-scale, live-server, and physical-device checks were not run in this environment.

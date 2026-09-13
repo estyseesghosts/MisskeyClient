@@ -5,7 +5,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.AccountId
-import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
@@ -128,7 +127,7 @@ class PostInteractionMutationOwner(
         operation: suspend () -> PostActionResult,
     ) {
         if (stopped || ownedPost.fetchedBy != accountId || ownedPost.sessionRevision != sessionRevision) return
-        if (!isActionAvailable(action) || action == PostAction.React && !isActionAvailable(PostAction.React)) return
+        if (!isActionAvailable(action)) return
         val target = ownedPost.effectiveTargetId()
         val key = ActionKey(actionFamily(action), target)
         if (jobs[key]?.isActive == true) return

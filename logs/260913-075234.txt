@@ -1,0 +1,26 @@
+# Individual emoji pins and post interaction task
+
+Task goal:
+- Store account-scoped individual emoji pins and expose them in the existing Favorite picker group.
+- Add long-press pin confirmation without changing normal emoji selection.
+- Replace boost long press with direct quote opening.
+- Consolidate post interaction mutations with optimistic state and cross-surface projection.
+- Wire requested surfaces and publication count updates.
+
+Planned slices:
+- Emoji pinning: preference model and migration, catalog pruning, Favorite group, long-press confirmation, accessibility, and focused tests.
+- Post interactions: shared mutation owner, optimistic updates and rollback, projections, boost long press, page wiring, publication counts, and focused tests.
+
+Affected areas:
+- domain emoji picker preferences and post interaction contracts.
+- file and in-memory preference repositories.
+- emoji catalog ViewModel and picker Compose UI.
+- post interaction UI, FeedViewModel, profile/search/notification/thread/Photo Grid surfaces, and composer publication state.
+
+Important risks:
+- Storage migration must preserve version-one collapsedGroups and pinnedGroups.
+- Preferences and interaction state must remain isolated by account and session revision.
+- Failed network mutations must roll back only their affected fields.
+- Missing custom emoji must not remove unresolved post-specific entries prematurely.
+- Protocol differences must remain behind SocialSource and adapter boundaries.
+- Compact and wide layouts, accessibility, and count precision require regression coverage.

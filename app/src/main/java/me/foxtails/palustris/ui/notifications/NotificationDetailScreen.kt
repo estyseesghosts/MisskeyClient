@@ -20,6 +20,8 @@ import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.NotificationTarget
+import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.ValidatedUrl
 import me.foxtails.palustris.domain.ContentWarningRules
 import me.foxtails.palustris.ui.EmptyState
@@ -36,6 +38,16 @@ fun NotificationDetailScreen(
     onSearchHashtag: ((String) -> Unit)? = null,
     onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)? = null,
     onOpenPost: (OwnedPost) -> Unit = {},
+    availableActions: Set<PostAction> = emptySet(),
+    onReact: (OwnedPost) -> Unit = {},
+    onReply: (OwnedPost) -> Unit = {},
+    onReshare: (OwnedPost) -> Unit = {},
+    onBookmark: (OwnedPost) -> Unit = {},
+    onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    onQuote: (OwnedPost) -> Unit = {},
+    quoteEnabled: Boolean = false,
+    onOpenReactionBubble: (OwnedPost, Rect) -> Unit = { _, _ -> },
+    sessionRevision: Long = 0L,
     largeLayout: Boolean = false,
     modifier: Modifier = Modifier,
     contentWarningRules: ContentWarningRules = me.foxtails.palustris.ui.LocalContentWarningRules.current,
@@ -124,13 +136,16 @@ fun NotificationDetailScreen(
                         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 12.dp),
                     ) {
                         PostRow(
-                            ownedPost = OwnedPost(owner, post),
-                            availableActions = emptySet(),
-                            onReact = {},
-                            onReply = {},
-                            onReshare = {},
-                            onBookmark = {},
-                            onReaction = { _, _ -> },
+                            ownedPost = OwnedPost(owner, post, sessionRevision),
+                            availableActions = availableActions,
+                            onReact = onReact,
+                            onReply = onReply,
+                            onReshare = onReshare,
+                            onBookmark = onBookmark,
+                            onReaction = onReaction,
+                            onQuote = onQuote,
+                            quoteEnabled = quoteEnabled,
+                            onOpenReactionBubble = onOpenReactionBubble,
                             onOpenProfile = null,
                             onSearchHashtag = onSearchHashtag,
                              onOpenHashtagBubble = onOpenHashtagBubble,

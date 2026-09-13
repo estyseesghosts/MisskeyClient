@@ -312,7 +312,9 @@ class FeedViewModel @AssistedInject constructor(
     private fun updatePost(id: EntityId, transform: (Post) -> Post) {
         val currentOwnedPosts = _feed.value.ownedPosts
         val projected = currentOwnedPosts.map { owned ->
-            if (owned.effectiveTargetId() == id && owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision) {
+            if ((owned.post.id == id || owned.effectiveTargetId() == id) &&
+                owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision
+            ) {
                 owned.copy(post = transform(owned.post))
             } else {
                 owned

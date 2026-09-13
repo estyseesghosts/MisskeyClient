@@ -818,9 +818,19 @@ fun PalustrisApp(
                                 onOpenHashtagBubble = ::openHashtagBubble,
                                  onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Notification) },
                                  onOpenTarget = (notificationRoute as? AppRoute.Profile)?.let { route ->
-                                     { openNotificationTarget(route) }
-                                 },
-                                  largeLayout = largePresentation,
+                                      { openNotificationTarget(route) }
+                                  },
+                                 availableActions = feedState?.actions ?: emptySet(),
+                                 onReact = onReact,
+                                 onReply = handleReply,
+                                 onReshare = onReshare,
+                                 onBookmark = onBookmark,
+                                 onReaction = onReaction,
+                                 onQuote = ::openQuote,
+                                 quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
+                                 onOpenReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onReaction) },
+                                 sessionRevision = sessionGeneration,
+                                 largeLayout = largePresentation,
                                    contentWarningRules = contentWarningRules,
                              )
                          } else if (page != null) {
