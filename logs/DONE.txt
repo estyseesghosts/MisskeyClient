@@ -233,3 +233,4 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added localized detailed summaries for Hashtag Search and focal post views while keeping regular feeds, profiles, saved posts, notifications, and thread rows compact.
 - Added mapper, state, persistence, and Compose regression coverage. Commits: `df791fc`, `320c5e1`, `b1c650e`.
 - Verification passed: focused interaction tests, `lintDebug`, `test`, and `assembleRelease`.
+- Pushed `feature/interaction-counts` to `origin`; GitHub provided the pull request URL.
