@@ -71,3 +71,8 @@ S29 Misskey ancestor failure normalization:
 - Normalized focal and ancestor note request failures inside the local thread boundary.
 - Preserved cancellation, focal failure propagation, and partial unavailable-parent context.
 - Verification passed: Misskey integration, thread tree, and lint tests.
+S35 Mastodon reaction capability handling:
+- Downgraded reaction support only for confirmed unsupported endpoint responses.
+- Preserved support after temporary, rate-limit, and access-denied failures.
+- Preserved cancellation propagation.
+- Verification passed: Mastodon capability/source contract tests and lint.

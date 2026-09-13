@@ -225,8 +225,12 @@ class MastodonSource(
             mutateEmojiReaction(id, choice.submissionValue, selected = true)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: ApiFailure) {
+            if (e.status == 404 || e.code.equals("NOT_SUPPORTED", ignoreCase = true)) {
+                downgradeReactionMutation()
+            }
+            throw e
         } catch (e: Exception) {
-            downgradeReactionMutation()
             throw e
         }
         Unit
@@ -239,8 +243,12 @@ class MastodonSource(
             mutateEmojiReaction(id, choice.submissionValue, selected = false)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: ApiFailure) {
+            if (e.status == 404 || e.code.equals("NOT_SUPPORTED", ignoreCase = true)) {
+                downgradeReactionMutation()
+            }
+            throw e
         } catch (e: Exception) {
-            downgradeReactionMutation()
             throw e
         }
         Unit
