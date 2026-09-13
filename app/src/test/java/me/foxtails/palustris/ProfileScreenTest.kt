@@ -632,13 +632,19 @@ class ProfileScreenTest {
     }
 
     @Test
-    fun profileRowReactionsRemainVisibleAndEmojiAware() {
+    fun profileRowsKeepEmojiReactionsButHideNumbersAndSummaryForRegularAndPinnedPosts() {
         val profile = account("reactions", "Reactions")
         val reacted = post("reacted", profile).copy(
             reactions = listOf(me.foxtails.palustris.domain.Reaction("🎉", 3, false)),
+            interactionCounts = me.foxtails.palustris.domain.PostInteractionCounts(replyCount = 2),
+        )
+        val pinned = post("pinned-reacted", profile).copy(
+            reactions = listOf(me.foxtails.palustris.domain.Reaction("❤️", 1, false)),
+            interactionCounts = me.foxtails.palustris.domain.PostInteractionCounts(favouriteCount = 4),
         )
         val state = mutableStateOf(
             profileState(profile, emptyList()).copy(
+                pinnedPosts = listOf(OwnedPost(self.id, pinned)),
                 pages = mapOf(
                     ProfileTimelineTab.Posts to ProfilePageState(
                         posts = listOf(OwnedPost(self.id, reacted)),
@@ -656,6 +662,12 @@ class ProfileScreenTest {
         }
 
         compose.onNodeWithTag("post_row_reacted").assertIsDisplayed()
+        compose.onNodeWithTag("post_row_pinned-reacted").assertIsDisplayed()
+        compose.onNodeWithTag("reaction_chip_🎉", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("reaction_chip_❤️", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("reaction_count_🎉", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("reaction_count_❤️", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("interaction_summary", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

@@ -91,6 +91,22 @@ private val PostChromeHeight = 44.dp + (PostMetadataVerticalPadding * 2f)
 private val PostInteractionRowHeight = 48.dp
 private val PostInteractionIconSize = 24.dp
 
+internal data class PostInteractionPresentation(
+    val showInteractionSummary: Boolean,
+    val showReactionNumbers: Boolean,
+) {
+    companion object {
+        val Feed = PostInteractionPresentation(
+            showInteractionSummary = false,
+            showReactionNumbers = false,
+        )
+        val Detailed = PostInteractionPresentation(
+            showInteractionSummary = true,
+            showReactionNumbers = true,
+        )
+    }
+}
+
 @Composable
 fun HomeFeed(
     state: FeedState,
@@ -329,6 +345,7 @@ internal fun PostRow(
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
     contentWarningRules: ContentWarningRules = ContentWarningRules(),
+    interactionPresentation: PostInteractionPresentation = PostInteractionPresentation.Feed,
 ) {
     val post = ownedPost.post
     val context = LocalContext.current
@@ -377,6 +394,9 @@ internal fun PostRow(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (interactionPresentation.showInteractionSummary) {
+                InteractionSummaryRow(post.interactionCounts)
+            }
             return@Column
         }
         if (post.replyTo != null) Text(stringResource(R.string.post_reply), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
@@ -472,8 +492,17 @@ internal fun PostRow(
                 Text(stringResource(R.string.post_open))
             }
         }
-        if (post.reactions.isNotEmpty()) {
-            ReactionRow(post.reactions, ownedPost, PostAction.React in availableActions, onReaction)
+        if (interactionPresentation.showInteractionSummary) {
+            InteractionSummaryRow(post.interactionCounts)
+        }
+        if (post.reactions.any { it.count > 0 }) {
+            ReactionRow(
+                reactions = post.reactions,
+                ownedPost = ownedPost,
+                enabled = PostAction.React in availableActions,
+                onReaction = onReaction,
+                showReactionNumbers = interactionPresentation.showReactionNumbers,
+            )
         }
         InteractionRow(
             ownedPost = ownedPost,
@@ -666,11 +695,12 @@ private val ReactionEmojiSlotSize = 20.dp
 private val ReactionChipMinWidth = 56.dp
 
 @Composable
-private fun ReactionRow(
+internal fun ReactionRow(
     reactions: List<Reaction>,
     ownedPost: OwnedPost,
     enabled: Boolean,
     onReaction: (OwnedPost, EmojiChoice) -> Unit,
+    showReactionNumbers: Boolean = false,
 ) {
     val scheme = LocalPalustrisMotionScheme.current
     val context = LocalContext.current
@@ -679,7 +709,7 @@ private fun ReactionRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        reactions.forEach { reaction ->
+        reactions.filter { it.count > 0 }.forEach { reaction ->
             val interactionSource = remember(reaction.emoji) { MutableInteractionSource() }
             val countText = pluralStringResource(R.plurals.reaction_count, reaction.count, reaction.count)
             val reactionDescription = stringResource(R.string.post_reaction_accessibility, reaction.emoji, countText)
@@ -736,26 +766,60 @@ private fun ReactionRow(
                             textStyle = MaterialTheme.typography.labelLarge.copy(fontSize = 16.sp),
                         )
                     }
-                    Spacer(Modifier.width(4.dp))
-                    Box(
-                        Modifier.widthIn(min = 16.dp).testTag("reaction_count_${reaction.emoji}"),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        AnimatedContent(
-                            targetState = reaction.count,
-                            transitionSpec = {
-                                if (scheme.reducedMotion) {
-                                    EnterTransition.None togetherWith ExitTransition.None
-                                } else {
-                                    (fadeIn(scheme.fastFadeIn) + scaleIn(initialScale = 0.86f, animationSpec = scheme.expressive)) togetherWith
-                                        (fadeOut(scheme.fastFadeOut) + scaleOut(targetScale = 0.86f, animationSpec = scheme.expressive))
-                                }
-                            },
-                            label = "reactionCount",
-                        ) { count -> Text(count.toString(), style = MaterialTheme.typography.labelMedium) }
+                    if (showReactionNumbers && reaction.count > 1) {
+                        Spacer(Modifier.width(4.dp))
+                        Box(
+                            Modifier.widthIn(min = 16.dp).testTag("reaction_count_${reaction.emoji}"),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            AnimatedContent(
+                                targetState = reaction.count,
+                                transitionSpec = {
+                                    if (scheme.reducedMotion) {
+                                        EnterTransition.None togetherWith ExitTransition.None
+                                    } else {
+                                        (fadeIn(scheme.fastFadeIn) + scaleIn(initialScale = 0.86f, animationSpec = scheme.expressive)) togetherWith
+                                            (fadeOut(scheme.fastFadeOut) + scaleOut(targetScale = 0.86f, animationSpec = scheme.expressive))
+                                    }
+                                },
+                                label = "reactionCount",
+                            ) { count -> Text(count.toString(), style = MaterialTheme.typography.labelMedium) }
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun InteractionSummaryRow(counts: PostInteractionCounts) {
+    val metrics = buildList {
+        counts.favouriteCount?.let { add("favourites" to (R.plurals.post_favourite_count to it)) }
+        counts.reactionCount?.let { add("reactions" to (R.plurals.post_reaction_total to it)) }
+        counts.repostCount?.let { add("reposts" to (R.plurals.post_repost_count to it)) }
+        counts.quoteRepostCount?.let { add("quote_reposts" to (R.plurals.post_quote_repost_count to it)) }
+        counts.replyCount?.let { add("replies" to (R.plurals.post_reply_count to it)) }
+    }
+    if (metrics.isEmpty()) return
+    val summaryDescription = stringResource(R.string.post_interaction_summary)
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .testTag("interaction_summary")
+            .semantics { contentDescription = summaryDescription },
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        metrics.forEach { (name, resourceAndCount) ->
+            val (resource, count) = resourceAndCount
+            Text(
+                pluralStringResource(resource, count, count),
+                modifier = Modifier.testTag("interaction_metric_$name"),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

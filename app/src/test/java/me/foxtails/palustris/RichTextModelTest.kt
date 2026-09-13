@@ -6,6 +6,7 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.MediaRequestPolicy
 import me.foxtails.palustris.domain.PostReactionReducer
+import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.Reaction
 import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ValidatedUrl
@@ -25,6 +26,7 @@ class RichTextModelTest {
         reactions: List<Reaction> = emptyList(),
         selectedReactions: List<EmojiChoice> = emptyList(),
         myReaction: String? = null,
+        interactionCounts: PostInteractionCounts = PostInteractionCounts(),
     ) = me.foxtails.palustris.domain.Post(
         id = EntityId(origin, id),
         author = me.foxtails.palustris.domain.Account(
@@ -42,6 +44,7 @@ class RichTextModelTest {
         reactions = reactions,
         selectedReactions = selectedReactions,
         myReaction = myReaction,
+        interactionCounts = interactionCounts,
     )
 
     private val blob = CustomEmoji(
@@ -156,5 +159,45 @@ class RichTextModelTest {
         )
         assertTrue(result.favourited)
         assertEquals("❤️", result.myReaction)
+    }
+
+    @Test fun reducerKeepsKnownReactionTotalInSyncWithReactionDetails() {
+        val before = post(
+            reactions = listOf(Reaction(":blob:", 4, selected = true, emojiMetadata = blob)),
+            selectedReactions = listOf(EmojiChoice(":blob:", ":blob:", blob)),
+            myReaction = ":blob:",
+            interactionCounts = PostInteractionCounts(reactionCount = 4),
+        )
+
+        val replaced = PostReactionReducer.apply(
+            before,
+            EmojiChoice("👍", "👍"),
+            selected = true,
+            selectionMode = ReactionSelectionMode.Single,
+        )
+        assertEquals(4, replaced.interactionCounts.reactionCount)
+
+        val removed = PostReactionReducer.apply(
+            replaced,
+            EmojiChoice("👍", "👍"),
+            selected = false,
+            selectionMode = ReactionSelectionMode.Single,
+        )
+        assertEquals(3, removed.interactionCounts.reactionCount)
+    }
+
+    @Test fun interactionCountsMergePreservesKnownValuesAndAcceptsZeros() {
+        val existing = PostInteractionCounts(favouriteCount = 8, reactionCount = 3, replyCount = 2)
+        val merged = existing.merge(PostInteractionCounts(favouriteCount = 0, replyCount = null, repostCount = 0))
+
+        assertEquals(0, merged.favouriteCount)
+        assertEquals(3, merged.reactionCount)
+        assertEquals(0, merged.repostCount)
+        assertEquals(2, merged.replyCount)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun interactionCountsRejectNegativeValues() {
+        PostInteractionCounts(replyCount = -1)
     }
 }

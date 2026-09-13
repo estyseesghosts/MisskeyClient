@@ -21,6 +21,7 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.Reaction
 import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
@@ -52,6 +53,7 @@ class FeedViewModelReactionTest {
         reactions: List<Reaction> = emptyList(),
         selectedReactions: List<EmojiChoice> = emptyList(),
         myReaction: String? = null,
+        interactionCounts: PostInteractionCounts = PostInteractionCounts(),
     ) = Post(
         id = EntityId(connection.origin, "post"),
         author = author,
@@ -61,6 +63,7 @@ class FeedViewModelReactionTest {
         reactions = reactions,
         selectedReactions = selectedReactions,
         myReaction = myReaction,
+        interactionCounts = interactionCounts,
     )
 
     private class ReactionSource(
@@ -292,6 +295,55 @@ class FeedViewModelReactionTest {
         } finally {
             coordinator.close()
             Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun knownReactionTotalChangesForAddRemoveAndReplacement() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val coordinator = AccountSyncCoordinator()
+        try {
+            val source = ReactionSource(
+                post(
+                    reactions = listOf(
+                        Reaction(":blob:", 4, selected = true, emojiMetadata = blob),
+                        Reaction("👍", 2, selected = false),
+                    ),
+                    selectedReactions = listOf(EmojiChoice(":blob:", ":blob:", blob)),
+                    myReaction = ":blob:",
+                    interactionCounts = PostInteractionCounts(reactionCount = 6),
+                ),
+                ReactionSelectionMode.Single,
+            )
+            val model = FeedViewModel(accountId, source, coordinator)
+            advanceUntilIdle()
+
+            model.react(model.feed.value.ownedPosts.single(), EmojiChoice("👍", "👍"))
+            assertEquals(6, current(model).interactionCounts.reactionCount)
+            advanceUntilIdle()
+
+            model.react(model.feed.value.ownedPosts.single(), EmojiChoice("👍", "👍"))
+            assertEquals(5, current(model).interactionCounts.reactionCount)
+            advanceUntilIdle()
+        } finally {
+            coordinator.close()
+        }
+    }
+
+    @Test
+    fun unavailableReactionTotalStaysUnavailableAfterOptimisticMutation() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val coordinator = AccountSyncCoordinator()
+        try {
+            val source = ReactionSource(post(), ReactionSelectionMode.Independent)
+            val model = FeedViewModel(accountId, source, coordinator)
+            advanceUntilIdle()
+
+            model.react(model.feed.value.ownedPosts.single(), EmojiChoice("👍", "👍"))
+
+            assertNull(current(model).interactionCounts.reactionCount)
+        } finally {
+            coordinator.close()
         }
     }
 

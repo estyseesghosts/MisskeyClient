@@ -233,4 +233,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added outward tracking-parameter cleanup for opening/sharing and an explicit composer cleanup action; preserved signed URLs.
 - Added profile image viewing, non-gesture edge-swipe back handling, localization resources, and regression coverage for the affected UI and persistence paths.
 - Verification passed: focused UI/domain/adapter tests, full `test`, `:app:lintDebug`, and `assembleRelease`.
-- No commit or push performed; explicit authorization is required before Git history or remotes are changed.
+- Commit `e256032` was created before merging the interaction-counts branch.
+ 260913-001335 Interaction counts task:
+- Added nullable protocol-neutral favourite, reaction, repost, quote-repost, and reply counts with null-preserving merge and optimistic reaction updates.
+- Mapped validated counts from Mastodon and Misskey, preserved detailed reactions through sparse external updates, and persisted notification counts.
+- Added localized detailed summaries for Hashtag Search and focal post views while keeping regular feeds, profiles, saved posts, notifications, and thread rows compact.
+- Added mapper, state, persistence, and Compose regression coverage. Commits: `df791fc`, `320c5e1`, `b1c650e`.
+- Verification passed: focused interaction tests, `lintDebug`, `test`, and `assembleRelease`.
+- Pushed `feature/interaction-counts` to `origin`; GitHub provided the pull request URL.

@@ -28,8 +28,9 @@ object PostReactionReducer {
             current.submissionValue != identity && selectionsToRemove.none { it.submissionValue == current.submissionValue }
         }.toMutableList()
         var reactions = post.reactions.toMutableList()
+        val addedSelection = selected && keptSelections.none { it.submissionValue == identity }
         selectionsToRemove.forEach { removed -> reactions = decrement(reactions, removed) }
-        if (selected && keptSelections.none { it.submissionValue == identity }) {
+        if (addedSelection) {
             reactions = increment(reactions, identity, choice.emoji)
             keptSelections += choice
         }
@@ -37,6 +38,7 @@ object PostReactionReducer {
         reactions = reactions.map { reaction ->
             reaction.copy(selected = reaction.emoji in selectedIdentities)
         }.toMutableList()
+        val reactionDelta = (if (addedSelection) 1 else 0) - selectionsToRemove.size
         val primary = when {
             primaryFavouriteEmoji != null -> keptSelections.firstOrNull { it.submissionValue == primaryFavouriteEmoji }
                 ?: keptSelections.firstOrNull()
@@ -45,6 +47,9 @@ object PostReactionReducer {
         }
         return post.copy(
             reactions = reactions,
+            interactionCounts = post.interactionCounts.copy(
+                reactionCount = post.interactionCounts.reactionCount?.adjustedBy(reactionDelta),
+            ),
             selectedReactions = keptSelections,
             myReaction = primary?.submissionValue,
             favourited = if (primaryFavouriteEmoji != null) {

@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
@@ -12,7 +13,9 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.Reaction
 import me.foxtails.palustris.ui.SavedPostsScreen
 import me.foxtails.palustris.ui.SavedPostsCollection
 import me.foxtails.palustris.ui.SavedPostsUiState
@@ -77,5 +80,38 @@ class SavedPostsScreenTest {
 
         compose.onNodeWithText("No likes yet").assertIsDisplayed()
         compose.onNodeWithText("Posts you like will appear here.").assertIsDisplayed()
+    }
+
+    @Test
+    fun savedRowsShowEmojiReactionsWithoutNumbersOrAggregateMetrics() {
+        val account = Account(
+            AccountId(Connection("https://example.org", Protocol.MASTODON), "person"),
+            "Saved author",
+            "@person@example.org",
+        )
+        val post = Post(
+            EntityId("https://example.org", "saved-reactions"),
+            account,
+            "Saved reaction post",
+            0,
+            Audience.Public,
+            reactions = listOf(Reaction("🎉", 2, false)),
+            interactionCounts = PostInteractionCounts(favouriteCount = 4, repostCount = 3),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SavedPostsScreen(
+                    state = SavedPostsUiState(posts = listOf(OwnedPost(account.id, post))),
+                    onRefresh = {},
+                    onLoadMore = {},
+                    onUnsave = {},
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("reaction_chip_🎉", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("reaction_count_🎉", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("interaction_summary", useUnmergedTree = true).assertDoesNotExist()
     }
 }

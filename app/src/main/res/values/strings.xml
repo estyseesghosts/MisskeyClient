@@ -181,6 +181,26 @@
         <item quantity="many">%1$d reactions</item>
         <item quantity="other">%1$d reactions</item>
     </plurals>
+    <plurals name="post_favourite_count">
+        <item quantity="one">%1$d favorite</item>
+        <item quantity="other">%1$d favorites</item>
+    </plurals>
+    <plurals name="post_reaction_total">
+        <item quantity="one">%1$d reaction</item>
+        <item quantity="other">%1$d reactions</item>
+    </plurals>
+    <plurals name="post_repost_count">
+        <item quantity="one">%1$d repost</item>
+        <item quantity="other">%1$d reposts</item>
+    </plurals>
+    <plurals name="post_quote_repost_count">
+        <item quantity="one">%1$d quote repost</item>
+        <item quantity="other">%1$d quote reposts</item>
+    </plurals>
+    <plurals name="post_reply_count">
+        <item quantity="one">%1$d reply</item>
+        <item quantity="other">%1$d replies</item>
+    </plurals>
     <string name="emoji_reaction_remove">Remove the %1$s reaction</string>
     <string name="emoji_reaction_selected">%1$s reaction selected</string>
     <string name="post_action_hashtags_expanded">Expanded hashtag choices</string>
@@ -252,6 +272,7 @@
     <string name="post_action_selected">Selected</string>
     <string name="post_action_not_selected">Not selected</string>
     <string name="post_profile_picture">Profile picture of %1$s</string>
+    <string name="post_interaction_summary">Interaction summary</string>
     <string name="post_comments">Comments</string>
     <string name="post_content_unavailable">This post is not available to this account.</string>
     <string name="post_content_filtered">This post is hidden by a server filter.</string>

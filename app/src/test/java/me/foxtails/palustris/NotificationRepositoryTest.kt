@@ -21,6 +21,8 @@ import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.NotificationSyncCompleteness
 import me.foxtails.palustris.domain.NotificationUnreadState
+import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.SocialEvent
 import org.junit.Assert.assertEquals
@@ -367,13 +369,40 @@ class NotificationRepositoryTest {
         assertNotNull(NotificationRepository::class.java.getAnnotation(javax.inject.Singleton::class.java))
     }
 
-    private fun notification(id: String, activity: NotificationActivity) = Notification(
+    @Test
+    fun notificationPostPersistencePreservesAvailableInteractionCounts() = runBlocking {
+        val store = InMemoryNotificationStore()
+        val first = NotificationRepository(store)
+        val token = NotificationSyncToken(account, 1)
+        val post = Post(
+            id = EntityId(account.connection.origin, "post"),
+            author = Account(account, "Author", "@author@example.org"),
+            text = "Post",
+            publishedAtEpochMillis = 1,
+            audience = me.foxtails.palustris.domain.Audience.Public,
+            interactionCounts = PostInteractionCounts(
+                favouriteCount = 0,
+                reactionCount = 2,
+                repostCount = 3,
+                quoteRepostCount = 0,
+                replyCount = 4,
+            ),
+        )
+        first.activate(token)
+        first.establishBaseline(token, NotificationPage(listOf(notification("post", NotificationActivity.Mention, post))))
+
+        val restored = NotificationRepository(store).observe(account).value.items.single().post
+
+        assertEquals(post.interactionCounts, restored?.interactionCounts)
+    }
+
+    private fun notification(id: String, activity: NotificationActivity, post: Post? = null) = Notification(
         id = EntityId(account.connection.origin, id),
         accountId = account,
         createdAtEpochMillis = 100,
         activity = activity,
         actors = listOf(Account(account, "Receiver", "@receiver@example.org")),
-        post = null,
+        post = post,
         rawType = id,
     )
 }

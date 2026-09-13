@@ -16,6 +16,8 @@ import org.json.JSONObject
  * reactions here.
  */
 object MastodonReactionExtensionMapper {
+    fun hasReactionExtension(json: JSONObject): Boolean = reactionsArray(json) != null
+
     fun reactions(json: JSONObject, statusEmojis: Map<String, CustomEmoji>): List<Reaction>? {
         val array = reactionsArray(json) ?: return null
         return (0 until array.length()).mapNotNull { index ->
@@ -37,6 +39,16 @@ object MastodonReactionExtensionMapper {
             EmojiChoice(parsed.identity, parsed.identity, parsed.metadata)
         }
         return if (selected.isEmpty()) emptyList() else if (independentSelection) selected else selected.takeLast(1)
+    }
+
+    fun aggregateCount(json: JSONObject, statusEmojis: Map<String, CustomEmoji>): Int? {
+        val array = reactionsArray(json) ?: return null
+        var total = 0
+        for (index in 0 until array.length()) {
+            val mapped = entry(array.optJSONObject(index), statusEmojis) ?: return null
+            total = runCatching { Math.addExact(total, mapped.count) }.getOrNull() ?: return null
+        }
+        return total
     }
 
     private fun reactionsArray(json: JSONObject): JSONArray? = json.optJSONArray("emoji_reactions")

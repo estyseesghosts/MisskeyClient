@@ -64,6 +64,31 @@ data class Reaction(
     val selected: Boolean,
     val emojiMetadata: CustomEmoji? = null,
 )
+
+data class PostInteractionCounts(
+    val favouriteCount: Int? = null,
+    val reactionCount: Int? = null,
+    val repostCount: Int? = null,
+    val quoteRepostCount: Int? = null,
+    val replyCount: Int? = null,
+) {
+    init {
+        require(listOf(favouriteCount, reactionCount, repostCount, quoteRepostCount, replyCount).all { it == null || it >= 0 })
+    }
+
+    fun merge(incoming: PostInteractionCounts): PostInteractionCounts = PostInteractionCounts(
+        favouriteCount = incoming.favouriteCount ?: favouriteCount,
+        reactionCount = incoming.reactionCount ?: reactionCount,
+        repostCount = incoming.repostCount ?: repostCount,
+        quoteRepostCount = incoming.quoteRepostCount ?: quoteRepostCount,
+        replyCount = incoming.replyCount ?: replyCount,
+    )
+}
+
+internal fun Int?.adjustedBy(delta: Int): Int? = this?.let {
+    (it.toLong() + delta).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+}
+
 data class PollOption(val text: String, val votes: Int)
 data class Post(
     val id: EntityId,
@@ -79,8 +104,7 @@ data class Post(
     val reactions: List<Reaction> = emptyList(),
     val availableActions: Set<PostAction> = emptySet(),
     val url: String? = null,
-    val replyCount: Int = 0,
-    val reshareCount: Int = 0,
+    val interactionCounts: PostInteractionCounts = PostInteractionCounts(),
     val quote: Post? = null,
     val pollOptions: List<PollOption> = emptyList(),
     val reposted: Boolean = false,
@@ -143,4 +167,3 @@ data class PushSubscription(
     val endpoint: ValidatedUrl,
     val remoteId: String? = null,
 )
-

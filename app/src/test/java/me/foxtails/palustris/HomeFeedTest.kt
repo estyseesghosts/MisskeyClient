@@ -17,6 +17,7 @@ import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Reaction
@@ -341,7 +342,10 @@ private fun show(
             assertEquals(slots.first().width, bounds.width, 1f)
             assertEquals(slots.first().height, bounds.height, 1f)
         }
-        compose.onAllNodesWithText("3").assertCountEquals(reactions.size)
+        reactions.forEach { reaction ->
+            compose.onNodeWithTag("reaction_count_${reaction.emoji}", useUnmergedTree = true)
+                .assertDoesNotExist()
+        }
 
         compose.onNodeWithTag("reaction_chip_${reactions.last().emoji}", useUnmergedTree = true).performClick()
         assertTrue(clicked == reactions.last().emoji)
@@ -422,6 +426,68 @@ private fun show(
 
         compose.onNodeWithTag("reaction_chip_🎉", useUnmergedTree = true).performClick()
         assertNull(clicked)
+    }
+
+    @Test
+    fun homeRowsKeepEmojiReactionsButHideAllInteractionNumbersAndSummary() {
+        val post = Post(
+            postId("home-counts"),
+            account,
+            "Home counts",
+            0,
+            Audience.Public,
+            reactions = listOf(Reaction("❤️", 1, false), Reaction("👍", 3, false)),
+            interactionCounts = PostInteractionCounts(
+                favouriteCount = 2,
+                reactionCount = 4,
+                repostCount = 5,
+                quoteRepostCount = 1,
+                replyCount = 6,
+            ),
+        )
+        show(post)
+
+        compose.onNodeWithTag("reaction_chip_❤️", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("reaction_chip_👍", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("reaction_count_❤️", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("reaction_count_👍", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("interaction_summary", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun hashtagSearchRowsShowSummaryAndOnlyReactionCountsAboveOne() {
+        val result = Post(
+            postId("search-counts"),
+            account,
+            "Search counts",
+            0,
+            Audience.Public,
+            reactions = listOf(Reaction("❤️", 1, false), Reaction("👍", 3, false)),
+            interactionCounts = PostInteractionCounts(
+                favouriteCount = 0,
+                reactionCount = 4,
+                repostCount = 5,
+                quoteRepostCount = 0,
+                replyCount = 6,
+            ),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SearchScreen(
+                    accountSearch = AccountSearchState(query = "#counts", tagQuery = "counts", posts = listOf(result)),
+                    sharedQuery = "#counts",
+                    sharedTab = 1,
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("interaction_summary", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("0 favorites").assertIsDisplayed()
+        compose.onNodeWithText("4 reactions").assertIsDisplayed()
+        compose.onNodeWithText("0 quote reposts").assertIsDisplayed()
+        compose.onNodeWithTag("reaction_count_👍", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("reaction_count_❤️", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun postBodyRendersKnownCustomEmojiAndFallsBackForUnknownTokens() {

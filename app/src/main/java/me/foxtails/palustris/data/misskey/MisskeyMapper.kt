@@ -10,6 +10,7 @@ import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.PollOption
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PostContentVisibility
 import me.foxtails.palustris.domain.ProfileField
@@ -82,7 +83,7 @@ object MisskeyMapper {
         }
         val id = EntityId(origin, json.getString("id"))
         val hidden = json.optBoolean("isHidden") || json.optBoolean("hidden")
-        val reactionJson = json.optJSONObject("reactions") ?: JSONObject()
+        val reactionJson = json.optJSONObject("reactions")
         val emojiMetadata = MisskeyEmojiMapper.parseEmojis(
             json.optJSONObject("reactionEmojis") ?: JSONObject(), origin,
         ) + MisskeyEmojiMapper.parseEmojis(json.optJSONObject("emojis") ?: JSONObject(), origin)
@@ -94,6 +95,11 @@ object MisskeyMapper {
         val myChoice = myReaction?.let { identity ->
             me.foxtails.palustris.domain.EmojiChoice(identity, identity, reactionMetadata(identity, emojiMetadata))
         }
+        val interactionCounts = PostInteractionCounts(
+            reactionCount = reactionJson?.reactionTotal(),
+            repostCount = json.optionalNonNegativeInt("renoteCount"),
+            replyCount = json.optionalNonNegativeInt("repliesCount"),
+        )
         return Post(
             id = id,
             author = account(json.getJSONObject("user"), origin),
@@ -104,7 +110,7 @@ object MisskeyMapper {
             contentWarning = if (hidden || json.isNull("cw")) null else json.optString("cw"),
             replyTo = json.nullableString("replyId")?.let { EntityId(origin, it) },
             replyToAuthorId = replyToAuthorId?.let { AccountId(Connection(origin, Protocol.MISSKEY), it) },
-            reactions = if (hidden) emptyList() else reactionJson.keys().asSequence().map { emoji ->
+            reactions = if (hidden || reactionJson == null) emptyList() else reactionJson.keys().asSequence().map { emoji ->
                 Reaction(
                     emoji,
                     reactionJson.optInt(emoji).coerceAtLeast(0),
@@ -113,7 +119,7 @@ object MisskeyMapper {
                 )
             }.toList(),
             url = json.nullableString("url") ?: json.nullableString("uri") ?: "$origin/notes/${id.value}",
-            replyCount = json.optInt("repliesCount"), reshareCount = json.optInt("renoteCount"),
+            interactionCounts = interactionCounts,
             quote = if (!hidden && renote != null && depth < MAX_NESTING_DEPTH) post(renote, origin, depth + 1) else null,
             pollOptions = if (poll == null) emptyList() else (0 until poll.length()).map { poll.getJSONObject(it).let { option ->
                 PollOption(option.getString("text"), option.optInt("votes"))
@@ -182,4 +188,25 @@ private fun JSONObject.positiveInt(key: String): Int? = when (val value = opt(ke
     is Number -> value.toInt().takeIf { it > 0 }
     is String -> value.toIntOrNull()?.takeIf { it > 0 }
     else -> null
+}
+
+private fun JSONObject.optionalNonNegativeInt(key: String): Int? {
+    if (!has(key) || isNull(key)) return null
+    val value = opt(key) ?: return null
+    val raw = when (value) {
+        is Number, is String -> value.toString()
+        else -> return null
+    }
+    return runCatching { java.math.BigDecimal(raw).toBigIntegerExact().intValueExact() }
+        .getOrNull()
+        ?.takeIf { it >= 0 }
+}
+
+private fun JSONObject.reactionTotal(): Int? {
+    var total = 0
+    for (emoji in keys()) {
+        val count = optionalNonNegativeInt(emoji) ?: return null
+        total = runCatching { Math.addExact(total, count) }.getOrNull() ?: return null
+    }
+    return total
 }

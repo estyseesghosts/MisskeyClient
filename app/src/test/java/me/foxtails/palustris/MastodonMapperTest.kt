@@ -235,4 +235,80 @@ class MastodonMapperTest {
         assertTrue(post.emoji.containsKey("inner-emoji"))
         assertFalse(post.emoji.containsKey("outer-emoji"))
     }
+
+    @Test
+    fun postMapsAvailableInteractionCountsAndCheckedMastodonRepostTotal() {
+        val post = MastodonMapper.post(
+            JSONObject()
+                .put("id", "counts")
+                .put("created_at", "2026-09-06T10:00:00Z")
+                .put("account", JSONObject().put("id", "author").put("username", "author").put("acct", "author"))
+                .put("content", "Counts")
+                .put("visibility", "public")
+                .put("favourites_count", 4)
+                .put("replies_count", 2)
+                .put("reblogs_count", 3)
+                .put("quotes_count", 5)
+                .put("emoji_reactions", JSONArray()
+                    .put(JSONObject().put("name", ":one:").put("count", 1))
+                    .put(JSONObject().put("name", "👍").put("count", 2))),
+            "https://example.org",
+        )
+
+        assertEquals(4, post.interactionCounts.favouriteCount)
+        assertEquals(2, post.interactionCounts.replyCount)
+        assertEquals(8, post.interactionCounts.repostCount)
+        assertEquals(5, post.interactionCounts.quoteRepostCount)
+        assertEquals(3, post.interactionCounts.reactionCount)
+    }
+
+    @Test
+    fun postCountMappingDistinguishesZeroUnavailableAndInvalidValues() {
+        val zero = MastodonMapper.post(statusWithCounts("zero")
+            .put("favourites_count", 0)
+            .put("replies_count", 0)
+            .put("reblogs_count", 0), "https://example.org")
+        assertEquals(0, zero.interactionCounts.favouriteCount)
+        assertEquals(0, zero.interactionCounts.replyCount)
+        assertEquals(0, zero.interactionCounts.repostCount)
+
+        val absent = MastodonMapper.post(statusWithCounts("absent"), "https://example.org")
+        assertNull(absent.interactionCounts.favouriteCount)
+        assertNull(absent.interactionCounts.replyCount)
+        assertNull(absent.interactionCounts.repostCount)
+
+        val invalid = MastodonMapper.post(statusWithCounts("invalid")
+            .put("favourites_count", -1)
+            .put("replies_count", "not-a-number")
+            .put("reblogs_count", Int.MAX_VALUE)
+            .put("quotes_count", 1), "https://example.org")
+        assertNull(invalid.interactionCounts.favouriteCount)
+        assertNull(invalid.interactionCounts.replyCount)
+        assertNull(invalid.interactionCounts.repostCount)
+    }
+
+    @Test
+    fun pureReblogKeepsDisplayedPostInteractionCounts() {
+        val displayed = statusWithCounts("displayed")
+            .put("favourites_count", 7)
+            .put("replies_count", 6)
+            .put("reblogs_count", 5)
+        val wrapper = statusWithCounts("wrapper")
+            .put("favourites_count", 1)
+            .put("reblogs_count", 2)
+            .put("reblog", displayed)
+
+        val post = MastodonMapper.post(wrapper, "https://example.org")
+
+        assertEquals(7, post.interactionCounts.favouriteCount)
+        assertEquals(6, post.interactionCounts.replyCount)
+        assertEquals(5, post.interactionCounts.repostCount)
+    }
+
+    private fun statusWithCounts(id: String) = JSONObject()
+        .put("id", id)
+        .put("created_at", "2026-09-06T10:00:00Z")
+        .put("account", JSONObject().put("id", "author").put("username", "author").put("acct", "author"))
+        .put("content", id)
+        .put("visibility", "public")
 }

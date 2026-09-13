@@ -262,6 +262,7 @@ class SignInScreenTest {
         } }
 
         compose.onNodeWithText("🎉").assertIsDisplayed()
+        compose.onNodeWithTag("reaction_count_🎉", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("Favorite").performTouchInput { longClick() }
         compose.onNodeWithTag("reaction_bubble_compact", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("emoji_picker_cell_🎉", useUnmergedTree = true).performClick()

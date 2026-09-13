@@ -15,6 +15,7 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.PostActionResult
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
@@ -104,6 +105,33 @@ class PostThreadViewModelTest {
         advanceUntilIdle()
 
         assertTrue(model.state.value.focal!!.post.favourited)
+    }
+
+    @Test
+    fun publishedReplyIncrementsKnownReplyCount() = runTest {
+        val parent = focal.copy(post = focal.post.copy(
+            interactionCounts = PostInteractionCounts(replyCount = 2),
+        ))
+        val source = FakeSource(context = ThreadContext(focal = parent.post))
+        val model = PostThreadViewModel(account, source, sessionRevision = 8L)
+
+        model.activate(parent, supportsComments = true)
+        advanceUntilIdle()
+        model.acceptPublishedReply(owned("published", replyTo = "focal"))
+
+        assertEquals(3, model.state.value.focal!!.post.interactionCounts.replyCount)
+    }
+
+    @Test
+    fun publishedReplyKeepsUnavailableReplyCountUnavailable() = runTest {
+        val source = FakeSource(context = ThreadContext(focal = focal.post))
+        val model = PostThreadViewModel(account, source, sessionRevision = 8L)
+
+        model.activate(focal, supportsComments = true)
+        advanceUntilIdle()
+        model.acceptPublishedReply(owned("published", replyTo = "focal"))
+
+        assertEquals(null, model.state.value.focal!!.post.interactionCounts.replyCount)
     }
 
     private fun owned(id: String, replyTo: String? = null): OwnedPost {

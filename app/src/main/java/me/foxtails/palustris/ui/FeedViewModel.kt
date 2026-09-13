@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.collectLatest
 import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
 import me.foxtails.palustris.data.preferences.InMemoryPhotoGridPreferencesRepository
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
@@ -428,16 +429,27 @@ class FeedViewModel @AssistedInject constructor(
     fun favorite(ownedPost: OwnedPost) {
         val selected = !ownedPost.post.favourited
         val actionTargetId = ownedPost.post.actionTargetId ?: ownedPost.post.id
+        val reactionFavourite = source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction
         runAction(
             ownedPost = ownedPost,
             action = PostAction.Favorite,
             optimistic = { post ->
-                post.copy(
-                    favourited = selected,
-                    myReaction = if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) {
-                        if (selected) favouriteEmoji else null
-                    } else post.myReaction,
-                )
+                if (reactionFavourite) {
+                    PostReactionReducer.apply(
+                        post,
+                        EmojiChoice(favouriteEmoji, favouriteEmoji),
+                        selected,
+                        source.capabilities.emoji.selectionMode,
+                        favouriteEmoji,
+                    )
+                } else {
+                    post.copy(
+                        favourited = selected,
+                        interactionCounts = post.interactionCounts.copy(
+                            favouriteCount = post.interactionCounts.favouriteCount.adjustedBy(if (selected) 1 else -1),
+                        ),
+                    )
+                }
             },
             operation = {
                 if (selected && source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) {
@@ -457,7 +469,12 @@ class FeedViewModel @AssistedInject constructor(
         runAction(
             ownedPost = ownedPost,
             action = PostAction.Reshare,
-            optimistic = { post -> post.copy(reposted = selected, reshareCount = (post.reshareCount + if (selected) 1 else -1).coerceAtLeast(0)) },
+            optimistic = { post -> post.copy(
+                reposted = selected,
+                interactionCounts = post.interactionCounts.copy(
+                    repostCount = post.interactionCounts.repostCount.adjustedBy(if (selected) 1 else -1),
+                ),
+            ) },
             operation = { source.setReshared(actionTargetId, selected, ownedPost.post.ownRepostId) },
         )
     }
@@ -585,7 +602,7 @@ class FeedViewModel @AssistedInject constructor(
         result: PostActionResult,
     ): Post {
         val serverPost = result.post?.takeIf { it.id == current.id }
-        val base = serverPost ?: current
+        val base = serverPost?.copy(interactionCounts = current.interactionCounts.merge(serverPost.interactionCounts)) ?: current
         return when (action) {
             PostAction.Favorite -> base.copy(
                 favourited = result.selected ?: base.favourited,
@@ -659,9 +676,9 @@ class FeedViewModel @AssistedInject constructor(
         favourited = incoming.favourited,
         myReaction = incoming.myReaction,
         selectedReactions = incoming.selectedReactions,
-        reactions = incoming.reactions,
+        reactions = incoming.reactions.ifEmpty { existing.reactions },
         reposted = incoming.reposted,
-        reshareCount = incoming.reshareCount,
+        interactionCounts = existing.interactionCounts.merge(incoming.interactionCounts),
         ownRepostId = incoming.ownRepostId,
         saved = incoming.saved,
     )
