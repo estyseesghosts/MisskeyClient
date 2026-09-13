@@ -48,12 +48,14 @@ class ModerationViewModel @AssistedInject constructor(
     private val _state = MutableStateFlow(ModerationUiState(accountId = accountId, kind = kind))
     val state = _state.asStateFlow()
     private var loadJob: Job? = null
+    private var loadMoreJob: Job? = null
     private var requestGeneration = 0L
 
     init { load() }
 
     fun load() {
         loadJob?.cancel()
+        loadMoreJob?.cancel()
         val request = ++requestGeneration
         loadJob = viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null, unsupported = false)
@@ -87,31 +89,52 @@ class ModerationViewModel @AssistedInject constructor(
     fun loadMore() {
         val cursor = _state.value.nextCursor ?: return
         if (_state.value.loading || _state.value.loadingMore) return
-        viewModelScope.launch {
+        val request = requestGeneration
+        val requestedCursor = cursor
+        loadMoreJob = viewModelScope.launch {
             _state.value = _state.value.copy(loadingMore = true, error = null)
             try {
                 ensureCurrent()
-                _state.value = when (kind) {
+                when (kind) {
                     ModerationListKind.Blocked -> source.blockedAccounts(cursor).let { page ->
-                        _state.value.copy(accounts = _state.value.accounts + page.items, nextCursor = page.nextCursor, loadingMore = false)
+                        ensureCurrent()
+                        if (request != requestGeneration || _state.value.nextCursor != requestedCursor) return@launch
+                        _state.value = _state.value.copy(
+                            accounts = (_state.value.accounts + page.items).distinctBy { it.account.id },
+                            nextCursor = page.nextCursor?.takeUnless { it == requestedCursor },
+                            loadingMore = false,
+                        )
                     }
                     ModerationListKind.Muted -> source.mutedAccounts(cursor).let { page ->
-                        _state.value.copy(accounts = _state.value.accounts + page.items, nextCursor = page.nextCursor, loadingMore = false)
+                        ensureCurrent()
+                        if (request != requestGeneration || _state.value.nextCursor != requestedCursor) return@launch
+                        _state.value = _state.value.copy(
+                            accounts = (_state.value.accounts + page.items).distinctBy { it.account.id },
+                            nextCursor = page.nextCursor?.takeUnless { it == requestedCursor },
+                            loadingMore = false,
+                        )
                     }
                     ModerationListKind.Hashtags -> source.mutedHashtags(cursor).let { page ->
-                        _state.value.copy(hashtags = _state.value.hashtags + page.items, nextCursor = page.nextCursor, loadingMore = false)
+                        ensureCurrent()
+                        if (request != requestGeneration || _state.value.nextCursor != requestedCursor) return@launch
+                        _state.value = _state.value.copy(
+                            hashtags = (_state.value.hashtags + page.items).distinctBy { it.value.lowercase() },
+                            nextCursor = page.nextCursor?.takeUnless { it == requestedCursor },
+                            loadingMore = false,
+                        )
                     }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                updateError(error, loadingMore = false)
+                if (request == requestGeneration) updateError(error, loadingMore = false)
             }
         }
     }
 
     fun remove(entry: ModerationAccount) {
-        val key = entry.account.id.localId
+        val key = "${entry.account.id.connection.origin}\u0000${entry.account.id.localId}"
+        val request = requestGeneration
         if (key in _state.value.removing) return
         viewModelScope.launch {
             _state.value = _state.value.copy(removing = _state.value.removing + key, error = null)
@@ -119,6 +142,8 @@ class ModerationViewModel @AssistedInject constructor(
                 ensureCurrent()
                 if (kind == ModerationListKind.Blocked) source.removeBlockedAccount(entry)
                 else source.removeMutedAccount(entry)
+                ensureCurrent()
+                if (request != requestGeneration) return@launch
                 _state.value = _state.value.copy(
                     accounts = _state.value.accounts.filterNot { it.account.id == entry.account.id },
                     removing = _state.value.removing - key,

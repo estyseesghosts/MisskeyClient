@@ -30,3 +30,9 @@ S08 global preference load errors:
 - Clear the error only after a successful update.
 - Added malformed-file and recovery coverage.
 - Verification passed: `AppPreferencesRepositoryTest` and lint.
+S09 moderation request ownership:
+- Added retained paging-job cancellation and request-generation checks before publication.
+- Revalidated the source after suspended paging and mutation calls.
+- Deduplicated account and hashtag pages and stopped repeated cursors.
+- Kept the current list available when a stale request returns.
+- Verification passed: compile and lint.
