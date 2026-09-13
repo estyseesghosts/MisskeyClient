@@ -3,6 +3,7 @@ package me.foxtails.palustris.ui.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import me.foxtails.palustris.R
+import me.foxtails.palustris.domain.AppColorScheme
 import me.foxtails.palustris.domain.AppPreferences
 
 @Composable
@@ -13,9 +14,15 @@ fun SettingsScreen(
     onPrivacy: () -> Unit,
     onLanguage: () -> Unit,
 ) {
+    val colorSchemeLabel = stringResource(
+        when (preferences.colorScheme) {
+            AppColorScheme.System -> R.string.settings_colour_style_system
+            AppColorScheme.SystemMonochrome -> R.string.settings_colour_style_system_monochrome
+        },
+    )
     SettingsRow(
         stringResource(R.string.settings_display),
-        "${preferences.colorScheme.name}, ${preferences.textSize.name}",
+        "$colorSchemeLabel, ${preferences.textSize.name}",
         onDisplay,
         "settings_display",
     )

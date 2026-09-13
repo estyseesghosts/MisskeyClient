@@ -244,3 +244,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 20260913-012957 Repository hygiene task:
  - Added root-level ignore rules for `AGENTS.md` and `docs/`.
  - Confirmed both paths remain on disk and are not tracked by Git.
+260913-014945 Display settings and theme task:
+ - Removed the duplicate Display heading and added settings-aware Android back navigation.
+ - Replaced old color choices with System, System monochrome, and 14 pastel/vibrant ROYGBIV swatches.
+ - Added persisted palette migration, full derived Material color tokens, grayscale system monochrome, and Dark background `#090909`.
+ - Added settings, back navigation, persistence, palette, grayscale, and background regression coverage.
+ - Commits: `31c4e8b`, `bb183e3`.
+ - Verification passed: focused `SettingsDisplayTest`, `lintDebug`, `test`, and `assembleRelease`.
