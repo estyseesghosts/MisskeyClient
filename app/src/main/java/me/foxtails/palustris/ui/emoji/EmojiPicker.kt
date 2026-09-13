@@ -76,7 +76,7 @@ sealed interface EmojiPickerTarget {
     data class Composer(val field: ComposerField) : EmojiPickerTarget
 }
 
-private val DefaultUnicodeEmojis = listOf(
+internal val DefaultUnicodeEmojis = listOf(
     "👍", "❤️", "😂", "🎉", "🤔", "😮", "😢", "👀", "💯", "✨", "🔥", "🙏",
     "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘",
     "😗", "☺️", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏", "😒",
@@ -147,135 +147,6 @@ internal fun calculateEmojiGridScrollbarThumb(
         heightPx = thumbHeight,
     )
 }
-
-internal sealed interface EmojiPickerGroupLabel {
-    data object Favorite : EmojiPickerGroupLabel
-    data object Recent : EmojiPickerGroupLabel
-    data object PostSpecific : EmojiPickerGroupLabel
-    data object Standard : EmojiPickerGroupLabel
-    data object Custom : EmojiPickerGroupLabel
-    data class ServerCategory(val value: String) : EmojiPickerGroupLabel
-}
-
-internal data class EmojiPickerGroup(
-    val id: String,
-    val label: EmojiPickerGroupLabel,
-    val choices: List<EmojiChoice>,
-    val pinnable: Boolean,
-    val collapsed: Boolean,
-    val pinned: Boolean,
-    val pinEnabled: Boolean,
-    val hasMatchingChoices: Boolean = true,
-)
-
-internal fun buildEmojiPickerGroups(
-    catalogItems: List<CustomEmoji>,
-    additionalChoices: List<EmojiChoice>,
-    recentIdentities: List<String>,
-    selectedIdentities: Set<String>,
-    searchQuery: String,
-    preferences: EmojiPickerPreferences,
-): List<EmojiPickerGroup> {
-    val catalogChoices = linkedMapOf<String, EmojiChoice>()
-    catalogItems.filter { it.visibleInPicker }.forEach { emoji ->
-        catalogChoices.putIfAbsent(
-            emoji.submissionValue,
-            EmojiChoice(emoji.submissionValue, emoji.token, emoji),
-        )
-    }
-    val unicodeChoices = DefaultUnicodeEmojis.map { EmojiChoice(it, it) }
-    val resolvedAdditional = additionalChoices.map { choice ->
-        val emoji = choice.emoji ?: catalogChoices[choice.submissionValue]?.emoji
-        choice.copy(
-            displayText = emoji?.token ?: choice.displayText,
-            emoji = emoji,
-        )
-    }.distinctBy { it.submissionValue }
-    val postSpecificChoices = resolvedAdditional.filter {
-        it.isCustomIdentity() && it.submissionValue !in catalogChoices
-    }
-    val standardChoices = (unicodeChoices + resolvedAdditional.filterNot { it.isCustomIdentity() })
-        .distinctBy { it.submissionValue }
-    val choiceMap = linkedMapOf<String, EmojiChoice>().apply {
-        catalogChoices.forEach { (identity, choice) -> putIfAbsent(identity, choice) }
-        postSpecificChoices.forEach { putIfAbsent(it.submissionValue, it) }
-        standardChoices.forEach { putIfAbsent(it.submissionValue, it) }
-    }
-    val recentChoices = recentIdentities.mapNotNull { identity ->
-        choiceMap[identity] ?: identity.takeUnless(String::isCustomIdentity).let { value ->
-            value?.let { EmojiChoice(it, it) }
-        }
-    }.distinctBy { it.submissionValue }
-
-    val groups = linkedMapOf<String, Pair<EmojiPickerGroupLabel, MutableList<EmojiChoice>>>()
-    catalogItems.filter { it.visibleInPicker }.forEach { emoji ->
-        val category = emoji.category?.takeIf(String::isNotBlank)
-        val id = EmojiPickerGroupIds.server(category)
-        val label = category?.let(EmojiPickerGroupLabel::ServerCategory) ?: EmojiPickerGroupLabel.Custom
-        groups.getOrPut(id) { label to mutableListOf() }.second +=
-            (catalogChoices[emoji.submissionValue] ?: EmojiChoice(emoji.submissionValue, emoji.token, emoji))
-    }
-
-    val pinnedIds = preferences.pinnedGroups.filter { it in groups }
-    val customIds = groups.keys.toList()
-    val orderedCustomIds = pinnedIds + customIds.filterNot { it in pinnedIds }
-    val query = searchQuery.trim()
-    val pinCount = preferences.pinnedGroups.count(EmojiPickerGroupIds::isServer)
-
-    fun matches(choice: EmojiChoice): Boolean = query.isEmpty() ||
-        choice.submissionValue.contains(query, ignoreCase = true) ||
-        choice.displayText.contains(query, ignoreCase = true) ||
-        choice.emoji?.shortcode?.contains(query, ignoreCase = true) == true ||
-        choice.emoji?.aliases?.any { it.contains(query, ignoreCase = true) } == true
-
-    fun createGroup(
-        id: String,
-        label: EmojiPickerGroupLabel,
-        choices: List<EmojiChoice>,
-        pinnable: Boolean,
-    ): EmojiPickerGroup {
-        val collapsed = id in preferences.collapsedGroups
-        val pinned = id in preferences.pinnedGroups
-        val matchingChoices = choices.filter(::matches)
-        return EmojiPickerGroup(
-            id = id,
-            label = label,
-            choices = if (collapsed) emptyList() else matchingChoices,
-            pinnable = pinnable,
-            collapsed = collapsed,
-            pinned = pinned,
-            pinEnabled = pinnable && (pinned || pinCount < 5),
-            hasMatchingChoices = matchingChoices.isNotEmpty(),
-        )
-    }
-
-    return buildList {
-        fun addIfVisible(group: EmojiPickerGroup) {
-            if (query.isEmpty() || group.hasMatchingChoices) add(group)
-        }
-
-        addIfVisible(createGroup(EmojiPickerGroupIds.Favorite, EmojiPickerGroupLabel.Favorite, emptyList(), pinnable = false))
-        orderedCustomIds.takeWhile { it in pinnedIds }.forEach { id ->
-            val (label, choices) = groups.getValue(id)
-            addIfVisible(createGroup(id, label, choices, pinnable = true))
-        }
-        if (recentChoices.isNotEmpty()) {
-            addIfVisible(createGroup(EmojiPickerGroupIds.Recent, EmojiPickerGroupLabel.Recent, recentChoices, pinnable = false))
-        }
-        if (postSpecificChoices.isNotEmpty()) {
-            addIfVisible(createGroup(EmojiPickerGroupIds.PostSpecific, EmojiPickerGroupLabel.PostSpecific, postSpecificChoices, pinnable = false))
-        }
-        orderedCustomIds.drop(pinnedIds.size).forEach { id ->
-            val (label, choices) = groups.getValue(id)
-            addIfVisible(createGroup(id, label, choices, pinnable = true))
-        }
-        addIfVisible(createGroup(EmojiPickerGroupIds.Unicode, EmojiPickerGroupLabel.Standard, standardChoices, pinnable = false))
-    }
-}
-
-private fun EmojiChoice.isCustomIdentity(): Boolean = emoji != null || submissionValue.startsWith(":")
-
-private fun String.isCustomIdentity(): Boolean = startsWith(":")
 
 @Composable
 private fun EmojiPickerGroup.labelText(): String = when (val label = label) {

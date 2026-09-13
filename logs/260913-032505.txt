@@ -139,3 +139,7 @@ S20 app dialogs:
 - Moved profile-discard and sign-out dialogs to ui/AppDialogs.kt.
 - Preserved dialog precedence, cancel behavior, and confirmation callbacks.
 - Verification passed: Kotlin compilation.
+S21 emoji grouping:
+- Moved pure emoji group identity, ordering, matching, pinning, and collapse calculations to ui/emoji/EmojiPickerGrouping.kt.
+- Kept server category text opaque and built-in labels resource-backed at render time.
+- Verification passed: `EmojiPickerTest`, `EmojiGridScrollbarTest`, and Kotlin compilation.
