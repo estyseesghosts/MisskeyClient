@@ -6,7 +6,6 @@
 
 package me.foxtails.palustris.ui
 
-import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -57,8 +56,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.R
-import me.foxtails.palustris.data.auth.DraftStore
-import me.foxtails.palustris.data.auth.PreferencesDraftStore
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -107,6 +104,7 @@ import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.DirectMessagesContract
+import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.LikesContract
@@ -174,7 +172,7 @@ fun PalustrisApp(
     search: SearchContract = SearchContract.Empty,
     postInteractions: PostInteractions = PostInteractions.Empty,
     thread: ThreadContract = ThreadContract.Empty,
-    draftStore: DraftStore? = null,
+    draftsContract: DraftsContract = DraftsContract.Empty,
     emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
     bookmarks: BookmarksContract = BookmarksContract.Empty,
     likes: LikesContract = LikesContract.Empty,
@@ -201,7 +199,6 @@ fun PalustrisApp(
     val postPreferences = composer.postPreferences
     val availableActions = postInteractions.availableActions
     val quoteEnabled = postInteractions.quoteEnabled
-    val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
     var destination by rememberSaveable { mutableStateOf(Destination.Home) }
     var destinationTransitionDirection by rememberSaveable { mutableIntStateOf(0) }
     var timeline by rememberSaveable { mutableStateOf(Timeline.Home) }
@@ -298,14 +295,11 @@ fun PalustrisApp(
         singlePostOrigin = LargePostOrigin.Other
     }
 
-    suspend fun reloadDrafts() {
-        drafts = runCatching {
-            store.migrateLegacy(account?.id, context.getSharedPreferences("local_draft", Context.MODE_PRIVATE))
-            store.list(account?.id)
-        }.getOrElse { emptyList() }
+    fun reloadDrafts() {
+        draftsContract.actions.load(account?.id) { result -> drafts = result }
     }
 
-    LaunchedEffect(account?.id, store) { reloadDrafts() }
+    LaunchedEffect(account?.id, draftsContract) { reloadDrafts() }
     LaunchedEffect(overlayKey) {
         if (overlay == Overlay.EditProfile && editorBase != null && profileEditor == null) {
             profileEditor = editorBase
@@ -512,22 +506,26 @@ fun PalustrisApp(
 
     fun saveCurrentDraft(onSaved: () -> Unit = {}) {
         if (draft.isBlank() && warning.isBlank() && composerQuoteOf == null && composerReplyTo == null) { onSaved(); return }
-        scope.launch {
-            closing = true
-            runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }
-                .onSuccess { item ->
-                    draftId = item.id
-                    savedDraft = item.text
-                    savedWarning = item.contentWarning.orEmpty()
-                    savedQuoteOf = item.quoteOf?.value
-                    savedReplyTo = item.replyTo?.value
-                    savedAudience = item.audience
-                    draftError = null
-                    onSaved()
-                }
-                .onFailure { draftError = "Draft could not be saved. Keep editing and try again." }
-            closing = false
-        }
+        closing = true
+        draftsContract.actions.save(
+            draftValue(),
+            onResult = { item ->
+                draftId = item.id
+                savedDraft = item.text
+                savedWarning = item.contentWarning.orEmpty()
+                savedQuoteOf = item.quoteOf?.value
+                savedReplyTo = item.replyTo?.value
+                savedAudience = item.audience
+                draftError = null
+                reloadDrafts()
+                closing = false
+                onSaved()
+            },
+            onError = {
+                draftError = "Draft could not be saved. Keep editing and try again."
+                closing = false
+            },
+        )
     }
     fun closeComposer() { if (composer.publishing || closing) return; if (hasDraftChanges) saveCurrentDraft { overlayKey = null } else overlayKey = null }
     fun discardProfileEditor() {
@@ -812,7 +810,7 @@ fun PalustrisApp(
                                  likedPostsState = likes.state,
                                  drafts = drafts,
                                  onLoadDraft = ::loadDraft,
-                                 onDeleteDraft = { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } },
+                                 onDeleteDraft = { item -> draftsContract.actions.delete(account?.id, item.id) { reloadDrafts() } },
                                  onRefreshSavedPosts = bookmarks.actions::refresh,
                                  onLoadMoreSavedPosts = bookmarks.actions::loadMore,
                                  onUnsaveSavedPost = bookmarks.actions::remove,
@@ -1303,13 +1301,14 @@ fun PalustrisApp(
                     draftError = "This audience is not available on this server."
                 } else {
                     val publishingAccountId = account?.id
-                    scope.launch {
-                        runCatching { val item = draftValue(); store.save(item); reloadDrafts(); item }.onSuccess { saved ->
+                    draftsContract.actions.save(
+                        draftValue(),
+                        onResult = { saved ->
                             draftId = saved.id
                             savedDraft = saved.text
                             savedWarning = saved.contentWarning.orEmpty()
                              composer.actions.publish(CreatePostRequest(submittedText, audience = submittedAudience, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) {
-                                 scope.launch { store.delete(publishingAccountId, saved.id); reloadDrafts() }
+                                 draftsContract.actions.delete(publishingAccountId, saved.id) { reloadDrafts() }
                                  val message = when {
                                      submittedReply != null -> replySentMessage
                                      submittedQuote != null -> quoteSentMessage
@@ -1331,8 +1330,9 @@ fun PalustrisApp(
                                 composerTarget = null
                                 overlayKey = null
                             }
-                        }.onFailure { draftError = "Draft could not be saved. Keep the composer open and try again." }
-                    }
+                        },
+                        onError = { draftError = "Draft could not be saved. Keep the composer open and try again." },
+                    )
                 }
             },
         )

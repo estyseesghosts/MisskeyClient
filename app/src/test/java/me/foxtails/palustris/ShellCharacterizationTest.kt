@@ -89,6 +89,7 @@ class ShellCharacterizationTest {
                     account = account,
                     home = AppShellFixtures.home(feed),
                     postInteractions = AppShellFixtures.interactions(feed),
+                    draftsContract = AppShellFixtures.drafts(),
                     composer = AppShellFixtures.composer(feed, onPublish = { value, _ -> request = value }),
                 )
             }

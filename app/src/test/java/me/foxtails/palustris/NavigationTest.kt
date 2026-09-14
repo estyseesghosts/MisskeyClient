@@ -766,14 +766,15 @@ class NavigationTest {
 
     @Test fun draftsSurviveActivityRecreationAndCanBeDeleted() {
         val account = fixtureAccount("draft-owner")
-        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account) } }
+        val drafts = AppShellFixtures.drafts()
+        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account, draftsContract = drafts) } }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithContentDescription("Post text").performTextInput("A draft stored only on this device.")
         screenshot("compose")
         compose.onNodeWithText("Save draft").performClick()
         compose.activityRule.scenario.recreate()
-        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account) } }
+        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account, draftsContract = drafts) } }
         compose.onNodeWithContentDescription("Profile").performClick()
         compose.onNodeWithTag("profile_drafts_chip").performClick()
         compose.onNodeWithText("A draft stored only on this device.").assertIsDisplayed()
@@ -787,7 +788,7 @@ class NavigationTest {
 
     @Test fun closingComposerAutosavesUnsavedText() {
         val account = fixtureAccount("autosave-owner")
-        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account) } }
+        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account, draftsContract = AppShellFixtures.drafts()) } }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithContentDescription("Post text").performTextInput("Unsaved")

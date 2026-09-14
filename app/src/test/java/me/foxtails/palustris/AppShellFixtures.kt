@@ -13,8 +13,14 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.auth.InMemoryDraftStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
@@ -23,6 +29,7 @@ import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
+import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.shell.NotificationsContract
@@ -206,6 +213,33 @@ internal object AppShellFixtures {
                 onPublish(request, onAccepted)
         },
     )
+
+    /** Test-only draft persistence backed by an explicit store. */
+    fun drafts(store: DraftStore = InMemoryDraftStore()): DraftsContract {
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        return DraftsContract(
+            actions = object : DraftsContract.Actions {
+                override fun load(accountId: AccountId?, onResult: (List<PostDraft>) -> Unit) {
+                    scope.launch { onResult(store.list(accountId)) }
+                }
+
+                override fun save(draft: PostDraft, onResult: (PostDraft) -> Unit, onError: () -> Unit) {
+                    scope.launch {
+                        runCatching { store.save(draft) }
+                            .onSuccess { onResult(draft) }
+                            .onFailure { onError() }
+                    }
+                }
+
+                override fun delete(accountId: AccountId?, draftId: String, onDone: () -> Unit) {
+                    scope.launch {
+                        runCatching { store.delete(accountId, draftId) }
+                        onDone()
+                    }
+                }
+            },
+        )
+    }
 
     /** Test-only profile presentation with recorder hooks. */
     fun profile(

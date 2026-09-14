@@ -86,6 +86,7 @@ class SignInScreenTest {
             PalustrisApp(
                 account = account,
                 home = AppShellFixtures.home(FeedState(canPublish = true)),
+                draftsContract = AppShellFixtures.drafts(),
                 composer = AppShellFixtures.composer(
                     FeedState(canPublish = true),
                     onPublish = { _, onSuccess -> complete = onSuccess },

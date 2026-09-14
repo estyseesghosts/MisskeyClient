@@ -1,5 +1,6 @@
 package me.foxtails.palustris.ui
 
+import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
@@ -59,6 +60,7 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.AppColorScheme
 import me.foxtails.palustris.domain.AppPreferencesRepository
 import me.foxtails.palustris.domain.AppPreferencesState
+import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.PostPreferences
 import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.data.preferences.InMemoryAppPreferencesRepository
@@ -76,6 +78,7 @@ import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.DirectMessagesContract
+import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
@@ -584,6 +587,36 @@ fun ConnectedApp(
             ?.let(accountManager::updateAccount)
     }
     val context = LocalContext.current
+    val draftsContract = remember(draftStore, context, settingsScope) {
+        DraftsContract(
+            actions = object : DraftsContract.Actions {
+                override fun load(accountId: AccountId?, onResult: (List<PostDraft>) -> Unit) {
+                    settingsScope.launch {
+                        val result = runCatching {
+                            draftStore.migrateLegacy(accountId, context.getSharedPreferences("local_draft", Context.MODE_PRIVATE))
+                            draftStore.list(accountId)
+                        }.getOrElse { emptyList() }
+                        onResult(result)
+                    }
+                }
+
+                override fun save(draft: PostDraft, onResult: (PostDraft) -> Unit, onError: () -> Unit) {
+                    settingsScope.launch {
+                        runCatching { draftStore.save(draft) }
+                            .onSuccess { onResult(draft) }
+                            .onFailure { onError() }
+                    }
+                }
+
+                override fun delete(accountId: AccountId?, draftId: String, onDone: () -> Unit) {
+                    settingsScope.launch {
+                        runCatching { draftStore.delete(accountId, draftId) }
+                        onDone()
+                    }
+                }
+            },
+        )
+    }
     LaunchedEffect(state.browserUrl) {
         state.browserUrl?.let { url ->
             accountManager.browserOpened()
@@ -688,7 +721,7 @@ fun ConnectedApp(
                 composer = composer,
                  thread = thread,
                 search = search,
-                draftStore = draftStore,
+                draftsContract = draftsContract,
                 postInteractions = postInteractions,
                 bookmarks = bookmarks,
                 likes = likes,
