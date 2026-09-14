@@ -282,6 +282,7 @@
     <string name="feed_empty_title">Your home feed is quiet</string>
     <string name="feed_empty_subtitle">Posts from accounts you follow will appear here. Pull down to refresh.</string>
     <string name="feed_load_older">Load older posts</string>
+    <string name="feed_filtered_empty">No posts here match your muted hashtags. Load older posts to keep looking.</string>
     <string name="feed_up_to_date">You\'re up to date</string>
     <string name="liked_posts_empty_title">No likes yet</string>
     <string name="liked_posts_empty_subtitle">Posts you like will appear here.</string>

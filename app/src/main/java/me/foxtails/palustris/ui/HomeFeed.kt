@@ -110,18 +110,44 @@ fun HomeFeed(
     val hasOwnership = ownedPosts.isNotEmpty()
     val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
     val visibleRows = rows.filterNot { ownedPost -> ContentWarningPolicy.matchesHashtagMute(postHashtags(ownedPost.post.text, ownedPost.post.emoji), mutedHashtags) }
+    val currentVisibleRows by rememberUpdatedState(visibleRows)
+    val pagingDemand = remember { HomePagingDemand() }
+    // New visible rows reset the no-progress budget.
+    LaunchedEffect(visibleRows.size) {
+        pagingDemand.onVisiblePostsChanged(visibleRows.size)
+    }
+    // A refresh or timeline change starts a new demand budget.
+    LaunchedEffect(state.loading, state.selectedTimeline) {
+        pagingDemand.reset()
+    }
     val statePaneKey = when {
         state.error != null -> "error"
         state.posts.isEmpty() && state.loading -> "loading"
         state.posts.isEmpty() -> "empty"
         else -> "feed"
     }
-    LaunchedEffect(list, visibleRows) {
+    LaunchedEffect(list) {
         snapshotFlow {
             val s = currentState
-            val lastVisibleIndex = list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-            s.nextCursor != null && visibleRows.isNotEmpty() && !s.loading && !s.loadingMore && s.error == null && lastVisibleIndex >= visibleRows.size - 5
-        }.distinctUntilChanged().collect { if (it) loadMore() }
+            val postCount = currentVisibleRows.size
+            HomePagingInput(
+                nextCursor = s.nextCursor,
+                loading = s.loading,
+                loadingMore = s.loadingMore,
+                errorPresent = s.error != null,
+                visiblePostCount = postCount,
+                lastVisiblePostIndex = lastVisiblePostIndex(
+                    visibleItemIndices = list.layoutInfo.visibleItemsInfo.map { it.index },
+                    leadingItemCount = s.leadingItemCount(),
+                    postCount = postCount,
+                ),
+            )
+        }.distinctUntilChanged().collect { input ->
+            if (pagingDemand.shouldRequestNextPage(input)) {
+                pagingDemand.onPageRequested()
+                loadMore()
+            }
+        }
     }
     LaunchedEffect(list) {
         var previousIndex = list.firstVisibleItemIndex
@@ -165,10 +191,19 @@ fun HomeFeed(
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                         }
                     }
+                    if (state.posts.isNotEmpty() && visibleRows.isEmpty() && !state.loading && state.error == null) item {
+                        Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                            Text(
+                                stringResource(R.string.feed_filtered_empty),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     if (state.loadingMore) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp)) } }
                     if (state.posts.isNotEmpty() && !state.loadingMore && state.error == null) item {
                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            if (state.nextCursor != null) TextButton(onClick = onLoadMore) { Text(stringResource(R.string.feed_load_older)) }
+                            if (state.nextCursor != null) TextButton(onClick = { pagingDemand.reset(); onLoadMore() }) { Text(stringResource(R.string.feed_load_older)) }
                             else Text(stringResource(R.string.feed_up_to_date), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }

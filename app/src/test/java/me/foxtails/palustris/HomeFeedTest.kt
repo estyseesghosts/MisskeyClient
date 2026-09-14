@@ -1,6 +1,7 @@
 package me.foxtails.palustris
 
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -23,9 +24,12 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Reaction
 import me.foxtails.palustris.domain.ThreadTreeBuilder
 import me.foxtails.palustris.ui.FeedState
+import me.foxtails.palustris.ui.HomeFeed
+import me.foxtails.palustris.ui.LocalMutedHashtags
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.SearchScreen
 import me.foxtails.palustris.ui.AccountSearchState
+import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.thread.PostThreadPhase
 import me.foxtails.palustris.ui.thread.PostThreadUiState
@@ -109,6 +113,27 @@ private fun show(
             .fetchSemanticsNode().boundsInRoot
         assertTrue("the final Home post should clear the timeline selector", finalBounds.bottom <= timeline.top)
         compose.onNodeWithText("Compact final home post").assertIsDisplayed()
+    }
+
+    @Test fun fullyFilteredFeedShowsFilteredEmptyStateAndManualContinuation() {
+        val muted = Post(postId("filtered"), account, "Only #quiet content here", 0, Audience.Public)
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                CompositionLocalProvider(LocalMutedHashtags provides setOf("quiet")) {
+                    HomeFeed(
+                        state = HomeFeedUiState(posts = listOf(muted), nextCursor = "c1"),
+                        onRefresh = {},
+                        onLoadMore = {},
+                        onSignIn = {},
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("No posts here match your muted hashtags. Load older posts to keep looking.").assertIsDisplayed()
+        compose.onNodeWithText("Load older posts").assertIsDisplayed()
+        compose.onNodeWithText("Only #quiet content here").assertDoesNotExist()
     }
 
     @Test fun compactSearchResultsScrollFinalPostAboveFloatingControls() {
