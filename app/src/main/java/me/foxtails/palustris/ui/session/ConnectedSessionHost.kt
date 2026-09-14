@@ -29,58 +29,45 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.CreatePostRequest
-import me.foxtails.palustris.domain.DirectConversation
-import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.EmojiChoice
-import me.foxtails.palustris.domain.EntityId
-import me.foxtails.palustris.domain.Notification
-import me.foxtails.palustris.domain.NotificationCategory
-import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.PostPreferences
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.AccountManager
 import me.foxtails.palustris.ui.FeedViewModel
-import me.foxtails.palustris.ui.NotificationsViewModel
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.PhotoGridFeed
 import me.foxtails.palustris.ui.SavedPostsCollection
 import me.foxtails.palustris.ui.SavedPostsViewModel
-import me.foxtails.palustris.ui.directmessages.DirectMessageViewModel
-import me.foxtails.palustris.ui.emoji.EmojiCatalogViewModel
+import me.foxtails.palustris.ui.directmessages.DirectMessagesHost
+import me.foxtails.palustris.ui.emoji.EmojiHost
 import me.foxtails.palustris.ui.navigation.AppRoute
-import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
-import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
+import me.foxtails.palustris.ui.notifications.NotificationSettingsHost
+import me.foxtails.palustris.ui.notifications.NotificationsHost
 import me.foxtails.palustris.ui.posts.LocalPostActionOwner
 import me.foxtails.palustris.ui.posts.PostActionOwner
-import me.foxtails.palustris.ui.profile.ProfileCategory
-import me.foxtails.palustris.ui.profile.ProfileViewModel
+import me.foxtails.palustris.ui.profile.ProfileHost
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.ComposerContract
-import me.foxtails.palustris.ui.shell.DirectMessagesContract
 import me.foxtails.palustris.ui.shell.DraftsContract
-import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.shell.LikesContract
-import me.foxtails.palustris.ui.shell.NotificationSettingsContract
-import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.PhotoGridContract
 import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
-import me.foxtails.palustris.ui.shell.ProfileContract
 import me.foxtails.palustris.ui.shell.SearchContract
-import me.foxtails.palustris.ui.shell.ThreadContract
-import me.foxtails.palustris.ui.thread.PostThreadViewModel
+import me.foxtails.palustris.ui.thread.ThreadHost
 
 /**
  * Owns one coherent account/session presentation lifetime.
  *
- * The host resolves the registered source for the active session, binds every source-backed feature
- * owner, and releases them on session replacement. It exposes no token and no source to the shell.
- * The composable renders [PalustrisApp] directly so no aggregate contract bag leaves this boundary.
+ * The host resolves the registered source for the active session and composes focused feature
+ * hosts. Each feature host owns its model, state, actions, and projection registration. This host
+ * keeps only the shared feed owner, the draft owner, the post-action owner, and the projection
+ * coordinator. It exposes no token and no source to the shell.
  */
 @Composable
 fun ConnectedSessionHost(
@@ -141,19 +128,14 @@ fun ConnectedSessionHost(
     val accountSwitcher = remember(accountIndex.accounts, accountSwitcherActions) {
         AccountSwitcher(accounts = accountIndex.accounts, actions = accountSwitcherActions)
     }
+    val projectionCoordinator = remember(session.accountId, sessionGeneration) {
+        PostProjectionCoordinator(session.accountId, session.sessionRevision)
+    }
     val feedModel = hiltViewModel<FeedViewModel, FeedViewModel.Factory>(
         key = "feed-${session.accountId}-$sessionGeneration",
         creationCallback = { factory ->
             factory.create(session.accountId, sharedSource, session.sessionRevision)
         },
-    )
-    val notificationsModel = hiltViewModel<NotificationsViewModel, NotificationsViewModel.Factory>(
-        key = "notifications-${session.accountId}-$sessionGeneration",
-        creationCallback = { factory -> factory.create(session.accountId, sharedSource) },
-    )
-    val directMessagesModel = hiltViewModel<DirectMessageViewModel, DirectMessageViewModel.Factory>(
-        key = "direct-messages-${session.accountId}-$sessionGeneration",
-        creationCallback = { factory -> factory.create(session.accountId, sharedSource) },
     )
     val savedPostsModel = hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
         key = "saved-posts-${session.accountId}-$sessionGeneration",
@@ -166,10 +148,6 @@ fun ConnectedSessionHost(
         creationCallback = { factory ->
             factory.create(session.accountId, sharedSource, SavedPostsCollection.Likes, session.sessionRevision)
         },
-    )
-    val notificationSettingsModel = hiltViewModel<NotificationSettingsViewModel, NotificationSettingsViewModel.Factory>(
-        key = "notification-settings-${session.accountId}-$sessionGeneration",
-        creationCallback = { factory -> factory.create(session.accountId) },
     )
     DisposableEffect(sessionGeneration, feedModel, savedPostsModel, likedPostsModel) {
         onDispose {
@@ -239,39 +217,6 @@ fun ConnectedSessionHost(
     val photoGrid = remember(photoGridFeed, photoGridActions) {
         PhotoGridContract(state = photoGridFeed, actions = photoGridActions)
     }
-    val notificationState by notificationsModel.state.collectAsStateWithLifecycle()
-    val notificationsActions = remember(notificationsModel) {
-        object : NotificationsContract.Actions {
-            override fun refresh() { notificationsModel.refresh() }
-            override fun loadMore() { notificationsModel.loadOlder() }
-            override fun markAllRead() { notificationsModel.markAllRead() }
-            override fun markSeen(notification: Notification?) { notificationsModel.markSeen(notification?.id) }
-            override fun dismiss(notification: Notification) { notificationsModel.dismiss(notification) }
-            override fun respondToFollowRequest(notification: Notification, accept: Boolean) {
-                notificationsModel.respondToFollowRequest(notification, accept)
-            }
-            override fun selectQuery(query: NotificationQuery) { notificationsModel.selectQuery(query) }
-        }
-    }
-    val notifications = remember(notificationState, notificationsActions) {
-        NotificationsContract(notificationState, notificationsActions)
-    }
-    val directMessageState by directMessagesModel.state.collectAsStateWithLifecycle()
-    val directMessagesActions = remember(directMessagesModel) {
-        object : DirectMessagesContract.Actions {
-            override fun refresh() { directMessagesModel.refresh() }
-            override fun loadMore() { directMessagesModel.loadMore() }
-            override fun openConversation(conversation: DirectConversation) {
-                directMessagesModel.openConversation(conversation)
-            }
-            override fun closeConversation() { directMessagesModel.closeConversation() }
-            override fun startConversation(account: Account) { directMessagesModel.startConversation(account) }
-            override fun send(text: String) { directMessagesModel.send(text) }
-        }
-    }
-    val directMessages = remember(directMessageState, directMessagesActions) {
-        DirectMessagesContract(directMessageState, directMessagesActions)
-    }
     val savedPostsState by savedPostsModel.state.collectAsStateWithLifecycle()
     val likedPostsState by likedPostsModel.state.collectAsStateWithLifecycle()
     val bookmarksActions = remember(savedPostsModel, accountManager) {
@@ -297,65 +242,6 @@ fun ConnectedSessionHost(
     val likes = remember(likedPostsState, likesActions) {
         LikesContract(state = likedPostsState, actions = likesActions)
     }
-    val notificationSettingsState by notificationSettingsModel.state.collectAsStateWithLifecycle()
-    val notificationSettingsActions = remember(notificationSettingsModel) {
-        object : NotificationSettingsContract.Actions {
-            override fun setAlertsEnabled(enabled: Boolean) { notificationSettingsModel.setAlertsEnabled(enabled) }
-            override fun setShowPreviews(enabled: Boolean) { notificationSettingsModel.setShowPreviews(enabled) }
-            override fun setPeriodicFallback(enabled: Boolean) { notificationSettingsModel.setPeriodicFallbackEnabled(enabled) }
-            override fun setQuietHours(enabled: Boolean) { notificationSettingsModel.setQuietHours(enabled) }
-            override fun setCategoryEnabled(category: NotificationCategory, enabled: Boolean) {
-                notificationSettingsModel.setCategoryEnabled(category, enabled)
-            }
-            override fun runLocalTest() { notificationSettingsModel.runLocalPresentationTest() }
-            override fun retryRegistration() { notificationSettingsModel.retryRegistration() }
-            override fun refreshPermission() { notificationSettingsModel.refreshPermission() }
-            override fun refreshDistributors() { notificationSettingsModel.refreshDistributors() }
-            override fun selectDistributor(packageName: String) { notificationSettingsModel.selectDistributor(packageName) }
-            override fun runPushConnectionTest() { notificationSettingsModel.runPushConnectionTest() }
-        }
-    }
-    val notificationSettings = remember(session.accountId, notificationSettingsState, notificationSettingsActions) {
-        NotificationSettingsContract(
-            accountId = session.accountId,
-            state = notificationSettingsState,
-            actions = notificationSettingsActions,
-        )
-    }
-    val profileModel = hiltViewModel<ProfileViewModel, ProfileViewModel.Factory>(
-        key = "profile-${session.accountId}-$sessionGeneration",
-        creationCallback = { factory ->
-            factory.create(session.accountId, sharedSource, session.sessionRevision)
-        },
-    )
-    val threadModel = hiltViewModel<PostThreadViewModel, PostThreadViewModel.Factory>(
-        key = "thread-${session.accountId}-$sessionGeneration",
-        creationCallback = { factory ->
-            factory.create(session.accountId, sharedSource, session.sessionRevision)
-        },
-    )
-    val threadState by threadModel.state.collectAsStateWithLifecycle()
-    val threadActions = remember(threadModel) {
-        object : ThreadContract.Actions {
-            override fun activate(post: OwnedPost?, enabled: Boolean) { threadModel.activate(post, enabled) }
-            override fun deactivate() { threadModel.deactivate() }
-            override fun refresh() { threadModel.refresh() }
-            override fun continueAcquisition() { threadModel.continueAcquisition() }
-            override fun favorite(post: OwnedPost) { threadModel.favorite(post) }
-            override fun repost(post: OwnedPost) { threadModel.reshare(post) }
-            override fun bookmark(post: OwnedPost) { threadModel.bookmark(post) }
-            override fun react(post: OwnedPost, choice: EmojiChoice) { threadModel.react(post, choice) }
-        }
-    }
-    val thread = remember(threadState, threadActions) {
-        ThreadContract(state = threadState, actions = threadActions)
-    }
-    DisposableEffect(sessionGeneration, threadModel) {
-        onDispose { threadModel.stop() }
-    }
-    val projectionCoordinator = remember(session.accountId, sessionGeneration) {
-        PostProjectionCoordinator(session.accountId, session.sessionRevision)
-    }
     val feedSink = remember(feedModel) {
         object : PostProjectionCoordinator.Sink {
             override fun applyExternalPost(updated: OwnedPost) { feedModel.applyExternalPost(updated) }
@@ -374,110 +260,55 @@ fun ConnectedSessionHost(
             override fun applyPublishedPost(request: CreatePostRequest) { likedPostsModel.applyPublishedPost(request) }
         }
     }
-    val profileSink = remember(profileModel) {
-        object : PostProjectionCoordinator.Sink {
-            override fun applyExternalPost(updated: OwnedPost) { profileModel.applyExternalPost(updated) }
-            override fun applyPublishedPost(request: CreatePostRequest) { profileModel.applyPublishedPost(request) }
-        }
-    }
-    val notificationsSink = remember(notificationsModel) {
-        object : PostProjectionCoordinator.Sink {
-            override fun applyExternalPost(updated: OwnedPost) { notificationsModel.applyExternalPost(updated) }
-            override fun applyPublishedPost(request: CreatePostRequest) { notificationsModel.applyPublishedPost(request) }
-        }
-    }
-    val threadSink = remember(threadModel) {
-        object : PostProjectionCoordinator.Sink {
-            override fun applyExternalPost(updated: OwnedPost) { threadModel.applyExternalPost(updated) }
-            override fun acceptPublishedReply(created: OwnedPost) { threadModel.acceptPublishedReply(created) }
-            override fun acceptPublishedQuote(target: EntityId?) { threadModel.acceptPublishedQuote(target) }
-        }
-    }
-    DisposableEffect(projectionCoordinator, feedSink, savedSink, likedSink, profileSink, notificationsSink, threadSink, feedModel, threadModel) {
-        val sinks = listOf(feedSink, savedSink, likedSink, profileSink, notificationsSink, threadSink)
-        sinks.forEach(projectionCoordinator::register)
+    DisposableEffect(projectionCoordinator, feedSink, savedSink, likedSink, feedModel) {
+        listOf(feedSink, savedSink, likedSink).forEach(projectionCoordinator::register)
         val feedProjection: (OwnedPost) -> Unit = { updated ->
             projectionCoordinator.forwardExternalPost(feedSink, updated)
         }
         feedModel.addPostProjectionListener(feedProjection)
-        val threadProjection: (OwnedPost) -> Unit = { updated ->
-            projectionCoordinator.forwardExternalPost(threadSink, updated)
-        }
-        threadModel.setPostUpdateListener(threadProjection)
         onDispose {
-            threadModel.setPostUpdateListener(null)
             feedModel.removePostProjectionListener(feedProjection)
-            sinks.forEach(projectionCoordinator::unregister)
+            listOf(feedSink, savedSink, likedSink).forEach(projectionCoordinator::unregister)
         }
     }
-    DisposableEffect(threadModel, lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> threadModel.setForeground(true)
-                Lifecycle.Event.ON_STOP -> threadModel.setForeground(false)
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        threadModel.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            threadModel.setForeground(false)
-        }
-    }
-    DisposableEffect(sessionGeneration, profileModel) {
-        onDispose { profileModel.stop() }
-    }
-    val profileState by profileModel.state.collectAsStateWithLifecycle()
-    val profileActions = remember(profileModel, accountManager) {
-        object : ProfileContract.Actions {
-            override fun open(account: Account) { profileModel.open(account) }
-            override fun selectCategory(category: ProfileCategory) { profileModel.selectCategory(category) }
-            override fun refresh() { profileModel.refresh() }
-            override fun loadMore() { profileModel.loadMoreSelected() }
-            override fun follow() { profileModel.follow() }
-            override fun unfollow() { profileModel.unfollow() }
-            override fun react(post: OwnedPost, choice: EmojiChoice) { profileModel.react(post, choice) }
-            override fun saveEditor(patch: EditableProfilePatch, onSuccess: () -> Unit) {
-                profileModel.saveEditor(patch) { updated ->
-                    accountManager.updateAccount(updated)
-                    onSuccess()
-                }
-            }
-            override fun openEditor() { profileModel.openEditor() }
-            override fun updateEditor(draft: me.foxtails.palustris.domain.EditableProfile) { profileModel.updateEditor(draft) }
-            override fun closeEditor() { profileModel.closeEditor() }
-        }
-    }
-    val profile = remember(profileState, profileActions) {
-        ProfileContract(state = profileState, actions = profileActions)
-    }
-    val emojiCatalogModel = hiltViewModel<EmojiCatalogViewModel, EmojiCatalogViewModel.Factory>(
-        key = "emoji-catalog-${session.accountId}-$sessionGeneration",
-        creationCallback = { factory -> factory.create(session.accountId, sharedSource) },
+    val profile = ProfileHost(
+        accountId = session.accountId,
+        sessionGeneration = sessionGeneration,
+        sessionRevision = session.sessionRevision,
+        source = sharedSource,
+        accountManager = accountManager,
+        coordinator = projectionCoordinator,
     )
-    val emojiCatalogState by emojiCatalogModel.state.collectAsStateWithLifecycle()
-    DisposableEffect(sessionGeneration, emojiCatalogModel) {
-        onDispose { emojiCatalogModel.stop() }
-    }
-    val emojiActions = remember(emojiCatalogModel) {
-        object : EmojiPresentation.Actions {
-            override fun loadCatalog() { emojiCatalogModel.loadIfNeeded() }
-            override fun retryCatalog() { emojiCatalogModel.retry() }
-            override fun toggleGroupCollapsed(groupId: String) { emojiCatalogModel.toggleGroupCollapsed(groupId) }
-            override fun toggleGroupPinned(groupId: String) { emojiCatalogModel.toggleGroupPinned(groupId) }
-            override fun togglePinnedEmoji(identity: String) { emojiCatalogModel.togglePinnedEmoji(identity) }
-        }
-    }
-    val emojiPresentation = remember(emojiCatalogState, sharedSource.capabilities.emoji, emojiActions) {
-        EmojiPresentation(
-            catalog = emojiCatalogState,
-            capabilities = sharedSource.capabilities.emoji,
-            actions = emojiActions,
-        )
-    }
-    LaunchedEffect(profileState.account, account) {
-        profileState.account
+    val thread = ThreadHost(
+        accountId = session.accountId,
+        sessionGeneration = sessionGeneration,
+        sessionRevision = session.sessionRevision,
+        source = sharedSource,
+        coordinator = projectionCoordinator,
+        lifecycleOwner = lifecycleOwner,
+    )
+    val notifications = NotificationsHost(
+        accountId = session.accountId,
+        sessionGeneration = sessionGeneration,
+        source = sharedSource,
+        coordinator = projectionCoordinator,
+    )
+    val directMessages = DirectMessagesHost(
+        accountId = session.accountId,
+        sessionGeneration = sessionGeneration,
+        source = sharedSource,
+    )
+    val notificationSettings = NotificationSettingsHost(
+        accountId = session.accountId,
+        sessionGeneration = sessionGeneration,
+    )
+    val emojiPresentation = EmojiHost(
+        accountId = session.accountId,
+        sessionGeneration = sessionGeneration,
+        source = sharedSource,
+    )
+    LaunchedEffect(profile.state.account, account) {
+        profile.state.account
             ?.takeIf { it.id == account.id && it != account }
             ?.let(accountManager::updateAccount)
     }
@@ -511,13 +342,13 @@ fun ConnectedSessionHost(
             },
         )
     }
-    val postActionOwner = remember(session.accountId, session.sessionRevision, sharedSource) {
+    val postActionOwner = remember(session.accountId, session.sessionRevision, sharedSource, profile) {
         PostActionOwner(
             accountId = session.accountId,
             sessionRevision = session.sessionRevision,
             source = sharedSource,
             scope = settingsScope,
-            onRelationshipChanged = { profileModel.refresh() },
+            onRelationshipChanged = { profile.actions.refresh() },
         )
     }
     val composerActions = remember(feedModel, feedSink, projectionCoordinator) {
