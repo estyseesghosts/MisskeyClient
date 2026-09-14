@@ -111,6 +111,7 @@ import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.ProfileContract
+import me.foxtails.palustris.ui.shell.ThreadContract
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
@@ -177,15 +178,7 @@ fun PalustrisApp(
     onClearPhotoGridPreferenceError: () -> Unit = {},
     accountSwitcher: AccountSwitcher = AccountSwitcher.Empty,
     onPublish: (CreatePostRequest, (OwnedPost) -> Unit) -> Unit = { _, _ -> },
-    threadState: PostThreadUiState? = null,
-    onThreadActivate: (OwnedPost?, Boolean) -> Unit = { _, _ -> },
-    onThreadDeactivate: () -> Unit = {},
-    onThreadRefresh: () -> Unit = {},
-    onThreadContinue: () -> Unit = {},
-    onThreadFavorite: (OwnedPost) -> Unit = {},
-    onThreadReshare: (OwnedPost) -> Unit = {},
-    onThreadBookmark: (OwnedPost) -> Unit = {},
-    onThreadReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    thread: ThreadContract = ThreadContract.Empty,
     onSearchAccounts: (String) -> Unit = {},
     onLoadMoreSearch: () -> Unit = {},
     draftStore: DraftStore? = null,
@@ -350,7 +343,7 @@ fun PalustrisApp(
         postReactionHandler = null
         pendingEmojiInsertion = null
         repostConfirmationOwner.dismiss()
-        onThreadDeactivate()
+        thread.actions.deactivate()
     }
     LaunchedEffect(destination, searchPanel, account?.id, sessionGeneration) {
         if (destination == Destination.Search && searchPanel == SearchPanel.PhotoGrid) {
@@ -362,7 +355,7 @@ fun PalustrisApp(
         if (singlePostOrigin == LargePostOrigin.PhotoGrid) clearSelectedPost()
     }
     LaunchedEffect(singlePost?.post?.id, singlePostOrigin, singlePostOrigin.supportsComments()) {
-        onThreadActivate(singlePost, singlePostOrigin.supportsComments())
+        thread.actions.activate(singlePost, singlePostOrigin.supportsComments())
     }
     LaunchedEffect(destination, page, overlayKey, sheet, profileDialog, signOutDialog, mediaRequest, singlePost, notificationRoute) {
         postActionBubbleTarget = null
@@ -733,7 +726,7 @@ fun PalustrisApp(
         } ?: selected
     }
 
-    val selectedThreadState = threadState?.takeIf { state ->
+    val selectedThreadState = thread.state?.takeIf { state ->
         val selected = singlePost ?: return@takeIf false
         state.focal?.effectiveTargetId() == selected.effectiveTargetId()
     }
@@ -1068,7 +1061,7 @@ fun PalustrisApp(
                         primaryContent = { paneModifier -> destinationScaffold(paneModifier) },
                          detailContent = { paneModifier ->
                              val threadEnabled = selectedThreadState != null && singlePostOrigin.supportsComments()
-                             val detailReaction = if (threadEnabled) onThreadReaction else when (singlePostOrigin) {
+                             val detailReaction = if (threadEnabled) thread.actions::react else when (singlePostOrigin) {
                                  LargePostOrigin.Profile -> profile.actions::react
                                  LargePostOrigin.Saved -> bookmarks.actions::react
                                  LargePostOrigin.Liked -> likes.actions::react
@@ -1080,10 +1073,10 @@ fun PalustrisApp(
                                  availableActions = feedState?.actions ?: emptySet(),
                                  threadState = selectedThreadState,
                                  onClose = { singlePost = null },
-                                 onReact = if (threadEnabled) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) likes.actions::toggle else onReact,
+                                 onReact = if (threadEnabled) thread.actions::favorite else if (singlePostOrigin == LargePostOrigin.Liked) likes.actions::toggle else onReact,
                                  onReply = handleReply,
-                                 onReshare = if (threadEnabled) onThreadReshare else onReshare,
-                                 onBookmark = if (threadEnabled) onThreadBookmark else onBookmark,
+                                 onReshare = if (threadEnabled) thread.actions::repost else onReshare,
+                                 onBookmark = if (threadEnabled) thread.actions::bookmark else onBookmark,
                                  onReaction = detailReaction,
                                  onOpenProfile = ::openProfile,
                                  onSearchHashtag = ::openHashtagSearch,
@@ -1091,8 +1084,8 @@ fun PalustrisApp(
                                  onOpenReactionBubble = { post, bounds, handler -> openReactionBubble(post, bounds, handler) },
                                  onOpenMedia = ::openMedia,
                                  onOpenUsername = ::openAccountSearch,
-                                 onThreadRefresh = onThreadRefresh,
-                                 onThreadContinue = onThreadContinue,
+                                 onThreadRefresh = thread.actions::refresh,
+                                 onThreadContinue = thread.actions::continueAcquisition,
                                  contentWarningRules = contentWarningRules,
                                  quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
                                  onQuote = ::openQuote,
@@ -1242,11 +1235,11 @@ fun PalustrisApp(
                       onClose = { singlePost = null },
                       availableActions = (feedState?.actions ?: emptySet()) +
                            if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
-                       onReact = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) likes.actions::toggle else onReact,
+                       onReact = if (selectedThreadState != null && singlePostOrigin.supportsComments()) thread.actions::favorite else if (singlePostOrigin == LargePostOrigin.Liked) likes.actions::toggle else onReact,
                       onReply = handleReply,
-                      onReshare = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadReshare else onReshare,
-                      onBookmark = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadBookmark else onBookmark,
-                       onReaction = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadReaction else when (singlePostOrigin) {
+                      onReshare = if (selectedThreadState != null && singlePostOrigin.supportsComments()) thread.actions::repost else onReshare,
+                      onBookmark = if (selectedThreadState != null && singlePostOrigin.supportsComments()) thread.actions::bookmark else onBookmark,
+                       onReaction = if (selectedThreadState != null && singlePostOrigin.supportsComments()) thread.actions::react else when (singlePostOrigin) {
                            LargePostOrigin.Liked -> likes.actions::react
                            else -> onReaction
                        },
@@ -1256,8 +1249,8 @@ fun PalustrisApp(
                      onOpenMedia = ::openMedia,
                       onOpenUsername = ::openAccountSearch,
                       threadState = selectedThreadState.takeIf { selectedThreadState != null && singlePostOrigin.supportsComments() },
-                      onThreadRefresh = onThreadRefresh,
-                      onThreadContinue = onThreadContinue,
+                      onThreadRefresh = thread.actions::refresh,
+                      onThreadContinue = thread.actions::continueAcquisition,
                       contentWarningRules = contentWarningRules,
                   )
              }

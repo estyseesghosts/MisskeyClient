@@ -119,9 +119,11 @@ class WideNavigationTest {
                 PalustrisApp(
                     account = account,
                     feedState = FeedState(posts = listOf(post)),
-                    threadState = PostThreadUiState(
-                        phase = PostThreadPhase.Content,
-                        focal = OwnedPost(account.id, post),
+                    thread = AppShellFixtures.thread(
+                        PostThreadUiState(
+                            phase = PostThreadPhase.Content,
+                            focal = OwnedPost(account.id, post),
+                        ),
                     ),
                 )
             }

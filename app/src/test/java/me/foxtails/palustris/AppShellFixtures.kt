@@ -22,6 +22,8 @@ import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.ProfileContract
+import me.foxtails.palustris.ui.shell.ThreadContract
+import me.foxtails.palustris.ui.thread.PostThreadUiState
 
 /**
  * Explicit shell identities for presentation tests.
@@ -106,6 +108,21 @@ internal object AppShellFixtures {
             override fun dismiss(notification: Notification) = Unit
             override fun respondToFollowRequest(notification: Notification, accept: Boolean) = Unit
             override fun selectQuery(query: NotificationQuery) = Unit
+        },
+    )
+
+    /** Test-only thread presentation with inert actions. */
+    fun thread(state: PostThreadUiState? = null): ThreadContract = ThreadContract(
+        state = state,
+        actions = object : ThreadContract.Actions {
+            override fun activate(post: OwnedPost?, enabled: Boolean) = Unit
+            override fun deactivate() = Unit
+            override fun refresh() = Unit
+            override fun continueAcquisition() = Unit
+            override fun favorite(post: OwnedPost) = Unit
+            override fun repost(post: OwnedPost) = Unit
+            override fun bookmark(post: OwnedPost) = Unit
+            override fun react(post: OwnedPost, choice: EmojiChoice) = Unit
         },
     )
 

@@ -662,3 +662,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Removed `profileState`, `onProfilePostReaction`, and nine profile callbacks from `PalustrisApp`.
 - Bound the registered contract in `ConnectedApp` and migrated `HomeFeedTest` and `NavigationTest` through `AppShellFixtures.profile`.
 - Verification passed: `HomeFeedTest`, `NavigationTest`, `ProfileScreenTest`, `SignInScreenTest`, and `ShellCharacterizationTest`.
+
+01-B thread contract:
+- Added `ui/shell/ThreadContract` with selected-thread state plus typed acquisition and mutation actions.
+- Removed `threadState` and eight thread callbacks from `PalustrisApp`.
+- Bound the registered contract in `ConnectedApp` and migrated `HomeFeedTest` and `WideNavigationTest` through `AppShellFixtures.thread`.
+- Verification passed: `HomeFeedTest`, `WideNavigationTest`, `SinglePostScreenTest`, `NavigationTest`, and `ShellCharacterizationTest`.

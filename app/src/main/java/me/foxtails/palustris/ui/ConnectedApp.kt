@@ -73,6 +73,7 @@ import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.ProfileContract
+import me.foxtails.palustris.ui.shell.ThreadContract
 import me.foxtails.palustris.ui.settings.ModerationViewModel
 import me.foxtails.palustris.ui.settings.ModerationKind
 import me.foxtails.palustris.domain.ModerationListKind
@@ -347,6 +348,21 @@ fun ConnectedApp(
     }
     val threadState by if (threadModel != null) threadModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(PostThreadUiState()) }
+    val threadActions = remember(threadModel) {
+        object : ThreadContract.Actions {
+            override fun activate(post: OwnedPost?, enabled: Boolean) { threadModel?.activate(post, enabled) }
+            override fun deactivate() { threadModel?.deactivate() }
+            override fun refresh() { threadModel?.refresh() }
+            override fun continueAcquisition() { threadModel?.continueAcquisition() }
+            override fun favorite(post: OwnedPost) { threadModel?.favorite(post) }
+            override fun repost(post: OwnedPost) { threadModel?.reshare(post) }
+            override fun bookmark(post: OwnedPost) { threadModel?.bookmark(post) }
+            override fun react(post: OwnedPost, choice: EmojiChoice) { threadModel?.react(post, choice) }
+        }
+    }
+    val thread = remember(threadState, threadActions) {
+        ThreadContract(state = threadState, actions = threadActions)
+    }
     DisposableEffect(state.sessionGeneration, threadModel) {
         onDispose { threadModel?.stop() }
     }
@@ -540,16 +556,8 @@ fun ConnectedApp(
                           onSuccess(created)
                       }
                   },
-                 threadState = threadState.takeIf { it.focal != null },
-                 onThreadActivate = { post, enabled -> threadModel?.activate(post, enabled) },
-                 onThreadDeactivate = { threadModel?.deactivate() },
-                 onThreadRefresh = { threadModel?.refresh() },
-                 onThreadContinue = { threadModel?.continueAcquisition() },
-                 onThreadFavorite = { threadModel?.favorite(it) },
-                 onThreadReshare = { threadModel?.reshare(it) },
-                 onThreadBookmark = { threadModel?.bookmark(it) },
-                 onThreadReaction = { post, choice -> threadModel?.react(post, choice) },
-                onSearchAccounts = feedModel?.let { model -> { query -> model.search(query) } } ?: {},
+                 thread = thread,
+                 onSearchAccounts = feedModel?.let { model -> { query -> model.search(query) } } ?: {},
                 onLoadMoreSearch = feedModel?.let { model -> { model.loadMoreSearch() } } ?: {},
                 draftStore = draftStore,
                 ownedPosts = feed.ownedPosts,

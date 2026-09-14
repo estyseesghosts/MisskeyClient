@@ -573,10 +573,12 @@ private fun show(
                 PalustrisApp(
                     account = account,
                     feedState = FeedState(posts = listOf(post)),
-                    threadState = PostThreadUiState(
-                        phase = PostThreadPhase.Content,
-                        focal = ownedPost,
-                        rows = thread.replies,
+                    thread = AppShellFixtures.thread(
+                        PostThreadUiState(
+                            phase = PostThreadPhase.Content,
+                            focal = ownedPost,
+                            rows = thread.replies,
+                        ),
                     ),
                 )
             }
@@ -614,10 +616,12 @@ private fun show(
                             posts = listOf(post),
                         ),
                     ),
-                    threadState = PostThreadUiState(
-                        phase = PostThreadPhase.Content,
-                        focal = ownedPost,
-                        rows = thread.replies,
+                    thread = AppShellFixtures.thread(
+                        PostThreadUiState(
+                            phase = PostThreadPhase.Content,
+                            focal = ownedPost,
+                            rows = thread.replies,
+                        ),
                     ),
                 )
             }
