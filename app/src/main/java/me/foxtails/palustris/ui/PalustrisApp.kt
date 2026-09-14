@@ -104,7 +104,9 @@ import me.foxtails.palustris.ui.navigation.edgeSwipeDismiss
 import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.shell.AccountSwitcher
+import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
+import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
@@ -201,19 +203,10 @@ fun PalustrisApp(
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
-    onSavedPostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     onProfilePostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
-    savedPostsState: SavedPostsUiState? = null,
-    onRefreshSavedPosts: () -> Unit = {},
-    onLoadMoreSavedPosts: () -> Unit = {},
-    onUnsaveSavedPost: (OwnedPost) -> Unit = {},
-    onUpgradeSavedPermissions: () -> Unit = {},
-    likedPostsState: SavedPostsUiState? = null,
-    onRefreshLikedPosts: () -> Unit = {},
-    onLoadMoreLikedPosts: () -> Unit = {},
-    onUnsaveLikedPost: (OwnedPost) -> Unit = {},
-    onLikedPostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    bookmarks: BookmarksContract = BookmarksContract.Empty,
+    likes: LikesContract = LikesContract.Empty,
     notificationState: NotificationsUiState = NotificationsUiState(),
     onRefreshNotifications: () -> Unit = {},
     onLoadMoreNotifications: () -> Unit = {},
@@ -308,7 +301,7 @@ fun PalustrisApp(
     val profileTargetId = viewedProfile?.id ?: account?.id
     val refreshedProfile = profileState.account?.takeIf { it.id == profileTargetId }
     val displayedProfile = refreshedProfile ?: viewedProfile ?: account
-    val savedKind = savedPostsState?.kind ?: feedState?.savedPosts?.kind
+    val savedKind = bookmarks.state?.kind ?: feedState?.savedPosts?.kind
     val savedTitle = savedCollectionTitle(savedKind)
     val notificationAccountIdentity = account?.id?.let { "${it.connection.origin}\u0000${it.localId}" } ?: "preview"
     val hasDraftChanges = draft != savedDraft ||
@@ -750,8 +743,8 @@ fun PalustrisApp(
         val candidates = ownedPosts.orEmpty() +
             feedState?.ownedPosts.orEmpty() +
             photoGridFeed.posts +
-            savedPostsState?.posts.orEmpty() +
-            likedPostsState?.posts.orEmpty() +
+            bookmarks.state?.posts.orEmpty() +
+            likes.state?.posts.orEmpty() +
             profileState.pinnedPosts +
             profileState.pages.values.flatMap { it.posts }
         return candidates.firstOrNull {
@@ -858,26 +851,26 @@ fun PalustrisApp(
                          } else if (page != null) {
                              AppLocalPageContent(
                                  page = page,
-                                 savedPostsState = savedPostsState,
-                                 likedPostsState = likedPostsState,
+                                 savedPostsState = bookmarks.state,
+                                 likedPostsState = likes.state,
                                  drafts = drafts,
                                  onLoadDraft = ::loadDraft,
                                  onDeleteDraft = { item -> scope.launch { store.delete(account?.id, item.id); reloadDrafts() } },
-                                 onRefreshSavedPosts = onRefreshSavedPosts,
-                                 onLoadMoreSavedPosts = onLoadMoreSavedPosts,
-                                 onUnsaveSavedPost = onUnsaveSavedPost,
-                                 onRefreshLikedPosts = onRefreshLikedPosts,
-                                 onLoadMoreLikedPosts = onLoadMoreLikedPosts,
-                                 onUnsaveLikedPost = onUnsaveLikedPost,
-                                 onUpgradeSavedPermissions = onUpgradeSavedPermissions,
+                                 onRefreshSavedPosts = bookmarks.actions::refresh,
+                                 onLoadMoreSavedPosts = bookmarks.actions::loadMore,
+                                 onUnsaveSavedPost = bookmarks.actions::remove,
+                                 onRefreshLikedPosts = likes.actions::refresh,
+                                 onLoadMoreLikedPosts = likes.actions::loadMore,
+                                 onUnsaveLikedPost = likes.actions::toggle,
+                                 onUpgradeSavedPermissions = bookmarks.actions::upgradePermissions,
                                  onReact = onReact,
                                  onReply = handleReply,
                                  onReshare = onReshare,
                                  onBookmark = onBookmark,
-                                 onSavedPostReaction = onSavedPostReaction,
-                                 onLikedPostReaction = onLikedPostReaction,
-                                  onOpenSavedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onSavedPostReaction) },
-                                  onOpenLikedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onLikedPostReaction) },
+                                 onSavedPostReaction = bookmarks.actions::react,
+                                 onLikedPostReaction = likes.actions::react,
+                                  onOpenSavedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, bookmarks.actions::react) },
+                                  onOpenLikedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, likes.actions::react) },
                                   onOpenReactionPicker = ::expandReactionPicker,
                                  onOpenMedia = ::openMedia,
                                  onOpenPost = ::openSinglePost,
@@ -1098,8 +1091,8 @@ fun PalustrisApp(
                              val threadEnabled = selectedThreadState != null && singlePostOrigin.supportsComments()
                              val detailReaction = if (threadEnabled) onThreadReaction else when (singlePostOrigin) {
                                  LargePostOrigin.Profile -> onProfilePostReaction
-                                 LargePostOrigin.Saved -> onSavedPostReaction
-                                 LargePostOrigin.Liked -> onLikedPostReaction
+                                 LargePostOrigin.Saved -> bookmarks.actions::react
+                                 LargePostOrigin.Liked -> likes.actions::react
                                  else -> onReaction
                              }
                              AppLargeDetailPane(
@@ -1108,7 +1101,7 @@ fun PalustrisApp(
                                  availableActions = feedState?.actions ?: emptySet(),
                                  threadState = selectedThreadState,
                                  onClose = { singlePost = null },
-                                 onReact = if (threadEnabled) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
+                                 onReact = if (threadEnabled) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) likes.actions::toggle else onReact,
                                  onReply = handleReply,
                                  onReshare = if (threadEnabled) onThreadReshare else onReshare,
                                  onBookmark = if (threadEnabled) onThreadBookmark else onBookmark,
@@ -1270,12 +1263,12 @@ fun PalustrisApp(
                       onClose = { singlePost = null },
                       availableActions = (feedState?.actions ?: emptySet()) +
                            if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
-                       onReact = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) onUnsaveLikedPost else onReact,
+                       onReact = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadFavorite else if (singlePostOrigin == LargePostOrigin.Liked) likes.actions::toggle else onReact,
                       onReply = handleReply,
                       onReshare = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadReshare else onReshare,
                       onBookmark = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadBookmark else onBookmark,
                        onReaction = if (selectedThreadState != null && singlePostOrigin.supportsComments()) onThreadReaction else when (singlePostOrigin) {
-                           LargePostOrigin.Liked -> onLikedPostReaction
+                           LargePostOrigin.Liked -> likes.actions::react
                            else -> onReaction
                        },
                      onOpenProfile = ::openProfile,

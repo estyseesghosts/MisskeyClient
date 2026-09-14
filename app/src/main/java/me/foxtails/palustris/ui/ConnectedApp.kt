@@ -44,6 +44,8 @@ import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.NotificationCategory
+import me.foxtails.palustris.domain.EmojiChoice
+import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.AppColorScheme
 import me.foxtails.palustris.domain.AppPreferencesRepository
 import me.foxtails.palustris.domain.AppPreferencesState
@@ -59,7 +61,9 @@ import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 import me.foxtails.palustris.ui.settings.SettingsHost
 import me.foxtails.palustris.ui.shell.AccountSwitcher
+import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
+import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.settings.ModerationViewModel
 import me.foxtails.palustris.ui.settings.ModerationKind
@@ -234,6 +238,29 @@ fun ConnectedApp(
     else remember { mutableStateOf<SavedPostsUiState?>(null) }
     val likedPostsState by if (likedPostsModel != null) likedPostsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf<SavedPostsUiState?>(null) }
+    val bookmarksActions = remember(savedPostsModel, accountManager) {
+        object : BookmarksContract.Actions {
+            override fun refresh() { savedPostsModel?.refresh() }
+            override fun loadMore() { savedPostsModel?.loadMore() }
+            override fun remove(post: OwnedPost) { savedPostsModel?.unsave(post) }
+            override fun upgradePermissions() { state.account?.id?.let(accountManager::upgradePermissions) }
+            override fun react(post: OwnedPost, choice: EmojiChoice) { savedPostsModel?.react(post, choice) }
+        }
+    }
+    val bookmarks = remember(savedPostsState, bookmarksActions) {
+        BookmarksContract(state = savedPostsState, actions = bookmarksActions)
+    }
+    val likesActions = remember(likedPostsModel, feedModel) {
+        object : LikesContract.Actions {
+            override fun refresh() { likedPostsModel?.refresh() }
+            override fun loadMore() { likedPostsModel?.loadMore() }
+            override fun toggle(post: OwnedPost) { likedPostsModel?.toggleFavourite(post) }
+            override fun react(post: OwnedPost, choice: EmojiChoice) { feedModel?.react(post, choice) }
+        }
+    }
+    val likes = remember(likedPostsState, likesActions) {
+        LikesContract(state = likedPostsState, actions = likesActions)
+    }
     val notificationSettingsState by if (notificationSettingsModel != null) notificationSettingsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationSettingsUiState()) }
     val notificationSettingsActions = remember(notificationSettingsModel) {
@@ -468,16 +495,8 @@ fun ConnectedApp(
                 onReshare = { ownedPost -> feedModel?.reshare(ownedPost) },
                 onBookmark = { ownedPost -> feedModel?.bookmark(ownedPost) },
                 onReaction = { ownedPost, emoji -> feedModel?.react(ownedPost, emoji) },
-                savedPostsState = savedPostsState,
-                onRefreshSavedPosts = { savedPostsModel?.refresh() },
-                onLoadMoreSavedPosts = { savedPostsModel?.loadMore() },
-                 onUnsaveSavedPost = { ownedPost -> savedPostsModel?.unsave(ownedPost) },
-                 onUpgradeSavedPermissions = { state.account?.id?.let(accountManager::upgradePermissions) },
-                 likedPostsState = likedPostsState,
-                 onRefreshLikedPosts = { likedPostsModel?.refresh() },
-                 onLoadMoreLikedPosts = { likedPostsModel?.loadMore() },
-                 onUnsaveLikedPost = { ownedPost -> likedPostsModel?.toggleFavourite(ownedPost) },
-                 onLikedPostReaction = { ownedPost, choice -> feedModel?.react(ownedPost, choice) },
+                bookmarks = bookmarks,
+                likes = likes,
                 notificationState = notificationState,
                 onRefreshNotifications = { notificationsModel?.refresh() },
                 onLoadMoreNotifications = { notificationsModel?.loadOlder() },
@@ -511,7 +530,6 @@ fun ConnectedApp(
                 onOpenProfileEditor = { profileModel?.openEditor() },
                 onCloseEditor = { profileModel?.closeEditor() },
                 emojiPresentation = emojiPresentation,
-                onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
                 onProfilePostReaction = { ownedPost, choice -> profileModel?.react(ownedPost, choice) },
             )
             }
