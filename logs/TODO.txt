@@ -1,4 +1,3 @@
 # Active tasks
 
-- Resolve or explicitly accept the connected `SystemBarAppearanceInstrumentedTest` failure.
-- Run the final device and authorized live checks.
+- Run authorized live-server checks.

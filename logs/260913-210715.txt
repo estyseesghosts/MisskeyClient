@@ -66,3 +66,10 @@ The planned files are listed in `docs/0.2.2.cont.md`. The implementation will ad
 - Added expansion, close, selection, and geometry regression coverage.
 - Focused verification passed: `HomeFeedTest`, `NavigationTest`, `WideNavigationTest`, and `LocalizationResourceTest`.
 - Full verification passed: `test`, `assembleRelease`, and `lintDebug`.
+
+## Slice 5 status
+
+- Connected instrumentation ran on `SM-F926W`: 10 tests ran and 9 passed.
+- `SystemBarAppearanceInstrumentedTest` remains the only failure because Android 15 reported a transparent navigation bar where the test expects black; accept this as the existing target-SDK 37 edge-to-edge baseline.
+- No source change was made for that unrelated assertion.
+- Authorized live-server checks were not run because no active authorization or test account was supplied.

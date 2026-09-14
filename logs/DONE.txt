@@ -136,6 +136,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Preserved existing popup routing, placement, dismissal, selection callbacks, and accessibility semantics.
 - Added HomeFeed hashtag expansion and close regression coverage.
 - Verification passed: focused HomeFeed/navigation/localization tests, full `test`, `assembleRelease`, and `lintDebug`.
+260913-210715 Beeline 0.2.2 final automated/device gate:
+- Connected instrumentation ran on `SM-F926W`; 9 of 10 tests passed.
+- Accepted the existing Android 15 edge-to-edge system-bar color assertion failure as a baseline; no source change was required.
+- Authorized live-server checks remain outstanding because no active authorization or test account was supplied.
 260910-131102 Release pipeline:
 - Added a tag-driven signed APK workflow with test and lint gates.
 - Added release tag version handling for `versionName` and `versionCode`.
