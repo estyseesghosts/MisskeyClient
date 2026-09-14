@@ -89,6 +89,7 @@ import me.foxtails.palustris.ui.notifications.NotificationSettingsScreen
 import me.foxtails.palustris.ui.notifications.NotificationSettingsSheet
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.ui.profile.ProfileCategory
+import me.foxtails.palustris.ui.profile.ProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.profile.editableProfilePatch
 import me.foxtails.palustris.ui.media.MediaOpenRequest
@@ -835,7 +836,7 @@ fun PalustrisApp(
                                  largeLayout = largePresentation,
                              )
                          } else when (animatedDestination) {
-                                      Destination.Home -> if (home != null) AppHomeDestinationContent(
+                                      Destination.Home -> if (home != null) HomeFeed(
                                           state = home.state,
                                           compactLayout = !largePresentation,
                                           onRefresh = { home.actions.refresh(timeline) },
@@ -889,7 +890,7 @@ fun PalustrisApp(
                                       modifier = Modifier.fillMaxSize(),
                                    ) { panel ->
                                        when (panel) {
-                                            SearchPanel.Search -> AppSearchDestinationContent(
+                                            SearchPanel.Search -> SearchScreen(
                                                accountSearch = search.state,
                                                onSearchAccounts = search.actions::search,
                                                onAccountClick = ::openProfile,
@@ -916,13 +917,14 @@ fun PalustrisApp(
                                                listState = searchListState.takeIf { largePresentation },
                                                largeLayout = largePresentation,
                                                compactLayout = !largePresentation,
+                                               compactNavigationVisible = !largePresentation,
                                                 mediaOwner = account?.id,
                                                 sessionRevision = sessionRevision,
                                                onOpenMedia = ::openMedia,
                                                 onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
                                                onOpenUsername = ::openAccountSearch,
                                            )
-                                             SearchPanel.PhotoGrid -> AppPhotoGridDestinationContent(
+                                             SearchPanel.PhotoGrid -> PhotoGridScreen(
                                                 state = photoGrid.state,
                                                 onRefresh = photoGrid.actions::refresh,
                                                 onLoadMore = photoGrid.actions::loadMore,
@@ -968,7 +970,7 @@ fun PalustrisApp(
                                       onBackDirectConversation = directMessages.actions::closeConversation,
                                       onSendDirectMessage = directMessages.actions::send,
                                   )
-                 Destination.Profile -> AppProfileDestinationContent(
+                 Destination.Profile -> ProfileScreen(
                      account = displayedProfile,
                      profileState = profile.state,
                      compactLayout = !largePresentation,
