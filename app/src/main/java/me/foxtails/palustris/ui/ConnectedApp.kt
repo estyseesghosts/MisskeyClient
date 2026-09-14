@@ -46,6 +46,8 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationQuery
+import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.AppColorScheme
@@ -64,6 +66,7 @@ import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 import me.foxtails.palustris.ui.settings.SettingsHost
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
+import me.foxtails.palustris.ui.shell.DirectMessagesContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
@@ -253,6 +256,21 @@ fun ConnectedApp(
     }
     val directMessageState by if (directMessagesModel != null) directMessagesModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(DirectMessageUiState()) }
+    val directMessagesActions = remember(directMessagesModel) {
+        object : DirectMessagesContract.Actions {
+            override fun refresh() { directMessagesModel?.refresh() }
+            override fun loadMore() { directMessagesModel?.loadMore() }
+            override fun openConversation(conversation: DirectConversation) {
+                directMessagesModel?.openConversation(conversation)
+            }
+            override fun closeConversation() { directMessagesModel?.closeConversation() }
+            override fun startConversation(account: Account) { directMessagesModel?.startConversation(account) }
+            override fun send(text: String) { directMessagesModel?.send(text) }
+        }
+    }
+    val directMessages = remember(directMessageState, directMessagesActions) {
+        DirectMessagesContract(directMessageState, directMessagesActions)
+    }
     val savedPostsState by if (savedPostsModel != null) savedPostsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf<SavedPostsUiState?>(null) }
     val likedPostsState by if (likedPostsModel != null) likedPostsModel.state.collectAsStateWithLifecycle()
@@ -517,13 +535,7 @@ fun ConnectedApp(
                 bookmarks = bookmarks,
                 likes = likes,
                 notifications = notifications,
-                 directMessageState = directMessageState,
-                 onRefreshDirectMessages = { directMessagesModel?.refresh() },
-                 onLoadMoreDirectMessages = { directMessagesModel?.loadMore() },
-                 onOpenDirectConversation = { conversation -> directMessagesModel?.openConversation(conversation) },
-                 onBackDirectConversation = { directMessagesModel?.closeConversation() },
-                 onStartDirectConversation = { profile -> directMessagesModel?.startConversation(profile) },
-                 onSendDirectMessage = { text -> directMessagesModel?.send(text) },
+                 directMessages = directMessages,
                 initialNotificationRoute = initialNotificationRoute,
                 notificationSettings = notificationSettings,
                 profileState = profileState,

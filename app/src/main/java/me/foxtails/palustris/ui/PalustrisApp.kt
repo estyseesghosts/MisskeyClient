@@ -105,13 +105,13 @@ import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
+import me.foxtails.palustris.ui.shell.DirectMessagesContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
-import me.foxtails.palustris.ui.directmessages.DirectMessageUiState
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.motion.SpringAnimatedContent
@@ -209,13 +209,7 @@ fun PalustrisApp(
     bookmarks: BookmarksContract = BookmarksContract.Empty,
     likes: LikesContract = LikesContract.Empty,
     notifications: NotificationsContract = NotificationsContract.Empty,
-    directMessageState: DirectMessageUiState = DirectMessageUiState(),
-    onRefreshDirectMessages: () -> Unit = {},
-    onLoadMoreDirectMessages: () -> Unit = {},
-    onOpenDirectConversation: (me.foxtails.palustris.domain.DirectConversation) -> Unit = {},
-    onBackDirectConversation: () -> Unit = {},
-    onStartDirectConversation: (Account) -> Unit = {},
-    onSendDirectMessage: (String) -> Unit = {},
+    directMessages: DirectMessagesContract = DirectMessagesContract.Empty,
     initialNotificationRoute: AppRoute? = null,
     notificationSettings: NotificationSettingsContract = NotificationSettingsContract.Empty,
 ) {
@@ -660,7 +654,7 @@ fun PalustrisApp(
     fun openDirectMessage(profile: Account) {
         clearPostActionBubble()
         clearSelectedPost()
-        onStartDirectConversation(profile)
+        directMessages.actions.startConversation(profile)
         notificationsPanelName = NotificationsPanel.DirectMessages.name
         destinationTransitionDirection = motionDirection(
             destination.ordinal,
@@ -1002,12 +996,12 @@ fun PalustrisApp(
                                               overlayKey = NOTIFICATION_SETTINGS_OVERLAY_KEY
                                           }
                                       },
-                                      directMessageState = directMessageState,
-                                      onRefreshDirectMessages = onRefreshDirectMessages,
-                                      onLoadMoreDirectMessages = onLoadMoreDirectMessages,
-                                      onOpenDirectConversation = onOpenDirectConversation,
-                                      onBackDirectConversation = onBackDirectConversation,
-                                      onSendDirectMessage = onSendDirectMessage,
+                                      directMessageState = directMessages.state,
+                                      onRefreshDirectMessages = directMessages.actions::refresh,
+                                      onLoadMoreDirectMessages = directMessages.actions::loadMore,
+                                      onOpenDirectConversation = directMessages.actions::openConversation,
+                                      onBackDirectConversation = directMessages.actions::closeConversation,
+                                      onSendDirectMessage = directMessages.actions::send,
                                       contentWarningRules = contentWarningRules,
                                   )
                  Destination.Profile -> AppProfileDestinationContent(
@@ -1240,7 +1234,7 @@ fun PalustrisApp(
                   onOpenDirectMessage = {
                       val recipient = target.author
                       postActionOwner.dismiss()
-                      onStartDirectConversation(recipient)
+                      directMessages.actions.startConversation(recipient)
                   },
                   onCopyLink = { copyPostShareContent(context, target.post) },
                   onShare = {
