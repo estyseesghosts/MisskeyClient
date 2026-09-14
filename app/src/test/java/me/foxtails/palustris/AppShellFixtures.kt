@@ -33,11 +33,14 @@ import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.shell.AccountSwitcher
+import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
+import me.foxtails.palustris.ui.shell.LikesContract
+import me.foxtails.palustris.ui.SavedPostsUiState
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.ProfileContract
@@ -131,18 +134,24 @@ internal object AppShellFixtures {
         },
     )
 
-    /** Test-only thread presentation with inert actions. */
-    fun thread(state: PostThreadUiState? = null): ThreadContract = ThreadContract(
+    /** Test-only thread presentation with recorder hooks. */
+    fun thread(
+        state: PostThreadUiState? = null,
+        onFavorite: (OwnedPost) -> Unit = {},
+        onRepost: (OwnedPost) -> Unit = {},
+        onBookmark: (OwnedPost) -> Unit = {},
+        onReact: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    ): ThreadContract = ThreadContract(
         state = state,
         actions = object : ThreadContract.Actions {
             override fun activate(post: OwnedPost?, enabled: Boolean) = Unit
             override fun deactivate() = Unit
             override fun refresh() = Unit
             override fun continueAcquisition() = Unit
-            override fun favorite(post: OwnedPost) = Unit
-            override fun repost(post: OwnedPost) = Unit
-            override fun bookmark(post: OwnedPost) = Unit
-            override fun react(post: OwnedPost, choice: EmojiChoice) = Unit
+            override fun favorite(post: OwnedPost) = onFavorite(post)
+            override fun repost(post: OwnedPost) = onRepost(post)
+            override fun bookmark(post: OwnedPost) = onBookmark(post)
+            override fun react(post: OwnedPost, choice: EmojiChoice) = onReact(post, choice)
         },
     )
 
@@ -301,4 +310,60 @@ internal object AppShellFixtures {
             },
         )
     }
+
+    /** Test-only profile contract with inert editor actions for pure policy tests. */
+    fun profileContract(
+        onReact: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    ): ProfileContract = ProfileContract(
+        state = ProfileUiState(),
+        actions = object : ProfileContract.Actions {
+            override fun open(account: Account) = Unit
+            override fun selectCategory(category: ProfileCategory) = Unit
+            override fun refresh() = Unit
+            override fun loadMore() = Unit
+            override fun follow() = Unit
+            override fun unfollow() = Unit
+            override fun react(post: OwnedPost, choice: EmojiChoice) = onReact(post, choice)
+            override fun saveEditor(patch: EditableProfilePatch, onSuccess: () -> Unit) = Unit
+            override fun openEditor() = Unit
+            override fun updateEditor(draft: EditableProfile) = Unit
+            override fun closeEditor() = Unit
+        },
+    )
+
+    /** Test-only bookmark collection with recorder hooks. */
+    fun bookmarks(
+        state: SavedPostsUiState? = null,
+        onRefresh: () -> Unit = {},
+        onLoadMore: () -> Unit = {},
+        onRemove: (OwnedPost) -> Unit = {},
+        onUpgradePermissions: () -> Unit = {},
+        onReact: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    ): BookmarksContract = BookmarksContract(
+        state = state,
+        actions = object : BookmarksContract.Actions {
+            override fun refresh() = onRefresh()
+            override fun loadMore() = onLoadMore()
+            override fun remove(post: OwnedPost) = onRemove(post)
+            override fun upgradePermissions() = onUpgradePermissions()
+            override fun react(post: OwnedPost, choice: EmojiChoice) = onReact(post, choice)
+        },
+    )
+
+    /** Test-only like collection with recorder hooks. */
+    fun likes(
+        state: SavedPostsUiState? = null,
+        onRefresh: () -> Unit = {},
+        onLoadMore: () -> Unit = {},
+        onToggle: (OwnedPost) -> Unit = {},
+        onReact: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    ): LikesContract = LikesContract(
+        state = state,
+        actions = object : LikesContract.Actions {
+            override fun refresh() = onRefresh()
+            override fun loadMore() = onLoadMore()
+            override fun toggle(post: OwnedPost) = onToggle(post)
+            override fun react(post: OwnedPost, choice: EmojiChoice) = onReact(post, choice)
+        },
+    )
 }

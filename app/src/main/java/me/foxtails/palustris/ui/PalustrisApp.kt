@@ -1018,23 +1018,26 @@ fun PalustrisApp(
                         primaryContent = { paneModifier -> destinationScaffold(paneModifier) },
                          detailContent = { paneModifier ->
                              val threadEnabled = selectedThreadState != null && singlePostOrigin.supportsComments()
-                             val detailReaction = if (threadEnabled) thread.actions::react else when (singlePostOrigin) {
-                                 LargePostOrigin.Profile -> profile.actions::react
-                                 LargePostOrigin.Saved -> bookmarks.actions::react
-                                 LargePostOrigin.Liked -> likes.actions::react
-                                 else -> onReaction
-                             }
+                             val detail = detailActionsFor(
+                                 origin = singlePostOrigin,
+                                 threadActive = threadEnabled,
+                                 thread = thread,
+                                 profile = profile,
+                                 bookmarks = bookmarks,
+                                 likes = likes,
+                                 fallback = DetailActions(onReact, handleReply, onReshare, onBookmark, onReaction),
+                             )
                              AppLargeDetailPane(
                                  selected = selectedThreadState?.focal ?: latestSelectedPost(),
                                  origin = singlePostOrigin,
                                  availableActions = availableActions,
                                  threadState = selectedThreadState,
                                  onClose = { singlePost = null },
-                                 onReact = if (threadEnabled) thread.actions::favorite else if (singlePostOrigin == LargePostOrigin.Liked) likes.actions::toggle else onReact,
-                                 onReply = handleReply,
-                                 onReshare = if (threadEnabled) thread.actions::repost else onReshare,
-                                 onBookmark = if (threadEnabled) thread.actions::bookmark else onBookmark,
-                                 onReaction = detailReaction,
+                                 onReact = detail.favorite,
+                                 onReply = detail.reply,
+                                 onReshare = detail.reshare,
+                                 onBookmark = detail.bookmark,
+                                 onReaction = detail.react,
                                  onOpenProfile = ::openProfile,
                                  onSearchHashtag = ::openHashtagSearch,
                                  onOpenHashtagBubble = ::openHashtagBubble,
@@ -1185,26 +1188,33 @@ fun PalustrisApp(
           }
          if (!largePresentation) {
              singlePost?.let { post ->
+                 val threadEnabled = selectedThreadState != null && singlePostOrigin.supportsComments()
+                 val detail = detailActionsFor(
+                     origin = singlePostOrigin,
+                     threadActive = threadEnabled,
+                     thread = thread,
+                     profile = profile,
+                     bookmarks = bookmarks,
+                     likes = likes,
+                     fallback = DetailActions(onReact, handleReply, onReshare, onBookmark, onReaction),
+                 )
                   SinglePostScreen(
                       ownedPost = post,
                       presentation = singlePostOrigin.singlePostPresentation(),
                       onClose = { singlePost = null },
                       availableActions = availableActions +
                            if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
-                       onReact = if (selectedThreadState != null && singlePostOrigin.supportsComments()) thread.actions::favorite else if (singlePostOrigin == LargePostOrigin.Liked) likes.actions::toggle else onReact,
-                      onReply = handleReply,
-                      onReshare = if (selectedThreadState != null && singlePostOrigin.supportsComments()) thread.actions::repost else onReshare,
-                      onBookmark = if (selectedThreadState != null && singlePostOrigin.supportsComments()) thread.actions::bookmark else onBookmark,
-                       onReaction = if (selectedThreadState != null && singlePostOrigin.supportsComments()) thread.actions::react else when (singlePostOrigin) {
-                           LargePostOrigin.Liked -> likes.actions::react
-                           else -> onReaction
-                       },
+                       onReact = detail.favorite,
+                      onReply = detail.reply,
+                      onReshare = detail.reshare,
+                      onBookmark = detail.bookmark,
+                       onReaction = detail.react,
                      onOpenProfile = ::openProfile,
                      onSearchHashtag = ::openHashtagSearch,
                      onOpenHashtagBubble = ::openHashtagBubble,
                      onOpenMedia = ::openMedia,
                       onOpenUsername = ::openAccountSearch,
-                      threadState = selectedThreadState.takeIf { selectedThreadState != null && singlePostOrigin.supportsComments() },
+                      threadState = selectedThreadState.takeIf { threadEnabled },
                       onThreadRefresh = thread.actions::refresh,
                       onThreadContinue = thread.actions::continueAcquisition,
                   )
