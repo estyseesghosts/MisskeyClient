@@ -44,6 +44,8 @@ import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.NotificationCategory
+import me.foxtails.palustris.domain.Notification
+import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.AppColorScheme
@@ -65,6 +67,7 @@ import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
+import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.settings.ModerationViewModel
 import me.foxtails.palustris.ui.settings.ModerationKind
 import me.foxtails.palustris.domain.ModerationListKind
@@ -232,6 +235,22 @@ fun ConnectedApp(
     else remember { mutableStateOf(PhotoGridFeedState()) }
     val notificationState by if (notificationsModel != null) notificationsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationsUiState()) }
+    val notificationsActions = remember(notificationsModel) {
+        object : NotificationsContract.Actions {
+            override fun refresh() { notificationsModel?.refresh() }
+            override fun loadMore() { notificationsModel?.loadOlder() }
+            override fun markAllRead() { notificationsModel?.markAllRead() }
+            override fun markSeen(notification: Notification?) { notificationsModel?.markSeen(notification?.id) }
+            override fun dismiss(notification: Notification) { notificationsModel?.dismiss(notification) }
+            override fun respondToFollowRequest(notification: Notification, accept: Boolean) {
+                notificationsModel?.respondToFollowRequest(notification, accept)
+            }
+            override fun selectQuery(query: NotificationQuery) { notificationsModel?.selectQuery(query) }
+        }
+    }
+    val notifications = remember(notificationState, notificationsActions) {
+        NotificationsContract(notificationState, notificationsActions)
+    }
     val directMessageState by if (directMessagesModel != null) directMessagesModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(DirectMessageUiState()) }
     val savedPostsState by if (savedPostsModel != null) savedPostsModel.state.collectAsStateWithLifecycle()
@@ -497,13 +516,7 @@ fun ConnectedApp(
                 onReaction = { ownedPost, emoji -> feedModel?.react(ownedPost, emoji) },
                 bookmarks = bookmarks,
                 likes = likes,
-                notificationState = notificationState,
-                onRefreshNotifications = { notificationsModel?.refresh() },
-                onLoadMoreNotifications = { notificationsModel?.loadOlder() },
-                onMarkAllNotificationsRead = { notificationsModel?.markAllRead() },
-                onMarkNotificationSeen = { notification -> notificationsModel?.markSeen(notification?.id) },
-                 onDismissNotification = { notification -> notificationsModel?.dismiss(notification) },
-                 onFollowRequest = { notification, accept -> notificationsModel?.respondToFollowRequest(notification, accept) },
+                notifications = notifications,
                  directMessageState = directMessageState,
                  onRefreshDirectMessages = { directMessagesModel?.refresh() },
                  onLoadMoreDirectMessages = { directMessagesModel?.loadMore() },
@@ -511,7 +524,6 @@ fun ConnectedApp(
                  onBackDirectConversation = { directMessagesModel?.closeConversation() },
                  onStartDirectConversation = { profile -> directMessagesModel?.startConversation(profile) },
                  onSendDirectMessage = { text -> directMessagesModel?.send(text) },
-                 onSelectNotificationQuery = { query -> notificationsModel?.selectQuery(query) },
                 initialNotificationRoute = initialNotificationRoute,
                 notificationSettings = notificationSettings,
                 profileState = profileState,

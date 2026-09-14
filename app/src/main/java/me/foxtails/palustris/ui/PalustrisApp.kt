@@ -108,6 +108,7 @@ import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
+import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageUiState
@@ -207,13 +208,7 @@ fun PalustrisApp(
     emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
     bookmarks: BookmarksContract = BookmarksContract.Empty,
     likes: LikesContract = LikesContract.Empty,
-    notificationState: NotificationsUiState = NotificationsUiState(),
-    onRefreshNotifications: () -> Unit = {},
-    onLoadMoreNotifications: () -> Unit = {},
-    onMarkAllNotificationsRead: () -> Unit = {},
-    onMarkNotificationSeen: (Notification?) -> Unit = {},
-    onDismissNotification: (Notification) -> Unit = {},
-    onFollowRequest: (Notification, Boolean) -> Unit = { _, _ -> },
+    notifications: NotificationsContract = NotificationsContract.Empty,
     directMessageState: DirectMessageUiState = DirectMessageUiState(),
     onRefreshDirectMessages: () -> Unit = {},
     onLoadMoreDirectMessages: () -> Unit = {},
@@ -221,7 +216,6 @@ fun PalustrisApp(
     onBackDirectConversation: () -> Unit = {},
     onStartDirectConversation: (Account) -> Unit = {},
     onSendDirectMessage: (String) -> Unit = {},
-    onSelectNotificationQuery: (NotificationQuery) -> Unit = {},
     initialNotificationRoute: AppRoute? = null,
     notificationSettings: NotificationSettingsContract = NotificationSettingsContract.Empty,
 ) {
@@ -683,7 +677,7 @@ fun PalustrisApp(
             notificationRoute = null
             return
         }
-        val target = notificationState.items
+        val target = notifications.state.items
             .firstOrNull { it.target == me.foxtails.palustris.domain.NotificationTarget.Profile(route.profileId) }
             ?.actors
             ?.firstOrNull { it.id == route.profileId }
@@ -828,7 +822,7 @@ fun PalustrisApp(
                         if (notificationRoute != null) {
                             AppNotificationDetailContent(
                                 route = notificationRoute!!,
-                                items = notificationState.items,
+                                items = notifications.state.items,
                                 onSearchHashtag = ::openHashtagSearch,
                                 onOpenHashtagBubble = ::openHashtagBubble,
                                  onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Notification) },
@@ -989,19 +983,19 @@ fun PalustrisApp(
                                       compactLayout = !largePresentation,
                                       compactNavigationVisible = navigationVisible,
                                       notificationAccountIdentity = notificationAccountIdentity,
-                                      notificationState = notificationState,
-                                      onRefreshNotifications = onRefreshNotifications,
-                                      onLoadMoreNotifications = onLoadMoreNotifications,
-                                      onMarkNotificationSeen = onMarkNotificationSeen,
-                                      onDismissNotification = onDismissNotification,
-                                      onFollowRequest = onFollowRequest,
+                                      notificationState = notifications.state,
+                                      onRefreshNotifications = notifications.actions::refresh,
+                                      onLoadMoreNotifications = notifications.actions::loadMore,
+                                      onMarkNotificationSeen = notifications.actions::markSeen,
+                                      onDismissNotification = notifications.actions::dismiss,
+                                      onFollowRequest = notifications.actions::respondToFollowRequest,
                                       onOpenNotification = { notification ->
                                           clearPostActionBubble()
                                           if (largePresentation) clearSelectedPost()
                                           notificationRoute = NotificationRouteResolver.resolve(notification)
                                       },
-                                      onSelectQuery = onSelectNotificationQuery,
-                                      onMarkAllRead = onMarkAllNotificationsRead,
+                                      onSelectQuery = notifications.actions::selectQuery,
+                                      onMarkAllRead = notifications.actions::markAllRead,
                                       onOpenSettings = {
                                           if (account != null) {
                                               clearPostActionBubble()

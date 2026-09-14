@@ -436,7 +436,7 @@ class NavigationTest {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    notificationState = NotificationsUiState(items = notifications),
+                    notifications = AppShellFixtures.notifications(NotificationsUiState(items = notifications)),
                 )
             }
         }

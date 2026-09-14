@@ -7,12 +7,16 @@ import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.Notification
+import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.EmojiPresentation
+import me.foxtails.palustris.ui.shell.NotificationsContract
 
 /**
  * Explicit shell identities for presentation tests.
@@ -81,6 +85,22 @@ internal object AppShellFixtures {
             override fun toggleGroupCollapsed(groupId: String) = Unit
             override fun toggleGroupPinned(groupId: String) = Unit
             override fun togglePinnedEmoji(identity: String) = Unit
+        },
+    )
+
+    /** Test-only notification inbox with inert actions. */
+    fun notifications(
+        state: NotificationsUiState = NotificationsUiState(),
+    ): NotificationsContract = NotificationsContract(
+        state = state,
+        actions = object : NotificationsContract.Actions {
+            override fun refresh() = Unit
+            override fun loadMore() = Unit
+            override fun markAllRead() = Unit
+            override fun markSeen(notification: Notification?) = Unit
+            override fun dismiss(notification: Notification) = Unit
+            override fun respondToFollowRequest(notification: Notification, accept: Boolean) = Unit
+            override fun selectQuery(query: NotificationQuery) = Unit
         },
     )
 }

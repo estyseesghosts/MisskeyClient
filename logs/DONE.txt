@@ -644,3 +644,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Removed `savedPostsState`, `likedPostsState`, `onSavedPostReaction`, and eight collection callbacks from `PalustrisApp`.
 - Bound registered bookmark and like contracts in `ConnectedApp`.
 - Verification passed: `NavigationTest`, `HomeFeedTest`, `SignInScreenTest`, `ShellCharacterizationTest`, and `SavedPostsScreenTest`.
+
+01-B notification inbox contract:
+- Added `ui/shell/NotificationsContract` with inbox state and typed inbox commands.
+- Removed the inbox state and seven callbacks from `PalustrisApp`.
+- Bound the registered contract in `ConnectedApp` and migrated `NavigationTest` through `AppShellFixtures.notifications`.
+- Verification passed: `NavigationTest`, `HomeFeedTest`, `NotificationsScreenTest`, and `ShellCharacterizationTest`.
