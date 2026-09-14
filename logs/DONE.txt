@@ -674,3 +674,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Removed `photoGridFeed` and six Photo Grid callbacks from `PalustrisApp`.
 - Bound the registered contract in `ConnectedApp`.
 - Verification passed: `NavigationTest`, `HomeFeedTest`, `PhotoGridScreenTest`, `PhotoGridFeedViewModelTest`, and `ShellCharacterizationTest`.
+
+01-B boundary cleanup:
+- Removed the unused `PalustrisApp.onOpenReactionPicker` parameter.
+- Removed the duplicate `ownedPosts` input. Home rows now come from `feedState.ownedPosts` only.
+- Removed `feed.ownedPosts` forwarding from `ConnectedApp` and the duplicate argument from `SignInScreenTest`.
+- Verification passed: `HomeFeedTest`, `NavigationTest`, `SignInScreenTest`, `ShellCharacterizationTest`, and `WideNavigationTest`.

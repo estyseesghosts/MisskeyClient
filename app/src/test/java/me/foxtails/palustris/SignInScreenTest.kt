@@ -202,7 +202,6 @@ class SignInScreenTest {
                         currentFeed.value = secondFeed
                     },
                 ),
-                ownedPosts = currentFeed.value.ownedPosts,
                 onReshare = { actionPost = it },
             )
         } }

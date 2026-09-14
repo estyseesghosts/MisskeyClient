@@ -569,7 +569,6 @@ fun ConnectedApp(
                  onSearchAccounts = feedModel?.let { model -> { query -> model.search(query) } } ?: {},
                 onLoadMoreSearch = feedModel?.let { model -> { model.loadMoreSearch() } } ?: {},
                 draftStore = draftStore,
-                ownedPosts = feed.ownedPosts,
                 onReact = { ownedPost -> feedModel?.favorite(ownedPost) },
                 onReshare = { ownedPost -> feedModel?.reshare(ownedPost) },
                 onBookmark = { ownedPost -> feedModel?.bookmark(ownedPost) },

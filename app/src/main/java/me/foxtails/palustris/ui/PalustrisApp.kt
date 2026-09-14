@@ -177,13 +177,11 @@ fun PalustrisApp(
     onSearchAccounts: (String) -> Unit = {},
     onLoadMoreSearch: () -> Unit = {},
     draftStore: DraftStore? = null,
-    ownedPosts: List<OwnedPost>? = null,
     onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
     onReshare: (OwnedPost) -> Unit = {},
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
-    onOpenReactionPicker: (OwnedPost) -> Unit = {},
     emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
     bookmarks: BookmarksContract = BookmarksContract.Empty,
     likes: LikesContract = LikesContract.Empty,
@@ -707,8 +705,7 @@ fun PalustrisApp(
 
     fun latestSelectedPost(): OwnedPost? {
         val selected = singlePost ?: return null
-        val candidates = ownedPosts.orEmpty() +
-            feedState?.ownedPosts.orEmpty() +
+        val candidates = feedState?.ownedPosts.orEmpty() +
             photoGrid.state.posts +
             bookmarks.state?.posts.orEmpty() +
             likes.state?.posts.orEmpty() +
@@ -855,7 +852,7 @@ fun PalustrisApp(
                                           onRefresh = { onRefresh(timeline) },
                                           onLoadMore = { onLoadMore(timeline) },
                                           onSignIn = accountSwitcher.actions::signOut,
-                                          ownedPosts = ownedPosts ?: feedState.ownedPosts,
+                                          ownedPosts = feedState.ownedPosts,
                                           onScrollDirectionChanged = { if (destination == Destination.Home && animatedDestination == Destination.Home) navigationVisible = it },
                                           onReact = onReact,
                                           onReply = handleReply,
