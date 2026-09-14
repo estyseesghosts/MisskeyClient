@@ -219,6 +219,28 @@ class PostInteractionMutationOwnerTest {
     }
 
     @Test
+    fun nativeFavoriteAndReactionUseIndependentFamilies() = runTest {
+        val source = GatedMutationSource()
+        val store = RowStore()
+        store.seed(post())
+        val mutations = owner(source, store, scope = this)
+
+        mutations.favorite(store.owned("post"))
+        mutations.react(store.owned("post"), EmojiChoice("👍", "👍", null))
+        advanceUntilIdle()
+
+        assertEquals(1, source.favouriteCalls.size)
+        assertEquals(1, source.reactedCalls.size)
+        source.completeReact(0)
+        advanceUntilIdle()
+        source.failFavourite(0, java.io.IOException("favorite down"))
+        advanceUntilIdle()
+
+        assertFalse(store.get("post").favourited)
+        assertEquals(listOf("👍"), store.get("post").selectedReactions.map { it.submissionValue })
+    }
+
+    @Test
     fun reactionFailureKeepsUnrelatedExternalUpdate() = runTest {
         val source = GatedMutationSource()
         val store = RowStore()

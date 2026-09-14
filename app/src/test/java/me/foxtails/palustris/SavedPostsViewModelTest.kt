@@ -147,6 +147,33 @@ class SavedPostsViewModelTest {
     }
 
     @Test
+    fun confirmedRemovalStaysHiddenAcrossRefreshAndOlderPage() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = SavedSource(
+                account,
+                author,
+                failOlderPage = false,
+                paged = true,
+                repeatFirstOnOlderPage = true,
+            )
+            val viewModel = SavedPostsViewModel(account, source)
+            advanceUntilIdle()
+
+            viewModel.unsave(viewModel.state.value.posts.single())
+            advanceUntilIdle()
+            viewModel.refresh()
+            advanceUntilIdle()
+            viewModel.loadMore()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.state.value.posts.isEmpty())
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun unsaveFailureKeepsRowAndShowsError() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {
@@ -276,6 +303,7 @@ class SavedPostsViewModelTest {
         private val author: Account,
         private val failOlderPage: Boolean = true,
         private val paged: Boolean = false,
+        private val repeatFirstOnOlderPage: Boolean = false,
     ) : SocialSource {
         override val capabilities = ServerCapabilities(
             savedPosts = me.foxtails.palustris.domain.SavedPostsCapability(
@@ -302,7 +330,7 @@ class SavedPostsViewModelTest {
             else -> {
                 olderAttempts += 1
                 if (failOlderPage && olderAttempts == 1) error("temporary page failure")
-                    Page(listOf(post("second")), null)
+                    Page(listOf(post(if (repeatFirstOnOlderPage) "first" else "second")), null)
                 }
             }
         }

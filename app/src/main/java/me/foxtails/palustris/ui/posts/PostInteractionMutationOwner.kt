@@ -162,7 +162,7 @@ class PostInteractionMutationOwner(
         if (stopped || ownedPost.fetchedBy != accountId || ownedPost.sessionRevision != sessionRevision) return
         if (!isActionAvailable(action)) return
         val target = ownedPost.effectiveTargetId()
-        val family = actionFamily(action)
+        val family = actionFamily(action, options)
         val key = ActionKey(family, target)
         if (jobs[key]?.isActive == true) return
         if (!executionAuthority.acquire(accountId, sessionRevision, family, target)) return
@@ -209,7 +209,7 @@ class PostInteractionMutationOwner(
                 return
             }
         }
-        updatePost(ownedPost, target) { current -> rollback(action, current, before, optimisticPost) }
+        updatePost(ownedPost, target) { current -> rollback(action, current, before, optimisticPost, options) }
         onFailure(error)
     }
 
@@ -311,11 +311,12 @@ class PostInteractionMutationOwner(
         current: Post,
         before: Post,
         optimisticPost: Post,
+        options: ActionOptions,
     ): Post {
         // Restore only family fields this operation still owns. A field that no longer
         // matches the optimistic value was changed by a newer projection and is kept.
-        return when (action) {
-            PostAction.Favorite, PostAction.React -> current.copy(
+        return when {
+            action == PostAction.Favorite && options.reactionFavourite -> current.copy(
                 favourited = restored(current.favourited, before.favourited, optimisticPost.favourited),
                 myReaction = restored(current.myReaction, before.myReaction, optimisticPost.myReaction),
                 selectedReactions = restored(current.selectedReactions, before.selectedReactions, optimisticPost.selectedReactions),
@@ -333,7 +334,42 @@ class PostInteractionMutationOwner(
                     ),
                 ),
             )
-            PostAction.Reshare -> current.copy(
+            action == PostAction.Favorite -> current.copy(
+                favourited = restored(current.favourited, before.favourited, optimisticPost.favourited),
+                interactionCounts = current.interactionCounts.copy(
+                    favouriteCount = restored(
+                        current.interactionCounts.favouriteCount,
+                        before.interactionCounts.favouriteCount,
+                        optimisticPost.interactionCounts.favouriteCount,
+                    ),
+                ),
+            )
+            action == PostAction.React && options.reactionFavourite -> current.copy(
+                favourited = restored(current.favourited, before.favourited, optimisticPost.favourited),
+                myReaction = restored(current.myReaction, before.myReaction, optimisticPost.myReaction),
+                selectedReactions = restored(current.selectedReactions, before.selectedReactions, optimisticPost.selectedReactions),
+                reactions = restored(current.reactions, before.reactions, optimisticPost.reactions),
+                interactionCounts = current.interactionCounts.copy(
+                    reactionCount = restored(
+                        current.interactionCounts.reactionCount,
+                        before.interactionCounts.reactionCount,
+                        optimisticPost.interactionCounts.reactionCount,
+                    ),
+                ),
+            )
+            action == PostAction.React -> current.copy(
+                myReaction = restored(current.myReaction, before.myReaction, optimisticPost.myReaction),
+                selectedReactions = restored(current.selectedReactions, before.selectedReactions, optimisticPost.selectedReactions),
+                reactions = restored(current.reactions, before.reactions, optimisticPost.reactions),
+                interactionCounts = current.interactionCounts.copy(
+                    reactionCount = restored(
+                        current.interactionCounts.reactionCount,
+                        before.interactionCounts.reactionCount,
+                        optimisticPost.interactionCounts.reactionCount,
+                    ),
+                ),
+            )
+            action == PostAction.Reshare -> current.copy(
                 reposted = restored(current.reposted, before.reposted, optimisticPost.reposted),
                 ownRepostId = restored(current.ownRepostId, before.ownRepostId, optimisticPost.ownRepostId),
                 interactionCounts = current.interactionCounts.copy(
@@ -344,18 +380,19 @@ class PostInteractionMutationOwner(
                     ),
                 ),
             )
-            PostAction.Bookmark -> current.copy(
+            action == PostAction.Bookmark -> current.copy(
                 saved = restored(current.saved, before.saved, optimisticPost.saved),
             )
-            PostAction.Reply -> current
+            else -> current
         }
     }
 
     private fun <T> restored(current: T, before: T, optimistic: T): T =
         if (current == optimistic) before else current
 
-    private fun actionFamily(action: PostAction): String = when (action) {
-        PostAction.Favorite, PostAction.React -> "favorite-reaction"
+    private fun actionFamily(action: PostAction, options: ActionOptions): String = when (action) {
+        PostAction.Favorite -> if (options.reactionFavourite) "favorite-reaction" else "favorite"
+        PostAction.React -> if (options.reactionFavourite) "favorite-reaction" else "reaction"
         else -> action.name
     }
 

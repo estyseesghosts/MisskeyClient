@@ -209,6 +209,7 @@ class SavedPostsViewModel @AssistedInject constructor(
                 SavedPostsCollection.Likes -> source.likedPosts(cursor)
             }
             if (epoch != collectionEpoch || stopped) return
+            val returnedIds = page.items.mapTo(mutableSetOf()) { it.id }
             val rows = page.items.map { post ->
                 OwnedPost(
                     accountId,
@@ -222,7 +223,7 @@ class SavedPostsViewModel @AssistedInject constructor(
             if (replace) {
                 // A fresh page that stops returning a removed row agrees with the
                 // removal. Entries the server still returns stay hidden behind it.
-                confirmedRemovals.removeAll { id -> rows.none { it.post.id == id } }
+                confirmedRemovals.removeAll { id -> id !in returnedIds }
             }
             val repeatedCursor = page.nextCursor != null &&
                 (page.nextCursor == cursor || !acceptedCursors.add(page.nextCursor))
