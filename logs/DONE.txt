@@ -754,4 +754,4 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Kept publish ownership independent from timeline refresh and preserved current state on stale or same-timeline failures.
 - Added delayed success/failure, stop, merge, cursor-cycle, retry, and queued-paging regression coverage in `FeedViewModelRequestTest`.
 - Focused verification passed: `:app:testDebugUnitTest --tests "me.foxtails.palustris.FeedViewModelRequestTest"`.
-- Commit: pending at log creation. Live-server and device behavior remain unverified.
+- Commit: `518c0c5`. Live-server and device behavior remain unverified.
