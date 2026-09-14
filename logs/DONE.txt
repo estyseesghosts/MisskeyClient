@@ -611,3 +611,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Verification passed with focused `PillActionTest`, `EmojiPickerTest`, `PostRepostConfirmationOwnerTest`, and `ReactionPickerGestureTest`.
 - Slice 2 implemented normal/problem user-action card states and full profile handles.
 - Verification passed with focused `PostShareSheetTest` and `ProfileScreenTest`.
+# 260914-005142 App-shell decomposition (Plan 01)
+
+01-A characterization:
+- Recorded the parameter route map for `PalustrisApp` in the task log.
+- Added `AppShellFixtures` with explicit connection, account, and entity identity.
+- Added `ShellCharacterizationTest` with `expandedReactionGestureOpensTheExpandedReactionBubble` and `replyPublishesToTheEffectiveActionTarget`.
+- Verification passed: `ShellCharacterizationTest`, `HomeFeedTest`, `NavigationTest`, `ReplyComposerTest`, `SignInScreenTest`, `SearchPanelRestorationTest`, and `WideNavigationTest`.

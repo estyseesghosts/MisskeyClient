@@ -1,3 +1,4 @@
 # Active tasks
 
 - Run authorized live-server checks.
+- Plan 01 slice 01-A characterization (in progress).
