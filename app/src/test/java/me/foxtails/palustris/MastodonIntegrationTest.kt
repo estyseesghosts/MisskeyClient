@@ -182,6 +182,31 @@ class MastodonIntegrationTest {
     }
 
     @Test
+    fun quoteRejectsAForeignOriginBeforeSendingAnAuthenticatedRequest() = runBlocking {
+        val source = MastodonSource(
+            origin = origin,
+            token = "test-token",
+            api = MisskeyApi(),
+            accountId = AccountId(Connection(origin, Protocol.MASTODON), "local-user"),
+            initialCapabilities = ServerCapabilities(
+                quotes = CapabilityStatus.Supported,
+            ),
+        )
+
+        assertThrows(SourceError.ForeignOrigin::class.java) {
+            runBlocking {
+                source.create(
+                    CreatePostRequest(
+                        text = "quote",
+                        quoteOf = EntityId("https://foreign.example", "foreign-post"),
+                    ),
+                )
+            }
+        }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
     fun sourceLoadsCanonicalPostContextAndHonorsRefreshHint() = runBlocking {
         val ancestor = status("ancestor").put("in_reply_to_id", "older")
         val reply = status("reply").put("in_reply_to_id", "focal")

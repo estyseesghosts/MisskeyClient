@@ -18,6 +18,7 @@ internal class ProfileTimelinePager(
     private val accountId: AccountId,
     private val source: SocialSource,
     private val scope: CoroutineScope,
+    private val sessionRevision: Long,
     private val onPagesChanged: (Map<ProfileTimelineTab, ProfilePageState>) -> Unit,
 ) {
     private val pageJobs = mutableMapOf<ProfileTimelineTab, Job>()
@@ -104,7 +105,7 @@ internal class ProfileTimelinePager(
                 val page = source.profileTimeline(ProfileTimelineQuery(target, tab), cursor)
                 if (!isCurrent(target, requestGeneration)) return@launch
                 val current = pages[tab] ?: ProfilePageState()
-                val owned = page.items.map { OwnedPost(accountId, it) }
+                val owned = page.items.map { OwnedPost(accountId, it, sessionRevision) }
                 val merged = (if (refreshing) owned else current.posts + owned).distinctBy { it.post.id }
                 val repeatedCursor = page.nextCursor != null && page.nextCursor in cursorSet
                 val nextCursor = page.nextCursor?.takeUnless { repeatedCursor }

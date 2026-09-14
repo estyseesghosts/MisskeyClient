@@ -83,6 +83,8 @@ internal fun ProfileTimelineList(
     onOpenPost: (OwnedPost) -> Unit,
     onOpenUrl: ((String) -> Unit)?,
     onOpenUsername: ((String) -> Unit)?,
+    quoteEnabled: Boolean = false,
+    onQuote: (OwnedPost) -> Unit = {},
     header: @Composable () -> Unit,
     details: @Composable () -> Unit,
     listState: LazyListState? = null,
@@ -172,6 +174,8 @@ internal fun ProfileTimelineList(
             }
             profilePinnedItems(
                 state = state,
+                quoteEnabled = quoteEnabled,
+                onQuote = onQuote,
                 onRefresh = onRefresh,
                 availableActions = availableActions,
                 onReact = onReact,
@@ -188,13 +192,15 @@ internal fun ProfileTimelineList(
                       onOpenPost = onOpenPost,
                       onOpenUrl = onOpenUrl,
              onOpenUsername = onOpenUsername,
-                 largeLayout = largeLayout,
+                        largeLayout = largeLayout,
              )
             if (state.selectedTab == ProfileCategory.ShowMore) {
                 item(key = "profile-details") { details() }
             } else {
                 profilePageItems(
                     page = page,
+                    quoteEnabled = quoteEnabled,
+                    onQuote = onQuote,
                     onRefresh = onRefresh,
                     onLoadMore = onLoadMore,
                     availableActions = availableActions.intersect(ClientReadyPostActions),
@@ -212,8 +218,8 @@ internal fun ProfileTimelineList(
                       onOpenPost = onOpenPost,
                       onOpenUrl = onOpenUrl,
                       onOpenUsername = onOpenUsername,
-             largeLayout = largeLayout,
-             )
+                    largeLayout = largeLayout,
+              )
             }
         }
     }
@@ -297,6 +303,8 @@ private fun LazyListScope.profilePinnedItems(
     onOpenPost: (OwnedPost) -> Unit,
     onOpenUrl: ((String) -> Unit)?,
     onOpenUsername: ((String) -> Unit)?,
+    quoteEnabled: Boolean,
+    onQuote: (OwnedPost) -> Unit,
     largeLayout: Boolean,
 ) {
     if (state.pinnedLoading) item(key = "profile-pinned-loading") {
@@ -336,7 +344,9 @@ private fun LazyListScope.profilePinnedItems(
                        largeLayout = largeLayout,
                        onOpenUrl = onOpenUrl,
                       onOpenUsername = onOpenUsername,
-                modifier = Modifier.animateItem(
+                 quoteEnabled = quoteEnabled,
+                 onQuote = onQuote,
+                 modifier = Modifier.animateItem(
                     fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,
                     fadeOutSpec = LocalPalustrisMotionScheme.current.fastFadeOut,
                     placementSpec = LocalPalustrisMotionScheme.current.gentleOffset,
@@ -366,6 +376,8 @@ private fun LazyListScope.profilePageItems(
     onOpenPost: (OwnedPost) -> Unit,
     onOpenUrl: ((String) -> Unit)?,
     onOpenUsername: ((String) -> Unit)?,
+    quoteEnabled: Boolean,
+    onQuote: (OwnedPost) -> Unit,
     largeLayout: Boolean,
 ) {
     if (page == null || page.initialLoading && page.posts.isEmpty()) {
@@ -416,7 +428,9 @@ private fun LazyListScope.profilePageItems(
                        largeLayout = largeLayout,
                        onOpenUrl = onOpenUrl,
                       onOpenUsername = onOpenUsername,
-            modifier = Modifier.animateItem(
+             quoteEnabled = quoteEnabled,
+             onQuote = onQuote,
+             modifier = Modifier.animateItem(
                 fadeInSpec = LocalPalustrisMotionScheme.current.fastFadeIn,
                 fadeOutSpec = LocalPalustrisMotionScheme.current.fastFadeOut,
                 placementSpec = LocalPalustrisMotionScheme.current.gentleOffset,

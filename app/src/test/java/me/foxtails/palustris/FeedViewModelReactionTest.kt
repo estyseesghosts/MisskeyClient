@@ -255,6 +255,27 @@ class FeedViewModelReactionTest {
     }
 
     @Test
+    fun reactionOnAPostOutsideHomePublishesAnOptimisticProjection() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val coordinator = AccountSyncCoordinator()
+        try {
+            val source = ReactionSource(post(), ReactionSelectionMode.Single)
+            val model = FeedViewModel(accountId, source, coordinator)
+            val projections = mutableListOf<OwnedPost>()
+            model.addPostProjectionListener { projections += it }
+            advanceUntilIdle()
+
+            val profileOnly = OwnedPost(accountId, post().copy(id = EntityId(connection.origin, "profile-only")))
+            model.react(profileOnly, EmojiChoice("👍", "👍", null))
+
+            assertTrue(projections.any { it.post.id.value == "profile-only" && it.post.myReaction == "👍" })
+        } finally {
+            coordinator.close()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun unicodeReactionOnExistingRowIncrementsItsCount() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val coordinator = AccountSyncCoordinator()

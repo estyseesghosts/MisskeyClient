@@ -156,6 +156,7 @@ class MastodonSource(
     override suspend fun create(post: CreatePostRequest): Post = request {
         if (post.replyTo != null && post.quoteOf != null) throw SourceError.Unsupported("create.reply.quote")
         post.replyTo?.let { validatePostId(it, "create.reply-origin") }
+        post.quoteOf?.let { validatePostId(it, "create.quote-origin") }
         if (post.quoteOf != null && capabilities.quotes != CapabilityStatus.Supported) {
             throw SourceError.Unsupported("quote")
         }

@@ -111,6 +111,8 @@ fun ProfileScreen(
     onOpenPost: (OwnedPost) -> Unit = {},
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
+    quoteEnabled: Boolean = false,
+    onQuote: (OwnedPost) -> Unit = {},
     largeLayout: Boolean = false,
     largeShowSummary: Boolean = true,
     listState: LazyListState? = null,
@@ -181,6 +183,8 @@ fun ProfileScreen(
             onSearchHashtag = onSearchHashtag,
             onOpenUrl = onOpenUrl,
             onOpenUsername = onOpenUsername,
+            quoteEnabled = quoteEnabled,
+            onQuote = onQuote,
         )
         return
     }
@@ -212,6 +216,8 @@ fun ProfileScreen(
             onOpenPost = onOpenPost,
             onOpenUrl = onOpenUrl,
             onOpenUsername = onOpenUsername,
+            quoteEnabled = quoteEnabled,
+            onQuote = onQuote,
             header = {
                 ProfileHeader(
                     account = displayedAccount,

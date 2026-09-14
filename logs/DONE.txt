@@ -574,3 +574,18 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added interaction-indicator and repost-confirmation regression coverage.
 - Added the referenced Beeline launcher mark, setup font, and local debug/release build scripts.
 - Verification passed: `:app:testDebugUnitTest`, `:app:lintDebug`, `test`, and `assembleRelease`.
+260913-190052 Interaction parity plan:
+- Read the parity requirements, writing rules, current source, and relevant tests without subagents.
+- Confirmed the declared v0.2.1 baseline at commit 7c96b60.
+- Wrote docs/0.2.2.md with source findings, seven slices, fourteen view paths, and requirement traceability.
+- Included ordered automated checks, both protocol passes, safe share checks, and physical acceptance criteria.
+- Reviewed source references and requirement coverage. Git whitespace checks passed.
+- Changed documentation and required logs only. No application tests or live-server actions ran.
+- The existing ignore rules exclude the new plan and task log from ordinary git status output.
+ - No commit was requested or created. Existing user files remain unchanged.
+260913-200500 Local verification and controlled device pass:
+- Installed the debug candidate on the connected SM-F926W and confirmed the Beeline sign-in and Home surfaces.
+- Authenticated the controlled accounts on `mstdn.ca` and `dvd.chat` through the existing browser sessions.
+- Created controlled test posts and verified Mastodon favorite, bookmark, reply, and quote behavior plus Misskey favorite and repost confirmation; a Misskey reply was submitted from the composer.
+- `test assembleRelease` and `lint` passed.
+- No commit was requested or created.

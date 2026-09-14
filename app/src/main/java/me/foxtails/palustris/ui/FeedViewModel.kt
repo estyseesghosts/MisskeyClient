@@ -309,9 +309,14 @@ class FeedViewModel @AssistedInject constructor(
         post
     }
 
-    private fun updatePost(id: EntityId, transform: (Post) -> Post) {
+    private fun updatePost(ownedPost: OwnedPost, id: EntityId, transform: (Post) -> Post) {
         val currentOwnedPosts = _feed.value.ownedPosts
-        val projected = currentOwnedPosts.map { owned ->
+        val hasMatchingHomePost = currentOwnedPosts.any { owned ->
+            (owned.post.id == id || owned.effectiveTargetId() == id) &&
+                owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision
+        }
+        val selectedProjection = ownedPost.copy(post = transform(ownedPost.post))
+        val updatedOwnedPosts = currentOwnedPosts.map { owned ->
             if ((owned.post.id == id || owned.effectiveTargetId() == id) &&
                 owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision
             ) {
@@ -322,10 +327,26 @@ class FeedViewModel @AssistedInject constructor(
         }
         _feed.value = _feed.value.copy(
             posts = _feed.value.posts.map { if (it.id == id || it.actionTargetId == id) transform(it) else it },
-            ownedPosts = projected,
+            ownedPosts = updatedOwnedPosts,
         )
-        projected.filterIndexed { index, owned -> owned !== currentOwnedPosts[index] }
+        updatedOwnedPosts.filterIndexed { index, owned -> owned !== currentOwnedPosts[index] }
             .forEach { updated -> postProjectionListeners.toList().forEach { it(updated) } }
+        photoGridController.updatePost(id, transform)
+        searchController.updatePost(id, transform)
+        if (!hasMatchingHomePost) postProjectionListeners.toList().forEach { it(selectedProjection) }
+    }
+
+    private fun updatePost(id: EntityId, transform: (Post) -> Post) {
+        val currentOwnedPosts = _feed.value.ownedPosts
+        val updated = currentOwnedPosts.map { owned ->
+            if ((owned.post.id == id || owned.effectiveTargetId() == id) &&
+                owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision
+            ) owned.copy(post = transform(owned.post)) else owned
+        }
+        _feed.value = _feed.value.copy(
+            posts = _feed.value.posts.map { if (it.id == id || it.actionTargetId == id) transform(it) else it },
+            ownedPosts = updated,
+        )
         photoGridController.updatePost(id, transform)
         searchController.updatePost(id, transform)
     }

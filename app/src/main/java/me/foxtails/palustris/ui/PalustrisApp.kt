@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -155,6 +156,7 @@ private const val NOTIFICATION_SETTINGS_OVERLAY_KEY = "NotificationSettings"
 fun PalustrisApp(
     account: Account? = null,
     sessionGeneration: Long = 0L,
+    sessionRevision: Long = 0L,
      actionSource: me.foxtails.palustris.domain.SocialSource? = null,
      feedState: FeedState? = null,
      postPreferences: me.foxtails.palustris.domain.PostPreferences = me.foxtails.palustris.domain.PostPreferences(),
@@ -252,10 +254,10 @@ fun PalustrisApp(
     onNotificationPushConnectionTest: () -> Unit = {},
 ) {
     val mediaTransitionRegistry = remember { MediaTransitionRegistry() }
-    val repostConfirmationOwner = remember(account?.id, sessionGeneration) { PostRepostConfirmationOwner() }
+    val repostConfirmationOwner = remember(account?.id, sessionGeneration, sessionRevision) { PostRepostConfirmationOwner() }
     val scope = rememberCoroutineScope()
-    val postActionOwner = remember(account?.id, sessionGeneration, actionSource) {
-        account?.let { PostActionOwner(it.id, sessionGeneration, actionSource, scope, onRefreshProfile) }
+    val postActionOwner = remember(account?.id, sessionGeneration, sessionRevision, actionSource) {
+        account?.let { PostActionOwner(it.id, sessionRevision, actionSource, scope, onRefreshProfile) }
     }
     CompositionLocalProvider(
         LocalMediaTransitionRegistry provides mediaTransitionRegistry,
@@ -263,6 +265,8 @@ fun PalustrisApp(
         LocalPostActionOwner provides postActionOwner,
     ) {
     val context = LocalContext.current
+    val replySentMessage = stringResource(R.string.reply_sent)
+    val quoteSentMessage = stringResource(R.string.quote_sent)
     val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
     var destination by rememberSaveable { mutableStateOf(Destination.Home) }
     var destinationTransitionDirection by rememberSaveable { mutableIntStateOf(0) }
@@ -868,7 +872,7 @@ fun PalustrisApp(
                                  onQuote = ::openQuote,
                                  quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
                                   onOpenReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onReaction) },
-                                 sessionRevision = sessionGeneration,
+                                  sessionRevision = sessionRevision,
                                  largeLayout = largePresentation,
                                    contentWarningRules = contentWarningRules,
                              )
@@ -986,7 +990,8 @@ fun PalustrisApp(
                                                listState = searchListState.takeIf { largePresentation },
                                                largeLayout = largePresentation,
                                                compactLayout = !largePresentation,
-                                               mediaOwner = account?.id,
+                                                mediaOwner = account?.id,
+                                                sessionRevision = sessionRevision,
                                                onOpenMedia = ::openMedia,
                                                 onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
                                                onOpenUsername = ::openAccountSearch,
@@ -1086,9 +1091,11 @@ fun PalustrisApp(
                       },
                       onOpenReactionPicker = ::expandReactionPicker,
                      onOpenMedia = ::openMedia,
-                     onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
-                     onOpenUsername = ::openAccountSearch,
-                 )
+                      onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
+                      onOpenUsername = ::openAccountSearch,
+                      quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
+                      onQuote = ::openQuote,
+                  )
                                }
                           }
                           }
@@ -1370,9 +1377,15 @@ fun PalustrisApp(
                             draftId = saved.id
                             savedDraft = saved.text
                             savedWarning = saved.contentWarning.orEmpty()
-                            onPublish(CreatePostRequest(submittedText, audience = submittedAudience, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) {
-                                scope.launch { store.delete(publishingAccountId, saved.id); reloadDrafts() }
-                                draft = ""
+                             onPublish(CreatePostRequest(submittedText, audience = submittedAudience, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) {
+                                 scope.launch { store.delete(publishingAccountId, saved.id); reloadDrafts() }
+                                 val message = when {
+                                     submittedReply != null -> replySentMessage
+                                     submittedQuote != null -> quoteSentMessage
+                                     else -> null
+                                 }
+                                 message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                                 draft = ""
                                 savedDraft = ""
                                 warning = ""
                                 savedWarning = ""

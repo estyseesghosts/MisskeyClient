@@ -160,7 +160,7 @@ fun ConnectedApp(
         hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
             key = "saved-posts-${session.accountId}-${state.sessionGeneration}",
             creationCallback = { factory ->
-                factory.create(session.accountId, sharedSource!!, SavedPostsCollection.Bookmarks)
+                factory.create(session.accountId, sharedSource!!, SavedPostsCollection.Bookmarks, session.sessionRevision)
             },
         )
     }
@@ -168,7 +168,7 @@ fun ConnectedApp(
         hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
             key = "liked-posts-${session.accountId}-${state.sessionGeneration}",
             creationCallback = { factory ->
-                factory.create(session.accountId, sharedSource!!, SavedPostsCollection.Likes)
+                factory.create(session.accountId, sharedSource!!, SavedPostsCollection.Likes, session.sessionRevision)
             },
         )
     }
@@ -224,7 +224,7 @@ fun ConnectedApp(
     val profileModel = activeSession?.let { session ->
         hiltViewModel<ProfileViewModel, ProfileViewModel.Factory>(
             key = "profile-${session.accountId}-${state.sessionGeneration}",
-            creationCallback = { factory -> factory.create(session.accountId, sharedSource!!) },
+            creationCallback = { factory -> factory.create(session.accountId, sharedSource!!, session.sessionRevision) },
         )
     }
     val threadModel = activeSession?.let { session ->
@@ -254,6 +254,7 @@ fun ConnectedApp(
                 likedPostsModel?.applyExternalPost(updated)
                 profileModel?.applyExternalPost(updated)
                 notificationsModel?.applyExternalPost(updated)
+                threadModel?.applyExternalPost(updated)
             }
         }
         feedProjection?.let { listener -> feedModel?.addPostProjectionListener(listener) }
@@ -364,6 +365,7 @@ fun ConnectedApp(
              PalustrisApp(
                   account = state.account,
                   sessionGeneration = state.sessionGeneration,
+                  sessionRevision = activeSession?.sessionRevision ?: 0L,
                   actionSource = sharedSource,
                  feedState = feed,
                   postPreferences = postPreferences,
@@ -419,7 +421,7 @@ fun ConnectedApp(
                  onRefreshLikedPosts = { likedPostsModel?.refresh() },
                  onLoadMoreLikedPosts = { likedPostsModel?.loadMore() },
                  onUnsaveLikedPost = { ownedPost -> likedPostsModel?.toggleFavourite(ownedPost) },
-                 onLikedPostReaction = { ownedPost, choice -> likedPostsModel?.react(ownedPost, choice) },
+                 onLikedPostReaction = { ownedPost, choice -> feedModel?.react(ownedPost, choice) },
                 notificationState = notificationState,
                 onRefreshNotifications = { notificationsModel?.refresh() },
                 onLoadMoreNotifications = { notificationsModel?.loadOlder() },

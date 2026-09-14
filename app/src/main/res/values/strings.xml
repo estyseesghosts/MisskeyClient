@@ -426,6 +426,8 @@
     <string name="composer_local_draft">Local draft</string>
     <string name="composer_no_account">No account selected</string>
     <string name="composer_replying_to">Replying to %1$s</string>
+    <string name="reply_sent">reply sent</string>
+    <string name="quote_sent">quote sent</string>
     <string name="composer_quoting">Quoting %1$s</string>
     <string name="composer_publish_enabled">Posts will be published to your connected account.</string>
     <string name="composer_publish_disabled">Publishing is disabled for this account.</string>

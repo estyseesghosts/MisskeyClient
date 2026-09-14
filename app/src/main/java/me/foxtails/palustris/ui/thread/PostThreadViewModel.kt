@@ -84,6 +84,23 @@ class PostThreadViewModel @AssistedInject constructor(
         postUpdateListener = listener
     }
 
+    fun applyExternalPost(updated: OwnedPost) {
+        if (stopped || updated.fetchedBy != accountId || updated.sessionRevision != sessionRevision) return
+        val target = updated.effectiveTargetId()
+        updateMatching(target) { existing ->
+            existing.copy(
+                favourited = updated.post.favourited,
+                myReaction = updated.post.myReaction,
+                selectedReactions = updated.post.selectedReactions,
+                reactions = updated.post.reactions,
+                reposted = updated.post.reposted,
+                interactionCounts = existing.interactionCounts.merge(updated.post.interactionCounts),
+                ownRepostId = updated.post.ownRepostId,
+                saved = updated.post.saved,
+            )
+        }
+    }
+
     fun activate(ownedPost: OwnedPost?, supportsComments: Boolean) {
         if (stopped) return
         if (ownedPost == null) {

@@ -24,7 +24,7 @@ class PostInteractionMutationOwner(
     private val scope: CoroutineScope,
     private val isActionAvailable: (PostAction) -> Boolean,
     private val favouriteEmoji: () -> String,
-    private val updatePost: (target: me.foxtails.palustris.domain.EntityId, transform: (Post) -> Post) -> Unit,
+    private val updatePost: (ownedPost: OwnedPost, target: me.foxtails.palustris.domain.EntityId, transform: (Post) -> Post) -> Unit,
     private val onFailure: (Exception) -> Unit,
 ) {
     private val jobs = mutableMapOf<ActionKey, Job>()
@@ -132,15 +132,15 @@ class PostInteractionMutationOwner(
         val key = ActionKey(actionFamily(action), target)
         if (jobs[key]?.isActive == true) return
         val before = ownedPost.post
-        updatePost(target) { optimistic(before) }
+        updatePost(ownedPost, target) { optimistic(it) }
         val job = scope.launch {
             try {
                 if (stopped || ownedPost.fetchedBy != accountId || ownedPost.sessionRevision != sessionRevision) return@launch
                 val result = operation()
-                updatePost(target) { current -> reconcile(action, current, result) }
+                updatePost(ownedPost, target) { current -> reconcile(action, current, result) }
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
-                updatePost(target) { current -> rollback(action, current, before) }
+                updatePost(ownedPost, target) { current -> rollback(action, current, before) }
                 onFailure(error)
             } finally {
                 jobs.remove(key)

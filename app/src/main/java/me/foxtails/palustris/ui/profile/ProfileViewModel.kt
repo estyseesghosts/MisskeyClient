@@ -38,6 +38,7 @@ import me.foxtails.palustris.ui.sourceErrorMessage
 class ProfileViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted private val source: SocialSource,
+    @Assisted private val sessionRevision: Long = 0L,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ProfileUiState())
     val state = _state.asStateFlow()
@@ -45,6 +46,7 @@ class ProfileViewModel @AssistedInject constructor(
         accountId = accountId,
         source = source,
         scope = viewModelScope,
+        sessionRevision = sessionRevision,
         onPagesChanged = { pages -> if (!stopped) _state.value = _state.value.copy(pages = pages) },
     )
 
@@ -436,7 +438,7 @@ class ProfileViewModel @AssistedInject constructor(
             try {
                 val posts = source.pinnedPosts(target)
                     .distinctBy { it.id }
-                    .map { OwnedPost(accountId, it) }
+                    .map { OwnedPost(accountId, it, sessionRevision) }
                 if (isCurrent(targetGeneration, target)) {
                     _state.value = _state.value.copy(
                         pinnedPosts = posts,
@@ -488,7 +490,7 @@ class ProfileViewModel @AssistedInject constructor(
                 val page = source.profileTimeline(ProfileTimelineQuery(target, tab), cursor)
                 if (!isCurrent(targetGeneration, target)) return@launch
                 val current = _state.value.pages[tab] ?: ProfilePageState()
-                val owned = page.items.map { OwnedPost(accountId, it) }
+                val owned = page.items.map { OwnedPost(accountId, it, sessionRevision) }
                 val merged = (if (refreshing) owned else current.posts + owned).distinctBy { it.post.id }
                 val repeatedCursor = page.nextCursor != null && page.nextCursor in cursorSet
                 val nextCursor = page.nextCursor?.takeUnless { repeatedCursor }
@@ -604,7 +606,7 @@ class ProfileViewModel @AssistedInject constructor(
 
     @AssistedFactory
     interface Factory {
-        fun create(accountId: AccountId, source: SocialSource): ProfileViewModel
+        fun create(accountId: AccountId, source: SocialSource, sessionRevision: Long): ProfileViewModel
     }
 }
 

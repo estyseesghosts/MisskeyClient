@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import me.foxtails.palustris.domain.Account
@@ -126,6 +127,33 @@ class SinglePostScreenTest {
         assertTrue(actions.bottom <= body.top)
         compose.onNodeWithContentDescription("Reply").assertIsDisplayed()
         compose.onNodeWithContentDescription("Favorite").assertIsDisplayed()
+    }
+
+    @Test fun photoPostDetailExposesTheSharedQuoteAction() {
+        val post = Post(
+            EntityId("https://example.org", "quote-action"),
+            account,
+            "Quote target",
+            0,
+            Audience.Public,
+        )
+        var quotes = 0
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SinglePostScreen(
+                    ownedPost = OwnedPost(account.id, post),
+                    presentation = SinglePostPresentation.PhotoGrid,
+                    onClose = {},
+                    availableActions = setOf(PostAction.Reshare),
+                    quoteEnabled = true,
+                    onQuote = { quotes++ },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Repost").performTouchInput { longClick() }
+        assertEquals(1, quotes)
     }
 
     @Test fun standardPresentationUsesThePostRowEvenWhenPhotosExist() {

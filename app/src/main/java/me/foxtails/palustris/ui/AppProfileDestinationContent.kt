@@ -49,6 +49,8 @@ internal fun AppProfileDestinationContent(
     onOpenMedia: (MediaOpenRequest) -> Unit,
     onOpenPost: (OwnedPost) -> Unit,
     onOpenUsername: (String) -> Unit,
+    quoteEnabled: Boolean = false,
+    onQuote: (OwnedPost) -> Unit = {},
 ) {
     ProfileScreen(
         account = account,
@@ -82,6 +84,8 @@ internal fun AppProfileDestinationContent(
         onOpenMedia = onOpenMedia,
         onOpenPost = onOpenPost,
         onOpenUsername = onOpenUsername,
+        quoteEnabled = quoteEnabled,
+        onQuote = onQuote,
         largeLayout = largeLayout,
         largeShowSummary = largeShowSummary,
         listState = listState,

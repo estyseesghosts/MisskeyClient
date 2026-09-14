@@ -26,6 +26,7 @@ class SavedPostsViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted private val source: SocialSource,
     @Assisted private val collection: SavedPostsCollection = SavedPostsCollection.Bookmarks,
+    @Assisted private val sessionRevision: Long = 0L,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SavedPostsUiState(collection = collection))
     val state = _state.asStateFlow()
@@ -254,6 +255,7 @@ class SavedPostsViewModel @AssistedInject constructor(
                         saved = collection == SavedPostsCollection.Bookmarks,
                         favourited = post.favourited || collection == SavedPostsCollection.Likes,
                     ),
+                    sessionRevision,
                 )
             }
             val current = _state.value
@@ -294,6 +296,7 @@ class SavedPostsViewModel @AssistedInject constructor(
             accountId: AccountId,
             source: SocialSource,
             collection: SavedPostsCollection,
+            sessionRevision: Long,
         ): SavedPostsViewModel
     }
 }

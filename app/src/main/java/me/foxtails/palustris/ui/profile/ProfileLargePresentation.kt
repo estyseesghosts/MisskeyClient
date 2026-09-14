@@ -54,6 +54,8 @@ internal fun ProfileLargePresentation(
     onSearchHashtag: (String) -> Unit,
     onOpenUrl: ((String) -> Unit)?,
     onOpenUsername: ((String) -> Unit)?,
+    quoteEnabled: Boolean = false,
+    onQuote: (OwnedPost) -> Unit = {},
     onEditProfile: (() -> Unit)?,
 ) {
     @Composable
@@ -84,6 +86,8 @@ internal fun ProfileLargePresentation(
             onOpenPost = onOpenPost,
             onOpenUrl = onOpenUrl,
             onOpenUsername = onOpenUsername,
+            quoteEnabled = quoteEnabled,
+            onQuote = onQuote,
             header = {},
             details = details,
             listState = listState,

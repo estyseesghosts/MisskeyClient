@@ -1,4 +1,4 @@
 # Active tasks
 
-- Publish the `v0.2.1` signed Beeline release with the required release message.
-- Resolve or explicitly accept the pre-existing API 35+ system-bar color assertion failure in connected instrumentation.
+- Resolve or explicitly accept the connected `SystemBarAppearanceInstrumentedTest` failure.
+- Review the final diff and record release evidence before any explicitly authorized commit.

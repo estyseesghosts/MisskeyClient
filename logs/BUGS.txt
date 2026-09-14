@@ -41,3 +41,7 @@
 260913-165755: The connected SM-F926W uses a text-only launcher, so home-screen and app-drawer icon presentation could not be independently verified. Android Settings displayed the adaptive icon in light and dark modes.
 260913-165755: No authenticated account was available on the connected device. Share-sheet actions were verified by focused Compose tests, but live follow/unfollow, block, mute, report, PM, copy, and Android share actions remain unverified.
 260913-172803: The `v0.2.1` signed-release job is waiting for approval from the protected `release` environment. The current GitHub token cannot approve the required reviewer deployment.
+260913-200500: The connected SM-F926W had no installed Beeline package at the start of the v0.2.2 device pass. The debug candidate was installed successfully, and the browser session authenticated `@ctr@mstdn.ca`; no credentials or private content were recorded.
+260913-200500: The requested server was `dvd.chat`, not `dvd.cafe`. The Misskey account authenticated successfully after correcting the server entry.
+260913-200500: The final local gate passed with `test assembleRelease` and `lint`.
+260913-202500: Connected instrumentation ran on the installed candidate: 10 tests ran, 9 passed, and only `SystemBarAppearanceInstrumentedTest.navigationBarModeUsesBlackViewerAndRestoresThemeAppearance` failed with expected black (`-16777216`) versus observed transparent (`0`). `Api29StartupInstrumentedTest` passed.
