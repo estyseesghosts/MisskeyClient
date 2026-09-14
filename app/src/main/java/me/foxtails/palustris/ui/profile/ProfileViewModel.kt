@@ -8,6 +8,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -33,12 +34,14 @@ import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.mergeInto
 import me.foxtails.palustris.ui.requiresSignIn
 import me.foxtails.palustris.ui.sourceErrorMessage
+import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 
 @HiltViewModel(assistedFactory = ProfileViewModel.Factory::class)
 class ProfileViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted private val source: SocialSource,
     @Assisted private val sessionRevision: Long = 0L,
+    private val executionAuthority: PostInteractionExecutionAuthority = PostInteractionExecutionAuthority(),
 ) : ViewModel() {
     private val _state = MutableStateFlow(ProfileUiState())
     val state = _state.asStateFlow()
@@ -208,7 +211,7 @@ class ProfileViewModel @AssistedInject constructor(
     }
 
     fun react(ownedPost: OwnedPost, choice: EmojiChoice) {
-        if (stopped || ownedPost.fetchedBy != accountId) return
+        if (stopped || ownedPost.fetchedBy != accountId || ownedPost.sessionRevision != sessionRevision) return
         val emojiCapabilities = source.capabilities.emoji
         if (emojiCapabilities.reactionMutation != CapabilityStatus.Supported ||
             PostAction.React !in source.capabilities.actions
@@ -216,9 +219,16 @@ class ProfileViewModel @AssistedInject constructor(
             return
         }
         val postId = ownedPost.post.id
-        if (reactionJobs[postId]?.isActive == true) return
-        val actionTargetId = ownedPost.post.actionTargetId ?: postId
+        val actionTargetId = ownedPost.effectiveTargetId()
+        val family = if (source.capabilities.primaryFavourite.mode == me.foxtails.palustris.domain.PrimaryFavouriteMode.Reaction) {
+            "favorite-reaction"
+        } else {
+            "reaction"
+        }
+        if (reactionJobs[actionTargetId]?.isActive == true) return
+        if (!executionAuthority.acquire(accountId, sessionRevision, family, actionTargetId)) return
         val before = ownedPost.post
+        val targetGeneration = generation
         val selected = before.selectedReactions.any { it.submissionValue == choice.submissionValue } ||
             (before.myReaction != null && before.myReaction == choice.submissionValue)
         val optimistic = PostReactionReducer.apply(
@@ -232,26 +242,30 @@ class ProfileViewModel @AssistedInject constructor(
             try {
                 if (selected) {
                     source.removeReaction(actionTargetId, choice)
+                    if (stopped || generation != targetGeneration) return@launch
                 } else {
                     if (emojiCapabilities.selectionMode == ReactionSelectionMode.Single) {
                         val previous = before.selectedReactions
                             .firstOrNull { it.submissionValue != choice.submissionValue }
                             ?: before.myReaction?.takeIf { it != choice.submissionValue }
                                 ?.let { EmojiChoice(it, it, null) }
-                        previous?.let { source.removeReaction(actionTargetId, it) }
+                        previous?.let {
+                            source.removeReaction(actionTargetId, it)
+                            if (stopped || generation != targetGeneration) return@launch
+                        }
                     }
                     source.react(actionTargetId, choice)
                 }
             } catch (error: CancellationException) {
-                updateOwnedPost(postId) { before }
                 throw error
             } catch (error: Exception) {
-                updateOwnedPost(postId) { before }
+                if (!stopped && generation == targetGeneration) updateOwnedPost(postId) { before }
             } finally {
-                reactionJobs.remove(postId)
+                if (reactionJobs[actionTargetId] === currentCoroutineContext()[Job]) reactionJobs.remove(actionTargetId)
+                executionAuthority.release(accountId, sessionRevision, family, actionTargetId)
             }
         }
-        reactionJobs[postId] = job
+        reactionJobs[actionTargetId] = job
     }
 
     fun applyExternalPost(updated: OwnedPost) {

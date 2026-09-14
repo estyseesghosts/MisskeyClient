@@ -37,6 +37,7 @@ import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
 import me.foxtails.palustris.domain.normalizeFavouriteEmoji
 import me.foxtails.palustris.domain.adjustedBy
+import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 
 @HiltViewModel(assistedFactory = PostThreadViewModel.Factory::class)
 class PostThreadViewModel @AssistedInject constructor(
@@ -44,12 +45,14 @@ class PostThreadViewModel @AssistedInject constructor(
     @Assisted private val source: SocialSource,
     @Assisted private val sessionRevision: Long,
     private val preferences: PostPreferencesRepository,
+    private val executionAuthority: PostInteractionExecutionAuthority = PostInteractionExecutionAuthority(),
 ) : ViewModel() {
     constructor(accountId: AccountId, source: SocialSource, sessionRevision: Long = 0L) : this(
         accountId,
         source,
         sessionRevision,
         InMemoryPostPreferencesRepository(),
+        PostInteractionExecutionAuthority(),
     )
 
     private val _state = MutableStateFlow(PostThreadUiState())
@@ -295,7 +298,7 @@ class PostThreadViewModel @AssistedInject constructor(
     }
 
     fun isActionPending(ownedPost: OwnedPost, action: PostAction): Boolean =
-        actionJobs[ActionKey(ownedPost.effectiveTargetId(), action.family())]?.isActive == true
+        actionJobs[ActionKey(ownedPost.effectiveTargetId(), actionFamily(action))]?.isActive == true
 
     fun stop() {
         if (stopped) return
@@ -410,9 +413,11 @@ class PostThreadViewModel @AssistedInject constructor(
         }
         if (!actionAllowed) return
         if (ownedPost.post.contentVisibility != me.foxtails.palustris.domain.PostContentVisibility.Visible) return
-        val key = ActionKey(target, action.family())
+        val family = actionFamily(action)
+        val key = ActionKey(target, family)
         if (actionJobs[key]?.isActive == true) return
         val before = posts[ownedPost.post.id] ?: return
+        if (!executionAuthority.acquire(accountId, sessionRevision, family, target)) return
         val after = before.copy(post = optimistic(before.post))
         overlays[target] = overlays[target].orEmpty().with(
             action,
@@ -440,7 +445,8 @@ class PostThreadViewModel @AssistedInject constructor(
                 updateMatching(target) { current -> restore(action, current, before.post) }
                 overlays[target] = overlays[target].orEmpty().without(action)
             } finally {
-                actionJobs.remove(key)
+                if (actionJobs[key] === kotlinx.coroutines.currentCoroutineContext()[Job]) actionJobs.remove(key)
+                executionAuthority.release(accountId, sessionRevision, family, target)
                 _state.value = _state.value.copy(pendingActions = _state.value.pendingActions - key.toString())
             }
         }
@@ -626,9 +632,10 @@ class PostThreadViewModel @AssistedInject constructor(
         val reactionCount: Int?,
     )
 
-    private fun PostAction.family(): String = when (this) {
-        PostAction.Favorite, PostAction.React -> "reaction"
-        else -> name
+    private fun actionFamily(action: PostAction): String = when (action) {
+        PostAction.Favorite -> if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) "favorite-reaction" else "favorite"
+        PostAction.React -> if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) "favorite-reaction" else "reaction"
+        else -> action.name
     }
 
     private fun MutationOverlay?.orEmpty(): MutationOverlay = this ?: MutationOverlay()
