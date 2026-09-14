@@ -1,0 +1,31 @@
+# Beeline 0.2.2 visual polish implementation
+
+## Goal
+
+Implement `docs/0.2.2.cont.md` in verified slices. Preserve existing behavior and protocol boundaries.
+
+## Slices
+
+1. Establish shared bubble geometry and replace emoji pin confirmation.
+2. Implement the compact user-action card and full profile handles.
+3. Implement compact navigation and Home timeline tab chips.
+4. Implement adaptive compact and expanded hashtag presentation.
+5. Run full automated, device, and authorized live checks.
+
+## Affected files
+
+The planned files are listed in `docs/0.2.2.cont.md`. The implementation will add only files required by the slices.
+
+## Risks
+
+- Preserve account-scoped action ownership and existing callbacks.
+- Keep theme-derived colors. Do not hard-code text colors.
+- Keep compact controls reachable at large font sizes.
+- Keep nested rounded surfaces concentric and consistently spaced.
+- Preserve the existing Android 15 navigation-bar test failure as a separate baseline concern if it remains.
+
+## Baseline
+
+- Source baseline: `90dffc2`.
+- No application tests ran before this task.
+- Existing untracked files must remain unchanged.

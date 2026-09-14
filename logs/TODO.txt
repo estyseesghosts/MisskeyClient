@@ -1,4 +1,5 @@
 # Active tasks
 
+- Implement Beeline 0.2.2 visual polish in verified slices.
 - Resolve or explicitly accept the connected `SystemBarAppearanceInstrumentedTest` failure.
 - Review the final diff and record release evidence before any explicitly authorized commit.
