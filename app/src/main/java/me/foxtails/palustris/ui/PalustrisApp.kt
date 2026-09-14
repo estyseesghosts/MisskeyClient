@@ -140,20 +140,18 @@ import me.foxtails.palustris.ui.posts.LocalPostActionOwner
 import me.foxtails.palustris.ui.posts.PostShareSheet
 import me.foxtails.palustris.ui.posts.copyPostShareContent
 import me.foxtails.palustris.ui.components.AccountAvatar
-import me.foxtails.palustris.ui.layout.CompactFilterDockHeight as movedCompactFilterDockHeight
-import me.foxtails.palustris.ui.layout.CompactOverlayControlSpacing as movedCompactOverlayControlSpacing
-import me.foxtails.palustris.ui.layout.CompactHomeTimelineSpacing as movedCompactHomeTimelineSpacing
-import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding as movedCompactOverlayHorizontalPadding
-import me.foxtails.palustris.ui.layout.CompactOverlayVerticalPadding as movedCompactOverlayVerticalPadding
-import me.foxtails.palustris.ui.layout.CompactSearchDockHeight as movedCompactSearchDockHeight
-import me.foxtails.palustris.ui.layout.CompactTimelineTabsHeight as movedCompactTimelineTabsHeight
-import me.foxtails.palustris.ui.layout.LegacyFeedBottomClearance as movedLegacyFeedBottomClearance
-import me.foxtails.palustris.ui.layout.compactGlobalNavigationPositioningInsets as movedCompactGlobalNavigationPositioningInsets
-import me.foxtails.palustris.ui.layout.compactHomeScrollEndClearance as movedCompactHomeScrollEndClearance
-import me.foxtails.palustris.ui.layout.compactScrollEndClearance as movedCompactScrollEndClearance
-import me.foxtails.palustris.ui.navigation.CompactContextualNavigationBar as movedCompactContextualNavigationBar
+import me.foxtails.palustris.ui.layout.CompactFilterDockHeight
+import me.foxtails.palustris.ui.layout.CompactHomeTimelineSpacing
+import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding
+import me.foxtails.palustris.ui.layout.CompactOverlayVerticalPadding
+import me.foxtails.palustris.ui.layout.CompactSearchDockHeight
+import me.foxtails.palustris.ui.layout.CompactTimelineTabsHeight
+import me.foxtails.palustris.ui.layout.compactGlobalNavigationPositioningInsets
+import me.foxtails.palustris.ui.layout.compactHomeScrollEndClearance
+import me.foxtails.palustris.ui.layout.compactScrollEndClearance
+import me.foxtails.palustris.ui.navigation.CompactContextualNavigationBar
 import me.foxtails.palustris.ui.navigation.HomeTimelineTabs
-import me.foxtails.palustris.ui.navigation.contextualActionFor as movedContextualActionFor
+import me.foxtails.palustris.ui.navigation.contextualActionFor
 
 private const val COMPOSER_OVERLAY_KEY = "Composer"
 private const val EDIT_PROFILE_OVERLAY_KEY = "EditProfile"
@@ -1089,7 +1087,7 @@ fun PalustrisApp(
                     ) {
                         // This branch only positions the overlay. Page content remains
                         // full-size behind it; only scroll content owns end clearance.
-                         Box(Modifier.fillMaxWidth().windowInsetsPadding(movedCompactGlobalNavigationPositioningInsets()).padding(horizontal = movedCompactOverlayHorizontalPadding, vertical = movedCompactOverlayVerticalPadding), contentAlignment = Alignment.Center) {
+                         Box(Modifier.fillMaxWidth().windowInsetsPadding(compactGlobalNavigationPositioningInsets()).padding(horizontal = CompactOverlayHorizontalPadding, vertical = CompactOverlayVerticalPadding), contentAlignment = Alignment.Center) {
                             Column(
                                 modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
                                  horizontalAlignment = Alignment.End,
@@ -1098,7 +1096,7 @@ fun PalustrisApp(
                                       HomeTimelineTabs(
                                           timelines = availableTimelines,
                                           selected = timeline,
-                                          modifier = Modifier.height(movedCompactTimelineTabsHeight),
+                                          modifier = Modifier.height(CompactTimelineTabsHeight),
                                           onSelect = { item ->
                                               clearPostActionBubble()
                                               val changed = item != timeline
@@ -1106,12 +1104,12 @@ fun PalustrisApp(
                                               if (changed) home?.actions?.refresh(item)
                                           },
                                       )
-                                      Spacer(Modifier.height(movedCompactHomeTimelineSpacing))
+                                      Spacer(Modifier.height(CompactHomeTimelineSpacing))
                                  }
-                                 movedCompactContextualNavigationBar(
+                                 CompactContextualNavigationBar(
                                     destination = destination,
                                     searchPanel = searchPanel,
-                                     action = movedContextualActionFor(
+                                     action = contextualActionFor(
                                         destination = destination,
                                         searchPanel = searchPanel,
                                         notificationsPanel = notificationsPanel,
@@ -1151,14 +1149,14 @@ fun PalustrisApp(
             0.dp
         } else {
             when (destination) {
-                 Destination.Home -> movedCompactHomeScrollEndClearance()
-                 Destination.Search -> movedCompactScrollEndClearance(
-                     controlStackHeight = movedCompactSearchDockHeight,
+                 Destination.Home -> compactHomeScrollEndClearance()
+                 Destination.Search -> compactScrollEndClearance(
+                     controlStackHeight = CompactSearchDockHeight,
                     navigationVisible = navigationVisible,
                     ime = WindowInsets.ime,
                 )
-                 Destination.Notifications, Destination.Profile -> movedCompactScrollEndClearance(
-                     controlStackHeight = movedCompactFilterDockHeight,
+                 Destination.Notifications, Destination.Profile -> compactScrollEndClearance(
+                     controlStackHeight = CompactFilterDockHeight,
                     navigationVisible = navigationVisible,
                 )
             }
