@@ -37,7 +37,7 @@ internal fun AppLargeDetailPane(
     onThreadContinue: () -> Unit,
     quoteEnabled: Boolean,
     onQuote: (OwnedPost) -> Unit,
-    contentWarningRules: ContentWarningRules,
+    contentWarningRules: ContentWarningRules = LocalContentWarningRules.current,
     modifier: Modifier,
 ) {
     if (selected == null) {

@@ -149,7 +149,6 @@ class SignInScreenTest {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
         val post = Post(EntityId("https://example.org", "post"), account, "Post", System.currentTimeMillis(), Audience.Public)
         val ownedPost = OwnedPost(account.id, post)
-        var replied = false
         var bookmarked = false
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
@@ -159,7 +158,6 @@ class SignInScreenTest {
                     FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost)),
                     onBookmark = { bookmarked = true },
                 ),
-                onReply = { replied = true },
             )
         } }
 
@@ -168,7 +166,6 @@ class SignInScreenTest {
         compose.onNodeWithContentDescription("Favorite").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Bookmark").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Share").assertIsEnabled()
-        assertEquals(false, replied)
         assertEquals(false, bookmarked)
     }
 

@@ -683,7 +683,6 @@ fun ConnectedApp(
                   sessionGeneration = state.sessionGeneration,
                   sessionRevision = activeSession?.sessionRevision ?: 0L,
                  home = home,
-                  contentWarningRules = appPreferences.preferences.contentWarningRules.merge(postPreferences.contentWarningRules),
                  photoGrid = photoGrid,
                 accountSwitcher = accountSwitcher,
                 composer = composer,

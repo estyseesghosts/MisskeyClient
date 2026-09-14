@@ -17,7 +17,7 @@ internal fun AppPhotoGridDestinationContent(
     compactLayout: Boolean,
     compactNavigationVisible: Boolean,
     gridState: LazyStaggeredGridState,
-    contentWarningRules: ContentWarningRules,
+    contentWarningRules: ContentWarningRules = LocalContentWarningRules.current,
 ) {
     PhotoGridScreen(
         state = state,

@@ -167,7 +167,6 @@ fun PalustrisApp(
     sessionGeneration: Long = 0L,
     sessionRevision: Long = 0L,
      home: HomeContract? = null,
-     contentWarningRules: me.foxtails.palustris.domain.ContentWarningRules = me.foxtails.palustris.domain.ContentWarningRules(),
     photoGrid: PhotoGridContract = PhotoGridContract.Empty,
     profile: ProfileContract = ProfileContract.Empty,
     accountSwitcher: AccountSwitcher = AccountSwitcher.Empty,
@@ -176,7 +175,6 @@ fun PalustrisApp(
     postInteractions: PostInteractions = PostInteractions.Empty,
     thread: ThreadContract = ThreadContract.Empty,
     draftStore: DraftStore? = null,
-    onReply: (OwnedPost) -> Unit = {},
     emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
     bookmarks: BookmarksContract = BookmarksContract.Empty,
     likes: LikesContract = LikesContract.Empty,
@@ -492,10 +490,7 @@ fun PalustrisApp(
         overlayKey = COMPOSER_OVERLAY_KEY
     }
 
-    val handleReply: (OwnedPost) -> Unit = { target ->
-        openReply(target)
-        onReply(target)
-    }
+    val handleReply: (OwnedPost) -> Unit = { target -> openReply(target) }
 
     fun draftValue() = PostDraft(
         id = draftId ?: UUID.randomUUID().toString(),
@@ -809,7 +804,6 @@ fun PalustrisApp(
                                   onOpenReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onReaction) },
                                   sessionRevision = sessionRevision,
                                  largeLayout = largePresentation,
-                                   contentWarningRules = contentWarningRules,
                              )
                          } else if (page != null) {
                              AppLocalPageContent(
@@ -881,7 +875,6 @@ fun PalustrisApp(
                                             if (changed) home.actions.refresh(item)
                                        }
                                      }) else null,
-                                          contentWarningRules = contentWarningRules,
                                       ) else Box(Modifier.fillMaxSize()) {
                                         EmptyState(AppIcons.Home, stringResource(R.string.feed_timeline_empty_title), stringResource(R.string.feed_timeline_empty_subtitle, stringResource(timelineLabelRes(timeline))))
                                        if (largePresentation) {
@@ -944,7 +937,6 @@ fun PalustrisApp(
                                                compactLayout = !largePresentation,
                                                  compactNavigationVisible = !largePresentation,
                                                  gridState = photoGridScrollState,
-                                                 contentWarningRules = contentWarningRules,
                                             )
                                        }
                                    }
@@ -979,7 +971,6 @@ fun PalustrisApp(
                                       onOpenDirectConversation = directMessages.actions::openConversation,
                                       onBackDirectConversation = directMessages.actions::closeConversation,
                                       onSendDirectMessage = directMessages.actions::send,
-                                      contentWarningRules = contentWarningRules,
                                   )
                  Destination.Profile -> AppProfileDestinationContent(
                      account = displayedProfile,
@@ -1079,7 +1070,6 @@ fun PalustrisApp(
                                  onOpenUsername = ::openAccountSearch,
                                  onThreadRefresh = thread.actions::refresh,
                                  onThreadContinue = thread.actions::continueAcquisition,
-                                 contentWarningRules = contentWarningRules,
                                  quoteEnabled = quoteEnabled,
                                  onQuote = ::openQuote,
                                  modifier = paneModifier,
@@ -1244,7 +1234,6 @@ fun PalustrisApp(
                       threadState = selectedThreadState.takeIf { selectedThreadState != null && singlePostOrigin.supportsComments() },
                       onThreadRefresh = thread.actions::refresh,
                       onThreadContinue = thread.actions::continueAcquisition,
-                      contentWarningRules = contentWarningRules,
                   )
              }
          }

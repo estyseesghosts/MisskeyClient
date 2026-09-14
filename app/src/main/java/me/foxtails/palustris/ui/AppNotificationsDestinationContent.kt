@@ -38,7 +38,7 @@ internal fun AppNotificationsDestinationContent(
     onOpenDirectConversation: (DirectConversation) -> Unit,
     onBackDirectConversation: () -> Unit,
     onSendDirectMessage: (String) -> Unit,
-    contentWarningRules: ContentWarningRules,
+    contentWarningRules: ContentWarningRules = LocalContentWarningRules.current,
 ) {
     AnimatedStatePane(
         stateKey = panel,

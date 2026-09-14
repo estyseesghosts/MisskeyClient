@@ -21,7 +21,7 @@ internal fun AppNotificationDetailContent(
     onOpenPost: (OwnedPost) -> Unit,
     onOpenTarget: (() -> Unit)?,
     largeLayout: Boolean,
-    contentWarningRules: ContentWarningRules,
+    contentWarningRules: ContentWarningRules = LocalContentWarningRules.current,
     availableActions: Set<PostAction>,
     onReact: (OwnedPost) -> Unit,
     onReply: (OwnedPost) -> Unit,

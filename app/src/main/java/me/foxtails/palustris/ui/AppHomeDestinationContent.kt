@@ -42,7 +42,7 @@ internal fun AppHomeDestinationContent(
     bottomContentClearance: Dp?,
     refreshIndicatorTopPadding: Dp?,
     bottomDock: (@Composable () -> Unit)?,
-    contentWarningRules: ContentWarningRules,
+    contentWarningRules: ContentWarningRules = LocalContentWarningRules.current,
 ) {
     HomeFeed(
         state = state,
