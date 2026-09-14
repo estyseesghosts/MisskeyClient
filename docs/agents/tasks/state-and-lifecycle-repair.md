@@ -27,7 +27,7 @@ availability, and cancellation.
 | 02-A Feed epochs | completed | `518c0c5` |
 | 02-B DM visible state | completed | `e12fbd3` |
 | 02-C DM durable state | completed | `2a4fa44` |
-| 02-D Notification request context | completed | pending commit |
+| 02-D Notification request context | completed | `175d97c` |
 | 02-E Moderation lifetimes | pending | |
 | 02-F Mutation families | pending | |
 | 02-G Thread overlays and projections | pending | |
@@ -56,5 +56,6 @@ Run focused suites per slice, then `.\gradlew.bat test assembleRelease` and
 
 `2a4fa44` "Repair direct-message durable writes".
 
-Slice 02-D is complete and verified. The implementation commit is the next
-operation. No later slice has started.
+`175d97c` "Repair notification request context".
+
+Slice 02-D is complete and verified. No later slice has started.
