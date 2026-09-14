@@ -900,11 +900,13 @@ class NavigationTest {
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = current,
-                accounts = listOf(
-                    AccountRef(current.id, current.handle, current.avatarUrl, current.displayName),
-                    AccountRef(other.id, other.handle, other.avatarUrl, other.displayName),
+                accountSwitcher = AppShellFixtures.switcher(
+                    accounts = listOf(
+                        AccountRef(current.id, current.handle, current.avatarUrl, current.displayName),
+                        AccountRef(other.id, other.handle, other.avatarUrl, other.displayName),
+                    ),
+                    onSwitch = { switchedTo = it },
                 ),
-                onSwitchAccount = { switchedTo = it },
             )
         } }
 

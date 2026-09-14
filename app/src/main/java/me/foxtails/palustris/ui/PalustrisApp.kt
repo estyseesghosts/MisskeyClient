@@ -56,7 +56,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
-import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.R
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.auth.PreferencesDraftStore
@@ -107,9 +106,9 @@ import me.foxtails.palustris.ui.navigation.NavigationModeObserver
 import me.foxtails.palustris.ui.navigation.edgeSwipeDismiss
 import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
+import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
-import me.foxtails.palustris.ui.directmessages.DirectMessageInboxScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageUiState
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
@@ -179,11 +178,7 @@ fun PalustrisApp(
     onLoadMorePhotoGrid: () -> Unit = {},
     onAddPhotoGridHashtag: (String, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
     onClearPhotoGridPreferenceError: () -> Unit = {},
-    onSignOut: () -> Unit = {},
-    accounts: List<AccountRef> = emptyList(),
-    onSwitchAccount: (AccountId) -> Unit = {},
-     onAddAccount: () -> Unit = {},
-     onOpenSettings: () -> Unit = {},
+    accountSwitcher: AccountSwitcher = AccountSwitcher.Empty,
     onPublish: (CreatePostRequest, (OwnedPost) -> Unit) -> Unit = { _, _ -> },
     threadState: PostThreadUiState? = null,
     onThreadActivate: (OwnedPost?, Boolean) -> Unit = { _, _ -> },
@@ -917,7 +912,7 @@ fun PalustrisApp(
                                           compactLayout = !largePresentation,
                                           onRefresh = { onRefresh(timeline) },
                                           onLoadMore = { onLoadMore(timeline) },
-                                          onSignIn = onSignOut,
+                                          onSignIn = accountSwitcher.actions::signOut,
                                           ownedPosts = ownedPosts ?: feedState.ownedPosts,
                                           onScrollDirectionChanged = { if (destination == Destination.Home && animatedDestination == Destination.Home) navigationVisible = it },
                                           onReact = onReact,
@@ -1331,11 +1326,11 @@ fun PalustrisApp(
 
        if (sheet != null) AppSelectionSheet(
            account = account,
-           accounts = accounts,
+           accounts = accountSwitcher.accounts,
            onDismiss = { sheet = null },
-           onSwitchAccount = onSwitchAccount,
-           onAddAccount = onAddAccount,
-           onOpenSettings = onOpenSettings,
+           onSwitchAccount = accountSwitcher.actions::switchTo,
+           onAddAccount = accountSwitcher.actions::addAccount,
+           onOpenSettings = accountSwitcher.actions::openSettings,
            onSignOut = { signOutDialog = true },
        )
 
@@ -1485,7 +1480,7 @@ fun PalustrisApp(
         onDiscardProfile = ::discardProfileEditor,
         signOutDialog = signOutDialog,
         onSignOutDialogDismiss = { signOutDialog = false },
-        onSignOut = onSignOut,
+        onSignOut = accountSwitcher.actions::signOut,
     )
     }
 }

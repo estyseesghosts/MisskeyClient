@@ -618,3 +618,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added `AppShellFixtures` with explicit connection, account, and entity identity.
 - Added `ShellCharacterizationTest` with `expandedReactionGestureOpensTheExpandedReactionBubble` and `replyPublishesToTheEffectiveActionTarget`.
 - Verification passed: `ShellCharacterizationTest`, `HomeFeedTest`, `NavigationTest`, `ReplyComposerTest`, `SignInScreenTest`, `SearchPanelRestorationTest`, and `WideNavigationTest`.
+
+01-B account switcher contract:
+- Added `ui/shell/AccountSwitcher` as an immutable account list plus typed `Actions`.
+- Removed `accounts`, `onSwitchAccount`, `onAddAccount`, `onOpenSettings`, and `onSignOut` from `PalustrisApp`.
+- Bound a registered `AccountSwitcher` in `ConnectedApp`.
+- Migrated `NavigationTest` and `SignInScreenTest` through a test-only `AppShellFixtures.switcher` recorder.
+- Verification passed: `NavigationTest`, `SignInScreenTest`, `HomeFeedTest`, and `ShellCharacterizationTest`.

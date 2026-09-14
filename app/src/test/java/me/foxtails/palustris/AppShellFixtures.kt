@@ -1,5 +1,6 @@
 package me.foxtails.palustris
 
+import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
@@ -8,6 +9,7 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.ui.shell.AccountSwitcher
 
 /**
  * Explicit shell identities for presentation tests.
@@ -45,4 +47,21 @@ internal object AppShellFixtures {
 
     fun owned(account: Account, post: Post, sessionRevision: Long = 0L): OwnedPost =
         OwnedPost(account.id, post, sessionRevision)
+
+    /** Test-only account-switcher actions recorder. */
+    fun switcher(
+        accounts: List<AccountRef> = emptyList(),
+        onSwitch: (AccountId) -> Unit = {},
+        onAdd: () -> Unit = {},
+        onSettings: () -> Unit = {},
+        onSignOut: () -> Unit = {},
+    ): AccountSwitcher = AccountSwitcher(
+        accounts = accounts,
+        actions = object : AccountSwitcher.Actions {
+            override fun switchTo(accountId: AccountId) = onSwitch(accountId)
+            override fun addAccount() = onAdd()
+            override fun openSettings() = onSettings()
+            override fun signOut() = onSignOut()
+        },
+    )
 }

@@ -42,6 +42,7 @@ import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.EmojiCapabilities
+import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.AppColorScheme
 import me.foxtails.palustris.domain.AppPreferencesRepository
 import me.foxtails.palustris.domain.AppPreferencesState
@@ -56,6 +57,7 @@ import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
 import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 import me.foxtails.palustris.ui.settings.SettingsHost
+import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.settings.ModerationViewModel
 import me.foxtails.palustris.ui.settings.ModerationKind
 import me.foxtails.palustris.domain.ModerationListKind
@@ -111,6 +113,20 @@ fun ConnectedApp(
     var initialNotificationRoute by remember { mutableStateOf<AppRoute?>(null) }
     var settingsVisible by rememberSaveable { mutableStateOf(false) }
     var settingsRoute by remember { mutableStateOf<SettingsRoute>(SettingsRoute.Main) }
+    val accountSwitcherActions = remember(accountManager) {
+        object : AccountSwitcher.Actions {
+            override fun switchTo(accountId: AccountId) = accountManager.switchAccount(accountId)
+            override fun addAccount() = accountManager.beginAddAccount()
+            override fun openSettings() {
+                settingsRoute = SettingsRoute.Main
+                settingsVisible = true
+            }
+            override fun signOut() = accountManager.signOut()
+        }
+    }
+    val accountSwitcher = remember(accountIndex.accounts, accountSwitcherActions) {
+        AccountSwitcher(accounts = accountIndex.accounts, actions = accountSwitcherActions)
+    }
     val sharedSource = activeSession?.let { session ->
         sourceRegistry.sourceFor(session.accountId) ?: sourceFactory.create(session)
     }
@@ -379,11 +395,8 @@ fun ConnectedApp(
                  onLoadMorePhotoGrid = { feedModel?.loadMorePhotoGrid() },
                  onAddPhotoGridHashtag = { value, onSuccess -> feedModel?.addPhotoGridHashtag(value, onSuccess) },
                  onClearPhotoGridPreferenceError = { feedModel?.clearPhotoGridPreferenceError() },
-                onSignOut = accountManager::signOut,
-                accounts = accountIndex.accounts,
-                onSwitchAccount = accountManager::switchAccount,
-                onAddAccount = accountManager::beginAddAccount,
-                  onPublish = { request, onSuccess ->
+                accountSwitcher = accountSwitcher,
+                onPublish = { request, onSuccess ->
                       feedModel?.create(request) { created ->
                           feedModel?.applyPublishedPost(request)
                           savedPostsModel?.applyPublishedPost(request)
@@ -452,7 +465,6 @@ fun ConnectedApp(
                 onNotificationRefreshDistributors = { notificationSettingsModel?.refreshDistributors() },
                 onNotificationSelectDistributor = { packageName -> notificationSettingsModel?.selectDistributor(packageName) },
                   onNotificationPushConnectionTest = { notificationSettingsModel?.runPushConnectionTest() },
-                  onOpenSettings = { settingsRoute = SettingsRoute.Main; settingsVisible = true },
                 profileState = profileState,
                 onProfileShown = { seed -> profileModel?.open(seed) },
                 onProfileCategorySelected = { category -> profileModel?.selectCategory(category) },

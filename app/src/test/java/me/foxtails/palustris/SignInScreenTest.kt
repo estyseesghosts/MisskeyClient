@@ -192,15 +192,17 @@ class SignInScreenTest {
             PalustrisApp(
                 account = currentAccount.value,
                 feedState = currentFeed.value,
-                accounts = listOf(
-                    AccountRef(first.id, first.handle, null, first.displayName),
-                    AccountRef(second.id, second.handle, null, second.displayName),
+                accountSwitcher = AppShellFixtures.switcher(
+                    accounts = listOf(
+                        AccountRef(first.id, first.handle, null, first.displayName),
+                        AccountRef(second.id, second.handle, null, second.displayName),
+                    ),
+                    onSwitch = {
+                        currentAccount.value = second
+                        currentFeed.value = secondFeed
+                    },
                 ),
                 ownedPosts = currentFeed.value.ownedPosts,
-                onSwitchAccount = {
-                    currentAccount.value = second
-                    currentFeed.value = secondFeed
-                },
                 onReshare = { actionPost = it },
             )
         } }
@@ -226,9 +228,11 @@ class SignInScreenTest {
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = current,
-                accounts = listOf(AccountRef(current.id, current.handle, null, current.displayName), AccountRef(other.id, other.handle, null, other.displayName)),
-                onAddAccount = { addRequested = true },
-                onSwitchAccount = { switchedTo = it },
+                accountSwitcher = AppShellFixtures.switcher(
+                    accounts = listOf(AccountRef(current.id, current.handle, null, current.displayName), AccountRef(other.id, other.handle, null, other.displayName)),
+                    onAdd = { addRequested = true },
+                    onSwitch = { switchedTo = it },
+                ),
             )
         } }
 
