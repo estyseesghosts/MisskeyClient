@@ -445,6 +445,7 @@ fun ConnectedSessionHost(
                 }
             }
             override fun openEditor() { profileModel.openEditor() }
+            override fun updateEditor(draft: me.foxtails.palustris.domain.EditableProfile) { profileModel.updateEditor(draft) }
             override fun closeEditor() { profileModel.closeEditor() }
         }
     }

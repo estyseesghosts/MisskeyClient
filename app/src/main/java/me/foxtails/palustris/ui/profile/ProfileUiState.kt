@@ -4,6 +4,7 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EditableProfileCapabilities
+import me.foxtails.palustris.domain.EditableProfileField
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.ProfileTimelineTab
@@ -47,4 +48,25 @@ data class ProfileUiState(
     val editable: EditableProfile? = null,
     val editableError: String? = null,
     val editorCapabilities: EditableProfileCapabilities = EditableProfileCapabilities(),
+    /** Working copy of the editable profile. Owned here so the shell holds no editor state. */
+    val editorDraft: EditableProfile? = null,
+) {
+    /** The profile the working copy is compared against and patched from. */
+    val editorBase: EditableProfile?
+        get() = editable ?: (account ?: seedAccount)?.toEditableProfile()
+
+    /** True when the working copy differs from the loaded base. */
+    val editorDirty: Boolean
+        get() = editorDraft != null && editorBase != null && editorDraft != editorBase
+}
+
+internal fun Account.toEditableProfile(): EditableProfile = EditableProfile(
+    id = id.localId,
+    displayName = displayName,
+    biography = biography,
+    fields = profileFields.map { EditableProfileField(it.name, it.value) },
+    avatarUrl = avatarUrl,
+    headerUrl = bannerUrl,
+    locked = locked,
+    bot = bot,
 )

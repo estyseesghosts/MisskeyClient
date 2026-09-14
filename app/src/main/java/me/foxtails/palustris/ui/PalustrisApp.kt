@@ -64,8 +64,6 @@ import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CreatePostRequest
-import me.foxtails.palustris.domain.EditableProfile
-import me.foxtails.palustris.domain.EditableProfileField
 import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
@@ -228,7 +226,6 @@ fun PalustrisApp(
     var composerQuoteOf by remember { mutableStateOf<EntityId?>(null) }
     var composerTarget by remember { mutableStateOf<OwnedPost?>(null) }
     var viewedProfile by remember { mutableStateOf<Account?>(null) }
-    var profileEditor by remember { mutableStateOf<EditableProfile?>(null) }
     var profileDialog by rememberSaveable { mutableStateOf(false) }
     var signOutDialog by remember { mutableStateOf(false) }
     var mediaRequest by remember { mutableStateOf<MediaOpenRequest?>(null) }
@@ -267,21 +264,6 @@ fun PalustrisApp(
         composerQuoteOf?.value != savedQuoteOf ||
         composerReplyTo?.value != savedReplyTo ||
         composerAudience != savedAudience
-    val editableProfile = profile.state.account?.takeIf { it.id == account?.id } ?: account
-    val editorBase = profile.state.editable
-        ?: editableProfile?.let { account ->
-            EditableProfile(
-                id = account.id.localId,
-                displayName = account.displayName,
-                biography = account.biography,
-                fields = account.profileFields.map { EditableProfileField(it.name, it.value) },
-                avatarUrl = account.avatarUrl,
-                headerUrl = account.bannerUrl,
-                locked = account.locked,
-                bot = account.bot,
-            )
-        }
-    val profileDirty = profileEditor != null && editorBase != null && profileEditor != editorBase
 
     fun clearPostActionBubble() {
         postActionBubbleTarget = null
@@ -299,11 +281,6 @@ fun PalustrisApp(
     }
 
     LaunchedEffect(account?.id, draftsContract) { reloadDrafts() }
-    LaunchedEffect(overlayKey) {
-        if (overlay == Overlay.EditProfile && editorBase != null && profileEditor == null) {
-            profileEditor = editorBase
-        }
-    }
     LaunchedEffect(availableTimelines) { if (timeline !in availableTimelines) timeline = Timeline.Home }
     LaunchedEffect(home?.state?.selectedTimeline, account?.id) { home?.state?.selectedTimeline?.let { timeline = it } }
     LaunchedEffect(destination, page, overlayKey) { navigationVisible = true }
@@ -320,7 +297,6 @@ fun PalustrisApp(
         clearSelectedPost()
         searchQuery = ""
         searchCategory = 0
-        profileEditor = null
         emojiPickerTarget = null
         postActionBubbleTarget = null
         postReactionHandler = null
@@ -528,14 +504,13 @@ fun PalustrisApp(
     }
     fun closeComposer() { if (composer.publishing || closing) return; if (hasDraftChanges) saveCurrentDraft { overlayKey = null } else overlayKey = null }
     fun discardProfileEditor() {
-        profileEditor = null
         overlayKey = null
         profile.actions.closeEditor()
     }
 
     fun closeProfile() {
         if (profile.state.savingProfile) return
-        if (profileDirty) profileDialog = true else discardProfileEditor()
+        if (profile.state.editorDirty) profileDialog = true else discardProfileEditor()
     }
 
     fun openProfileEditor() {
@@ -1340,17 +1315,16 @@ fun PalustrisApp(
 
     if (overlay == Overlay.EditProfile && account != null) me.foxtails.palustris.ui.profile.EditProfileSheet(
         account = account,
-        editor = profileEditor,
-        editorBase = editorBase,
+        editor = profile.state.editorDraft,
+        editorBase = profile.state.editorBase,
         capabilities = profile.state.editorCapabilities,
         emoji = profile.state.account?.emoji ?: emptyMap(),
         loading = profile.state.editableLoading,
         saving = profile.state.savingProfile,
         error = profile.state.editError ?: profile.state.editableError,
-        onEditorChange = { profileEditor = it },
+        onEditorChange = profile.actions::updateEditor,
         onSave = { patch ->
             profile.actions.saveEditor(patch) {
-                profileEditor = null
                 overlayKey = null
             }
         },

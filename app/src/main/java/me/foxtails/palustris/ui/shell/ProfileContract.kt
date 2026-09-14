@@ -1,6 +1,7 @@
 package me.foxtails.palustris.ui.shell
 
 import me.foxtails.palustris.domain.Account
+import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
@@ -28,6 +29,7 @@ data class ProfileContract(
         fun react(post: OwnedPost, choice: EmojiChoice)
         fun saveEditor(patch: EditableProfilePatch, onSuccess: () -> Unit)
         fun openEditor()
+        fun updateEditor(draft: EditableProfile)
         fun closeEditor()
     }
 
@@ -46,5 +48,6 @@ private object ProfileEmptyActions : ProfileContract.Actions {
     override fun react(post: OwnedPost, choice: EmojiChoice) = Unit
     override fun saveEditor(patch: EditableProfilePatch, onSuccess: () -> Unit) = Unit
     override fun openEditor() = Unit
+    override fun updateEditor(draft: EditableProfile) = Unit
     override fun closeEditor() = Unit
 }

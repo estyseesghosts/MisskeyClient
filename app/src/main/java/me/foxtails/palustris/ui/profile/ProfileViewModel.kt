@@ -134,12 +134,18 @@ class ProfileViewModel @AssistedInject constructor(
         editorGeneration += 1
         _state.value = _state.value.copy(
             editorOpen = true,
+            editorDraft = _state.value.editorBase,
             editableLoading = true,
             editableError = null,
             editError = null,
             editorCapabilities = source.capabilities.profile.editable,
         )
         loadEditor(editorGeneration)
+    }
+
+    fun updateEditor(draft: EditableProfile) {
+        if (stopped || !_state.value.editorOpen) return
+        _state.value = _state.value.copy(editorDraft = draft)
     }
 
     fun refreshEditor() {
@@ -153,6 +159,7 @@ class ProfileViewModel @AssistedInject constructor(
         editJob?.cancel()
         _state.value = _state.value.copy(
             editorOpen = false,
+            editorDraft = null,
             editableLoading = false,
             savingProfile = false,
             editError = null,
@@ -163,7 +170,7 @@ class ProfileViewModel @AssistedInject constructor(
     fun saveEditor(patch: EditableProfilePatch, onSuccess: (Account) -> Unit = {}) {
         if (stopped || _state.value.savingProfile || _state.value.targetId != accountId) return
         if (patch.isEmpty) {
-            _state.value = _state.value.copy(editorOpen = false, editError = null)
+            _state.value = _state.value.copy(editorOpen = false, editorDraft = null, editError = null)
             _state.value.account?.let(onSuccess)
             return
         }
@@ -183,6 +190,7 @@ class ProfileViewModel @AssistedInject constructor(
                         savingProfile = false,
                         editError = null,
                         editorOpen = false,
+                        editorDraft = null,
                     )
                     merged?.let(onSuccess)
                 }

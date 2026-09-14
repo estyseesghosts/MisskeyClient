@@ -216,6 +216,32 @@ class ProfileViewModelTest {
         assertFalse(model.state.value.editableLoading)
     }
 
+    @Test fun editorDraftTracksChangesAndClearsOnClose() = runProfileTest {
+        val source = FakeSource().apply {
+            editableResults[self.id] = editableProfile(self, "Self")
+        }
+        val model = model(source)
+        model.open(self)
+        advanceUntilIdle()
+        model.openEditor()
+        advanceUntilIdle()
+
+        val base = model.state.value.editorBase!!
+        assertNotNull(model.state.value.editorDraft)
+
+        model.updateEditor(editableProfile(self, "Edited"))
+        assertEquals("Edited", model.state.value.editorDraft?.displayName)
+        assertTrue(model.state.value.editorDirty)
+
+        model.updateEditor(base)
+        assertEquals(base, model.state.value.editorDraft)
+        assertFalse(model.state.value.editorDirty)
+
+        model.closeEditor()
+        assertNull(model.state.value.editorDraft)
+        assertFalse(model.state.value.editorDirty)
+    }
+
     @Test fun unchangedEditorClosesWithoutSourceUpdate() = runProfileTest {
         val source = FakeSource().apply {
             editableResults[self.id] = editableProfile(self, "Self")
@@ -262,6 +288,7 @@ class ProfileViewModelTest {
         assertFalse(model.state.value.savingProfile)
         assertNull(model.state.value.editError)
         assertFalse(model.state.value.editorOpen)
+        assertNull(model.state.value.editorDraft)
     }
 
     @Test fun editorFailurePreservesCurrentAccount() = runProfileTest {

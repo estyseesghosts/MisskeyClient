@@ -1,10 +1,16 @@
 package me.foxtails.palustris
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EditableProfilePatch
@@ -241,7 +247,8 @@ internal object AppShellFixtures {
         )
     }
 
-    /** Test-only profile presentation with recorder hooks. */
+    /** Test-only profile presentation with recorder hooks. Editor state is held locally. */
+    @Composable
     fun profile(
         state: ProfileUiState = ProfileUiState(),
         onOpen: (Account) -> Unit = {},
@@ -253,20 +260,45 @@ internal object AppShellFixtures {
         onReact: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
         onSaveEditor: (EditableProfilePatch, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
         onOpenEditor: () -> Unit = {},
+        onUpdateEditor: (EditableProfile) -> Unit = {},
         onCloseEditor: () -> Unit = {},
-    ): ProfileContract = ProfileContract(
-        state = state,
-        actions = object : ProfileContract.Actions {
-            override fun open(account: Account) = onOpen(account)
-            override fun selectCategory(category: ProfileCategory) = onSelectCategory(category)
-            override fun refresh() = onRefresh()
-            override fun loadMore() = onLoadMore()
-            override fun follow() = onFollow()
-            override fun unfollow() = onUnfollow()
-            override fun react(post: OwnedPost, choice: EmojiChoice) = onReact(post, choice)
-            override fun saveEditor(patch: EditableProfilePatch, onSuccess: () -> Unit) = onSaveEditor(patch, onSuccess)
-            override fun openEditor() = onOpenEditor()
-            override fun closeEditor() = onCloseEditor()
-        },
-    )
+    ): ProfileContract {
+        var editorOpen by remember { mutableStateOf(state.editorOpen) }
+        var editorDraft by remember { mutableStateOf(state.editorDraft) }
+        val current = state.copy(
+            editorOpen = editorOpen,
+            editorDraft = editorDraft ?: state.editorBase.takeIf { editorOpen },
+        )
+        return ProfileContract(
+            state = current,
+            actions = object : ProfileContract.Actions {
+                override fun open(account: Account) = onOpen(account)
+                override fun selectCategory(category: ProfileCategory) = onSelectCategory(category)
+                override fun refresh() = onRefresh()
+                override fun loadMore() = onLoadMore()
+                override fun follow() = onFollow()
+                override fun unfollow() = onUnfollow()
+                override fun react(post: OwnedPost, choice: EmojiChoice) = onReact(post, choice)
+                override fun saveEditor(patch: EditableProfilePatch, onSuccess: () -> Unit) {
+                    onSaveEditor(patch, onSuccess)
+                    editorOpen = false
+                    editorDraft = null
+                }
+                override fun openEditor() {
+                    onOpenEditor()
+                    editorOpen = true
+                    editorDraft = state.editorBase
+                }
+                override fun updateEditor(draft: EditableProfile) {
+                    onUpdateEditor(draft)
+                    editorDraft = draft
+                }
+                override fun closeEditor() {
+                    onCloseEditor()
+                    editorOpen = false
+                    editorDraft = null
+                }
+            },
+        )
+    }
 }
