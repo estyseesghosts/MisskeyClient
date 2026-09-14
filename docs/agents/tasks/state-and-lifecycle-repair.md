@@ -30,7 +30,7 @@ availability, and cancellation.
 | 02-D Notification request context | completed | `175d97c` |
 | 02-E Moderation lifetimes | completed | `8dd093e` |
 | 02-F Mutation families | completed | `111f0c3` |
-| 02-G Thread overlays and projections | pending | |
+| 02-G Thread overlays and projections | completed | `7f03284` |
 | 02-H Home paging demand | pending | |
 | 02-I Settings commands and routes | pending | |
 | 02-J Locale catalog | pending | |
@@ -66,13 +66,26 @@ Run focused suites per slice, then `.\gradlew.bat test assembleRelease` and
 
 `d8fdecc` "Share mutation authority with profile and thread".
 
-Slice 02-F is complete and verified. The document audit confirms:
+`7f03284` "Repair thread overlays and reaction projections".
 
-- Feed and saved collections use the session-bound execution authority.
-- Profile and thread reaction owners also reserve the same authority.
-- Native Favorite and emoji React use separate families unless Favorite is reaction-backed.
-- Saved collection membership removal stays hidden when refresh or paging returns a stale row.
-- 02-A through 02-E remain covered by their recorded commits and focused tests.
-- 02-G through 02-L and the Plan 01 skipped items remain pending.
+Slice 02-G is complete and verified.
 
-No later slice has started.
+## Plan 01 Skipped-Item Evaluation
+
+Checked on 2026-09-14 after `7f03284`.
+
+| Skipped item | State | Disposition |
+| --- | --- | --- |
+| Delete account-scoped drafts on removal | Done in `69467c1` | Closed. |
+| DM ViewModel teardown | Done in `e12fbd3` (`DirectMessageViewModel.stop()`) | Closed. |
+| Moderation ViewModel teardown | Done in `8dd093e` (`ModerationViewModel.stop()`) | Closed. |
+| Notification ViewModel teardown | `NotificationsViewModel` still has no `stop()` | Defer to 02-L. |
+| Settings ViewModel teardown | `SettingsViewModel` still has no `stop()` | Defer to 02-I and 02-L. |
+| Extract `FeedHost` and `SavedCollectionsHost` | Not present | Technically unblocked, but 02-H changes Home paging and the feed owner, so extract after 02-H. |
+| Remove production no-argument app construction used by tests | Still present | Defer to 01-H after 02 stops adding suites. |
+
+Conclusion: the remaining skipped items are not ready. Finish 02-H through 02-L first,
+then continue the Plan 01 host extraction and 01-H test construction. No skipped item is
+an active defect.
+
+Slice 02-G is complete and verified. 02-H through 02-L remain pending.

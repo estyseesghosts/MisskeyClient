@@ -831,3 +831,16 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Focused verification passed: PostInteractionMutationOwnerTest (14), SavedPostsViewModelTest (9), PostThreadViewModelTest (6), and ProfileViewModelTest.
 - Full verification passed: `test assembleRelease` and `:app:lintDebug`.
 - Commits: `509b3d1`, `d8fdecc`. Live-server and physical-device behavior remain unverified.
+
+260914-233000 State and lifecycle repair Slice 02-G:
+- Repaired thread overlay explicit-null selection and per-family overlay restoration.
+- Rejected foreign or old-revision posts before thread activation.
+- Bound action completion to thread activation identity and guarded cleanup identity.
+- Retired acknowledged overlays after an authoritative refresh.
+- Added one shared Post projection contract for absent versus authoritative empty reactions.
+- Applied the contract to Feed, Search, Saved posts, Photo grid, Profile, Notifications, and Thread.
+- Added sink revision validation and popup revision rebinding for same-account reauthentication.
+- Added PostProjectionTest and eight PostThreadViewModelTest regression cases.
+- Verification passed: 758 unit tests, `test assembleRelease`, and `:app:lintDebug`.
+- Commit: `7f03284`. Live-server and physical-device behavior remain unverified.
+- Evaluated the Plan 01 skipped items. Host extraction and 01-H construction remain deferred until 02-H through 02-L complete.
