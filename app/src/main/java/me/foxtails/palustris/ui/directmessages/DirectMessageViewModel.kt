@@ -13,8 +13,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.foxtails.palustris.data.directmessages.DirectMessageRepository
 import me.foxtails.palustris.data.directmessages.DirectMessageStore
+import me.foxtails.palustris.data.directmessages.DirectMessageWriteAuthority
 import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -31,10 +33,11 @@ class DirectMessageViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted source: SocialSource,
     store: DirectMessageStore,
-    @IoDispatcher ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val writeAuthority: DirectMessageWriteAuthority = DirectMessageWriteAuthority(),
 ) : ViewModel() {
     private val directSource = source as? DirectMessageSource
-    private val repository = directSource?.let { DirectMessageRepository(accountId, it, store, ioDispatcher) }
+    private val repository = directSource?.let { DirectMessageRepository(accountId, it, store, ioDispatcher, writeAuthority) }
     private val _state = MutableStateFlow(DirectMessageUiState())
     val state = _state.asStateFlow()
     private var refreshJob: Job? = null
@@ -51,9 +54,13 @@ class DirectMessageViewModel @AssistedInject constructor(
     private val acceptedCursors = mutableSetOf<String>()
 
     init {
-        val cached = repository?.cachedConversations().orEmpty()
-        _state.value = _state.value.copy(conversations = cached)
-        refresh()
+        // Read the cache off the main thread. Room blocks while it decodes rows.
+        viewModelScope.launch {
+            val cached = withContext(ioDispatcher) { repository?.cachedConversations().orEmpty() }
+            if (stopped) return@launch
+            _state.value = _state.value.copy(conversations = cached)
+            refresh()
+        }
     }
 
     fun refresh() {
@@ -150,7 +157,7 @@ class DirectMessageViewModel @AssistedInject constructor(
             selectedConversationId = id,
             selectedConversation = conversation.copy(unread = false),
             recipient = conversation.participants.firstOrNull { it.id != accountId },
-            thread = repository?.cachedThread(id).orEmpty(),
+            thread = emptyList(),
             loadingThread = true,
             sending = false,
             error = null,
@@ -168,6 +175,12 @@ class DirectMessageViewModel @AssistedInject constructor(
         }
         threadJob = viewModelScope.launch {
             try {
+                val cached = withContext(ioDispatcher) { repo.cachedThread(id) }
+                if (selection != selectionEpoch || stopped) return@launch
+                if (_state.value.selectedConversationId != id) return@launch
+                if (cached.isNotEmpty()) {
+                    _state.value = _state.value.copy(thread = mergeThread(_state.value.thread, cached))
+                }
                 val thread = repo.thread(id)
                 if (selection != selectionEpoch || stopped) return@launch
                 val current = _state.value

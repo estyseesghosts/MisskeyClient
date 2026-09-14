@@ -770,4 +770,15 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Stale inbox-page success needs durable write authority and stays owned by Slice 02-C.
 - Verification passed: focused DM suites, test assembleRelease, and :app:lintDebug.
 - Commit: `e12fbd3`. Live-server and device behavior remain unverified.
+
+260914-154500 State and lifecycle repair Slice 02-C:
+- Added DirectMessageWriteAuthority with per-account generations and one serialized commit boundary.
+- Repository validates write authority at the storage boundary after every network call.
+- Account removal revokes DM writers before deleting rows in the same boundary.
+- Session activation revokes old writers before new writers start.
+- Thread merge keeps stored posts and the stored preview when the store is newer.
+- Moved DM cache reads off main-thread construction into background loads.
+- Added DirectMessageRepositoryTest with removal, replacement, merge, and isolation coverage.
+- Verification passed: focused DM and session suites, test assembleRelease, and :app:lintDebug.
+- Commit: pending at log creation. Live-server and device behavior remain unverified.
 - No commit created. Live full test assembleRelease remains unverified.

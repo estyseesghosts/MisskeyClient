@@ -19,6 +19,7 @@ import me.foxtails.palustris.data.auth.AuthGateway
 import me.foxtails.palustris.data.auth.PendingLogin
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.directmessages.DirectMessageStore
+import me.foxtails.palustris.data.directmessages.DirectMessageWriteAuthority
 import me.foxtails.palustris.data.directmessages.InMemoryDirectMessageStore
 import me.foxtails.palustris.data.emoji.InMemoryEmojiCatalogRepository
 import me.foxtails.palustris.data.preferences.InMemoryEmojiPickerPreferencesRepository
@@ -67,6 +68,7 @@ class AccountManager @Inject constructor(
     private val postPreferencesRepository: PostPreferencesRepository,
     private val photoGridPreferencesRepository: PhotoGridPreferencesRepository,
     private val directMessageStore: DirectMessageStore,
+    private val directMessageWriteAuthority: DirectMessageWriteAuthority,
     private val emojiCatalogRepository: EmojiCatalogRepository,
     private val emojiPickerPreferencesRepository: EmojiPickerPreferencesRepository,
 ) : ViewModel() {
@@ -85,6 +87,7 @@ class AccountManager @Inject constructor(
         InMemoryPostPreferencesRepository(),
         InMemoryPhotoGridPreferencesRepository(),
         InMemoryDirectMessageStore(),
+        DirectMessageWriteAuthority(),
         InMemoryEmojiCatalogRepository(),
         InMemoryEmojiPickerPreferencesRepository(),
     )
@@ -305,7 +308,10 @@ class AccountManager @Inject constructor(
                 val replacement = withContext(ioDispatcher) {
                     postPreferencesRepository.remove(accountId)
                     photoGridPreferencesRepository.remove(accountId)
-                    directMessageStore.delete(accountId)
+                    // Revoke DM writers before deleting rows. Late writes stay deleted.
+                    directMessageWriteAuthority.invalidateAndDelete(accountId) {
+                        directMessageStore.delete(accountId)
+                    }
                     emojiCatalogRepository.remove(accountId)
                     emojiPickerPreferencesRepository.remove(accountId)
                     store.transaction {
@@ -362,6 +368,9 @@ class AccountManager @Inject constructor(
     }
 
     private fun connect(value: Session, account: Account) {
+        // Revoke old writers before new writers activate. New keyed models issue a
+        // fresh generation when they start, so stale sessions cannot write afterwards.
+        directMessageWriteAuthority.invalidate(value.accountId)
         sessionGeneration += 1L
         _activeSession.value = value
         _session.value = SessionUi(
