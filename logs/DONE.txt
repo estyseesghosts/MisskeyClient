@@ -680,3 +680,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Removed the duplicate `ownedPosts` input. Home rows now come from `feedState.ownedPosts` only.
 - Removed `feed.ownedPosts` forwarding from `ConnectedApp` and the duplicate argument from `SignInScreenTest`.
 - Verification passed: `HomeFeedTest`, `NavigationTest`, `SignInScreenTest`, `ShellCharacterizationTest`, and `WideNavigationTest`.
+
+01-D post projection coordinator:
+- Added `ui/shell/PostProjectionCoordinator` with registered sinks, origin exclusion, re-entrancy suppression, and account/revision validation.
+- Replaced the duplicated `ConnectedApp` fan-out with one coordinator for external updates and publications.
+- Added `PostProjectionCoordinatorTest` with five cases: origin exclusion, nested suppression, foreign account, old revision, and publication fan-out.
+- Verification passed: `PostProjectionCoordinatorTest`, `FeedViewModelReactionTest`, `PostThreadViewModelTest`, `HomeFeedTest`, and `NavigationTest`.

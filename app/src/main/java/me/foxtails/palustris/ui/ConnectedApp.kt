@@ -49,6 +49,8 @@ import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.EditableProfilePatch
+import me.foxtails.palustris.domain.CreatePostRequest
+import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.ui.PhotoGridFeed
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
@@ -75,6 +77,7 @@ import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.PhotoGridContract
 import me.foxtails.palustris.ui.shell.ProfileContract
+import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
 import me.foxtails.palustris.ui.shell.ThreadContract
 import me.foxtails.palustris.ui.settings.ModerationViewModel
 import me.foxtails.palustris.ui.settings.ModerationKind
@@ -381,27 +384,73 @@ fun ConnectedApp(
     DisposableEffect(state.sessionGeneration, threadModel) {
         onDispose { threadModel?.stop() }
     }
-    DisposableEffect(threadModel, feedModel, savedPostsModel, likedPostsModel, profileModel, notificationsModel) {
-        threadModel?.setPostUpdateListener { updated ->
-            feedModel?.applyExternalPost(updated)
-            savedPostsModel?.applyExternalPost(updated)
-            likedPostsModel?.applyExternalPost(updated)
-            profileModel?.applyExternalPost(updated)
-            notificationsModel?.applyExternalPost(updated)
-        }
-        val feedProjection: ((me.foxtails.palustris.domain.OwnedPost) -> Unit)? = feedModel?.let { _ ->
-            { updated ->
-                savedPostsModel?.applyExternalPost(updated)
-                likedPostsModel?.applyExternalPost(updated)
-                profileModel?.applyExternalPost(updated)
-                notificationsModel?.applyExternalPost(updated)
-                threadModel?.applyExternalPost(updated)
+    val projectionCoordinator = remember(activeSession?.accountId, state.sessionGeneration) {
+        PostProjectionCoordinator(activeSession?.accountId, activeSession?.sessionRevision ?: 0L)
+    }
+    val feedSink = remember(feedModel) {
+        feedModel?.let { model ->
+            object : PostProjectionCoordinator.Sink {
+                override fun applyExternalPost(updated: OwnedPost) { model.applyExternalPost(updated) }
+                override fun applyPublishedPost(request: CreatePostRequest) { model.applyPublishedPost(request) }
             }
         }
+    }
+    val savedSink = remember(savedPostsModel) {
+        savedPostsModel?.let { model ->
+            object : PostProjectionCoordinator.Sink {
+                override fun applyExternalPost(updated: OwnedPost) { model.applyExternalPost(updated) }
+                override fun applyPublishedPost(request: CreatePostRequest) { model.applyPublishedPost(request) }
+            }
+        }
+    }
+    val likedSink = remember(likedPostsModel) {
+        likedPostsModel?.let { model ->
+            object : PostProjectionCoordinator.Sink {
+                override fun applyExternalPost(updated: OwnedPost) { model.applyExternalPost(updated) }
+                override fun applyPublishedPost(request: CreatePostRequest) { model.applyPublishedPost(request) }
+            }
+        }
+    }
+    val profileSink = remember(profileModel) {
+        profileModel?.let { model ->
+            object : PostProjectionCoordinator.Sink {
+                override fun applyExternalPost(updated: OwnedPost) { model.applyExternalPost(updated) }
+                override fun applyPublishedPost(request: CreatePostRequest) { model.applyPublishedPost(request) }
+            }
+        }
+    }
+    val notificationsSink = remember(notificationsModel) {
+        notificationsModel?.let { model ->
+            object : PostProjectionCoordinator.Sink {
+                override fun applyExternalPost(updated: OwnedPost) { model.applyExternalPost(updated) }
+                override fun applyPublishedPost(request: CreatePostRequest) { model.applyPublishedPost(request) }
+            }
+        }
+    }
+    val threadSink = remember(threadModel) {
+        threadModel?.let { model ->
+            object : PostProjectionCoordinator.Sink {
+                override fun applyExternalPost(updated: OwnedPost) { model.applyExternalPost(updated) }
+                override fun acceptPublishedReply(created: OwnedPost) { model.acceptPublishedReply(created) }
+                override fun acceptPublishedQuote(target: EntityId?) { model.acceptPublishedQuote(target) }
+            }
+        }
+    }
+    DisposableEffect(projectionCoordinator, feedSink, savedSink, likedSink, profileSink, notificationsSink, threadSink, feedModel, threadModel) {
+        val sinks = listOfNotNull(feedSink, savedSink, likedSink, profileSink, notificationsSink, threadSink)
+        sinks.forEach(projectionCoordinator::register)
+        val feedProjection: ((OwnedPost) -> Unit)? = feedSink?.let { sink ->
+            { updated -> projectionCoordinator.forwardExternalPost(sink, updated) }
+        }
         feedProjection?.let { listener -> feedModel?.addPostProjectionListener(listener) }
+        val threadProjection: ((OwnedPost) -> Unit)? = threadSink?.let { sink ->
+            { updated -> projectionCoordinator.forwardExternalPost(sink, updated) }
+        }
+        threadModel?.setPostUpdateListener(threadProjection)
         onDispose {
             threadModel?.setPostUpdateListener(null)
             feedProjection?.let { listener -> feedModel?.removePostProjectionListener(listener) }
+            sinks.forEach(projectionCoordinator::unregister)
         }
     }
     DisposableEffect(threadModel, lifecycleOwner) {
@@ -556,12 +605,7 @@ fun ConnectedApp(
                 onPublish = { request, onSuccess ->
                       feedModel?.create(request) { created ->
                           feedModel?.applyPublishedPost(request)
-                          savedPostsModel?.applyPublishedPost(request)
-                          likedPostsModel?.applyPublishedPost(request)
-                          profileModel?.applyPublishedPost(request)
-                          notificationsModel?.applyPublishedPost(request)
-                          threadModel?.acceptPublishedReply(created)
-                          threadModel?.acceptPublishedQuote(request.quoteOf)
+                          feedSink?.let { projectionCoordinator.forwardPublishedPost(it, request, created) }
                           onSuccess(created)
                       }
                   },
