@@ -41,15 +41,17 @@ class ShellCharacterizationTest {
     fun expandedReactionGestureOpensTheExpandedReactionBubble() {
         val account = AppShellFixtures.account("reaction-owner")
         val post = AppShellFixtures.post("reaction-post", account)
+        val feed = FeedState(
+            posts = listOf(post),
+            ownedPosts = listOf(AppShellFixtures.owned(account, post)),
+            actions = setOf(PostAction.React),
+        )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        posts = listOf(post),
-                        ownedPosts = listOf(AppShellFixtures.owned(account, post)),
-                        actions = setOf(PostAction.React),
-                    ),
+                    home = AppShellFixtures.home(feed),
+                    postInteractions = AppShellFixtures.interactions(feed),
                     emojiPresentation = AppShellFixtures.emoji(
                         capabilities = EmojiCapabilities(reactionMutation = CapabilityStatus.Supported),
                     ),
@@ -75,17 +77,19 @@ class ShellCharacterizationTest {
         val original = EntityId(AppShellFixtures.connection.origin, "original")
         val post = AppShellFixtures.post("wrapper", account, actionTargetId = original)
         var request: CreatePostRequest? = null
+        val feed = FeedState(
+            posts = listOf(post),
+            ownedPosts = listOf(AppShellFixtures.owned(account, post)),
+            actions = setOf(PostAction.Reply),
+            canPublish = true,
+        )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        posts = listOf(post),
-                        ownedPosts = listOf(AppShellFixtures.owned(account, post)),
-                        actions = setOf(PostAction.Reply),
-                        canPublish = true,
-                    ),
-                    onPublish = { value, _ -> request = value },
+                    home = AppShellFixtures.home(feed),
+                    postInteractions = AppShellFixtures.interactions(feed),
+                    composer = AppShellFixtures.composer(feed, onPublish = { value, _ -> request = value }),
                 )
             }
         }

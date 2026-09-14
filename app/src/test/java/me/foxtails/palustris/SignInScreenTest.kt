@@ -47,7 +47,7 @@ class SignInScreenTest {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "a"), "A person", "@person@example.org")
         val post = Post(EntityId("https://example.org", "p"), account, "Text hidden by a content warning", System.currentTimeMillis(), Audience.Public, contentWarning = "Spoilers")
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(account = account, feedState = FeedState(posts = listOf(post)))
+            PalustrisApp(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
         } }
         compose.onNodeWithText("Spoilers").assertIsDisplayed()
         compose.onNodeWithText(post.text).assertDoesNotExist()
@@ -69,7 +69,7 @@ class SignInScreenTest {
             attachments = listOf(Attachment("https://example.org/photo.jpg", "image/jpeg", "A photo", sensitive = true)),
         )
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(account = account, feedState = FeedState(posts = listOf(post)))
+            PalustrisApp(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
         } }
 
         compose.onNodeWithText("Show sensitive media").assertIsDisplayed()
@@ -85,8 +85,11 @@ class SignInScreenTest {
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = account,
-                feedState = FeedState(canPublish = true),
-                onPublish = { _, onSuccess -> complete = onSuccess },
+                home = AppShellFixtures.home(FeedState(canPublish = true)),
+                composer = AppShellFixtures.composer(
+                    FeedState(canPublish = true),
+                    onPublish = { _, onSuccess -> complete = onSuccess },
+                ),
             )
         } }
 
@@ -109,7 +112,7 @@ class SignInScreenTest {
     @Test fun publishingIsDisabledUntilCapabilityAllowsIt() {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(account = account, feedState = FeedState())
+            PalustrisApp(account = account, home = AppShellFixtures.home(FeedState()))
         } }
 
         compose.onNodeWithContentDescription("Compose post").performClick()
@@ -126,9 +129,12 @@ class SignInScreenTest {
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = fetchingAccount,
-                feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.Favorite, PostAction.Reshare)),
-                onReact = { favoritedPost = it },
-                onReshare = { resharedPost = it },
+                home = AppShellFixtures.home(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.Favorite, PostAction.Reshare))),
+                postInteractions = AppShellFixtures.interactions(
+                    FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.Favorite, PostAction.Reshare)),
+                    onFavorite = { favoritedPost = it },
+                    onRepost = { resharedPost = it },
+                ),
             )
         } }
 
@@ -148,9 +154,12 @@ class SignInScreenTest {
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = account,
-                feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost)),
+                home = AppShellFixtures.home(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost))),
+                postInteractions = AppShellFixtures.interactions(
+                    FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost)),
+                    onBookmark = { bookmarked = true },
+                ),
                 onReply = { replied = true },
-                onBookmark = { bookmarked = true },
             )
         } }
 
@@ -191,7 +200,8 @@ class SignInScreenTest {
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = currentAccount.value,
-                feedState = currentFeed.value,
+                home = AppShellFixtures.home(currentFeed.value),
+                postInteractions = AppShellFixtures.interactions(currentFeed.value, onRepost = { actionPost = it }),
                 accountSwitcher = AppShellFixtures.switcher(
                     accounts = listOf(
                         AccountRef(first.id, first.handle, null, first.displayName),
@@ -202,7 +212,6 @@ class SignInScreenTest {
                         currentFeed.value = secondFeed
                     },
                 ),
-                onReshare = { actionPost = it },
             )
         } }
 
@@ -255,7 +264,11 @@ class SignInScreenTest {
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = account,
-                feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React)),
+                home = AppShellFixtures.home(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React))),
+                postInteractions = AppShellFixtures.interactions(
+                    FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React)),
+                    onReact = { _, emoji -> chosenReaction = emoji.submissionValue },
+                ),
                 emojiPresentation = AppShellFixtures.emoji(
                     capabilities = EmojiCapabilities(
                         reactionListing = CapabilityStatus.Supported,
@@ -263,7 +276,6 @@ class SignInScreenTest {
                         selectionMode = ReactionSelectionMode.Single,
                     ),
                 ),
-                 onReaction = { _, emoji -> chosenReaction = emoji.submissionValue },
             )
         } }
 
@@ -299,7 +311,8 @@ class SignInScreenTest {
         compose.activity.runOnUiThread { compose.activity.setContent {
             PalustrisApp(
                 account = account,
-                feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React)),
+                home = AppShellFixtures.home(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React))),
+                postInteractions = AppShellFixtures.interactions(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React))),
                 emojiPresentation = AppShellFixtures.emoji(
                     capabilities = EmojiCapabilities(
                         reactionListing = CapabilityStatus.Supported,

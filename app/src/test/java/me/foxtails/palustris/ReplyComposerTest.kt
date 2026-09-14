@@ -49,10 +49,19 @@ class ReplyComposerTest {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        posts = listOf(post),
-                        ownedPosts = listOf(OwnedPost(account.id, post)),
-                        actions = setOf(PostAction.Reply),
+                    home = AppShellFixtures.home(
+                        FeedState(
+                            posts = listOf(post),
+                            ownedPosts = listOf(OwnedPost(account.id, post)),
+                            actions = setOf(PostAction.Reply),
+                        ),
+                    ),
+                    postInteractions = AppShellFixtures.interactions(
+                        FeedState(
+                            posts = listOf(post),
+                            ownedPosts = listOf(OwnedPost(account.id, post)),
+                            actions = setOf(PostAction.Reply),
+                        ),
                     ),
                 )
             }

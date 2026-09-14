@@ -693,6 +693,13 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - `PalustrisApp` now reads the ambient owner and no longer constructs a source-backed service.
 - Verification passed: `NavigationTest`, `SignInScreenTest`, `HomeFeedTest`, `MediaViewerScreenTest`, `SinglePostScreenTest`, and `ShellCharacterizationTest`.
 
+01-B feed-state split:
+- Added `ui/shell/HomeContract`, `SearchContract`, `PostInteractions`, and `ComposerContract`.
+- Removed `feedState`, `postPreferences`, `onRefresh`, `onLoadMore`, `onPublish`, `onSearchAccounts`, `onLoadMoreSearch`, `onReact`, `onReshare`, `onBookmark`, and `onReaction` from `PalustrisApp`.
+- Changed `HomeFeed` and `AppHomeDestinationContent` to accept `HomeFeedUiState` and explicit post capabilities.
+- Bound all four contracts in `ConnectedApp` and migrated shell tests through `AppShellFixtures.home`, `search`, `interactions`, and `composer`.
+- Verification passed: `HomeFeedTest`, `NavigationTest`, `SignInScreenTest`, `ReplyComposerTest`, `ShellCharacterizationTest`, `WideNavigationTest`, and `SearchPanelRestorationTest`.
+
 260914-021742 Long-horizon agent state:
 - Tracked `AGENTS.md` and added the `Long-Horizon Work` rules for size checks, slices, checkpoints, and recovery.
 - Added `docs/agents/README.md` and `docs/agents/tasks/` with a template and the app-shell task state.

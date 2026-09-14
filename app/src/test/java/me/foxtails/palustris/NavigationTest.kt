@@ -264,7 +264,7 @@ class NavigationTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(account = account, feedState = FeedState(posts = listOf(post)))
+                PalustrisApp(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
             }
         }
         compose.waitForIdle()
@@ -365,12 +365,14 @@ class NavigationTest {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        posts = listOf(
-                             fixturePost("home-underlap", account, longFixtureText("Home", lines = 26)).copy(
-                                 attachments = listOf(Attachment(url = "https://cdn.example/home-underlap.jpg", mimeType = "image/jpeg")),
-                             ),
-                            final,
+                    home = AppShellFixtures.home(
+                        FeedState(
+                            posts = listOf(
+                                 fixturePost("home-underlap", account, longFixtureText("Home", lines = 26)).copy(
+                                     attachments = listOf(Attachment(url = "https://cdn.example/home-underlap.jpg", mimeType = "image/jpeg")),
+                                 ),
+                                final,
+                            ),
                         ),
                     ),
                 )
@@ -388,22 +390,24 @@ class NavigationTest {
     @Test fun compactSearchResultsUnderlapDockAndFinalPostCanScrollClear() {
         val account = fixtureAccount()
         val final = fixturePost("search-final", account, "Search final fixture")
+        val feed = FeedState(
+            accountSearch = AccountSearchState(
+                query = "#fixture",
+                tagQuery = "fixture",
+                posts = listOf(
+                 fixturePost("search-underlap", account, longFixtureText("Search", lines = 28)).copy(
+                     attachments = listOf(Attachment(url = "https://cdn.example/search-underlap.jpg", mimeType = "image/jpeg")),
+                 ),
+                    final,
+                ),
+            ),
+        )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        accountSearch = AccountSearchState(
-                            query = "#fixture",
-                            tagQuery = "fixture",
-                            posts = listOf(
-                             fixturePost("search-underlap", account, longFixtureText("Search", lines = 28)).copy(
-                                 attachments = listOf(Attachment(url = "https://cdn.example/search-underlap.jpg", mimeType = "image/jpeg")),
-                             ),
-                                final,
-                            ),
-                        ),
-                    ),
+                    home = AppShellFixtures.home(feed),
+                    search = AppShellFixtures.search(feed),
                 )
             }
         }
@@ -534,7 +538,7 @@ class NavigationTest {
             compose.activity.setContent {
                 PalustrisApp(
                     account = alice,
-                    feedState = FeedState(posts = listOf(post)),
+                    home = AppShellFixtures.home(FeedState(posts = listOf(post))),
                     profile = AppShellFixtures.profile(
                         state = profileState.value,
                         onOpen = { seed ->
@@ -730,7 +734,7 @@ class NavigationTest {
         }
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(account = account, feedState = FeedState(posts = posts))
+                PalustrisApp(account = account, home = AppShellFixtures.home(FeedState(posts = posts)))
             }
         }
         compose.waitForIdle()
@@ -832,7 +836,7 @@ class NavigationTest {
         val taggedPost = fixturePost("tagged-navigation", fixtureAccount(), "Body #photos #travel")
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(feedState = FeedState(posts = listOf(taggedPost)))
+                PalustrisApp(home = AppShellFixtures.home(FeedState(posts = listOf(taggedPost))))
             }
         }
         compose.waitForIdle()
@@ -850,7 +854,7 @@ class NavigationTest {
         val accountPost = fixturePost("account-navigation", fixtureAccount(), "Body @target@fixture.example")
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(feedState = FeedState(posts = listOf(accountPost)))
+                PalustrisApp(home = AppShellFixtures.home(FeedState(posts = listOf(accountPost))))
             }
         }
         compose.waitForIdle()

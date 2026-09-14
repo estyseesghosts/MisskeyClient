@@ -60,8 +60,10 @@ private fun show(
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = feedState,
-                    onReaction = onReaction,
+                    home = AppShellFixtures.home(feedState),
+                    search = AppShellFixtures.search(feedState),
+                    postInteractions = AppShellFixtures.interactions(feedState, onReact = onReaction),
+                    composer = AppShellFixtures.composer(feedState),
                 )
             }
         }
@@ -119,17 +121,19 @@ private fun show(
                 Audience.Public,
             )
         }
+        val feed = FeedState(
+            accountSearch = AccountSearchState(
+                query = "#cats",
+                tagQuery = "cats",
+                posts = results,
+            ),
+        )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        accountSearch = AccountSearchState(
-                            query = "#cats",
-                            tagQuery = "cats",
-                            posts = results,
-                        ),
-                    ),
+                    home = AppShellFixtures.home(feed),
+                    search = AppShellFixtures.search(feed),
                 )
             }
         }
@@ -247,7 +251,7 @@ private fun show(
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(posts = listOf(Post(postId("profile"), author, "A visible post", 0, Audience.Public))),
+                    home = AppShellFixtures.home(FeedState(posts = listOf(Post(postId("profile"), author, "A visible post", 0, Audience.Public)))),
                     profile = AppShellFixtures.profile(
                         state = profileState.value,
                         onOpen = { seed ->
@@ -359,11 +363,14 @@ private fun show(
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 me.foxtails.palustris.ui.HomeFeed(
-                    state = FeedState(
-                        posts = listOf(post),
-                        ownedPosts = listOf(OwnedPost(account.id, post)),
-                        actions = setOf(PostAction.React),
+                    state = AppShellFixtures.homeFeed(
+                        FeedState(
+                            posts = listOf(post),
+                            ownedPosts = listOf(OwnedPost(account.id, post)),
+                            actions = setOf(PostAction.React),
+                        ),
                     ),
+                    availableActions = setOf(PostAction.React),
                     onRefresh = {}, onLoadMore = {}, onSignIn = {},
                     onOpenReactionPicker = { opened = it },
                 )
@@ -382,11 +389,14 @@ private fun show(
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 me.foxtails.palustris.ui.HomeFeed(
-                    state = FeedState(
-                        posts = listOf(post),
-                        ownedPosts = listOf(OwnedPost(account.id, post)),
-                        actions = setOf(PostAction.React),
+                    state = AppShellFixtures.homeFeed(
+                        FeedState(
+                            posts = listOf(post),
+                            ownedPosts = listOf(OwnedPost(account.id, post)),
+                            actions = setOf(PostAction.React),
+                        ),
                     ),
+                    availableActions = setOf(PostAction.React),
                     onRefresh = {}, onLoadMore = {}, onSignIn = {},
                     onReact = { favoured = true },
                     onOpenReactionPicker = { opened = it },
@@ -414,10 +424,12 @@ private fun show(
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 me.foxtails.palustris.ui.HomeFeed(
-                    state = FeedState(
-                        posts = listOf(post),
-                        ownedPosts = listOf(OwnedPost(account.id, post)),
-                        actions = emptySet(),
+                    state = AppShellFixtures.homeFeed(
+                        FeedState(
+                            posts = listOf(post),
+                            ownedPosts = listOf(OwnedPost(account.id, post)),
+                            actions = emptySet(),
+                        ),
                     ),
                     onRefresh = {}, onLoadMore = {}, onSignIn = {},
                     onReaction = { _, choice -> clicked = choice.submissionValue },
@@ -572,7 +584,7 @@ private fun show(
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(posts = listOf(post)),
+                    home = AppShellFixtures.home(FeedState(posts = listOf(post))),
                     thread = AppShellFixtures.thread(
                         PostThreadUiState(
                             phase = PostThreadPhase.Content,
@@ -609,11 +621,22 @@ private fun show(
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        accountSearch = AccountSearchState(
-                            query = "#cats",
-                            tagQuery = "cats",
-                            posts = listOf(post),
+                    home = AppShellFixtures.home(
+                        FeedState(
+                            accountSearch = AccountSearchState(
+                                query = "#cats",
+                                tagQuery = "cats",
+                                posts = listOf(post),
+                            ),
+                        ),
+                    ),
+                    search = AppShellFixtures.search(
+                        FeedState(
+                            accountSearch = AccountSearchState(
+                                query = "#cats",
+                                tagQuery = "cats",
+                                posts = listOf(post),
+                            ),
                         ),
                     ),
                     thread = AppShellFixtures.thread(
@@ -764,7 +787,7 @@ private fun show(
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 me.foxtails.palustris.ui.HomeFeed(
-                    state = FeedState(posts = listOf(Post(postId("tap-tag"), account, "Body #one #two", 0, Audience.Public))),
+                    state = AppShellFixtures.homeFeed(FeedState(posts = listOf(Post(postId("tap-tag"), account, "Body #one #two", 0, Audience.Public)))),
                     onRefresh = {}, onLoadMore = {}, onSignIn = {}, onSearchHashtag = { searched = it },
                 )
             }
@@ -778,14 +801,15 @@ private fun show(
 
     @Test fun appHashtagBubbleSendsExactTagAndPrefillsSearch() {
         var searched = ""
+        val feed = FeedState(
+            posts = listOf(Post(postId("app-tag"), account, "Body #one #alongertag", 0, Audience.Public)),
+        )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        posts = listOf(Post(postId("app-tag"), account, "Body #one #alongertag", 0, Audience.Public)),
-                    ),
-                    onSearchAccounts = { searched = it },
+                    home = AppShellFixtures.home(feed),
+                    search = AppShellFixtures.search(feed, onSearch = { searched = it }),
                 )
             }
         }
@@ -811,8 +835,10 @@ private fun show(
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        posts = listOf(Post(postId("expand-tags"), account, hashtags.joinToString(" "), 0, Audience.Public)),
+                    home = AppShellFixtures.home(
+                        FeedState(
+                            posts = listOf(Post(postId("expand-tags"), account, hashtags.joinToString(" "), 0, Audience.Public)),
+                        ),
                     ),
                 )
             }
@@ -837,19 +863,20 @@ private fun show(
     @Test fun longPressingHeartOpensCompactReactionBubbleAndEmojiSelectionUsesChoice() {
         val post = Post(postId("bubble-reaction"), account, "Reaction bubble", 0, Audience.Public)
         var selected: String? = null
+        val feed = FeedState(
+            posts = listOf(post),
+            ownedPosts = listOf(OwnedPost(account.id, post)),
+            actions = setOf(PostAction.React),
+        )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        posts = listOf(post),
-                        ownedPosts = listOf(OwnedPost(account.id, post)),
-                        actions = setOf(PostAction.React),
-                    ),
+                    home = AppShellFixtures.home(feed),
+                    postInteractions = AppShellFixtures.interactions(feed, onReact = { _, choice -> selected = choice.submissionValue }),
                     emojiPresentation = AppShellFixtures.emoji(
                         capabilities = EmojiCapabilities(reactionMutation = CapabilityStatus.Supported),
                     ),
-                    onReaction = { _, choice -> selected = choice.submissionValue },
                 )
             }
         }
@@ -878,10 +905,20 @@ private fun show(
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        posts = listOf(post),
-                        ownedPosts = listOf(OwnedPost(account.id, post)),
-                        actions = setOf(PostAction.React),
+                    home = AppShellFixtures.home(
+                        FeedState(
+                            posts = listOf(post),
+                            ownedPosts = listOf(OwnedPost(account.id, post)),
+                            actions = setOf(PostAction.React),
+                        ),
+                    ),
+                    postInteractions = AppShellFixtures.interactions(
+                        FeedState(
+                            posts = listOf(post),
+                            ownedPosts = listOf(OwnedPost(account.id, post)),
+                            actions = setOf(PostAction.React),
+                        ),
+                        onReact = { _, choice -> selected = choice.submissionValue },
                     ),
                     emojiPresentation = AppShellFixtures.emoji(
                         capabilities = EmojiCapabilities(
@@ -890,7 +927,6 @@ private fun show(
                         ),
                         catalog = me.foxtails.palustris.ui.emoji.EmojiCatalogState(items = custom),
                     ),
-                    onReaction = { _, choice -> selected = choice.submissionValue },
                 )
             }
         }
@@ -912,15 +948,24 @@ private fun show(
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(
-                        posts = listOf(post),
-                        ownedPosts = listOf(OwnedPost(account.id, post)),
-                        actions = setOf(PostAction.React),
+                    home = AppShellFixtures.home(
+                        FeedState(
+                            posts = listOf(post),
+                            ownedPosts = listOf(OwnedPost(account.id, post)),
+                            actions = setOf(PostAction.React),
+                        ),
+                    ),
+                    postInteractions = AppShellFixtures.interactions(
+                        FeedState(
+                            posts = listOf(post),
+                            ownedPosts = listOf(OwnedPost(account.id, post)),
+                            actions = setOf(PostAction.React),
+                        ),
+                        onReact = { _, choice -> selected = choice.submissionValue },
                     ),
                     emojiPresentation = AppShellFixtures.emoji(
                         capabilities = EmojiCapabilities(reactionMutation = CapabilityStatus.Supported),
                     ),
-                    onReaction = { _, choice -> selected = choice.submissionValue },
                 )
             }
         }

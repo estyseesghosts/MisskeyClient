@@ -118,7 +118,7 @@ class WideNavigationTest {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    feedState = FeedState(posts = listOf(post)),
+                    home = AppShellFixtures.home(FeedState(posts = listOf(post))),
                     thread = AppShellFixtures.thread(
                         PostThreadUiState(
                             phase = PostThreadPhase.Content,

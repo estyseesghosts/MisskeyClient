@@ -8,16 +8,20 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.ContentWarningRules
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.ui.media.MediaOpenRequest
+import me.foxtails.palustris.ui.shell.HomeFeedUiState
 
 @Composable
 internal fun AppHomeDestinationContent(
-    state: FeedState,
+    state: HomeFeedUiState,
     compactLayout: Boolean,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onSignIn: () -> Unit,
     ownedPosts: List<OwnedPost>,
+    availableActions: Set<PostAction>,
+    quoteEnabled: Boolean,
     onScrollDirectionChanged: (Boolean) -> Unit,
     onReact: (OwnedPost) -> Unit,
     onReply: (OwnedPost) -> Unit,
@@ -47,6 +51,8 @@ internal fun AppHomeDestinationContent(
         onLoadMore = onLoadMore,
         onSignIn = onSignIn,
         ownedPosts = ownedPosts,
+        availableActions = availableActions,
+        quoteEnabled = quoteEnabled,
         onScrollDirectionChanged = onScrollDirectionChanged,
         onReact = onReact,
         onReply = onReply,

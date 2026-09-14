@@ -14,14 +14,21 @@ import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.shell.AccountSwitcher
+import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
+import me.foxtails.palustris.ui.shell.HomeContract
+import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.shell.NotificationsContract
+import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.ProfileContract
+import me.foxtails.palustris.ui.shell.SearchContract
 import me.foxtails.palustris.ui.shell.ThreadContract
 import me.foxtails.palustris.ui.thread.PostThreadUiState
 
@@ -123,6 +130,80 @@ internal object AppShellFixtures {
             override fun repost(post: OwnedPost) = Unit
             override fun bookmark(post: OwnedPost) = Unit
             override fun react(post: OwnedPost, choice: EmojiChoice) = Unit
+        },
+    )
+
+    /** Test-only Home timeline state derived from a fixture feed. */
+    fun homeFeed(feed: FeedState): HomeFeedUiState = HomeFeedUiState(
+        ownedPosts = feed.ownedPosts,
+        posts = feed.posts,
+        loading = feed.loading,
+        loadingMore = feed.loadingMore,
+        nextCursor = feed.nextCursor,
+        error = feed.error,
+        needsSignIn = feed.needsSignIn,
+        selectedTimeline = feed.timeline,
+        availableTimelines = feed.timelines,
+    )
+
+    /** Test-only Home contract derived from a fixture feed. */
+    fun home(
+        feed: FeedState,
+        onRefresh: (Timeline) -> Unit = {},
+        onLoadMore: (Timeline) -> Unit = {},
+    ): HomeContract = HomeContract(
+        state = homeFeed(feed),
+        actions = object : HomeContract.Actions {
+            override fun refresh(timeline: Timeline) = onRefresh(timeline)
+            override fun loadMore(timeline: Timeline) = onLoadMore(timeline)
+        },
+    )
+
+    /** Test-only search contract derived from a fixture feed. */
+    fun search(
+        feed: FeedState,
+        onSearch: (String) -> Unit = {},
+        onLoadMore: () -> Unit = {},
+    ): SearchContract = SearchContract(
+        state = feed.accountSearch,
+        actions = object : SearchContract.Actions {
+            override fun search(query: String) = onSearch(query)
+            override fun loadMore() = onLoadMore()
+        },
+    )
+
+    /** Test-only post interactions derived from a fixture feed. */
+    fun interactions(
+        feed: FeedState,
+        onFavorite: (OwnedPost) -> Unit = {},
+        onRepost: (OwnedPost) -> Unit = {},
+        onBookmark: (OwnedPost) -> Unit = {},
+        onReact: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+    ): PostInteractions = PostInteractions(
+        availableActions = feed.actions,
+        quoteEnabled = feed.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported,
+        actions = object : PostInteractions.Actions {
+            override fun favorite(post: OwnedPost) = onFavorite(post)
+            override fun repost(post: OwnedPost) = onRepost(post)
+            override fun bookmark(post: OwnedPost) = onBookmark(post)
+            override fun react(post: OwnedPost, choice: EmojiChoice) = onReact(post, choice)
+        },
+    )
+
+    /** Test-only composer contract derived from a fixture feed. */
+    fun composer(
+        feed: FeedState,
+        postPreferences: me.foxtails.palustris.domain.PostPreferences = me.foxtails.palustris.domain.PostPreferences(),
+        onPublish: (me.foxtails.palustris.domain.CreatePostRequest, (OwnedPost) -> Unit) -> Unit = { _, _ -> },
+    ): ComposerContract = ComposerContract(
+        postPreferences = postPreferences,
+        availableAudiences = feed.audiences,
+        canPublish = feed.canPublish,
+        publishing = feed.publishing,
+        error = feed.error,
+        actions = object : ComposerContract.Actions {
+            override fun publish(request: me.foxtails.palustris.domain.CreatePostRequest, onAccepted: (OwnedPost) -> Unit) =
+                onPublish(request, onAccepted)
         },
     )
 

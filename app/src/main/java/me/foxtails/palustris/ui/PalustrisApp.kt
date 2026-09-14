@@ -105,13 +105,17 @@ import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
+import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.DirectMessagesContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
+import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.PhotoGridContract
+import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.ProfileContract
+import me.foxtails.palustris.ui.shell.SearchContract
 import me.foxtails.palustris.ui.shell.ThreadContract
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
@@ -162,24 +166,17 @@ fun PalustrisApp(
     account: Account? = null,
     sessionGeneration: Long = 0L,
     sessionRevision: Long = 0L,
-     feedState: FeedState? = null,
-     postPreferences: me.foxtails.palustris.domain.PostPreferences = me.foxtails.palustris.domain.PostPreferences(),
+     home: HomeContract? = null,
      contentWarningRules: me.foxtails.palustris.domain.ContentWarningRules = me.foxtails.palustris.domain.ContentWarningRules(),
     photoGrid: PhotoGridContract = PhotoGridContract.Empty,
     profile: ProfileContract = ProfileContract.Empty,
-    onRefresh: (Timeline) -> Unit = {},
-    onLoadMore: (Timeline) -> Unit = {},
     accountSwitcher: AccountSwitcher = AccountSwitcher.Empty,
-    onPublish: (CreatePostRequest, (OwnedPost) -> Unit) -> Unit = { _, _ -> },
+    composer: ComposerContract = ComposerContract.Empty,
+    search: SearchContract = SearchContract.Empty,
+    postInteractions: PostInteractions = PostInteractions.Empty,
     thread: ThreadContract = ThreadContract.Empty,
-    onSearchAccounts: (String) -> Unit = {},
-    onLoadMoreSearch: () -> Unit = {},
     draftStore: DraftStore? = null,
-    onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
-    onReshare: (OwnedPost) -> Unit = {},
-    onBookmark: (OwnedPost) -> Unit = {},
-    onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
     bookmarks: BookmarksContract = BookmarksContract.Empty,
     likes: LikesContract = LikesContract.Empty,
@@ -199,6 +196,13 @@ fun PalustrisApp(
     val context = LocalContext.current
     val replySentMessage = stringResource(R.string.reply_sent)
     val quoteSentMessage = stringResource(R.string.quote_sent)
+    val onReact = postInteractions.actions::favorite
+    val onReshare = postInteractions.actions::repost
+    val onBookmark = postInteractions.actions::bookmark
+    val onReaction = postInteractions.actions::react
+    val postPreferences = composer.postPreferences
+    val availableActions = postInteractions.availableActions
+    val quoteEnabled = postInteractions.quoteEnabled
     val store = draftStore ?: remember { PreferencesDraftStore(context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)) }
     var destination by rememberSaveable { mutableStateOf(Destination.Home) }
     var destinationTransitionDirection by rememberSaveable { mutableIntStateOf(0) }
@@ -257,11 +261,11 @@ fun PalustrisApp(
         else -> null
     }
     val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog || mediaRequest != null || profileImageRequest != null || singlePost != null || emojiPickerTarget != null
-    val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
+    val availableTimelines = if (account == null) Timeline.entries.toSet() else home?.state?.availableTimelines ?: setOf(Timeline.Home)
     val profileTargetId = viewedProfile?.id ?: account?.id
     val refreshedProfile = profile.state.account?.takeIf { it.id == profileTargetId }
     val displayedProfile = refreshedProfile ?: viewedProfile ?: account
-    val savedKind = bookmarks.state?.kind ?: feedState?.savedPosts?.kind
+    val savedKind = bookmarks.state?.kind
     val savedTitle = savedCollectionTitle(savedKind)
     val notificationAccountIdentity = account?.id?.let { "${it.connection.origin}\u0000${it.localId}" } ?: "preview"
     val hasDraftChanges = draft != savedDraft ||
@@ -310,7 +314,7 @@ fun PalustrisApp(
         }
     }
     LaunchedEffect(availableTimelines) { if (timeline !in availableTimelines) timeline = Timeline.Home }
-    LaunchedEffect(feedState?.timeline, account?.id) { feedState?.timeline?.let { timeline = it } }
+    LaunchedEffect(home?.state?.selectedTimeline, account?.id) { home?.state?.selectedTimeline?.let { timeline = it } }
     LaunchedEffect(destination, page, overlayKey) { navigationVisible = true }
     LaunchedEffect(account?.id) {
         mediaTransitionRegistry.endActive()
@@ -424,7 +428,7 @@ fun PalustrisApp(
             composerAudience = runCatching {
                 me.foxtails.palustris.domain.PostingVisibilityPolicy.forNewPost(
                     postPreferences,
-                    ServerCapabilities(audiences = feedState?.audiences.orEmpty()),
+                    ServerCapabilities(audiences = composer.availableAudiences),
                 )
             }.getOrDefault(postPreferences.defaultAudience)
             savedAudience = composerAudience
@@ -434,7 +438,7 @@ fun PalustrisApp(
 
     fun openQuote(target: OwnedPost) {
         val owner = account ?: return
-        if (target.fetchedBy != owner.id || feedState?.quoteStatus != CapabilityStatus.Supported) return
+        if (target.fetchedBy != owner.id || !quoteEnabled) return
         if (overlay != null || hasDraftChanges) return
         clearPostActionBubble()
         draftId = null
@@ -446,7 +450,7 @@ fun PalustrisApp(
         composerAudience = runCatching {
             me.foxtails.palustris.domain.PostingVisibilityPolicy.forReply(
                 postPreferences,
-                ServerCapabilities(audiences = feedState?.audiences.orEmpty()),
+                ServerCapabilities(audiences = composer.availableAudiences),
                 context = target.post.audience,
             )
         }.getOrDefault(target.post.audience)
@@ -462,7 +466,7 @@ fun PalustrisApp(
 
     fun openReply(target: OwnedPost) {
         val owner = account ?: return
-        if (target.fetchedBy != owner.id || PostAction.Reply !in (feedState?.actions ?: emptySet())) return
+        if (target.fetchedBy != owner.id || PostAction.Reply !in availableActions) return
         if (overlay != null || hasDraftChanges) return
         clearPostActionBubble()
         draftId = null
@@ -474,7 +478,7 @@ fun PalustrisApp(
         composerAudience = runCatching {
             me.foxtails.palustris.domain.PostingVisibilityPolicy.forReply(
                 postPreferences,
-                ServerCapabilities(audiences = feedState?.audiences.orEmpty()),
+                ServerCapabilities(audiences = composer.availableAudiences),
                 context = target.post.audience,
             )
         }.getOrDefault(target.post.audience)
@@ -530,7 +534,7 @@ fun PalustrisApp(
             closing = false
         }
     }
-    fun closeComposer() { if (feedState?.publishing == true || closing) return; if (hasDraftChanges) saveCurrentDraft { overlayKey = null } else overlayKey = null }
+    fun closeComposer() { if (composer.publishing || closing) return; if (hasDraftChanges) saveCurrentDraft { overlayKey = null } else overlayKey = null }
     fun discardProfileEditor() {
         profileEditor = null
         overlayKey = null
@@ -659,7 +663,7 @@ fun PalustrisApp(
         destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Search.ordinal, motionScheme.reducedMotion)
         destination = Destination.Search
         page = null
-        onSearchAccounts(hashtag)
+        search.actions.search(hashtag)
     }
 
     fun openAccountSearch(username: String) {
@@ -671,7 +675,7 @@ fun PalustrisApp(
         destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Search.ordinal, motionScheme.reducedMotion)
         destination = Destination.Search
         page = null
-        onSearchAccounts(username)
+        search.actions.search(username)
     }
 
     fun openMedia(request: MediaOpenRequest) {
@@ -700,7 +704,7 @@ fun PalustrisApp(
 
     fun latestSelectedPost(): OwnedPost? {
         val selected = singlePost ?: return null
-        val candidates = feedState?.ownedPosts.orEmpty() +
+        val candidates = home?.state?.ownedPosts.orEmpty() +
             photoGrid.state.posts +
             bookmarks.state?.posts.orEmpty() +
             likes.state?.posts.orEmpty() +
@@ -794,14 +798,14 @@ fun PalustrisApp(
                                  onOpenTarget = (notificationRoute as? AppRoute.Profile)?.let { route ->
                                       { openNotificationTarget(route) }
                                   },
-                                 availableActions = feedState?.actions ?: emptySet(),
+                                 availableActions = availableActions,
                                  onReact = onReact,
                                  onReply = handleReply,
                                  onReshare = onReshare,
                                  onBookmark = onBookmark,
                                  onReaction = onReaction,
                                  onQuote = ::openQuote,
-                                 quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
+                                 quoteEnabled = quoteEnabled,
                                   onOpenReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onReaction) },
                                   sessionRevision = sessionRevision,
                                  largeLayout = largePresentation,
@@ -837,17 +841,19 @@ fun PalustrisApp(
                                  onSearchHashtag = ::openHashtagSearch,
                                  onOpenHashtagBubble = ::openHashtagBubble,
                                  onOpenUsername = ::openAccountSearch,
-                                 availableActions = feedState?.actions ?: emptySet(),
+                                 availableActions = availableActions,
                                  largeLayout = largePresentation,
                              )
                          } else when (animatedDestination) {
-                                      Destination.Home -> if (feedState != null) AppHomeDestinationContent(
-                                          state = feedState,
+                                      Destination.Home -> if (home != null) AppHomeDestinationContent(
+                                          state = home.state,
                                           compactLayout = !largePresentation,
-                                          onRefresh = { onRefresh(timeline) },
-                                          onLoadMore = { onLoadMore(timeline) },
+                                          onRefresh = { home.actions.refresh(timeline) },
+                                          onLoadMore = { home.actions.loadMore(timeline) },
                                           onSignIn = accountSwitcher.actions::signOut,
-                                          ownedPosts = feedState.ownedPosts,
+                                          ownedPosts = home.state.ownedPosts,
+                                          availableActions = availableActions,
+                                          quoteEnabled = quoteEnabled,
                                           onScrollDirectionChanged = { if (destination == Destination.Home && animatedDestination == Destination.Home) navigationVisible = it },
                                           onReact = onReact,
                                           onReply = handleReply,
@@ -872,7 +878,7 @@ fun PalustrisApp(
                                             val changed = item != timeline
                                             if (changed) clearSelectedPost()
                                             timeline = item
-                                            if (changed) onRefresh(item)
+                                            if (changed) home.actions.refresh(item)
                                        }
                                      }) else null,
                                           contentWarningRules = contentWarningRules,
@@ -884,7 +890,7 @@ fun PalustrisApp(
                                                     val changed = item != timeline
                                                     if (changed) clearSelectedPost()
                                                     timeline = item
-                                                    if (changed) onRefresh(item)
+                                                    if (changed && home != null) home.actions.refresh(item)
                                                }
                                            })
                                        }
@@ -895,10 +901,10 @@ fun PalustrisApp(
                                    ) { panel ->
                                        when (panel) {
                                             SearchPanel.Search -> AppSearchDestinationContent(
-                                               accountSearch = feedState?.accountSearch ?: AccountSearchState(),
-                                               onSearchAccounts = onSearchAccounts,
+                                               accountSearch = search.state,
+                                               onSearchAccounts = search.actions::search,
                                                onAccountClick = ::openProfile,
-                                               availableActions = feedState?.actions ?: emptySet(),
+                                               availableActions = availableActions,
                                                onReact = onReact,
                                                onReply = handleReply,
                                                onReshare = onReshare,
@@ -908,11 +914,11 @@ fun PalustrisApp(
                                                     openReactionBubble(ownedPost, bounds, onReaction)
                                                 },
                                                 onOpenReactionPicker = ::expandReactionPicker,
-                                               quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
+                                               quoteEnabled = quoteEnabled,
                                                onQuote = ::openQuote,
                                                onSearchHashtag = ::openHashtagSearch,
                                                onOpenHashtagBubble = ::openHashtagBubble,
-                                               onLoadMoreSearch = onLoadMoreSearch,
+                                               onLoadMoreSearch = search.actions::loadMore,
                                                initialQuery = searchPrefill,
                                                sharedQuery = searchQuery,
                                                sharedTab = searchCategory,
@@ -1011,7 +1017,7 @@ fun PalustrisApp(
                      onOpenProfile = ::openProfile,
                      onSearchHashtag = ::openHashtagSearch,
                      onOpenHashtagBubble = ::openHashtagBubble,
-                     availableActions = feedState?.actions ?: emptySet(),
+                     availableActions = availableActions,
                      onReact = onReact,
                      onReply = handleReply,
                      onReshare = onReshare,
@@ -1024,7 +1030,7 @@ fun PalustrisApp(
                      onOpenMedia = ::openMedia,
                       onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
                       onOpenUsername = ::openAccountSearch,
-                      quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
+                      quoteEnabled = quoteEnabled,
                       onQuote = ::openQuote,
                   )
                                }
@@ -1057,7 +1063,7 @@ fun PalustrisApp(
                              AppLargeDetailPane(
                                  selected = selectedThreadState?.focal ?: latestSelectedPost(),
                                  origin = singlePostOrigin,
-                                 availableActions = feedState?.actions ?: emptySet(),
+                                 availableActions = availableActions,
                                  threadState = selectedThreadState,
                                  onClose = { singlePost = null },
                                  onReact = if (threadEnabled) thread.actions::favorite else if (singlePostOrigin == LargePostOrigin.Liked) likes.actions::toggle else onReact,
@@ -1074,7 +1080,7 @@ fun PalustrisApp(
                                  onThreadRefresh = thread.actions::refresh,
                                  onThreadContinue = thread.actions::continueAcquisition,
                                  contentWarningRules = contentWarningRules,
-                                 quoteEnabled = feedState?.quoteStatus == CapabilityStatus.Supported,
+                                 quoteEnabled = quoteEnabled,
                                  onQuote = ::openQuote,
                                  modifier = paneModifier,
                              )
@@ -1109,7 +1115,7 @@ fun PalustrisApp(
                                               clearPostActionBubble()
                                               val changed = item != timeline
                                               timeline = item
-                                              if (changed) onRefresh(item)
+                                              if (changed) home?.actions?.refresh(item)
                                           },
                                       )
                                       Spacer(Modifier.height(movedCompactHomeTimelineSpacing))
@@ -1220,7 +1226,7 @@ fun PalustrisApp(
                       ownedPost = post,
                       presentation = singlePostOrigin.singlePostPresentation(),
                       onClose = { singlePost = null },
-                      availableActions = (feedState?.actions ?: emptySet()) +
+                      availableActions = availableActions +
                            if (singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
                        onReact = if (selectedThreadState != null && singlePostOrigin.supportsComments()) thread.actions::favorite else if (singlePostOrigin == LargePostOrigin.Liked) likes.actions::toggle else onReact,
                       onReply = handleReply,
@@ -1283,11 +1289,11 @@ fun PalustrisApp(
             onWarningEnabled = { warningEnabled = it },
             account = account,
             audience = composerAudience,
-            availableAudiences = feedState?.audiences ?: emptySet(),
+            availableAudiences = composer.availableAudiences,
             onAudienceChange = { composerAudience = it },
-            canPublish = feedState?.canPublish == true && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id),
-            publishing = feedState?.publishing == true,
-            error = feedState?.error ?: draftError,
+            canPublish = composer.canPublish && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id),
+            publishing = composer.publishing,
+            error = composer.error ?: draftError,
             quoteTarget = composerTarget,
             isReply = composerReplyTo != null,
             onRemoveQuote = { composerTarget = null; composerQuoteOf = null; composerReplyTo = null },
@@ -1300,7 +1306,7 @@ fun PalustrisApp(
                 val submittedWarning = warning.takeIf { warningEnabled && it.isNotBlank() }
                 val submittedQuote = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
                 val submittedReply = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
-                val knownAudiences = feedState?.audiences.orEmpty()
+                val knownAudiences = composer.availableAudiences
                 val submittedAudience = if (knownAudiences.isEmpty()) composerAudience else runCatching {
                     me.foxtails.palustris.domain.PostingVisibilityPolicy.validateExplicit(composerAudience, ServerCapabilities(audiences = knownAudiences))
                 }.getOrNull()
@@ -1313,7 +1319,7 @@ fun PalustrisApp(
                             draftId = saved.id
                             savedDraft = saved.text
                             savedWarning = saved.contentWarning.orEmpty()
-                             onPublish(CreatePostRequest(submittedText, audience = submittedAudience, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) {
+                             composer.actions.publish(CreatePostRequest(submittedText, audience = submittedAudience, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) {
                                  scope.launch { store.delete(publishingAccountId, saved.id); reloadDrafts() }
                                  val message = when {
                                      submittedReply != null -> replySentMessage

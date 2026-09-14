@@ -49,6 +49,7 @@ import me.foxtails.palustris.domain.ContentWarningRules
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
+import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.layout.LegacyFeedBottomClearance
 import me.foxtails.palustris.ui.layout.compactHomeScrollEndClearance
 import me.foxtails.palustris.ui.large.LargeBottomDock
@@ -58,12 +59,14 @@ import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 
 @Composable
 fun HomeFeed(
-    state: FeedState,
+    state: HomeFeedUiState,
     compactLayout: Boolean = true,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onSignIn: () -> Unit,
     ownedPosts: List<OwnedPost> = state.ownedPosts,
+    availableActions: Set<PostAction> = emptySet(),
+    quoteEnabled: Boolean = false,
     onScrollDirectionChanged: (Boolean) -> Unit = {},
     onReact: (OwnedPost) -> Unit = {},
     onReply: (OwnedPost) -> Unit = {},
@@ -155,10 +158,10 @@ fun HomeFeed(
                         }
                     }
                     if (state.posts.isEmpty() && !state.loading && state.error == null) item { Box(Modifier.fillParentMaxSize()) { EmptyState(AppIcons.Home, stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_subtitle)) } }
-                    val enabledActions = if (hasOwnership) state.actions.intersect(ClientReadyPostActions) else emptySet()
+                    val enabledActions = if (hasOwnership) availableActions.intersect(ClientReadyPostActions) else emptySet()
                     items(visibleRows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
                         Column(Modifier.animateItem(fadeInSpec = scheme.fastFadeIn, fadeOutSpec = scheme.fastFadeOut, placementSpec = scheme.gentleOffset)) {
-                            PostRow(ownedPost, enabledActions, onReact, onReply, onReshare, onBookmark, onReaction, onOpenProfile, onSearchHashtag, onOpenHashtagBubble = openHashtagBubble, quoteEnabled = state.quoteStatus == me.foxtails.palustris.domain.CapabilityStatus.Supported, onQuote = onQuote, onOpenReactionBubble = openReactionBubble, onOpenReactionPicker = onOpenReactionPicker, onOpenMedia = onOpenMedia, onOpenPost = onOpenPost, largeLayout = !compactLayout, onOpenUrl = onOpenUrl, onOpenUsername = onOpenUsername, contentWarningRules = contentWarningRules)
+                            PostRow(ownedPost, enabledActions, onReact, onReply, onReshare, onBookmark, onReaction, onOpenProfile, onSearchHashtag, onOpenHashtagBubble = openHashtagBubble, quoteEnabled = quoteEnabled, onQuote = onQuote, onOpenReactionBubble = openReactionBubble, onOpenReactionPicker = onOpenReactionPicker, onOpenMedia = onOpenMedia, onOpenPost = onOpenPost, largeLayout = !compactLayout, onOpenUrl = onOpenUrl, onOpenUsername = onOpenUsername, contentWarningRules = contentWarningRules)
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                         }
                     }

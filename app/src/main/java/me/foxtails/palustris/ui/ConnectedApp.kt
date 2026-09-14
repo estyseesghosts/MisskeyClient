@@ -42,6 +42,8 @@ import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.EmojiCapabilities
+import me.foxtails.palustris.domain.CapabilityStatus
+import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.Notification
@@ -72,14 +74,19 @@ import me.foxtails.palustris.ui.posts.LocalPostActionOwner
 import me.foxtails.palustris.ui.posts.PostActionOwner
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
+import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.DirectMessagesContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
+import me.foxtails.palustris.ui.shell.HomeContract
+import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.PhotoGridContract
-import me.foxtails.palustris.ui.shell.ProfileContract
+import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
+import me.foxtails.palustris.ui.shell.ProfileContract
+import me.foxtails.palustris.ui.shell.SearchContract
 import me.foxtails.palustris.ui.shell.ThreadContract
 import me.foxtails.palustris.ui.settings.ModerationViewModel
 import me.foxtails.palustris.ui.settings.ModerationKind
@@ -245,6 +252,52 @@ fun ConnectedApp(
     }
     val feed by if (feedModel != null) feedModel.feed.collectAsStateWithLifecycle()
     else remember { mutableStateOf(FeedState()) }
+    val homeActions = remember(feedModel) {
+        object : HomeContract.Actions {
+            override fun refresh(timeline: Timeline) { feedModel?.refresh(timeline) }
+            override fun loadMore(timeline: Timeline) { feedModel?.loadMore(timeline) }
+        }
+    }
+    val home = remember(feed, homeActions) {
+        HomeContract(
+            state = HomeFeedUiState(
+                ownedPosts = feed.ownedPosts,
+                posts = feed.posts,
+                loading = feed.loading,
+                loadingMore = feed.loadingMore,
+                nextCursor = feed.nextCursor,
+                error = feed.error,
+                needsSignIn = feed.needsSignIn,
+                selectedTimeline = feed.timeline,
+                availableTimelines = feed.timelines,
+            ),
+            actions = homeActions,
+        )
+    }
+    val searchActions = remember(feedModel) {
+        object : SearchContract.Actions {
+            override fun search(query: String) { feedModel?.search(query) }
+            override fun loadMore() { feedModel?.loadMoreSearch() }
+        }
+    }
+    val search = remember(feed.accountSearch, searchActions) {
+        SearchContract(state = feed.accountSearch, actions = searchActions)
+    }
+    val postInteractionsActions = remember(feedModel) {
+        object : PostInteractions.Actions {
+            override fun favorite(post: OwnedPost) { feedModel?.favorite(post) }
+            override fun repost(post: OwnedPost) { feedModel?.reshare(post) }
+            override fun bookmark(post: OwnedPost) { feedModel?.bookmark(post) }
+            override fun react(post: OwnedPost, choice: EmojiChoice) { feedModel?.react(post, choice) }
+        }
+    }
+    val postInteractions = remember(feed.actions, feed.quoteStatus, postInteractionsActions) {
+        PostInteractions(
+            availableActions = feed.actions,
+            quoteEnabled = feed.quoteStatus == CapabilityStatus.Supported,
+            actions = postInteractionsActions,
+        )
+    }
     val photoGridFeed by if (feedModel != null) feedModel.photoGridFeed.collectAsStateWithLifecycle()
     else remember { mutableStateOf(PhotoGridFeedState()) }
     val photoGridActions = remember(feedModel) {
@@ -563,6 +616,27 @@ fun ConnectedApp(
             )
         }
     }
+    val composerActions = remember(feedModel, feedSink, projectionCoordinator) {
+        object : ComposerContract.Actions {
+            override fun publish(request: CreatePostRequest, onAccepted: (OwnedPost) -> Unit) {
+                feedModel?.create(request) { created ->
+                    feedModel?.applyPublishedPost(request)
+                    feedSink?.let { projectionCoordinator.forwardPublishedPost(it, request, created) }
+                    onAccepted(created)
+                }
+            }
+        }
+    }
+    val composer = remember(postPreferences, feed.audiences, feed.canPublish, feed.publishing, feed.error, composerActions) {
+        ComposerContract(
+            postPreferences = postPreferences,
+            availableAudiences = feed.audiences,
+            canPublish = feed.canPublish,
+            publishing = feed.publishing,
+            error = feed.error,
+            actions = composerActions,
+        )
+    }
     val motionScheme = palustrisMotionScheme()
     val topLevelScreen = when {
         state.starting || !appPreferences.loaded -> "startup"
@@ -608,28 +682,15 @@ fun ConnectedApp(
                   account = state.account,
                   sessionGeneration = state.sessionGeneration,
                   sessionRevision = activeSession?.sessionRevision ?: 0L,
-                 feedState = feed,
-                  postPreferences = postPreferences,
+                 home = home,
                   contentWarningRules = appPreferences.preferences.contentWarningRules.merge(postPreferences.contentWarningRules),
                  photoGrid = photoGrid,
-                 onRefresh = { timeline -> feedModel?.refresh(timeline) },
-                 onLoadMore = { timeline -> feedModel?.loadMore(timeline) },
                 accountSwitcher = accountSwitcher,
-                onPublish = { request, onSuccess ->
-                      feedModel?.create(request) { created ->
-                          feedModel?.applyPublishedPost(request)
-                          feedSink?.let { projectionCoordinator.forwardPublishedPost(it, request, created) }
-                          onSuccess(created)
-                      }
-                  },
+                composer = composer,
                  thread = thread,
-                 onSearchAccounts = feedModel?.let { model -> { query -> model.search(query) } } ?: {},
-                onLoadMoreSearch = feedModel?.let { model -> { model.loadMoreSearch() } } ?: {},
+                search = search,
                 draftStore = draftStore,
-                onReact = { ownedPost -> feedModel?.favorite(ownedPost) },
-                onReshare = { ownedPost -> feedModel?.reshare(ownedPost) },
-                onBookmark = { ownedPost -> feedModel?.bookmark(ownedPost) },
-                onReaction = { ownedPost, emoji -> feedModel?.react(ownedPost, emoji) },
+                postInteractions = postInteractions,
                 bookmarks = bookmarks,
                 likes = likes,
                 notifications = notifications,
