@@ -36,3 +36,12 @@ The planned files are listed in `docs/0.2.2.cont.md`. The implementation will ad
 - Replaced the emoji pin confirmation row with one full-size pill.
 - Kept the existing pin and unpin callback path.
 - Focused tests passed: `PillActionTest`, `EmojiPickerTest`, `PostRepostConfirmationOwnerTest`, and `ReactionPickerGestureTest`.
+
+## Slice 2 result
+
+- Added normal and problem states to the existing anchored user-action card.
+- Added half-width follow/message controls and two-column moderation controls.
+- Kept the existing relationship, report, share, and direct-message callbacks.
+- Added presentation-only short handles for action labels.
+- Allowed complete federated profile handles to wrap.
+- Focused tests passed: `PostShareSheetTest` and `ProfileScreenTest`.

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import me.foxtails.palustris.MainActivity
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -46,15 +47,19 @@ class PostShareSheetTest {
         compose.onNodeWithTag("post_share_sheet").assertIsDisplayed()
         compose.onNodeWithTag("post_share_card").assertIsDisplayed()
         compose.onNodeWithTag("post_share_follow").assertIsDisplayed()
+        compose.onNodeWithTag("post_share_message").assertIsDisplayed()
+        compose.onNodeWithTag("post_share_problem_heading").assertIsDisplayed().performClick()
         compose.onNodeWithTag("post_share_block").assertIsDisplayed()
         compose.onNodeWithTag("post_share_mute").assertIsDisplayed()
         compose.onNodeWithTag("post_share_report").assertIsDisplayed()
+        compose.onNodeWithTag("post_share_problem_cancel").assertIsDisplayed()
         compose.onNodeWithTag("post_share_bottom").assertIsDisplayed()
         compose.onNodeWithTag("post_share_pm").assertIsDisplayed()
         compose.onNodeWithTag("post_share_copy").assertIsDisplayed()
         compose.onNodeWithTag("post_share_system").assertIsDisplayed()
         compose.onNodeWithText("Copy").assertIsDisplayed()
         compose.onNodeWithText("Share").assertIsDisplayed()
+        compose.onNodeWithText("share").assertIsDisplayed()
         compose.onNodeWithText("Copy link").assertDoesNotExist()
         compose.onNodeWithText("Share with another app").assertDoesNotExist()
         compose.onAllNodesWithText("Share post").assertCountEquals(0)

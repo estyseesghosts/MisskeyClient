@@ -593,3 +593,5 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 
 - Slice 1 implemented shared bubble geometry and the compact emoji pin confirmation.
 - Verification passed with focused `PillActionTest`, `EmojiPickerTest`, `PostRepostConfirmationOwnerTest`, and `ReactionPickerGestureTest`.
+- Slice 2 implemented normal/problem user-action card states and full profile handles.
+- Verification passed with focused `PostShareSheetTest` and `ProfileScreenTest`.

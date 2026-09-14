@@ -50,6 +50,8 @@ import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.BubblePlacement
 import me.foxtails.palustris.ui.WindowAnchorPositionProvider
 import me.foxtails.palustris.ui.components.PillAction
+import me.foxtails.palustris.ui.components.BeelineCardShape
+import me.foxtails.palustris.ui.components.BeelineNestedSurfaceShape
 import me.foxtails.palustris.ui.links.ExternalLinkHandler
 
 @Composable
@@ -126,10 +128,11 @@ private fun ShareActionCard(
     onCopyLink: () -> Unit,
     onShare: () -> Unit,
 ) {
-    var reportOpen by remember(target.post.id) { mutableStateOf(false) }
-    var comment by remember(target.post.id) { mutableStateOf("") }
-    var blockConfirmation by remember(target.post.id) { mutableStateOf(false) }
-    val handle = target.author.handle
+    var reportOpen by remember(target.post.id, target.ownerAccountId, target.sessionRevision) { mutableStateOf(false) }
+    var problemOpen by remember(target.post.id, target.ownerAccountId, target.sessionRevision) { mutableStateOf(false) }
+    var comment by remember(target.post.id, target.ownerAccountId, target.sessionRevision) { mutableStateOf("") }
+    var blockConfirmation by remember(target.post.id, target.ownerAccountId, target.sessionRevision) { mutableStateOf(false) }
+    val handle = shortActionHandle(target.author.handle)
     val self = target.author.id == target.ownerAccountId
     val current = relationship.relationship
     val relationshipLoading = relationship.loading || relationship.mutation != null
@@ -144,7 +147,7 @@ private fun ShareActionCard(
                 .widthIn(min = cardMinWidth, max = cardMaxWidth)
                 .testTag("post_share_sheet")
                 .semantics { contentDescription = cardDescription },
-            shape = RoundedCornerShape(24.dp),
+            shape = BeelineCardShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
@@ -164,60 +167,103 @@ private fun ShareActionCard(
                     onSubmit = { onSubmitReport(comment) },
                 )
             } else {
-                RelationshipAction(
-                    tag = "post_share_follow",
-                    label = when {
-                        current?.requested == true -> stringResource(R.string.post_share_requested)
-                        current?.following == true -> stringResource(R.string.post_share_unfollow)
-                        else -> stringResource(R.string.post_share_follow)
-                    },
+                ProblemHeading(
                     handle = handle,
-                    enabled = !self && !relationshipLoading && current?.requested != true && current != null,
-                    loading = relationship.mutation == RelationshipMutation.Follow || relationship.mutation == RelationshipMutation.Unfollow,
                     onClick = {
-                        onRelationshipAction(
-                            if (current?.following == true) RelationshipMutation.Unfollow else RelationshipMutation.Follow,
+                        problemOpen = !problemOpen
+                        blockConfirmation = false
+                    },
+                )
+                if (problemOpen) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        RelationshipAction(
+                            tag = "post_share_block",
+                            label = when {
+                                current?.blocking == true -> stringResource(R.string.post_share_unblock_with_handle, handle)
+                                blockConfirmation -> stringResource(R.string.post_share_confirm_block_with_handle, handle)
+                                else -> stringResource(R.string.post_share_block_with_handle, handle)
+                            },
+                            handle = handle,
+                            modifier = Modifier.weight(1f),
+                            enabled = !self && !relationshipLoading && current != null,
+                            loading = relationship.mutation == RelationshipMutation.Block || relationship.mutation == RelationshipMutation.Unblock,
+                            onClick = {
+                                if (current?.blocking == true) {
+                                    onRelationshipAction(RelationshipMutation.Unblock)
+                                } else if (blockConfirmation) {
+                                    blockConfirmation = false
+                                    onRelationshipAction(RelationshipMutation.Block)
+                                } else {
+                                    blockConfirmation = true
+                                }
+                            },
                         )
-                    },
-                )
-                RelationshipAction(
-                    tag = "post_share_block",
-                    label = when {
-                        current?.blocking == true -> stringResource(R.string.post_share_unblock)
-                        blockConfirmation -> stringResource(R.string.post_share_confirm_block)
-                        else -> stringResource(R.string.post_share_block)
-                    },
-                    handle = handle,
-                    enabled = !self && !relationshipLoading && current != null,
-                    loading = relationship.mutation == RelationshipMutation.Block || relationship.mutation == RelationshipMutation.Unblock,
-                    onClick = {
-                        if (current?.blocking == true) {
-                            onRelationshipAction(RelationshipMutation.Unblock)
-                        } else if (blockConfirmation) {
-                            blockConfirmation = false
-                            onRelationshipAction(RelationshipMutation.Block)
-                        } else {
-                            blockConfirmation = true
-                        }
-                    },
-                )
-                RelationshipAction(
-                    tag = "post_share_mute",
-                    label = if (current?.muting == true) stringResource(R.string.post_share_unmute) else stringResource(R.string.post_share_mute),
-                    handle = handle,
-                    enabled = !self && !relationshipLoading && current != null,
-                    loading = relationship.mutation == RelationshipMutation.Mute || relationship.mutation == RelationshipMutation.Unmute,
-                    onClick = {
-                        onRelationshipAction(if (current?.muting == true) RelationshipMutation.Unmute else RelationshipMutation.Mute)
-                    },
-                )
-                RelationshipAction(
-                    tag = "post_share_report",
-                    label = stringResource(R.string.post_share_report),
-                    handle = handle,
-                    enabled = !self && !relationshipLoading,
-                    onClick = { reportOpen = true },
-                )
+                        RelationshipAction(
+                            tag = "post_share_mute",
+                            label = if (current?.muting == true) {
+                                stringResource(R.string.post_share_unmute_with_handle, handle)
+                            } else {
+                                stringResource(R.string.post_share_mute_with_handle, handle)
+                            },
+                            handle = handle,
+                            modifier = Modifier.weight(1f),
+                            enabled = !self && !relationshipLoading && current != null,
+                            loading = relationship.mutation == RelationshipMutation.Mute || relationship.mutation == RelationshipMutation.Unmute,
+                            onClick = {
+                                onRelationshipAction(if (current?.muting == true) RelationshipMutation.Unmute else RelationshipMutation.Mute)
+                            },
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        RelationshipAction(
+                            tag = "post_share_report",
+                            label = stringResource(R.string.post_share_report_with_handle, handle),
+                            handle = handle,
+                            modifier = Modifier.weight(1f),
+                            enabled = !self && !relationshipLoading,
+                            onClick = { reportOpen = true },
+                        )
+                        RelationshipAction(
+                            tag = "post_share_problem_cancel",
+                            label = stringResource(R.string.post_share_problem_cancel),
+                            handle = handle,
+                            modifier = Modifier.weight(1f),
+                            enabled = true,
+                            onClick = {
+                                problemOpen = false
+                                blockConfirmation = false
+                            },
+                        )
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        RelationshipAction(
+                            tag = "post_share_follow",
+                            label = when {
+                                current?.requested == true -> stringResource(R.string.post_share_requested)
+                                current?.following == true -> stringResource(R.string.post_share_unfollow_with_handle, handle)
+                                else -> stringResource(R.string.post_share_follow_with_handle, handle)
+                            },
+                            handle = handle,
+                            modifier = Modifier.weight(1f),
+                            enabled = !self && !relationshipLoading && current?.requested != true && current != null,
+                            loading = relationship.mutation == RelationshipMutation.Follow || relationship.mutation == RelationshipMutation.Unfollow,
+                            onClick = {
+                                onRelationshipAction(
+                                    if (current?.following == true) RelationshipMutation.Unfollow else RelationshipMutation.Follow,
+                                )
+                            },
+                        )
+                        RelationshipAction(
+                            tag = "post_share_message",
+                            label = stringResource(R.string.post_share_message_with_handle, handle),
+                            handle = handle,
+                            modifier = Modifier.weight(1f),
+                            enabled = true,
+                            onClick = onOpenDirectMessage,
+                        )
+                    }
+                }
             }
             if (!reportOpen) {
                 Spacer(Modifier.height(6.dp))
@@ -243,6 +289,7 @@ private fun RelationshipAction(
     tag: String,
     label: String,
     handle: String,
+    modifier: Modifier = Modifier,
     enabled: Boolean,
     loading: Boolean = false,
     onClick: () -> Unit,
@@ -252,9 +299,27 @@ private fun RelationshipAction(
         onClick = onClick,
         enabled = enabled,
         loading = loading,
-        modifier = Modifier.fillMaxWidth().testTag(tag),
-        contentDescription = "$label $handle",
+        modifier = modifier.fillMaxWidth().testTag(tag),
+        contentDescription = label,
         fillContent = true,
+    )
+}
+
+@Composable
+private fun ProblemHeading(handle: String, onClick: () -> Unit) {
+    val label = stringResource(R.string.post_share_problem_heading, handle)
+    Text(
+        text = label,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics {
+                contentDescription = label
+                role = Role.Button
+            }
+            .testTag("post_share_problem_heading"),
+        style = MaterialTheme.typography.labelLarge,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
     )
 }
 
@@ -268,16 +333,29 @@ private fun BottomShareActions(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("post_share_bottom"),
-        shape = RoundedCornerShape(18.dp),
+        shape = BeelineNestedSurfaceShape,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-            ShareCell(AppIcons.Chat, stringResource(R.string.post_share_pm), enabled, onOpenDirectMessage, Modifier.weight(1f).testTag("post_share_pm"))
-            ShareCell(AppIcons.Link, stringResource(R.string.post_share_copy_link), enabled && hasLink, onCopyLink, Modifier.weight(1f).testTag("post_share_copy"))
-            ShareCell(AppIcons.Share, stringResource(R.string.post_share_system), enabled, onShare, Modifier.weight(1f).testTag("post_share_system"))
+        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp)) {
+            Text(
+                stringResource(R.string.post_share_heading),
+                modifier = Modifier.fillMaxWidth().testTag("post_share_heading"),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                ShareCell(AppIcons.Chat, stringResource(R.string.post_share_pm), enabled, onOpenDirectMessage, Modifier.weight(1f).testTag("post_share_pm"))
+                ShareCell(AppIcons.Link, stringResource(R.string.post_share_copy_link), enabled && hasLink, onCopyLink, Modifier.weight(1f).testTag("post_share_copy"))
+                ShareCell(AppIcons.Share, stringResource(R.string.post_share_system), enabled, onShare, Modifier.weight(1f).testTag("post_share_system"))
+            }
         }
     }
+}
+
+private fun shortActionHandle(handle: String): String {
+    val local = handle.removePrefix("@").substringBefore("@")
+    return "@$local"
 }
 
 @Composable

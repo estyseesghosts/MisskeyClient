@@ -534,8 +534,6 @@ private fun LegacyProfileHeader(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = if (largeSummary) MaterialTheme.typography.bodyMedium
                         else MaterialTheme.typography.bodyLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 if (isSelf && !largeSummary && onEditProfile != null && state.editableSupported) {

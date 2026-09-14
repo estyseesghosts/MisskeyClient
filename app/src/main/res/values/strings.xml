@@ -308,6 +308,10 @@
     <string name="post_share_copy_link">Copy</string>
     <string name="post_share_system">Share</string>
     <string name="post_share_card_description">Actions for %1$s</string>
+    <string name="post_share_problem_heading">have a problem with %1$s?</string>
+    <string name="post_share_follow_with_handle">follow %1$s?</string>
+    <string name="post_share_unfollow_with_handle">unfollow %1$s?</string>
+    <string name="post_share_message_with_handle">message %1$s?</string>
     <string name="post_share_follow">Follow</string>
     <string name="post_share_unfollow">Unfollow</string>
     <string name="post_share_requested">Requested</string>
@@ -317,6 +321,14 @@
     <string name="post_share_mute">Mute</string>
     <string name="post_share_unmute">Unmute</string>
     <string name="post_share_report">Report</string>
+    <string name="post_share_block_with_handle">block %1$s?</string>
+    <string name="post_share_confirm_block_with_handle">confirm block %1$s?</string>
+    <string name="post_share_unblock_with_handle">unblock %1$s?</string>
+    <string name="post_share_mute_with_handle">mute %1$s?</string>
+    <string name="post_share_unmute_with_handle">unmute %1$s?</string>
+    <string name="post_share_report_with_handle">report %1$s?</string>
+    <string name="post_share_problem_cancel">no, it\'s okay</string>
+    <string name="post_share_heading">share</string>
     <string name="post_share_pm">PM</string>
     <string name="post_share_report_title">Report %1$s</string>
     <string name="post_share_submitting">Submitting</string>

@@ -1,5 +1,5 @@
 # Active tasks
 
-- Implement compact user-action card and full profile handles.
+- Implement compact navigation and Home timeline tab chips.
 - Resolve or explicitly accept the connected `SystemBarAppearanceInstrumentedTest` failure.
 - Review the final diff and record release evidence before any explicitly authorized commit.
