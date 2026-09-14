@@ -37,6 +37,12 @@ Read these items at the start of a session, after compaction, and when you are u
 
 Rebuild the TODO list from these items.
 
+## Tooling
+
+- `.opencode/plugins/compaction-state.ts` adds the task-state files to the compaction prompt.
+- `/checkpoint` runs the slice checkpoint order.
+- `/resume` runs the state recovery order.
+
 ## Current tasks
 
 - [App-shell decomposition](tasks/app-shell-decomposition.md)

@@ -171,6 +171,8 @@
 - Rewrite the task-state file at each slice boundary.
 - Do not append to the task-state file.
 - Recover state from files and Git, not from memory.
+- Use `/resume` to recover task state.
+- Use `/checkpoint` at each slice boundary.
 
 ### Task Size Check
 
