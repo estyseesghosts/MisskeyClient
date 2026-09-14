@@ -45,3 +45,5 @@
 260913-200500: The requested server was `dvd.chat`, not `dvd.cafe`. The Misskey account authenticated successfully after correcting the server entry.
 260913-200500: The final local gate passed with `test assembleRelease` and `lint`.
 260913-202500: Connected instrumentation ran on the installed candidate: 10 tests ran, 9 passed, and only `SystemBarAppearanceInstrumentedTest.navigationBarModeUsesBlackViewerAndRestoresThemeAppearance` failed with expected black (`-16777216`) versus observed transparent (`0`). `Api29StartupInstrumentedTest` passed.
+
+260914-022623: Account removal does not delete account-scoped drafts. `AccountManager.removeAccount` removes sessions, post preferences, Photo Grid preferences, direct messages, emoji data, and push state. It does not call `DraftStore.deleteAll`. The encrypted drafts stay in `noBackupFilesDir/drafts` after removal. Source verified from `AccountManager.kt` and `DraftStore.kt`. No failing test exists for this gap.

@@ -46,3 +46,8 @@ Rebuild the TODO list from these items.
 ## Current tasks
 
 - [App-shell decomposition](tasks/app-shell-decomposition.md)
+
+## Pages
+
+- [App shell ownership](app-shell-ownership.md)
+- [Protocol and session ownership](protocol-and-session-ownership.md)
