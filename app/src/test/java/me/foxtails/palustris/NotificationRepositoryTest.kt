@@ -3,11 +3,14 @@ package me.foxtails.palustris
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import me.foxtails.palustris.data.notifications.InMemoryNotificationStore
+import me.foxtails.palustris.data.notifications.NotificationIngestRequest
 import me.foxtails.palustris.data.notifications.NotificationRepository
+import me.foxtails.palustris.data.notifications.NotificationRepositoryState
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.NotificationCursor
 import me.foxtails.palustris.domain.Event
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationAcknowledgement
@@ -49,14 +52,14 @@ class NotificationRepositoryTest {
             unreadState = NotificationUnreadState.Exact(1),
         )
 
-        assertTrue(repository.ingest(token, page))
+        assertTrue(repository.establishBaseline(token, ingestRequest(page), page))
         assertTrue(repository.markSeen(token, notification.id))
         val unreadPage = page.copy(
             items = listOf(notification.copy(
                 readState = notification.readState.copy(status = NotificationReadStatus.Unread),
             )),
         )
-        assertTrue(repository.ingest(token, unreadPage))
+        assertTrue(repository.establishBaseline(token, ingestRequest(unreadPage), unreadPage))
 
         val state = repository.observe(account).value
         assertEquals(1, state.items.size)
@@ -72,7 +75,8 @@ class NotificationRepositoryTest {
         repository.activate(token)
         repository.invalidate(account, token.generation)
 
-        assertFalse(repository.ingest(token, NotificationPage(listOf(notification("late", NotificationActivity.Follow)))))
+        val late = NotificationPage(listOf(notification("late", NotificationActivity.Follow)))
+        assertFalse(repository.establishBaseline(token, ingestRequest(late), late))
         assertTrue(repository.observe(account).value.items.isEmpty())
     }
 
@@ -82,7 +86,8 @@ class NotificationRepositoryTest {
         val token = NotificationSyncToken(account, 1)
         repository.activate(token)
         val item = notification("one", NotificationActivity.Mention)
-        repository.ingest(token, NotificationPage(listOf(item), unreadState = NotificationUnreadState.Exact(1)))
+        val first = NotificationPage(listOf(item), unreadState = NotificationUnreadState.Exact(1))
+        repository.establishBaseline(token, ingestRequest(first), first)
 
         assertTrue(repository.markPresented(token, item.id))
         assertTrue(repository.acknowledge(
@@ -103,7 +108,8 @@ class NotificationRepositoryTest {
         val token = NotificationSyncToken(account, 1)
         repository.activate(token)
         val item = notification("swiped", NotificationActivity.Mention)
-        repository.ingest(token, NotificationPage(listOf(item), unreadState = NotificationUnreadState.Exact(1)))
+        val swiped = NotificationPage(listOf(item), unreadState = NotificationUnreadState.Exact(1))
+        repository.establishBaseline(token, ingestRequest(swiped), swiped)
 
         assertTrue(repository.markAndroidDismissed(account, item.id))
 
@@ -122,7 +128,7 @@ class NotificationRepositoryTest {
         val token = NotificationSyncToken(account, 1)
         first.activate(token)
         val item = notification("dismissed", NotificationActivity.Follow)
-        first.establishBaseline(token, NotificationPage(
+        first.establishBaseline(token, baselineRequest(), NotificationPage(
             items = listOf(item),
             checkpoint = NotificationCheckpoint(account, NotificationQuery()),
         ))
@@ -130,7 +136,7 @@ class NotificationRepositoryTest {
 
         val restarted = NotificationRepository(store)
         restarted.activate(token)
-        restarted.establishBaseline(token, NotificationPage(
+        restarted.establishBaseline(token, baselineRequest(), NotificationPage(
             items = listOf(item),
             checkpoint = NotificationCheckpoint(account, NotificationQuery()),
         ))
@@ -145,7 +151,7 @@ class NotificationRepositoryTest {
         val token = NotificationSyncToken(account, 1)
         val query = NotificationQuery()
         repository.activate(token)
-        repository.establishBaseline(token, NotificationPage(
+        repository.establishBaseline(token, baselineRequest(query), NotificationPage(
             items = listOf(notification("initial", NotificationActivity.Mention)),
             checkpoint = NotificationCheckpoint(
                 account,
@@ -156,7 +162,7 @@ class NotificationRepositoryTest {
             ),
             direction = NotificationPageDirection.Initial,
         ))
-        repository.ingestOlderPage(token, NotificationPage(
+        repository.ingestOlderPage(token, olderRequest(query), NotificationPage(
             items = listOf(notification("older", NotificationActivity.Mention)),
             olderCursor = me.foxtails.palustris.domain.NotificationCursor("oldest-2"),
             checkpoint = NotificationCheckpoint(
@@ -174,7 +180,7 @@ class NotificationRepositoryTest {
         )
         assertEquals("oldest-2", repository.checkpoint(account, query)?.oldest?.value)
 
-        repository.ingestNewerPage(token, NotificationPage(
+        repository.ingestNewerPage(token, newerRequest(query), NotificationPage(
             items = listOf(notification("newer", NotificationActivity.Mention)),
             newerCursor = me.foxtails.palustris.domain.NotificationCursor("newest-2"),
             checkpoint = NotificationCheckpoint(
@@ -198,7 +204,7 @@ class NotificationRepositoryTest {
             readState = me.foxtails.palustris.domain.NotificationReadState(NotificationReadStatus.Read),
         )
         repository.activate(token)
-        repository.establishBaseline(token, NotificationPage(listOf(alreadyRead)))
+        repository.establishBaseline(token, baselineRequest(), NotificationPage(listOf(alreadyRead)))
 
         assertTrue(repository.applyStreamEvent(token, Event(
             account,
@@ -218,12 +224,12 @@ class NotificationRepositoryTest {
         val query = NotificationQuery()
         val baseline = notification("baseline", NotificationActivity.Mention)
         repository.activate(token)
-        repository.establishBaseline(token, NotificationPage(
+        repository.establishBaseline(token, baselineRequest(query), NotificationPage(
             items = listOf(baseline),
             checkpoint = NotificationCheckpoint(account, query),
         ))
 
-        repository.ingestOlderPage(token, NotificationPage(
+        repository.ingestOlderPage(token, olderRequest(query), NotificationPage(
             items = listOf(notification("older", NotificationActivity.Follow)),
             olderCursor = me.foxtails.palustris.domain.NotificationCursor("older-next"),
             checkpoint = NotificationCheckpoint(
@@ -233,7 +239,7 @@ class NotificationRepositoryTest {
             ),
             direction = NotificationPageDirection.Older,
         ))
-        repository.ingestNewerPage(token, NotificationPage(
+        repository.ingestNewerPage(token, newerRequest(query), NotificationPage(
             items = listOf(baseline, notification("newer", NotificationActivity.Reply)),
             newerCursor = me.foxtails.palustris.domain.NotificationCursor("newer-next"),
             checkpoint = NotificationCheckpoint(
@@ -254,11 +260,11 @@ class NotificationRepositoryTest {
         val mentions = NotificationQuery(setOf(me.foxtails.palustris.domain.NotificationCategory.Mentions))
         val social = NotificationQuery(setOf(me.foxtails.palustris.domain.NotificationCategory.Social))
         repository.activate(token)
-        repository.establishBaseline(token, NotificationPage(
+        repository.establishBaseline(token, baselineRequest(mentions), NotificationPage(
             items = listOf(notification("mention", NotificationActivity.Mention)),
             checkpoint = NotificationCheckpoint(account, mentions, oldest = me.foxtails.palustris.domain.NotificationCursor("mentions-old")),
         ))
-        repository.ingestOlderPage(token, NotificationPage(
+        repository.ingestOlderPage(token, olderRequest(social), NotificationPage(
             items = listOf(notification("social", NotificationActivity.Follow)),
             olderCursor = me.foxtails.palustris.domain.NotificationCursor("social-old"),
             checkpoint = NotificationCheckpoint(account, social, oldest = me.foxtails.palustris.domain.NotificationCursor("social-old")),
@@ -277,11 +283,11 @@ class NotificationRepositoryTest {
         val token = NotificationSyncToken(account, 1)
         val query = NotificationQuery()
         repository.activate(token)
-        repository.establishBaseline(token, NotificationPage(
+        repository.establishBaseline(token, baselineRequest(query), NotificationPage(
             items = listOf(notification("baseline", NotificationActivity.Mention)),
             checkpoint = NotificationCheckpoint(account, query, oldest = me.foxtails.palustris.domain.NotificationCursor("old-1")),
         ))
-        repository.ingestOlderPage(token, NotificationPage(
+        repository.ingestOlderPage(token, olderRequest(query), NotificationPage(
             items = listOf(notification("older", NotificationActivity.Mention)),
             olderCursor = me.foxtails.palustris.domain.NotificationCursor("old-2"),
             checkpoint = NotificationCheckpoint(account, query, oldest = me.foxtails.palustris.domain.NotificationCursor("old-2")),
@@ -289,7 +295,7 @@ class NotificationRepositoryTest {
         ))
         assertEquals(NotificationSyncCompleteness.Incomplete, repository.checkpoint(account, query)?.completeness)
 
-        repository.ingestOlderPage(token, NotificationPage(
+        repository.ingestOlderPage(token, olderRequest(query), NotificationPage(
             items = emptyList(),
             checkpoint = NotificationCheckpoint(account, query),
             direction = NotificationPageDirection.Older,
@@ -307,7 +313,7 @@ class NotificationRepositoryTest {
         val baseline = notification("baseline", NotificationActivity.Mention)
         val incoming = notification("stream", NotificationActivity.Reply)
         repository.activate(token)
-        repository.establishBaseline(token, NotificationPage(
+        repository.establishBaseline(token, baselineRequest(query), NotificationPage(
             items = listOf(baseline),
             checkpoint = NotificationCheckpoint(account, query),
         ))
@@ -330,11 +336,11 @@ class NotificationRepositoryTest {
         val query = NotificationQuery()
         val incoming = notification("incoming", NotificationActivity.Mention)
         repository.activate(token)
-        repository.establishBaseline(token, NotificationPage(
+        repository.establishBaseline(token, baselineRequest(query), NotificationPage(
             items = listOf(notification("baseline", NotificationActivity.Mention)),
             checkpoint = NotificationCheckpoint(account, query),
         ))
-        repository.ingestNewerPage(token, NotificationPage(
+        repository.ingestNewerPage(token, newerRequest(query), NotificationPage(
             items = listOf(incoming),
             checkpoint = NotificationCheckpoint(account, query),
             direction = NotificationPageDirection.Newer,
@@ -391,7 +397,7 @@ class NotificationRepositoryTest {
             ),
         )
         first.activate(token)
-        first.establishBaseline(token, NotificationPage(listOf(notification("post", NotificationActivity.Mention, post))))
+        first.establishBaseline(token, baselineRequest(), NotificationPage(listOf(notification("post", NotificationActivity.Mention, post))))
 
         val restored = NotificationRepository(store).observe(account).value.items.single().post
 
@@ -407,7 +413,7 @@ class NotificationRepositoryTest {
         val destination = NotificationDestination.Server(
             ValidatedUrl.https("https://example.org/activity/1")!!,
         )
-        repository.establishBaseline(token, NotificationPage(
+        repository.establishBaseline(token, baselineRequest(), NotificationPage(
             listOf(notification("unknown", NotificationActivity.Unknown("Unknown", destination))),
         ))
 
@@ -423,17 +429,210 @@ class NotificationRepositoryTest {
         repository.activate(token)
         val foreignAccount = AccountId(Connection("https://foreign.example", Protocol.MISSKEY), "receiver")
 
-        assertFalse(repository.establishBaseline(token, NotificationPage(
+        assertFalse(repository.establishBaseline(token, baselineRequest(), NotificationPage(
             items = emptyList(),
             checkpoint = NotificationCheckpoint(foreignAccount, NotificationQuery()),
         )))
-        assertFalse(repository.establishBaseline(token, NotificationPage(
+        assertFalse(repository.establishBaseline(token, baselineRequest(), NotificationPage(
             items = listOf(notification("foreign", NotificationActivity.Mention).copy(
                 id = EntityId("https://foreign.example", "foreign"),
             )),
         )))
         assertTrue(repository.observe(account).value.items.isEmpty())
     }
+
+    @Test
+    fun mismatchedCheckpointQueryIsRejectedBothDirections() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val all = NotificationQuery()
+        val mentions = NotificationQuery(setOf(me.foxtails.palustris.domain.NotificationCategory.Mentions))
+        repository.activate(token)
+        assertTrue(repository.establishBaseline(token, baselineRequest(all), NotificationPage(
+            items = listOf(notification("base", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, all),
+        )))
+
+        assertFalse(repository.ingestNewerPage(token, newerRequest(all), NotificationPage(
+            items = listOf(notification("foreign-query", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, mentions),
+            direction = NotificationPageDirection.Newer,
+        )))
+        assertFalse(repository.ingestOlderPage(token, olderRequest(mentions), NotificationPage(
+            items = listOf(notification("foreign-query", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, all),
+            direction = NotificationPageDirection.Older,
+        )))
+        assertEquals(listOf("base"), repository.observe(account).value.items.map { it.id.value })
+        assertEquals(null, repository.checkpoint(account, mentions))
+    }
+
+    @Test
+    fun queryFieldVariationsAreRejectedIndependently() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val requested = NotificationQuery()
+        repository.activate(token)
+        assertTrue(repository.establishBaseline(token, baselineRequest(requested), NotificationPage(
+            items = listOf(notification("base", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, requested),
+        )))
+
+        val limitVariant = NotificationQuery(limit = 10)
+        val groupedVariant = NotificationQuery(grouped = true)
+        assertFalse(repository.ingestNewerPage(token, newerRequest(requested), NotificationPage(
+            items = listOf(notification("limit", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, limitVariant),
+            direction = NotificationPageDirection.Newer,
+        )))
+        assertFalse(repository.ingestNewerPage(token, newerRequest(requested), NotificationPage(
+            items = listOf(notification("grouped", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, groupedVariant),
+            direction = NotificationPageDirection.Newer,
+        )))
+        assertEquals(listOf("base"), repository.observe(account).value.items.map { it.id.value })
+    }
+
+    @Test
+    fun emptyPageWithForeignQueryIsRejected() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        repository.activate(token)
+        assertFalse(repository.establishBaseline(token, baselineRequest(), NotificationPage(
+            items = emptyList(),
+            checkpoint = NotificationCheckpoint(
+                account,
+                NotificationQuery(setOf(me.foxtails.palustris.domain.NotificationCategory.Mentions)),
+            ),
+        )))
+        assertTrue(repository.observe(account).value.items.isEmpty())
+        assertEquals(null, repository.checkpoint(account, NotificationQuery()))
+    }
+
+    @Test
+    fun checkpointFreePageIsAcceptedOnlyUnderItsExplicitQuery() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val mentions = NotificationQuery(setOf(me.foxtails.palustris.domain.NotificationCategory.Mentions))
+        repository.activate(token)
+        val page = NotificationPage(
+            items = listOf(notification("free", NotificationActivity.Mention)),
+            unreadState = NotificationUnreadState.Exact(2),
+        )
+        assertTrue(repository.establishBaseline(token, baselineRequest(mentions), page))
+        assertEquals(listOf("free"), repository.observe(account).value.items.map { it.id.value })
+        assertEquals(NotificationUnreadState.Exact(2), repository.observe(account).value.unreadState)
+        assertNotNull(repository.checkpoint(account, mentions))
+        assertEquals(null, repository.checkpoint(account, NotificationQuery()))
+    }
+
+    @Test
+    fun staleSameQueryBoundaryIsRejectedWithoutMovingCursors() = runBlocking {
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        val token = NotificationSyncToken(account, 1)
+        val query = NotificationQuery()
+        repository.activate(token)
+        assertTrue(repository.establishBaseline(token, baselineRequest(query), NotificationPage(
+            items = listOf(notification("base", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(
+                account,
+                query,
+                oldest = NotificationCursor("old-0"),
+            ),
+        )))
+        assertTrue(repository.ingestOlderPage(token, olderRequest(query, NotificationCursor("old-0")), NotificationPage(
+            items = listOf(notification("older-1", NotificationActivity.Mention)),
+            olderCursor = NotificationCursor("old-1"),
+            checkpoint = NotificationCheckpoint(account, query),
+            direction = NotificationPageDirection.Older,
+        )))
+        assertFalse(repository.ingestOlderPage(token, olderRequest(query, NotificationCursor("old-0")), NotificationPage(
+            items = listOf(notification("stale", NotificationActivity.Mention)),
+            olderCursor = NotificationCursor("old-0"),
+            checkpoint = NotificationCheckpoint(account, query),
+            direction = NotificationPageDirection.Older,
+        )))
+        assertFalse(repository.ingestNewerPage(token, newerRequest(query, NotificationCursor("bogus")), NotificationPage(
+            items = listOf(notification("stale-new", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, query),
+            direction = NotificationPageDirection.Newer,
+        )))
+        assertEquals("old-1", repository.checkpoint(account, query)?.olderContinuation?.value)
+        assertTrue(repository.observe(account).value.items.none { it.id.value == "stale" })
+    }
+
+    @Test
+    fun restoredMismatchedCheckpointEntryCannotSupplyACursor() = runBlocking {
+        val store = InMemoryNotificationStore()
+        val mentions = NotificationQuery(setOf(me.foxtails.palustris.domain.NotificationCategory.Mentions))
+        store.write(
+            account,
+            NotificationRepositoryState(checkpoints = mapOf(
+                NotificationQuery().stableKey to NotificationCheckpoint(account, mentions),
+            )),
+        )
+        val repository = NotificationRepository(store)
+        assertEquals(null, repository.checkpoint(account, NotificationQuery()))
+        assertEquals(null, repository.checkpoint(account, mentions))
+    }
+
+    @Test
+    fun rejectedIngestionChangesNeitherMemoryNorDurableState() = runBlocking {
+        val store = InMemoryNotificationStore()
+        val repository = NotificationRepository(store)
+        val token = NotificationSyncToken(account, 1)
+        val query = NotificationQuery()
+        repository.activate(token)
+        assertTrue(repository.establishBaseline(token, baselineRequest(query), NotificationPage(
+            items = listOf(notification("base", NotificationActivity.Mention)),
+            checkpoint = NotificationCheckpoint(account, query, capturedAtEpochMillis = 10),
+            unreadState = NotificationUnreadState.Exact(1),
+        )))
+        val memoryBefore = repository.observe(account).value
+        val durableBefore = store.read(account)
+
+        assertFalse(repository.ingestNewerPage(token, newerRequest(query), NotificationPage(
+            items = listOf(notification("rejected", NotificationActivity.Mention)),
+            newerCursor = NotificationCursor("rejected-next"),
+            checkpoint = NotificationCheckpoint(
+                account,
+                NotificationQuery(setOf(me.foxtails.palustris.domain.NotificationCategory.Mentions)),
+                capturedAtEpochMillis = 99,
+            ),
+            unreadState = NotificationUnreadState.Exact(5),
+            direction = NotificationPageDirection.Newer,
+        )))
+
+        val memoryAfter = repository.observe(account).value
+        val durableAfter = store.read(account)
+        assertEquals(memoryBefore.items.map { it.id }, memoryAfter.items.map { it.id })
+        assertEquals(memoryBefore.unreadState, memoryAfter.unreadState)
+        assertEquals(memoryBefore.checkpoints, memoryAfter.checkpoints)
+        assertEquals(memoryBefore.deliveries, memoryAfter.deliveries)
+        assertEquals(memoryBefore.lastSyncedAtEpochMillis, memoryAfter.lastSyncedAtEpochMillis)
+        assertEquals(durableBefore?.items?.map { it.id }, durableAfter?.items?.map { it.id })
+        assertEquals(durableBefore?.unreadState, durableAfter?.unreadState)
+        assertEquals(durableBefore?.checkpoints, durableAfter?.checkpoints)
+        assertEquals(durableBefore?.deliveries, durableAfter?.deliveries)
+        assertEquals(durableBefore?.lastSyncedAtEpochMillis, durableAfter?.lastSyncedAtEpochMillis)
+        assertTrue(repository.pendingDeliveries(account).isEmpty())
+    }
+
+    private fun ingestRequest(page: NotificationPage) =
+        NotificationIngestRequest(page.checkpoint?.query ?: NotificationQuery(), NotificationPageDirection.Initial)
+
+    private fun baselineRequest(query: NotificationQuery = NotificationQuery()) =
+        NotificationIngestRequest(query, NotificationPageDirection.Initial)
+
+    private fun newerRequest(
+        query: NotificationQuery = NotificationQuery(),
+        expectedContinuation: NotificationCursor? = null,
+    ) = NotificationIngestRequest(query, NotificationPageDirection.Newer, expectedContinuation)
+
+    private fun olderRequest(
+        query: NotificationQuery = NotificationQuery(),
+        expectedContinuation: NotificationCursor? = null,
+    ) = NotificationIngestRequest(query, NotificationPageDirection.Older, expectedContinuation)
 
     private fun notification(id: String, activity: NotificationActivity, post: Post? = null) = Notification(
         id = EntityId(account.connection.origin, id),

@@ -68,8 +68,7 @@ class NotificationRepository @Inject constructor(
 
     fun observeInbox(accountId: AccountId, query: NotificationQuery): Flow<NotificationInboxSnapshot> =
         observe(accountId).map { state ->
-            val checkpoint = state.checkpoints[query.stableKey]
-                ?: state.checkpoint?.takeIf { it.query == query }
+            val checkpoint = validatedCheckpoint(state, accountId, query)
             NotificationInboxSnapshot(
                 items = state.items.filter { it.matches(query) },
                 unreadState = state.unreadState,
@@ -86,8 +85,22 @@ class NotificationRepository @Inject constructor(
     @Synchronized
     fun checkpoint(accountId: AccountId, query: NotificationQuery): NotificationCheckpoint? {
         val state = stateForLocked(accountId).value
-        return state.checkpoints[query.stableKey] ?: state.checkpoint?.takeIf { it.query == query }
+        return validatedCheckpoint(state, accountId, query)
     }
+
+    /**
+     * Restored entries are validated before use. A map entry under one query must not
+     * supply a checkpoint that carries another query or another account. Invalid entries
+     * are ignored without changing the persisted format.
+     */
+    private fun validatedCheckpoint(
+        state: NotificationRepositoryState,
+        accountId: AccountId,
+        query: NotificationQuery,
+    ): NotificationCheckpoint? =
+        state.checkpoints[query.stableKey]
+            ?.takeIf { it.query == query && it.accountId == accountId }
+            ?: state.checkpoint?.takeIf { it.query == query && it.accountId == accountId }
 
     @Synchronized
     fun activate(token: NotificationSyncToken) {
@@ -124,45 +137,48 @@ class NotificationRepository @Inject constructor(
         generations[accountId] = next
     }
 
-    suspend fun establishBaseline(token: NotificationSyncToken, page: NotificationPage): Boolean =
-        applyPage(token, page, NotificationPageDirection.Initial, baselineEstablished = true)
+    suspend fun establishBaseline(
+        token: NotificationSyncToken,
+        request: NotificationIngestRequest,
+        page: NotificationPage,
+    ): Boolean = applyPage(token, request, page, baselineEstablished = true)
 
-    suspend fun ingestNewerPage(token: NotificationSyncToken, page: NotificationPage): Boolean =
-        applyPage(token, page, NotificationPageDirection.Newer)
+    suspend fun ingestNewerPage(
+        token: NotificationSyncToken,
+        request: NotificationIngestRequest,
+        page: NotificationPage,
+    ): Boolean = applyPage(token, request, page)
 
-    suspend fun ingestOlderPage(token: NotificationSyncToken, page: NotificationPage): Boolean =
-        applyPage(token, page, NotificationPageDirection.Older)
-
-    /** Compatibility entry point; new synchronization code must choose a direction explicitly. */
-    @Deprecated("Use establishBaseline, ingestNewerPage, or ingestOlderPage")
-    suspend fun ingest(token: NotificationSyncToken, page: NotificationPage): Boolean =
-        when (page.direction) {
-            NotificationPageDirection.Initial -> establishBaseline(token, page)
-            NotificationPageDirection.Newer -> ingestNewerPage(token, page)
-            NotificationPageDirection.Older -> ingestOlderPage(token, page)
-        }
+    suspend fun ingestOlderPage(
+        token: NotificationSyncToken,
+        request: NotificationIngestRequest,
+        page: NotificationPage,
+    ): Boolean = applyPage(token, request, page)
 
     private suspend fun applyPage(
         token: NotificationSyncToken,
+        request: NotificationIngestRequest,
         page: NotificationPage,
-        direction: NotificationPageDirection,
         baselineEstablished: Boolean = false,
     ): Boolean {
+        val direction = request.direction
         val next = synchronized(this) {
             if (!isCurrentLocked(token)) return false
+            if (page.direction != direction) return false
             if (page.checkpoint?.accountId?.let { it != token.accountId } == true ||
                 page.items.any {
                     it.accountId != token.accountId ||
                         it.id.connection != token.accountId.connection.origin
                 }
             ) return false
+            // The caller query owns validation. A claimed checkpoint query must equal it,
+            // even for empty pages. Checkpoint-free pages are accepted only under the
+            // explicit requested query, never a borrowed one.
+            if (page.checkpoint?.query?.let { it != request.query } == true) return false
             val state = stateForLocked(token.accountId).value
-            val query = page.checkpoint?.query ?: page.items.firstOrNull()?.let { state.checkpoint?.query }
-            if (query == null) {
-                applyLegacyPageLocked(token, page, direction, baselineEstablished)
-            } else {
-            val previousCheckpoint = state.checkpoints[query.stableKey]
-                ?: state.checkpoint?.takeIf { it.query == query }
+            val query = request.query
+            val previousCheckpoint = validatedCheckpoint(state, token.accountId, query)
+            if (!checkBoundaryLocked(request, previousCheckpoint)) return false
             val previous = state.items.associateBy(Notification::id)
             val incoming = page.items
             val merged = (incoming + state.items)
@@ -197,39 +213,27 @@ class NotificationRepository @Inject constructor(
                     direction,
                 ),
             ).also { stateForLocked(token.accountId).value = it }
-            }
         }
         persistIfCurrent(token, next)
         return true
     }
 
-    private fun applyLegacyPageLocked(
-        token: NotificationSyncToken,
-        page: NotificationPage,
-        direction: NotificationPageDirection,
-        baselineEstablished: Boolean,
-    ): NotificationRepositoryState {
-        val state = stateForLocked(token.accountId).value
-        val previous = state.items.associateBy(Notification::id)
-        val incoming = page.items
-        val merged = (incoming + state.items).distinctBy(Notification::id)
-            .map { it.mergeReadState(previous[it.id]?.readState) }
-            .filterNot { it.id in state.dismissedIds }
-            .sortedWith(compareByDescending<Notification> { it.createdAtEpochMillis }.thenByDescending { it.id.value })
-            .take(MAX_ITEMS)
-        return state.copy(
-            items = merged,
-            unreadState = page.unreadState.takeIf { it !is NotificationUnreadState.Unknown } ?: state.unreadState,
-            checkpoint = page.checkpoint ?: state.checkpoint,
-            lastSyncedAtEpochMillis = page.checkpoint?.capturedAtEpochMillis ?: state.lastSyncedAtEpochMillis,
-            deliveries = updateNotificationDeliveryOutbox(
-                state,
-                incoming,
-                state.checkpoint,
-                baselineEstablished,
-                direction,
-            ),
-        ).also { stateForLocked(token.accountId).value = it }
+    /**
+     * Rejects a same-query page whose input boundary already moved. Older and newer
+     * boundaries stay independent: an older page never validates against the newer
+     * boundary and conversely. Baselines carry no input boundary.
+     */
+    private fun checkBoundaryLocked(
+        request: NotificationIngestRequest,
+        previous: NotificationCheckpoint?,
+    ): Boolean {
+        val expected = request.expectedContinuation ?: return true
+        val current = when (request.direction) {
+            NotificationPageDirection.Newer -> previous?.newerContinuation
+            NotificationPageDirection.Older -> previous?.olderContinuation ?: previous?.oldest
+            NotificationPageDirection.Initial -> return true
+        }
+        return current == expected
     }
 
     suspend fun updateUnreadState(token: NotificationSyncToken, unreadState: NotificationUnreadState): Boolean {

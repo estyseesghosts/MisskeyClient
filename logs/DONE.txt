@@ -790,4 +790,14 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Remaining skipped items: FeedHost and SavedCollectionsHost extraction, test construction rewrite, explicit teardown for notifications, notification settings, and moderation.
 - Verification passed: SessionViewModelTest and the full unit suite green.
 - Commit: `69467c1`. Live-server and device behavior remain unverified.
+
+260914-161500 State and lifecycle repair Slice 02-D:
+- Added NotificationIngestRequest with caller query, direction, and expected continuation.
+- Repository validates query, direction, and input boundary before any mutation.
+- Removed the unsafe query-inference ingest overload and the legacy page path.
+- Restored checkpoint lookups ignore entries with a foreign query or account.
+- Synchronizer stops on rejection without page counts, unread updates, or success reports.
+- Added NotificationSynchronizerTest and extended NotificationRepositoryTest with mismatch coverage.
+- Verification passed: focused notification suites, test assembleRelease, and :app:lintDebug.
+- Commit: pending at log creation. Live-server and device behavior remain unverified.
 - No commit created. Live full test assembleRelease remains unverified.

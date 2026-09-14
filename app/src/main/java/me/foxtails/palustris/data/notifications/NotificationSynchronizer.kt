@@ -27,7 +27,10 @@ class NotificationSynchronizer @Inject constructor(
         query: NotificationQuery = NotificationQuery(),
     ): NotificationSyncResult {
         val page = source.notifications(query).copy(direction = NotificationPageDirection.Initial)
-        repository.establishBaseline(token, page)
+        val request = NotificationIngestRequest(query, NotificationPageDirection.Initial)
+        if (!repository.establishBaseline(token, request, page)) {
+            return NotificationSyncResult(0, false, NotificationUnreadState.Unknown)
+        }
         val unread = readUnread(source)
         if (unread !is NotificationUnreadState.Unknown) repository.updateUnreadState(token, unread)
         return NotificationSyncResult(1, true, unread)
@@ -52,7 +55,10 @@ class NotificationSynchronizer @Inject constructor(
             if (page.items.isEmpty() && page.resolvedContinuation == previousContinuation && page.resolvedContinuation != null) {
                 return catchUpResult(source, token, pages, complete = false, delayed = true, unread)
             }
-            repository.ingestNewerPage(token, page)
+            val request = NotificationIngestRequest(query, NotificationPageDirection.Newer, continuation)
+            if (!repository.ingestNewerPage(token, request, page)) {
+                return NotificationSyncResult(pages, false, unread)
+            }
             pages += 1
             unread = page.unreadState.takeUnless { it is NotificationUnreadState.Unknown } ?: unread
             checkpoint = repository.checkpoint(token.accountId, query) ?: checkpoint
@@ -98,10 +104,14 @@ class NotificationSynchronizer @Inject constructor(
         if (checkpoint.oldest == null && checkpoint.olderContinuation == null) {
             return NotificationSyncResult(0, true, repository.observe(token.accountId).value.unreadState)
         }
+        val cursor = checkpoint.olderContinuation ?: checkpoint.oldest
         val page = source.fetchOlderNotifications(query, checkpoint.copy(
-            oldest = checkpoint.olderContinuation ?: checkpoint.oldest,
+            oldest = cursor,
         )).copy(direction = NotificationPageDirection.Older)
-        repository.ingestOlderPage(token, page)
+        val request = NotificationIngestRequest(query, NotificationPageDirection.Older, cursor)
+        if (!repository.ingestOlderPage(token, request, page)) {
+            return NotificationSyncResult(0, false, repository.observe(token.accountId).value.unreadState)
+        }
         return NotificationSyncResult(1, page.resolvedContinuation == null, page.unreadState)
     }
 
