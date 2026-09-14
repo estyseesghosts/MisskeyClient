@@ -6,7 +6,7 @@
 
 **Last reviewed:** 2026-09-14.
 
-**Source baseline:** `1ce9842`.
+**Source baseline:** `0de4585`.
 
 **Evidence:** source verified. Test verified with the full JVM suite. Device and live-server
 behavior remain unverified.
@@ -44,15 +44,18 @@ covers origin exclusion, nested suppression, foreign accounts, old revisions, an
 These still cross the `PalustrisApp` boundary and belong to later slices:
 
 - Identity: `account`, `sessionGeneration`, `sessionRevision`.
-- Services: `actionSource`, `draftStore`.
+- Services: `draftStore`.
 - Home and composer: `feedState`, `postPreferences`, `contentWarningRules`, `onRefresh`,
   `onLoadMore`, `onPublish`.
 - Search: `onSearchAccounts`, `onLoadMoreSearch`.
 - Post interactions: `onReact`, `onReply`, `onReshare`, `onBookmark`, `onReaction`.
 - Launch: `initialNotificationRoute`.
 
-`ActionSource` and `DraftStore` are data-layer services and must leave the shell. `onReply` is a
-test-only observer until its tests assert composer behavior.
+`DraftStore` is a data-layer service and must leave the shell. `onReply` is a test-only observer
+until its tests assert composer behavior.
+
+`PostActionOwner` construction now lives in `ConnectedApp`, which provides it through
+`LocalPostActionOwner`. The shell reads the ambient owner and no longer carries a `SocialSource`.
 
 ## Invariants
 
