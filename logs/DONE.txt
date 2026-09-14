@@ -769,5 +769,5 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added DirectMessageViewModelTest with A-to-B, close, draft, send, paging, and stop coverage.
 - Stale inbox-page success needs durable write authority and stays owned by Slice 02-C.
 - Verification passed: focused DM suites, test assembleRelease, and :app:lintDebug.
-- Commit: pending at log creation. Live-server and device behavior remain unverified.
+- Commit: `e12fbd3`. Live-server and device behavior remain unverified.
 - No commit created. Live full test assembleRelease remains unverified.
