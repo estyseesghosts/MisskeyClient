@@ -781,4 +781,13 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added DirectMessageRepositoryTest with removal, replacement, merge, and isolation coverage.
 - Verification passed: focused DM and session suites, test assembleRelease, and :app:lintDebug.
 - Commit: `2a4fa44`. Live-server and device behavior remain unverified.
+- Full gate note: one later full-suite run showed a single unrelated MediaViewerScreenTest swipe failure. The suite reruns green (MediaViewer 9 of 9). The failure is a flake, not a slice regression.
+
+260914-160500 Skipped Plan 01 item account-removal draft deletion:
+- AccountManager.removeAccount now calls DraftStore.deleteAll for the removed account.
+- Added SessionViewModelTest.removeAccountDeletesOnlyRemovedAccountDrafts.
+- Removed the resolved account-removal draft entry from logs/BUGS.txt.
+- Remaining skipped items: FeedHost and SavedCollectionsHost extraction, test construction rewrite, explicit teardown for notifications, notification settings, and moderation.
+- Verification passed: SessionViewModelTest and the full unit suite green.
+- Commit: pending at log creation. Live-server and device behavior remain unverified.
 - No commit created. Live full test assembleRelease remains unverified.

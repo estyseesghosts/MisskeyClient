@@ -16,6 +16,8 @@ import me.foxtails.palustris.data.auth.AccountIndex
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.data.auth.AuthCallback
 import me.foxtails.palustris.data.auth.AuthGateway
+import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.auth.InMemoryDraftStore
 import me.foxtails.palustris.data.auth.PendingLogin
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.data.directmessages.DirectMessageStore
@@ -71,11 +73,13 @@ class AccountManager @Inject constructor(
     private val directMessageWriteAuthority: DirectMessageWriteAuthority,
     private val emojiCatalogRepository: EmojiCatalogRepository,
     private val emojiPickerPreferencesRepository: EmojiPickerPreferencesRepository,
+    private val draftStore: DraftStore,
 ) : ViewModel() {
     constructor(
         store: SessionStore,
         auth: AuthGateway,
         ioDispatcher: CoroutineDispatcher,
+        draftStore: DraftStore = InMemoryDraftStore(),
     ) : this(
         store,
         auth,
@@ -90,6 +94,7 @@ class AccountManager @Inject constructor(
         DirectMessageWriteAuthority(),
         InMemoryEmojiCatalogRepository(),
         InMemoryEmojiPickerPreferencesRepository(),
+        draftStore,
     )
     private val _session = MutableStateFlow(SessionUi())
     val session = _session.asStateFlow()
@@ -312,6 +317,7 @@ class AccountManager @Inject constructor(
                     directMessageWriteAuthority.invalidateAndDelete(accountId) {
                         directMessageStore.delete(accountId)
                     }
+                    draftStore.deleteAll(accountId)
                     emojiCatalogRepository.remove(accountId)
                     emojiPickerPreferencesRepository.remove(accountId)
                     store.transaction {

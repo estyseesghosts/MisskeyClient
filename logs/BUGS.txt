@@ -46,6 +46,4 @@
 260913-200500: The final local gate passed with `test assembleRelease` and `lint`.
 260913-202500: Connected instrumentation ran on the installed candidate: 10 tests ran, 9 passed, and only `SystemBarAppearanceInstrumentedTest.navigationBarModeUsesBlackViewerAndRestoresThemeAppearance` failed with expected black (`-16777216`) versus observed transparent (`0`). `Api29StartupInstrumentedTest` passed.
 
-260914-022623: Account removal does not delete account-scoped drafts. `AccountManager.removeAccount` removes sessions, post preferences, Photo Grid preferences, direct messages, emoji data, and push state. It does not call `DraftStore.deleteAll`. The encrypted drafts stay in `noBackupFilesDir/drafts` after removal. Source verified from `AccountManager.kt` and `DraftStore.kt`. No failing test exists for this gap.
-
-260914-122320: NotificationsViewModel, DirectMessageViewModel, NotificationSettingsViewModel, and ModerationViewModel expose no stop(). The session host cannot release them explicitly on session replacement. They rely on session-generation ViewModel keys. Explicit teardown belongs to docs/decomposition_3/02.md. Source verified.
+260914-122320: NotificationsViewModel, NotificationSettingsViewModel, and ModerationViewModel expose no stop(). The session host cannot release them explicitly on session replacement. They rely on session-generation ViewModel keys. DirectMessageViewModel gained explicit teardown in Slice 02-B. Remaining teardown belongs to docs/decomposition_3/02.md. Source verified.

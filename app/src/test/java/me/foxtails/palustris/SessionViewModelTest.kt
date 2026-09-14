@@ -181,6 +181,26 @@ class SessionViewModelTest {
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
 
+    @Test fun removeAccountDeletesOnlyRemovedAccountDrafts() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        try {
+            val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
+            val other = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "b"), "Bob", "@bob@example.org")
+            store.sessions[other.id] = Session(other.id, "token-b", ServerCapabilities())
+            store.index = store.index.copy(accounts = store.index.accounts + AccountRef(other.id, other.handle, other.avatarUrl, other.displayName))
+            val drafts = InMemoryDraftStore()
+            drafts.save(PostDraft(accountId = login.account.id, text = "leak"))
+            drafts.save(PostDraft(accountId = other.id, text = "keep"))
+            val accountManager = AccountManager(store, auth(login), StandardTestDispatcher(testScheduler), drafts)
+            owner.put("account", accountManager)
+            advanceUntilIdle()
+            accountManager.removeAccount(login.account.id); advanceUntilIdle()
+            assertTrue(drafts.list(login.account.id).isEmpty())
+            assertEquals(listOf("keep"), drafts.list(other.id).map { it.text })
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
     @Test fun pendingAuthSurvivesRestartAndInvalidCallbackDoesNotConnect() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val owner = ViewModelStore()
