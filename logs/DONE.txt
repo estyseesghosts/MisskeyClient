@@ -722,3 +722,13 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Commits: `454337b`, `15adeb5`, `465232d`. No push.
 - Verification: each claim was checked against the cited source file. No application code changed. The Gradle gate did not run because the worktree holds uncommitted application code.
 - The `README.md` TODO claims are stale for block, mute, and report. The overview page records the source truth.
+
+260914-115509 Draft host:
+- Added `ui/shell/DraftsContract.kt` with load, save, and delete actions.
+- `PalustrisApp` no longer accepts `draftStore` and no longer builds a `PreferencesDraftStore`. It calls the contract for reload, save, publish cleanup, and delete.
+- `ConnectedApp` builds `DraftsContract` from the injected `DraftStore`, the legacy `local_draft` preferences, and the settings scope.
+- Added `AppShellFixtures.drafts()` backed by `InMemoryDraftStore`.
+- Updated `NavigationTest`, `ShellCharacterizationTest`, and `SignInScreenTest` to bind the fixture contract.
+- Commit: `2379b44`. No push.
+- Verification: focused suites `NavigationTest`, `HomeFeedTest`, `ShellCharacterizationTest`, `SignInScreenTest` passed. Full `test` suite passed. `:app:lintDebug` passed. Live-server and device behavior unverified.
+- Corrected the stale remaining-parameter list in `docs/agents/app-shell-ownership.md`.

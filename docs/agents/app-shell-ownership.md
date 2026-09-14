@@ -6,7 +6,7 @@
 
 **Last reviewed:** 2026-09-14.
 
-**Source baseline:** `0de4585`.
+**Source baseline:** `2379b44`.
 
 **Evidence:** source verified. Test verified with the full JVM suite. Device and live-server
 behavior remain unverified.
@@ -30,6 +30,7 @@ contracts. Test code binds test-only recorders in
 | `ProfileContract` | `ProfileViewModel` | Target, categories, relationship, editor | Open, category, paging, follow, react, editor |
 | `ThreadContract` | `PostThreadViewModel` | Selected thread | Activate, deactivate, paging, mutations |
 | `PhotoGridContract` | Photo Grid `FeedViewModel` | Independent Photo Grid feed | Load, select, refresh, paging, hashtag, error |
+| `DraftsContract` | account draft store | Saved drafts for the active account | Load, save, delete |
 
 The removed dead parameter `onOpenReactionPicker` and the duplicate `ownedPosts` input are gone.
 Home rows now come from `feedState.ownedPosts` only.
@@ -44,15 +45,11 @@ covers origin exclusion, nested suppression, foreign accounts, old revisions, an
 These still cross the `PalustrisApp` boundary and belong to later slices:
 
 - Identity: `account`, `sessionGeneration`, `sessionRevision`.
-- Services: `draftStore`.
-- Home and composer: `feedState`, `postPreferences`, `contentWarningRules`, `onRefresh`,
-  `onLoadMore`, `onPublish`.
-- Search: `onSearchAccounts`, `onLoadMoreSearch`.
-- Post interactions: `onReact`, `onReply`, `onReshare`, `onBookmark`, `onReaction`.
 - Launch: `initialNotificationRoute`.
 
-`DraftStore` is a data-layer service and must leave the shell. `onReply` is a test-only observer
-until its tests assert composer behavior.
+`DraftStore` now leaves the shell. `ConnectedApp` builds `DraftsContract` from the injected
+`DraftStore`, the legacy `local_draft` preferences, and the settings scope. The shell keeps only
+composer fields. `onReply` is a test-only observer until its tests assert composer behavior.
 
 `PostActionOwner` construction now lives in `ConnectedApp`, which provides it through
 `LocalPostActionOwner`. The shell reads the ambient owner and no longer carries a `SocialSource`.

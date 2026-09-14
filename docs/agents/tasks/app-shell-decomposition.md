@@ -22,6 +22,8 @@ shell layers.
 - Do not create one aggregate feature bag.
 - Keep runtime generation, durable session revision, and notification registry generation distinct.
 - Keep every committed slice usable.
+- Tests bind real test-only contracts in `AppShellFixtures`. Do not add a
+  production default that reports fake success.
 
 # Completed
 
@@ -38,41 +40,50 @@ shell layers.
 - 01-B boundary cleanup — `5196d3a`.
 - 01-D post projection coordinator — `1ce9842`, `27d2f7d`.
 - 01-C post-action host — `0de4585`, `e39eace`.
+- 01-B Home, Search, composer, post interactions — `b8037af`.
+- 01-B reply seam and content policy removal — `32313eb`.
+- 01-C draft host — `2379b44`.
 
 # Current slice
 
-01-B remaining contracts and 01-C composer host. The worktree holds
-uncommitted work for the Home contract, the Search contract, the composer
-contract, and post interactions.
+01-E connected-session host and 01-F settings/launch handoff. No work is
+uncommitted. The next slice moves identity parameters and launch routing behind
+owners.
 
 # Files involved
 
-- `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt` (uncommitted edits)
-- `app/src/main/java/me/foxtails/palustris/ui/AppHomeDestinationContent.kt` (uncommitted edits)
-- `app/src/main/java/me/foxtails/palustris/ui/HomeFeed.kt` (uncommitted edits)
-- Uncommitted shell contracts: `HomeContract.kt`, `SearchContract.kt`, `ComposerContract.kt`, `PostInteractions.kt`
-- Committed shell contracts: `AccountSwitcher.kt`, `EmojiPresentation.kt`, `NotificationSettingsContract.kt`, `SavedCollections.kt`, `NotificationsContract.kt`, `DirectMessagesContract.kt`, `ProfileContract.kt`, `ThreadContract.kt`, `PhotoGridContract.kt`, `PostProjectionCoordinator.kt`
-- Tests: `HomeFeedTest.kt`, `NavigationTest.kt`, `SignInScreenTest.kt`, `ReplyComposerTest.kt`, `SearchPanelRestorationTest.kt`, `WideNavigationTest.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/ConnectedApp.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/shell/` contracts
+- `app/src/test/java/me/foxtails/palustris/AppShellFixtures.kt`
+- `app/test` shell tests: `NavigationTest.kt`, `HomeFeedTest.kt`,
+  `ShellCharacterizationTest.kt`, `SignInScreenTest.kt`, `ReplyComposerTest.kt`,
+  `WideNavigationTest.kt`, `SearchPanelRestorationTest.kt`
 
 # Verification
 
-- Every committed slice passed its focused tests. See `logs/DONE.txt` lines 616-694.
-- The uncommitted work in progress is not verified.
+- `2379b44` passed focused suites (`NavigationTest`, `HomeFeedTest`,
+  `ShellCharacterizationTest`, `SignInScreenTest`), the full `test` suite, and
+  `lintDebug`.
+- `app-shell-ownership.md` records the present boundary.
+- Live-server and physical-device behavior remain unverified.
 
 # Next
 
-Inspect the uncommitted contract files before editing. Finish the Home and
-Search contracts. Finish the composer host. Run the focused shell tests. Commit
-each contract as its own slice.
+Implement 01-E: introduce the connected-session host and remove
+`sessionGeneration`/`sessionRevision` pass-through where a host can own them.
+Then 01-F: move settings and launch routing behind owners and remove
+`initialNotificationRoute` and the `settingsViewModelUpdate` writes from
+`ConnectedApp`. Then 01-G shell assembly and 01-H test construction and docs.
+Run `test assembleRelease` before declaring the plan complete.
 
 # Blockers
 
-- The worktree holds uncommitted contract work. Do not discard it.
 - `logs/BUGS.txt` records a system-bar instrumentation failure on Android 15.
 - Live-server and physical-device behavior remain unverified.
+- Account removal still does not delete account-scoped drafts. See `logs/BUGS.txt`.
 
 # Last safe commit
 
-`e39eace` "Record post-action host ownership". Later commits on `main`
-(`826e516` through `7431883`) change documentation and tooling only. They do
-not change application behavior.
+`2379b44` "Move draft persistence behind the host". Earlier slice commits
+`b8037af` and `32313eb` are also on `main`.
