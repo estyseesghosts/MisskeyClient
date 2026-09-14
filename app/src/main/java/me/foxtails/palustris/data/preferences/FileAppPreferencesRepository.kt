@@ -71,6 +71,8 @@ class FileAppPreferencesRepository(
                 withContext(ioDispatcher) { persist(next) }
                 values.value = AppPreferencesState(loaded = true, preferences = next)
             } catch (error: Throwable) {
+                // Cancellation asks the write to stop; it is not a save failure.
+                if (error is kotlinx.coroutines.CancellationException) throw error
                 values.value = values.value.copy(
                     loaded = true,
                     error = error.message ?: "Application preferences could not be saved.",

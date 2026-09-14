@@ -2,25 +2,19 @@ package me.foxtails.palustris.ui.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.AccountId
-import me.foxtails.palustris.domain.AppColorScheme
-import me.foxtails.palustris.domain.AppPreferences
-import me.foxtails.palustris.domain.AppPreferencesRepository
-import me.foxtails.palustris.domain.AppPreferencesState
 import me.foxtails.palustris.domain.ModerationListKind
 import me.foxtails.palustris.domain.PostPreferences
-import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 
@@ -28,24 +22,39 @@ import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
  * Owns the settings overlay lifetime: route selection, settings models, and settings commands.
  *
  * The root composition only decides whether the overlay is visible and passes the current account
- * context. Settings writes stay here so no root host writes application preferences.
+ * context. All writes route through [SettingsViewModel]; the root host never writes preferences.
  */
 @Composable
 fun SettingsOverlayHost(
     visible: Boolean,
     onDismiss: () -> Unit,
-    appPreferences: AppPreferencesState,
     accounts: List<AccountRef>,
-    appPreferencesRepository: AppPreferencesRepository,
-    postPreferencesRepository: PostPreferencesRepository,
+    accountsReady: Boolean,
     postPreferences: PostPreferences,
     activeAccountId: AccountId?,
     sourceRegistry: AccountSourceRegistry,
     sessionGeneration: Long,
 ) {
     if (!visible) return
-    val scope = rememberCoroutineScope()
-    var route by remember { mutableStateOf<SettingsRoute>(SettingsRoute.Main) }
+    val settingsModel = hiltViewModel<SettingsViewModel>()
+    var route by rememberSaveable(stateSaver = SettingsRouteSaver) {
+        mutableStateOf<SettingsRoute>(SettingsRoute.Main)
+    }
+    // An account route is valid only while its exact account exists. Before the account index
+    // is restored, an empty list is not proof that the account was removed.
+    val routeAccountId = when (val current = route) {
+        is SettingsRoute.NotificationAccount -> current.accountId
+        is SettingsRoute.Moderation -> current.accountId
+        else -> null
+    }
+    val accountAvailable = routeAccountId == null || accounts.any { it.accountId == routeAccountId }
+    LaunchedEffect(route, accounts, accountsReady) {
+        if (accountsReady && !accountAvailable) route = route.safeParent()
+    }
+    val appPreferences by settingsModel.state.collectAsStateWithLifecycle()
+    val commandError by settingsModel.commandError.collectAsStateWithLifecycle()
+    val repositoryErrorDismissed by settingsModel.repositoryErrorDismissed.collectAsStateWithLifecycle()
+    val displayedError = commandError ?: appPreferences.error?.takeUnless { repositoryErrorDismissed }
     val notificationAccountId = (route as? SettingsRoute.NotificationAccount)?.accountId
     val notificationModel = notificationAccountId?.let { accountId ->
         hiltViewModel<NotificationSettingsViewModel, NotificationSettingsViewModel.Factory>(
@@ -80,18 +89,25 @@ fun SettingsOverlayHost(
         route = route,
         onRoute = { route = it },
         onBack = onDismiss,
-        onColorScheme = { value -> settingsViewModelUpdate(scope, appPreferencesRepository) { it.copy(colorScheme = value) } },
-        onColorPalette = { value -> settingsViewModelUpdate(scope, appPreferencesRepository) { it.copy(colorScheme = AppColorScheme.Palette, colorPalette = value) } },
-        onBackground = { value -> settingsViewModelUpdate(scope, appPreferencesRepository) { it.copy(background = value) } },
-        onTextSize = { value -> settingsViewModelUpdate(scope, appPreferencesRepository) { it.copy(textSize = value) } },
-        onFont = { value -> settingsViewModelUpdate(scope, appPreferencesRepository) { it.copy(font = value) } },
-        onRequest60Hz = { value -> settingsViewModelUpdate(scope, appPreferencesRepository) { it.copy(request60Hz = value) } },
-        onLanguage = { value -> settingsViewModelUpdate(scope, appPreferencesRepository) { it.copy(language = value) } },
-        onTrackingCleanup = { value -> settingsViewModelUpdate(scope, appPreferencesRepository) { it.copy(cleanTrackingParameters = value) } },
-        onContentWarningRules = { value -> settingsViewModelUpdate(scope, appPreferencesRepository) { it.copy(contentWarningRules = value) } },
-        onHiddenContentPresentation = { value -> settingsViewModelUpdate(scope, appPreferencesRepository) { it.copy(hiddenContentPresentation = value) } },
+        onColorScheme = settingsModel::setColorScheme,
+        onColorPalette = settingsModel::setColorPalette,
+        onBackground = settingsModel::setBackground,
+        onTextSize = settingsModel::setTextSize,
+        onFont = settingsModel::setFont,
+        onRequest60Hz = settingsModel::setRequest60Hz,
+        onLanguage = settingsModel::setLanguage,
+        onTrackingCleanup = settingsModel::setTrackingCleanup,
+        onContentWarningRules = settingsModel::setContentWarningRules,
+        onHiddenContentPresentation = settingsModel::setHiddenContentPresentation,
         postPreferences = postPreferences,
         postPreferencesAccountLabel = accountLabel,
+        onPostDefaultAudience = { value -> activeAccountId?.let { settingsModel.setPostDefaultAudience(it, value) } },
+        onPostRepliesUnlisted = { value -> activeAccountId?.let { settingsModel.setPostRepliesUnlisted(it, value) } },
+        onPostContentWarningRules = { value ->
+            activeAccountId?.let { settingsModel.setPostContentWarningRules(it, value) }
+        },
+        error = displayedError,
+        onDismissError = settingsModel::clearError,
         onNotificationAccount = { accountId -> route = SettingsRoute.NotificationAccount(accountId) },
         onModeration = { accountId, kind -> route = SettingsRoute.Moderation(accountId, kind) },
         notificationSettingsState = notificationState,
@@ -112,22 +128,7 @@ fun SettingsOverlayHost(
         onModerationRemove = { moderationModel?.remove(it) },
         onModerationAddLocalHashtag = { moderationModel?.addLocalHashtag(it) },
         onModerationRemoveLocalHashtag = { moderationModel?.removeLocalHashtag(it) },
-        onPostPreferences = { value ->
-            scope.launch {
-                runCatching {
-                    activeAccountId?.let { postPreferencesRepository.update(it) { value } }
-                }
-            }
-        },
     )
-}
-
-private fun settingsViewModelUpdate(
-    scope: CoroutineScope,
-    repository: AppPreferencesRepository,
-    transform: (AppPreferences) -> AppPreferences,
-) {
-    scope.launch { runCatching { repository.update(transform) } }
 }
 
 private fun ModerationKind.toModerationListKind() = when (this) {

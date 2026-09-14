@@ -1,21 +1,29 @@
 package me.foxtails.palustris.ui.settings
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.R
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.AppPreferencesState
+import me.foxtails.palustris.domain.Audience
+import me.foxtails.palustris.domain.ContentWarningRules
 import me.foxtails.palustris.domain.PostPreferences
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.notifications.NotificationSettingsScreen
@@ -41,7 +49,11 @@ fun SettingsHost(
     onHiddenContentPresentation: (me.foxtails.palustris.domain.HiddenContentPresentation) -> Unit = {},
     postPreferences: PostPreferences = PostPreferences(),
     postPreferencesAccountLabel: String = "Current account",
-    onPostPreferences: (PostPreferences) -> Unit = {},
+    onPostDefaultAudience: (Audience) -> Unit = {},
+    onPostRepliesUnlisted: (Boolean) -> Unit = {},
+    onPostContentWarningRules: (ContentWarningRules) -> Unit = {},
+    error: String? = null,
+    onDismissError: () -> Unit = {},
     onNotificationAccount: (AccountId) -> Unit = {},
     onModeration: (AccountId, ModerationKind) -> Unit = { _, _ -> },
     notificationSettingsState: NotificationSettingsUiState = NotificationSettingsUiState(),
@@ -94,7 +106,21 @@ fun SettingsHost(
             )
         },
     ) { padding ->
-        androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().then(Modifier.padding(padding))) {
+        Column(Modifier.fillMaxSize().then(Modifier.padding(padding))) {
+            if (error != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    shape = MaterialTheme.shapes.large,
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(error, color = MaterialTheme.colorScheme.onErrorContainer)
+                        TextButton(onClick = onDismissError) {
+                            Text(stringResource(R.string.settings_error_dismiss))
+                        }
+                    }
+                }
+            }
             when (route) {
                 SettingsRoute.Main -> SettingsScreen(
                     state.preferences,
@@ -131,12 +157,16 @@ fun SettingsHost(
                     rules = state.preferences.contentWarningRules,
                     onChanged = onContentWarningRules,
                     localRules = postPreferences.contentWarningRules,
-                    onLocalChanged = { value -> onPostPreferences(postPreferences.copy(contentWarningRules = value)) },
+                    onLocalChanged = onPostContentWarningRules,
                     hiddenPresentation = state.preferences.hiddenContentPresentation,
                     onHiddenPresentation = onHiddenContentPresentation,
                     localAccountLabel = postPreferencesAccountLabel,
                 )
-                SettingsRoute.Posting -> PostingSettingsScreen(postPreferences, onPostPreferences)
+                SettingsRoute.Posting -> PostingSettingsScreen(
+                    preferences = postPreferences,
+                    onDefaultAudience = onPostDefaultAudience,
+                    onRepliesUnlisted = onPostRepliesUnlisted,
+                )
                 SettingsRoute.PrivacyAccounts -> PrivacyAccountsScreen(accounts) { accountId, kind ->
                     onModeration(accountId, kind)
                 }

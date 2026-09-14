@@ -145,10 +145,8 @@ fun ConnectedApp(
         SettingsOverlayHost(
             visible = settingsVisible,
             onDismiss = { settingsVisible = false },
-            appPreferences = appPreferences,
             accounts = accountIndex.accounts,
-            appPreferencesRepository = appPreferencesRepository,
-            postPreferencesRepository = postPreferencesRepository,
+            accountsReady = !state.starting,
             postPreferences = postPreferences,
             activeAccountId = activeSession?.accountId,
             sourceRegistry = sourceRegistry,

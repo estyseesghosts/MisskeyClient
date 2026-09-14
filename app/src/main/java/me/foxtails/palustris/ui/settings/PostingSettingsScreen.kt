@@ -13,7 +13,11 @@ import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.PostPreferences
 
 @Composable
-fun PostingSettingsScreen(preferences: PostPreferences, onChanged: (PostPreferences) -> Unit) {
+fun PostingSettingsScreen(
+    preferences: PostPreferences,
+    onDefaultAudience: (Audience) -> Unit,
+    onRepliesUnlisted: (Boolean) -> Unit,
+) {
     val options = Audience.entries.filter { it != Audience.Direct }
     Column(Modifier.fillMaxWidth()) {
         options.forEach { audience ->
@@ -23,7 +27,7 @@ fun PostingSettingsScreen(preferences: PostPreferences, onChanged: (PostPreferen
                 trailingContent = {
                     androidx.compose.material3.RadioButton(
                         selected = preferences.defaultAudience == audience,
-                        onClick = { onChanged(preferences.copy(defaultAudience = audience)) },
+                        onClick = { onDefaultAudience(audience) },
                     )
                 },
             )
@@ -34,7 +38,7 @@ fun PostingSettingsScreen(preferences: PostPreferences, onChanged: (PostPreferen
             trailingContent = {
                 Switch(
                     checked = preferences.repliesUnlisted,
-                    onCheckedChange = { onChanged(preferences.copy(repliesUnlisted = it)) },
+                    onCheckedChange = onRepliesUnlisted,
                 )
             },
         )

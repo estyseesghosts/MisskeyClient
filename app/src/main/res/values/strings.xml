@@ -506,6 +506,7 @@
     <string name="timeline_bubble">Bubble</string>
     <string name="timeline_federated">Federated</string>
     <string name="settings_title">Settings</string>
+    <string name="settings_error_dismiss">Dismiss</string>
     <string name="settings_section_notifications">Notifications</string>
     <string name="settings_section_privacy">Privacy</string>
     <string name="settings_section_language">Language</string>
