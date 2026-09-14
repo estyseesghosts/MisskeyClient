@@ -236,7 +236,10 @@
     </plurals>
     <string name="emoji_reaction_remove">Remove the %1$s reaction</string>
     <string name="emoji_reaction_selected">%1$s reaction selected</string>
+    <string name="post_action_hashtags">Post hashtags</string>
     <string name="post_action_hashtags_expanded">Expanded hashtag choices</string>
+    <string name="post_action_hashtags_see_all">see all?</string>
+    <string name="post_action_hashtags_close">close</string>
     <string name="post_action_hashtag_description">Hashtag %1$s</string>
     <string name="post_action_reactions_collapsed">Choose a reaction</string>
     <string name="post_action_reactions_expanded">Expanded reaction choices</string>

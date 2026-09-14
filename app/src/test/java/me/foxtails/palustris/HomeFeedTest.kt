@@ -791,12 +791,41 @@ private fun show(
         val longBounds = compose.onNodeWithTag("hashtag_bubble_#alongertag", useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot
         assertTrue(longBounds.width > shortBounds.width)
-        assertEquals(longBounds.right, shortBounds.right, 1f)
+        assertEquals("short=$shortBounds long=$longBounds", longBounds.right, shortBounds.right, 1f)
         compose.onNodeWithContentDescription("Hashtag #alongertag").performClick()
         compose.waitForIdle()
 
         assertEquals("#alongertag", searched)
         compose.onNodeWithText("#alongertag", substring = false).assertIsDisplayed()
+    }
+
+    @Test fun hashtagBubbleExpandsWithoutChangingItsSelectionFlow() {
+        val hashtags = (1..8).map { "#tag$it" }
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                PalustrisApp(
+                    account = account,
+                    feedState = FeedState(
+                        posts = listOf(Post(postId("expand-tags"), account, hashtags.joinToString(" "), 0, Audience.Public)),
+                    ),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription(
+            "8 hashtags: #tag1, #tag2, #tag3, #tag4, #tag5, #tag6, #tag7 and #tag8",
+        ).performClick()
+        compose.onNodeWithTag("hashtag_bubble_compact", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("hashtag_bubble_#tag7", useUnmergedTree = true).assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("see all?").performClick()
+        compose.onNodeWithTag("hashtag_bubble_expanded", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("hashtag_bubble_#tag8", useUnmergedTree = true).assertIsDisplayed()
+
+        compose.onNodeWithContentDescription("close").performClick()
+        compose.onNodeWithTag("hashtag_bubble_compact", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("hashtag_bubble_#tag8", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test fun longPressingHeartOpensCompactReactionBubbleAndEmojiSelectionUsesChoice() {

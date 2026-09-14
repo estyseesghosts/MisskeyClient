@@ -130,6 +130,12 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Back, outside taps, navigation, and account changes dismiss pending confirmation.
 - Focused verification passed: PostRepostConfirmationOwnerTest and updated account-ownership UI tests.
  - Pushed the six stabilization commits to `origin/feature/foldable-ui` through `d548130`.
+260913-210715 Beeline 0.2.2 visual polish slice 4:
+- Extracted the hashtag popup into an adaptive compact and expanded component.
+- Added measured six-item compact prefix behavior, responsive expanded rows, wrapped long tags, close-in-container behavior, empty-list suppression, and target-keyed reset state.
+- Preserved existing popup routing, placement, dismissal, selection callbacks, and accessibility semantics.
+- Added HomeFeed hashtag expansion and close regression coverage.
+- Verification passed: focused HomeFeed/navigation/localization tests, full `test`, `assembleRelease`, and `lintDebug`.
 260910-131102 Release pipeline:
 - Added a tag-driven signed APK workflow with test and lint gates.
 - Added release tag version handling for `versionName` and `versionCode`.

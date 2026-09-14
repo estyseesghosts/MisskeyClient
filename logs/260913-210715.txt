@@ -55,3 +55,14 @@ The planned files are listed in `docs/0.2.2.cont.md`. The implementation will ad
 - Removed the obsolete timeline selection sheet branch and resource.
 - Focused verification passed: `NavigationTest`, `WideNavigationTest`, `HomeFeedTest`, and `SignInScreenTest`.
 - Full verification passed: `test assembleRelease`.
+
+## Slice 4 result
+
+- Extracted hashtag popup presentation into `ui/HashtagBubble.kt`.
+- Added compact measured prefix presentation capped at six items, with content-sized right-aligned pills and a `see all?` action.
+- Added expanded bounded lazy presentation with responsive two-column rows, wrapped long tags, and an in-container `close` action.
+- Reset compact state for each popup target and suppressed empty hashtag popups.
+- Preserved existing hashtag selection routing, popup placement, dismissal animation, and accessibility semantics.
+- Added expansion, close, selection, and geometry regression coverage.
+- Focused verification passed: `HomeFeedTest`, `NavigationTest`, `WideNavigationTest`, and `LocalizationResourceTest`.
+- Full verification passed: `test`, `assembleRelease`, and `lintDebug`.

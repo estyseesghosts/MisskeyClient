@@ -1,5 +1,4 @@
 # Active tasks
 
-- Implement adaptive compact and expanded hashtag presentation.
 - Resolve or explicitly accept the connected `SystemBarAppearanceInstrumentedTest` failure.
 - Run the final device and authorized live checks.

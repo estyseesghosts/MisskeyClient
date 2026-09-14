@@ -8,18 +8,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -31,7 +24,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
@@ -59,7 +51,6 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.emoji.EmojiChoiceGrid
-import me.foxtails.palustris.ui.components.PillAction
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 
 private const val BubbleDismissDurationMillis = 150L
@@ -107,11 +98,14 @@ fun PostActionBubbleHost(
     var visible by remember { mutableStateOf(false) }
     var localReactionMode by remember { mutableStateOf(ReactionBubbleMode.Compact) }
     var reactionOpenedAtMillis by remember { mutableLongStateOf(0L) }
+    var hashtagOpeningKey by remember { mutableLongStateOf(0L) }
     val dismiss by rememberUpdatedState(onDismiss)
 
     LaunchedEffect(target) {
-        if (target != null) {
+        val hasHashtags = target !is PostActionBubbleTarget.HashtagList || target.hashtags.isNotEmpty()
+        if (target != null && hasHashtags) {
             renderedTarget = target
+            hashtagOpeningKey++
             localReactionMode = (target as? PostActionBubbleTarget.Reaction)?.mode ?: ReactionBubbleMode.Compact
             reactionOpenedAtMillis = SystemClock.uptimeMillis()
             visible = true
@@ -161,6 +155,7 @@ fun PostActionBubbleHost(
                 is PostActionBubbleTarget.HashtagList -> HashtagBubble(
                     hashtags = current.hashtags,
                     maxHeight = hashtagBubbleMaxHeight(current.anchorBounds, hashtagBottomClearance),
+                    openingKey = hashtagOpeningKey,
                     onSelected = { hashtag ->
                         onHashtagSelected(hashtag)
                         dismiss()
@@ -184,43 +179,6 @@ fun PostActionBubbleHost(
                     },
                 )
                 null -> Unit
-            }
-        }
-    }
-}
-
-@Composable
-private fun HashtagBubble(
-    hashtags: List<String>,
-    maxHeight: Dp,
-    onSelected: (String) -> Unit,
-) {
-    val listDescription = stringResource(R.string.post_action_hashtags_expanded)
-    val expandedDescription = stringResource(R.string.post_action_bubble_expanded)
-    LazyColumn(
-        modifier = Modifier
-            .widthIn(max = 280.dp)
-            .fillMaxWidth()
-            .heightIn(max = maxHeight)
-            .testTag("hashtag_bubble_list")
-            .semantics {
-                contentDescription = listDescription
-                stateDescription = expandedDescription
-            },
-        contentPadding = PaddingValues(4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        itemsIndexed(hashtags, key = { index, hashtag -> "$index-$hashtag" }) { _, hashtag ->
-            val hashtagDescription = stringResource(R.string.post_action_hashtag_description, hashtag)
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                PillAction(
-                    label = hashtag,
-                    onClick = { onSelected(hashtag) },
-                    modifier = Modifier
-                        .widthIn(max = 280.dp)
-                        .testTag("hashtag_bubble_$hashtag"),
-                    contentDescription = hashtagDescription,
-                )
             }
         }
     }
