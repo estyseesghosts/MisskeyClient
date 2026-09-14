@@ -7,10 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-internal val CompactNavigationHeight = 60.dp
-internal val CompactTimelineSelectorWidth = 168.dp
-internal val CompactTimelineSelectorHeight = 60.dp
+internal val CompactNavigationHeight = 56.dp
+internal val CompactTimelineTabsHeight = 56.dp
 internal val CompactOverlayControlSpacing = 14.dp
+internal val CompactHomeTimelineSpacing = 8.dp
 internal val CompactOverlayHorizontalPadding = 16.dp
 internal val CompactOverlayVerticalPadding = 12.dp
 internal val CompactSearchChipRowHeight = 48.dp
@@ -59,6 +59,6 @@ internal fun compactHomeScrollEndClearance(): Dp {
         .asPaddingValues()
         .calculateBottomPadding()
     return systemNavigationBottom + CompactNavigationHeight +
-        CompactOverlayControlSpacing + CompactTimelineSelectorHeight +
+        CompactHomeTimelineSpacing + CompactTimelineTabsHeight +
         (CompactOverlayVerticalPadding * 2f)
 }

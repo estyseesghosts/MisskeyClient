@@ -97,7 +97,7 @@ private fun show(
         val final = Post(postId("compact-final"), account, "Compact final home post", 0, Audience.Public)
         show(first, FeedState(posts = listOf(first, final)))
 
-        val timeline = compose.onNodeWithContentDescription("Choose timeline").fetchSemanticsNode().boundsInRoot
+        val timeline = compose.onNodeWithContentDescription("Timeline Home").fetchSemanticsNode().boundsInRoot
         repeat(14) {
             compose.onNodeWithTag("home_feed_content", useUnmergedTree = true).performTouchInput { swipeUp() }
         }

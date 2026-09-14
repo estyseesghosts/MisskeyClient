@@ -137,15 +137,17 @@ import me.foxtails.palustris.ui.posts.copyPostShareContent
 import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.layout.CompactFilterDockHeight as movedCompactFilterDockHeight
 import me.foxtails.palustris.ui.layout.CompactOverlayControlSpacing as movedCompactOverlayControlSpacing
+import me.foxtails.palustris.ui.layout.CompactHomeTimelineSpacing as movedCompactHomeTimelineSpacing
 import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding as movedCompactOverlayHorizontalPadding
 import me.foxtails.palustris.ui.layout.CompactOverlayVerticalPadding as movedCompactOverlayVerticalPadding
 import me.foxtails.palustris.ui.layout.CompactSearchDockHeight as movedCompactSearchDockHeight
+import me.foxtails.palustris.ui.layout.CompactTimelineTabsHeight as movedCompactTimelineTabsHeight
 import me.foxtails.palustris.ui.layout.LegacyFeedBottomClearance as movedLegacyFeedBottomClearance
 import me.foxtails.palustris.ui.layout.compactGlobalNavigationPositioningInsets as movedCompactGlobalNavigationPositioningInsets
 import me.foxtails.palustris.ui.layout.compactHomeScrollEndClearance as movedCompactHomeScrollEndClearance
 import me.foxtails.palustris.ui.layout.compactScrollEndClearance as movedCompactScrollEndClearance
 import me.foxtails.palustris.ui.navigation.CompactContextualNavigationBar as movedCompactContextualNavigationBar
-import me.foxtails.palustris.ui.navigation.TimelineSelector as movedTimelineSelector
+import me.foxtails.palustris.ui.navigation.HomeTimelineTabs
 import me.foxtails.palustris.ui.navigation.contextualActionFor as movedContextualActionFor
 
 private const val COMPOSER_OVERLAY_KEY = "Composer"
@@ -315,7 +317,6 @@ fun PalustrisApp(
     var postReactionHandler by remember { mutableStateOf<((OwnedPost, EmojiChoice) -> Unit)?>(null) }
     var pendingEmojiInsertion by remember { mutableStateOf<Pair<EmojiChoice, ComposerField>?>(null) }
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
-    val currentDestination by rememberUpdatedState(destination)
     var notificationRoute by remember { mutableStateOf<AppRoute?>(initialNotificationRoute) }
     var closing by remember { mutableStateOf(false) }
     val motionScheme = LocalPalustrisMotionScheme.current
@@ -647,6 +648,7 @@ fun PalustrisApp(
     }
     fun selectDestination(item: Destination) {
         clearPostActionBubble()
+        navigationVisible = true
         if (item == Destination.Profile) viewedProfile = null
         destinationTransitionDirection = motionDirection(destination.ordinal, item.ordinal, motionScheme.reducedMotion)
         destination = item
@@ -917,7 +919,7 @@ fun PalustrisApp(
                                           onLoadMore = { onLoadMore(timeline) },
                                           onSignIn = onSignOut,
                                           ownedPosts = ownedPosts ?: feedState.ownedPosts,
-                                          onScrollDirectionChanged = { if (currentDestination == Destination.Home) navigationVisible = it },
+                                          onScrollDirectionChanged = { if (destination == Destination.Home && animatedDestination == Destination.Home) navigationVisible = it },
                                           onReact = onReact,
                                           onReply = handleReply,
                                           onReshare = onReshare,
@@ -1167,12 +1169,22 @@ fun PalustrisApp(
                          Box(Modifier.fillMaxWidth().windowInsetsPadding(movedCompactGlobalNavigationPositioningInsets()).padding(horizontal = movedCompactOverlayHorizontalPadding, vertical = movedCompactOverlayVerticalPadding), contentAlignment = Alignment.Center) {
                             Column(
                                 modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
-                                horizontalAlignment = Alignment.End,
-                            ) {
-                                if (destination == Destination.Home) {
-                                     movedTimelineSelector(timeline) { clearPostActionBubble(); sheet = "Timelines" }
-                                     Spacer(Modifier.height(movedCompactOverlayControlSpacing))
-                                }
+                                 horizontalAlignment = Alignment.End,
+                             ) {
+                                 if (destination == Destination.Home) {
+                                      HomeTimelineTabs(
+                                          timelines = availableTimelines,
+                                          selected = timeline,
+                                          modifier = Modifier.height(movedCompactTimelineTabsHeight),
+                                          onSelect = { item ->
+                                              clearPostActionBubble()
+                                              val changed = item != timeline
+                                              timeline = item
+                                              if (changed) onRefresh(item)
+                                          },
+                                      )
+                                      Spacer(Modifier.height(movedCompactHomeTimelineSpacing))
+                                 }
                                  movedCompactContextualNavigationBar(
                                     destination = destination,
                                     searchPanel = searchPanel,
@@ -1317,20 +1329,15 @@ fun PalustrisApp(
          ImageViewerContentScreen(request, onClose = { profileImageRequest = null })
      }
 
-      if (sheet != null) AppSelectionSheet(
-          sheet = sheet!!,
-          account = account,
-          accounts = accounts,
-          timeline = timeline,
-          availableTimelines = availableTimelines,
-          onDismiss = { sheet = null },
-          onTimelineSelected = { timeline = it },
-          onSwitchAccount = onSwitchAccount,
-          onAddAccount = onAddAccount,
-          onOpenSettings = onOpenSettings,
-          onSignOut = { signOutDialog = true },
-          onRefresh = onRefresh,
-      )
+       if (sheet != null) AppSelectionSheet(
+           account = account,
+           accounts = accounts,
+           onDismiss = { sheet = null },
+           onSwitchAccount = onSwitchAccount,
+           onAddAccount = onAddAccount,
+           onOpenSettings = onOpenSettings,
+           onSignOut = { signOutDialog = true },
+       )
 
     if (overlay == Overlay.Composer) ComposerSheet(
         onDismiss = ::closeComposer,

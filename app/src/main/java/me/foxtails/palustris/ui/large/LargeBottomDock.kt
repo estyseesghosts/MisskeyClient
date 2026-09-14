@@ -1,30 +1,14 @@
 package me.foxtails.palustris.ui.large
 
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.ui.layout.CompactSearchChipRowHeight
-import me.foxtails.palustris.ui.timelineLabelRes
-import me.foxtails.palustris.domain.timelineDisplayOrder
+import me.foxtails.palustris.ui.navigation.HomeTimelineTabs
 
 internal val LargeBottomDockClearance = 88.dp
 internal val LargeSearchDockClearance = 144.dp
@@ -50,28 +34,5 @@ internal fun LargeTimelineDockContent(
     selected: Timeline,
     onSelect: (Timeline) -> Unit,
 ) {
-    Row(
-        Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        timelineDisplayOrder.filter { it in timelines }.forEach { timeline ->
-            val label = stringResource(timelineLabelRes(timeline))
-            val description = stringResource(R.string.large_timeline, label)
-            FilterChip(
-                selected = timeline == selected,
-                onClick = { onSelect(timeline) },
-                 label = { Text(label) },
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                ),
-                shape = RoundedCornerShape(50),
-                modifier = Modifier
-                    .height(CompactSearchChipRowHeight)
-                    .semantics {
-                        contentDescription = description
-                    },
-            )
-        }
-    }
+    HomeTimelineTabs(timelines = timelines, selected = selected, onSelect = onSelect)
 }

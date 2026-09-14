@@ -1,5 +1,5 @@
 # Active tasks
 
-- Implement compact navigation and Home timeline tab chips.
+- Implement adaptive compact and expanded hashtag presentation.
 - Resolve or explicitly accept the connected `SystemBarAppearanceInstrumentedTest` failure.
-- Review the final diff and record release evidence before any explicitly authorized commit.
+- Run the final device and authorized live checks.

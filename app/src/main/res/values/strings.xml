@@ -16,7 +16,6 @@
     <string name="search_popular_links">Popular links will appear here.</string>
     <string name="search_suggested_accounts">Suggested accounts will appear here.</string>
     <string name="nav_compose">Compose post</string>
-    <string name="nav_choose_timeline">Choose timeline</string>
     <string name="a11y_selected">Selected</string>
     <string name="timeline_detected">Timelines are detected from this server</string>
     <string name="timeline_preview">Timeline preview</string>

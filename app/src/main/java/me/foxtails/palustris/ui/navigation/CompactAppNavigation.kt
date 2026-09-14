@@ -19,12 +19,14 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -38,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -47,23 +48,18 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
-import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.components.AccountAvatar
+import me.foxtails.palustris.ui.components.BeelineBubbleShape
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.Avatar
 import me.foxtails.palustris.ui.Destination
 import me.foxtails.palustris.ui.NotificationsPanel
 import me.foxtails.palustris.ui.SearchPanel
-import me.foxtails.palustris.ui.timelineLabelRes
 import me.foxtails.palustris.ui.layout.CompactNavigationHeight
-import me.foxtails.palustris.ui.layout.CompactTimelineSelectorHeight
-import me.foxtails.palustris.ui.layout.CompactTimelineSelectorWidth
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 import me.foxtails.palustris.ui.motion.rememberSelectedColor
 import me.foxtails.palustris.ui.motion.rememberSelectedScale
@@ -77,18 +73,21 @@ internal data class ContextualBottomAction(
     val onClick: () -> Unit,
 )
 
+internal fun Modifier.bubblePressLayer(
+    pressed: Boolean,
+    color: androidx.compose.ui.graphics.Color,
+    shape: androidx.compose.ui.graphics.Shape,
+): Modifier = clip(shape).drawWithContent {
+    drawContent()
+    if (pressed) {
+        drawRect(color)
+    }
+}
+
 private fun Modifier.roundPressLayer(
     pressed: Boolean,
     color: androidx.compose.ui.graphics.Color,
-): Modifier = clip(androidx.compose.foundation.shape.CircleShape).drawWithContent {
-    drawContent()
-    if (pressed) {
-        drawRoundRect(
-            color = color,
-            cornerRadius = CornerRadius(minOf(size.width, size.height) / 2f),
-        )
-    }
-}
+): Modifier = bubblePressLayer(pressed, color, androidx.compose.foundation.shape.CircleShape)
 
 internal fun contextualActionFor(
     destination: Destination,
@@ -138,35 +137,6 @@ internal fun contextualActionFor(
 }
 
 @Composable
-internal fun TimelineSelector(timeline: Timeline, onClick: () -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val scheme = LocalPalustrisMotionScheme.current
-    val pressed by interactionSource.collectIsPressedAsState()
-    val timelineLabel = stringResource(timelineLabelRes(timeline))
-    val chooseTimelineLabel = stringResource(R.string.nav_choose_timeline)
-    val pressColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-    Surface(
-        modifier = Modifier
-            .size(CompactTimelineSelectorWidth, CompactTimelineSelectorHeight)
-            .springPress(interactionSource, pressedScale = scheme.pressedScale)
-            .roundPressLayer(pressed, pressColor)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .semantics { contentDescription = chooseTimelineLabel },
-        shape = androidx.compose.foundation.shape.CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
-        shadowElevation = 6.dp,
-    ) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            androidx.compose.material3.Text(
-                timelineLabel,
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
-            )
-        }
-    }
-}
-
-@Composable
 internal fun CompactContextualNavigationBar(
     destination: Destination,
     searchPanel: SearchPanel,
@@ -178,21 +148,21 @@ internal fun CompactContextualNavigationBar(
     val scheme = LocalPalustrisMotionScheme.current
     Row(
         Modifier.fillMaxWidth().height(CompactNavigationHeight),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Spacer(Modifier.weight(1f))
         Surface(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
-            shape = androidx.compose.foundation.shape.CircleShape,
+            modifier = Modifier.width(212.dp).height(56.dp),
+            shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
             shadowElevation = 6.dp,
         ) {
-            Box(Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
-                Row(
-                    Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+            Row(
+                Modifier.fillMaxSize().padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                     Destination.entries.forEach { item ->
                         val selected = destination == item
                         val photoGridSelected = destination == Destination.Search &&
@@ -227,7 +197,7 @@ internal fun CompactContextualNavigationBar(
                                 indication = LocalIndication.current,
                             ) { onDestinationSelected(item) }
                         Box(
-                            itemModifier.semantics {
+                            modifier = itemModifier.semantics {
                                 contentDescription = label
                                 this.selected = selected
                                 role = Role.Tab
@@ -243,7 +213,7 @@ internal fun CompactContextualNavigationBar(
                             ) {
                                 Surface(
                                     modifier = Modifier.size(40.dp).testTag("selected_navigation_indicator"),
-                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                    shape = BeelineBubbleShape,
                                     color = MaterialTheme.colorScheme.secondaryContainer,
                                 ) {}
                             }
@@ -264,7 +234,6 @@ internal fun CompactContextualNavigationBar(
                                 tint = selectedTint,
                             )
                         }
-                    }
                 }
             }
         }
@@ -272,7 +241,7 @@ internal fun CompactContextualNavigationBar(
             FilledIconButton(
                 onClick = contextualAction.onClick,
                 enabled = contextualAction.enabled,
-                modifier = Modifier.size(52.dp).semantics { contentDescription = contextualAction.contentDescription },
+                 modifier = Modifier.size(56.dp).semantics { contentDescription = contextualAction.contentDescription },
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,

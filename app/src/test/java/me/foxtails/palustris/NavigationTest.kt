@@ -236,8 +236,7 @@ class NavigationTest {
     }
 
     @Test fun navigationRetainsSearchAndSelectedTimeline() {
-        compose.onAllNodesWithContentDescription("Choose timeline").onFirst().performClick()
-        compose.onNodeWithText("Local").performClick()
+        compose.onNodeWithTag("home_timeline_tab_Local").performClick()
         compose.onNodeWithText("Local posts will appear here when an account is connected.").assertIsDisplayed()
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onNodeWithText("Hashtags").performClick()
@@ -302,20 +301,22 @@ class NavigationTest {
 
     @Test fun compactHomeSelectorTrailsNavigationAndLeavesNoDestinationSlot() {
         compose.waitForIdle()
-        val selector = bounds("Choose timeline")
+        val selector = bounds("Timeline Home")
+        val tabs = compose.onNodeWithTag("home_timeline_tabs").fetchSemanticsNode().boundsInRoot
         val action = bounds("Compose post")
         val homeDestinationBefore = bounds("Home")
         val density = compose.activity.resources.displayMetrics.density
 
-        assertEquals(168f, selector.width / density, 1f)
-        assertEquals(60f, selector.height / density, 1f)
+        assertTrue("timeline tabs should expose a readable chip", selector.width / density >= 48f)
+        assertTrue("timeline tabs should expose a readable row", selector.height / density >= 48f)
         assertTrue("selector should be below the content top", selector.top > 96f * density)
-        assertTrue("selector should be above the navigation action", selector.bottom < action.top)
-        assertEquals("selector should trail the navigation assembly", action.right, selector.right, density)
+        assertTrue("timeline tabs should be above the navigation action", tabs.bottom < action.top)
+        assertTrue("timeline tabs should keep compact side margins", tabs.left / density >= 16f)
+        assertTrue("timeline tabs should keep compact side margins", tabs.right / density <= 411f - 16f)
 
         compose.onNodeWithContentDescription("Search").performClick()
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Choose timeline").assertDoesNotExist()
+        compose.onNodeWithTag("home_timeline_tabs").assertDoesNotExist()
         assertEquals(homeDestinationBefore.left, bounds("Home").left, density)
         assertEquals(homeDestinationBefore.top, bounds("Home").top, density)
         assertEquals(homeDestinationBefore.right, bounds("Home").right, density)
@@ -378,7 +379,7 @@ class NavigationTest {
         compose.waitForIdle()
 
         screenshot("home")
-        assertUnderlaps("post_row_home-underlap", "Choose timeline")
+        assertUnderlaps("post_row_home-underlap", "Timeline Home")
         assertFixtureVisibleBesideAction("post_row_home-underlap", "Compose post")
         scrollToEnd("home_feed_content")
         compose.onNodeWithText("Home final fixture").assertIsDisplayed()
@@ -727,29 +728,27 @@ class NavigationTest {
             }
         }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Choose timeline").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Timeline Home").assertIsDisplayed()
         compose.onNodeWithContentDescription("Compose post").assertIsDisplayed()
 
-        compose.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+        compose.onNodeWithTag("home_feed_content", useUnmergedTree = true).performTouchInput { swipeUp() }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Choose timeline").assertDoesNotExist()
+        compose.onNodeWithTag("home_timeline_tabs").assertDoesNotExist()
         compose.onNodeWithContentDescription("Compose post").assertDoesNotExist()
 
-        compose.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        compose.onNodeWithTag("home_feed_content", useUnmergedTree = true).performTouchInput { swipeDown() }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Choose timeline").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Timeline Home").assertIsDisplayed()
         compose.onNodeWithContentDescription("Compose post").assertIsDisplayed()
 
         repeat(12) {
-            compose.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+            compose.onNodeWithTag("home_feed_content", useUnmergedTree = true).performTouchInput { swipeUp() }
         }
         compose.waitForIdle()
         compose.onNodeWithText("Final post").assertIsDisplayed()
     }
 
     @Test fun homeAndSelectedSearchIndicationsStayRounded() {
-        assertPressKeepsCornersUnchanged("Choose timeline")
-
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onNodeWithContentDescription("Search").assertIsSelected()
         assertPressKeepsCornersUnchanged("Search")
@@ -794,6 +793,7 @@ class NavigationTest {
         compose.onNodeWithContentDescription("Edit profile").assertDoesNotExist()
 
         compose.onNodeWithContentDescription("Search").performClick()
+        compose.waitForIdle()
         compose.onNodeWithContentDescription("Photo grid").assertIsEnabled().performClick()
         compose.onNodeWithText("No media posts available").assertIsDisplayed()
 

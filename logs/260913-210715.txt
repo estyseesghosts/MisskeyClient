@@ -45,3 +45,13 @@ The planned files are listed in `docs/0.2.2.cont.md`. The implementation will ad
 - Added presentation-only short handles for action labels.
 - Allowed complete federated profile handles to wrap.
 - Focused tests passed: `PostShareSheetTest` and `ProfileScreenTest`.
+
+## Slice 3 result
+
+- Replaced compact timeline popup selection with capability-filtered, horizontally scrollable Home timeline tabs.
+- Shared the Home timeline tab presentation with the wide Home dock.
+- Rebuilt compact navigation with a fixed concentric navigation pill and separate contextual action control.
+- Preserved account selection, destination callbacks, Home refresh behavior, feed clearance, and Photo Grid independence.
+- Removed the obsolete timeline selection sheet branch and resource.
+- Focused verification passed: `NavigationTest`, `WideNavigationTest`, `HomeFeedTest`, and `SignInScreenTest`.
+- Full verification passed: `test assembleRelease`.

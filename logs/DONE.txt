@@ -513,7 +513,13 @@ Confirmed that the worktree already contains unrelated changes. No existing file
  - Added the transparent black-bee `beeline.png` asset to `drawable-nodpi`.
  - Set the launcher background and setup branding color to `#F1BE43`.
  - Confirmed that `bee.jpg` is not used as launcher artwork.
- - Full verification passed: `test assembleRelease` and `lintDebug`.
+  - Full verification passed: `test assembleRelease` and `lintDebug`.
+20260914-021500 Beeline 0.2.2 slice 3:
+- Replaced compact Home timeline popup selection with capability-filtered horizontal tabs and shared the presentation with the wide Home dock.
+- Rebuilt compact navigation as a fixed concentric pill with a separate contextual action control.
+- Removed the obsolete timeline selection sheet branch and resource while preserving account selection and existing callbacks.
+- Focused navigation, Home, wide-layout, and account-switching tests passed.
+- Full verification passed: `test assembleRelease`.
 260913-153415 Slice 1:
 - Reused `PillAction` for hashtag bubbles and added minimum-size, alignment, and multiline support.
 - Replaced EntityId moderation commands with account-targeted block and mute operations.
