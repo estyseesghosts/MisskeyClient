@@ -43,6 +43,7 @@ import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.AppColorScheme
 import me.foxtails.palustris.domain.AppPreferencesRepository
 import me.foxtails.palustris.domain.AppPreferencesState
@@ -59,6 +60,7 @@ import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 import me.foxtails.palustris.ui.settings.SettingsHost
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.EmojiPresentation
+import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.settings.ModerationViewModel
 import me.foxtails.palustris.ui.settings.ModerationKind
 import me.foxtails.palustris.domain.ModerationListKind
@@ -234,6 +236,30 @@ fun ConnectedApp(
     else remember { mutableStateOf<SavedPostsUiState?>(null) }
     val notificationSettingsState by if (notificationSettingsModel != null) notificationSettingsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationSettingsUiState()) }
+    val notificationSettingsActions = remember(notificationSettingsModel) {
+        object : NotificationSettingsContract.Actions {
+            override fun setAlertsEnabled(enabled: Boolean) { notificationSettingsModel?.setAlertsEnabled(enabled) }
+            override fun setShowPreviews(enabled: Boolean) { notificationSettingsModel?.setShowPreviews(enabled) }
+            override fun setPeriodicFallback(enabled: Boolean) { notificationSettingsModel?.setPeriodicFallbackEnabled(enabled) }
+            override fun setQuietHours(enabled: Boolean) { notificationSettingsModel?.setQuietHours(enabled) }
+            override fun setCategoryEnabled(category: NotificationCategory, enabled: Boolean) {
+                notificationSettingsModel?.setCategoryEnabled(category, enabled)
+            }
+            override fun runLocalTest() { notificationSettingsModel?.runLocalPresentationTest() }
+            override fun retryRegistration() { notificationSettingsModel?.retryRegistration() }
+            override fun refreshPermission() { notificationSettingsModel?.refreshPermission() }
+            override fun refreshDistributors() { notificationSettingsModel?.refreshDistributors() }
+            override fun selectDistributor(packageName: String) { notificationSettingsModel?.selectDistributor(packageName) }
+            override fun runPushConnectionTest() { notificationSettingsModel?.runPushConnectionTest() }
+        }
+    }
+    val notificationSettings = remember(activeSession?.accountId, notificationSettingsState, notificationSettingsActions) {
+        NotificationSettingsContract(
+            accountId = activeSession?.accountId,
+            state = notificationSettingsState,
+            actions = notificationSettingsActions,
+        )
+    }
     val settingsNotificationState by if (settingsNotificationModel != null) settingsNotificationModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationSettingsUiState()) }
     val moderationState by if (moderationModel != null) moderationModel.state.collectAsStateWithLifecycle()
@@ -468,20 +494,7 @@ fun ConnectedApp(
                  onSendDirectMessage = { text -> directMessagesModel?.send(text) },
                  onSelectNotificationQuery = { query -> notificationsModel?.selectQuery(query) },
                 initialNotificationRoute = initialNotificationRoute,
-                notificationSettingsState = notificationSettingsState,
-                onNotificationAlertsEnabled = { enabled -> notificationSettingsModel?.setAlertsEnabled(enabled) },
-                onNotificationShowPreviews = { enabled -> notificationSettingsModel?.setShowPreviews(enabled) },
-                onNotificationPeriodicFallback = { enabled -> notificationSettingsModel?.setPeriodicFallbackEnabled(enabled) },
-                onNotificationQuietHours = { enabled -> notificationSettingsModel?.setQuietHours(enabled) },
-                onNotificationCategoryChanged = { category, enabled ->
-                    notificationSettingsModel?.setCategoryEnabled(category, enabled)
-                },
-                onNotificationLocalTest = { notificationSettingsModel?.runLocalPresentationTest() },
-                onNotificationRetryRegistration = { notificationSettingsModel?.retryRegistration() },
-                onNotificationPermissionChanged = { notificationSettingsModel?.refreshPermission() },
-                onNotificationRefreshDistributors = { notificationSettingsModel?.refreshDistributors() },
-                onNotificationSelectDistributor = { packageName -> notificationSettingsModel?.selectDistributor(packageName) },
-                  onNotificationPushConnectionTest = { notificationSettingsModel?.runPushConnectionTest() },
+                notificationSettings = notificationSettings,
                 profileState = profileState,
                 onProfileShown = { seed -> profileModel?.open(seed) },
                 onProfileCategorySelected = { category -> profileModel?.selectCategory(category) },

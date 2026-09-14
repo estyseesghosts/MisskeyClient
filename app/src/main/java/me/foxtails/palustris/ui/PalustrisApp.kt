@@ -90,7 +90,6 @@ import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
 import me.foxtails.palustris.ui.notifications.NotificationSettingsScreen
 import me.foxtails.palustris.ui.notifications.NotificationSettingsSheet
-import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfileUiState
@@ -106,6 +105,7 @@ import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.EmojiPresentation
+import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageUiState
@@ -230,18 +230,7 @@ fun PalustrisApp(
     onSendDirectMessage: (String) -> Unit = {},
     onSelectNotificationQuery: (NotificationQuery) -> Unit = {},
     initialNotificationRoute: AppRoute? = null,
-    notificationSettingsState: NotificationSettingsUiState = NotificationSettingsUiState(),
-    onNotificationAlertsEnabled: (Boolean) -> Unit = {},
-    onNotificationShowPreviews: (Boolean) -> Unit = {},
-    onNotificationPeriodicFallback: (Boolean) -> Unit = {},
-    onNotificationQuietHours: (Boolean) -> Unit = {},
-    onNotificationCategoryChanged: (me.foxtails.palustris.domain.NotificationCategory, Boolean) -> Unit = { _, _ -> },
-    onNotificationLocalTest: () -> Unit = {},
-    onNotificationRetryRegistration: () -> Unit = {},
-    onNotificationPermissionChanged: () -> Unit = {},
-    onNotificationRefreshDistributors: () -> Unit = {},
-    onNotificationSelectDistributor: (String) -> Unit = {},
-    onNotificationPushConnectionTest: () -> Unit = {},
+    notificationSettings: NotificationSettingsContract = NotificationSettingsContract.Empty,
 ) {
     val mediaTransitionRegistry = remember { MediaTransitionRegistry() }
     val repostConfirmationOwner = remember(account?.id, sessionGeneration, sessionRevision) { PostRepostConfirmationOwner() }
@@ -1448,19 +1437,19 @@ fun PalustrisApp(
     }
 
     if (overlay == Overlay.NotificationSettings && account != null) NotificationSettingsSheet(
-        state = notificationSettingsState,
+        state = notificationSettings.state,
         onDismiss = ::closeNotificationSettings,
-        onAlertsEnabled = onNotificationAlertsEnabled,
-        onShowPreviews = onNotificationShowPreviews,
-        onPeriodicFallback = onNotificationPeriodicFallback,
-        onQuietHours = onNotificationQuietHours,
-        onCategoryChanged = onNotificationCategoryChanged,
-        onRunLocalTest = onNotificationLocalTest,
-        onRetryRegistration = onNotificationRetryRegistration,
-        onPermissionChanged = onNotificationPermissionChanged,
-        onRefreshDistributors = onNotificationRefreshDistributors,
-        onSelectDistributor = onNotificationSelectDistributor,
-        onRunPushConnectionTest = onNotificationPushConnectionTest,
+        onAlertsEnabled = notificationSettings.actions::setAlertsEnabled,
+        onShowPreviews = notificationSettings.actions::setShowPreviews,
+        onPeriodicFallback = notificationSettings.actions::setPeriodicFallback,
+        onQuietHours = notificationSettings.actions::setQuietHours,
+        onCategoryChanged = notificationSettings.actions::setCategoryEnabled,
+        onRunLocalTest = notificationSettings.actions::runLocalTest,
+        onRetryRegistration = notificationSettings.actions::retryRegistration,
+        onPermissionChanged = notificationSettings.actions::refreshPermission,
+        onRefreshDistributors = notificationSettings.actions::refreshDistributors,
+        onSelectDistributor = notificationSettings.actions::selectDistributor,
+        onRunPushConnectionTest = notificationSettings.actions::runPushConnectionTest,
     )
 
     BackHandler(enabled = overlay == Overlay.NotificationSettings) {
