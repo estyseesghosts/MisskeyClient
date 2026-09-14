@@ -668,3 +668,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Removed `threadState` and eight thread callbacks from `PalustrisApp`.
 - Bound the registered contract in `ConnectedApp` and migrated `HomeFeedTest` and `WideNavigationTest` through `AppShellFixtures.thread`.
 - Verification passed: `HomeFeedTest`, `WideNavigationTest`, `SinglePostScreenTest`, `NavigationTest`, and `ShellCharacterizationTest`.
+
+01-B photo-grid contract:
+- Added `ui/shell/PhotoGridContract` with independent feed state and typed actions.
+- Removed `photoGridFeed` and six Photo Grid callbacks from `PalustrisApp`.
+- Bound the registered contract in `ConnectedApp`.
+- Verification passed: `NavigationTest`, `HomeFeedTest`, `PhotoGridScreenTest`, `PhotoGridFeedViewModelTest`, and `ShellCharacterizationTest`.

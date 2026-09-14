@@ -49,6 +49,7 @@ import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.EditableProfilePatch
+import me.foxtails.palustris.ui.PhotoGridFeed
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.AppColorScheme
@@ -72,6 +73,7 @@ import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
+import me.foxtails.palustris.ui.shell.PhotoGridContract
 import me.foxtails.palustris.ui.shell.ProfileContract
 import me.foxtails.palustris.ui.shell.ThreadContract
 import me.foxtails.palustris.ui.settings.ModerationViewModel
@@ -240,6 +242,19 @@ fun ConnectedApp(
     else remember { mutableStateOf(FeedState()) }
     val photoGridFeed by if (feedModel != null) feedModel.photoGridFeed.collectAsStateWithLifecycle()
     else remember { mutableStateOf(PhotoGridFeedState()) }
+    val photoGridActions = remember(feedModel) {
+        object : PhotoGridContract.Actions {
+            override fun ensureLoaded() { feedModel?.ensurePhotoGridLoaded() }
+            override fun selectFeed(feed: PhotoGridFeed) { feedModel?.selectPhotoGridFeed(feed) }
+            override fun refresh() { feedModel?.refreshPhotoGrid() }
+            override fun loadMore() { feedModel?.loadMorePhotoGrid() }
+            override fun addHashtag(value: String, onSuccess: () -> Unit) { feedModel?.addPhotoGridHashtag(value, onSuccess) }
+            override fun clearPreferenceError() { feedModel?.clearPhotoGridPreferenceError() }
+        }
+    }
+    val photoGrid = remember(photoGridFeed, photoGridActions) {
+        PhotoGridContract(state = photoGridFeed, actions = photoGridActions)
+    }
     val notificationState by if (notificationsModel != null) notificationsModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationsUiState()) }
     val notificationsActions = remember(notificationsModel) {
@@ -534,15 +549,9 @@ fun ConnectedApp(
                  feedState = feed,
                   postPreferences = postPreferences,
                   contentWarningRules = appPreferences.preferences.contentWarningRules.merge(postPreferences.contentWarningRules),
-                 photoGridFeed = photoGridFeed,
+                 photoGrid = photoGrid,
                  onRefresh = { timeline -> feedModel?.refresh(timeline) },
                  onLoadMore = { timeline -> feedModel?.loadMore(timeline) },
-                 onEnsurePhotoGridLoaded = { feedModel?.ensurePhotoGridLoaded() },
-                 onSelectPhotoGridFeed = { selected -> feedModel?.selectPhotoGridFeed(selected) },
-                 onRefreshPhotoGrid = { feedModel?.refreshPhotoGrid() },
-                 onLoadMorePhotoGrid = { feedModel?.loadMorePhotoGrid() },
-                 onAddPhotoGridHashtag = { value, onSuccess -> feedModel?.addPhotoGridHashtag(value, onSuccess) },
-                 onClearPhotoGridPreferenceError = { feedModel?.clearPhotoGridPreferenceError() },
                 accountSwitcher = accountSwitcher,
                 onPublish = { request, onSuccess ->
                       feedModel?.create(request) { created ->

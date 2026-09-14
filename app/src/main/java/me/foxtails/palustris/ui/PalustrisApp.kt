@@ -110,6 +110,7 @@ import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
+import me.foxtails.palustris.ui.shell.PhotoGridContract
 import me.foxtails.palustris.ui.shell.ProfileContract
 import me.foxtails.palustris.ui.shell.ThreadContract
 import me.foxtails.palustris.ui.SinglePostScreen
@@ -166,16 +167,10 @@ fun PalustrisApp(
      feedState: FeedState? = null,
      postPreferences: me.foxtails.palustris.domain.PostPreferences = me.foxtails.palustris.domain.PostPreferences(),
      contentWarningRules: me.foxtails.palustris.domain.ContentWarningRules = me.foxtails.palustris.domain.ContentWarningRules(),
-    photoGridFeed: PhotoGridFeedState = PhotoGridFeedState(),
+    photoGrid: PhotoGridContract = PhotoGridContract.Empty,
     profile: ProfileContract = ProfileContract.Empty,
     onRefresh: (Timeline) -> Unit = {},
     onLoadMore: (Timeline) -> Unit = {},
-    onEnsurePhotoGridLoaded: () -> Unit = {},
-    onSelectPhotoGridFeed: (PhotoGridFeed) -> Unit = {},
-    onRefreshPhotoGrid: () -> Unit = {},
-    onLoadMorePhotoGrid: () -> Unit = {},
-    onAddPhotoGridHashtag: (String, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
-    onClearPhotoGridPreferenceError: () -> Unit = {},
     accountSwitcher: AccountSwitcher = AccountSwitcher.Empty,
     onPublish: (CreatePostRequest, (OwnedPost) -> Unit) -> Unit = { _, _ -> },
     thread: ThreadContract = ThreadContract.Empty,
@@ -347,10 +342,10 @@ fun PalustrisApp(
     }
     LaunchedEffect(destination, searchPanel, account?.id, sessionGeneration) {
         if (destination == Destination.Search && searchPanel == SearchPanel.PhotoGrid) {
-            onEnsurePhotoGridLoaded()
+            photoGrid.actions.ensureLoaded()
         }
     }
-    LaunchedEffect(photoGridFeed.selectedFeed, account?.id, sessionGeneration) {
+    LaunchedEffect(photoGrid.state.selectedFeed, account?.id, sessionGeneration) {
         photoGridScrollState.scrollToItem(0)
         if (singlePostOrigin == LargePostOrigin.PhotoGrid) clearSelectedPost()
     }
@@ -714,7 +709,7 @@ fun PalustrisApp(
         val selected = singlePost ?: return null
         val candidates = ownedPosts.orEmpty() +
             feedState?.ownedPosts.orEmpty() +
-            photoGridFeed.posts +
+            photoGrid.state.posts +
             bookmarks.state?.posts.orEmpty() +
             likes.state?.posts.orEmpty() +
             profile.state.pinnedPosts +
@@ -941,12 +936,12 @@ fun PalustrisApp(
                                                onOpenUsername = ::openAccountSearch,
                                            )
                                              SearchPanel.PhotoGrid -> AppPhotoGridDestinationContent(
-                                                state = photoGridFeed,
-                                                onRefresh = onRefreshPhotoGrid,
-                                                onLoadMore = onLoadMorePhotoGrid,
-                                                onSelectFeed = onSelectPhotoGridFeed,
-                                                onAddHashtag = onAddPhotoGridHashtag,
-                                                onClearPreferenceError = onClearPhotoGridPreferenceError,
+                                                state = photoGrid.state,
+                                                onRefresh = photoGrid.actions::refresh,
+                                                onLoadMore = photoGrid.actions::loadMore,
+                                                onSelectFeed = photoGrid.actions::selectFeed,
+                                                onAddHashtag = photoGrid.actions::addHashtag,
+                                                onClearPreferenceError = photoGrid.actions::clearPreferenceError,
                                                  onOpenPost = { post -> openSinglePost(post, LargePostOrigin.PhotoGrid) },
                                                compactLayout = !largePresentation,
                                                  compactNavigationVisible = !largePresentation,
