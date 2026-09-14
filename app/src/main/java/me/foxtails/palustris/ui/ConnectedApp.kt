@@ -68,6 +68,8 @@ import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
 import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 import me.foxtails.palustris.ui.settings.SettingsHost
+import me.foxtails.palustris.ui.posts.LocalPostActionOwner
+import me.foxtails.palustris.ui.posts.PostActionOwner
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.DirectMessagesContract
@@ -550,6 +552,17 @@ fun ConnectedApp(
         }
         notificationLaunchRouter.clear()
     }
+    val postActionOwner = remember(activeSession?.accountId, activeSession?.sessionRevision, sharedSource) {
+        activeSession?.let { session ->
+            PostActionOwner(
+                accountId = session.accountId,
+                sessionRevision = session.sessionRevision,
+                source = sharedSource,
+                scope = settingsScope,
+                onRelationshipChanged = { profileModel?.refresh() },
+            )
+        }
+    }
     val motionScheme = palustrisMotionScheme()
     val topLevelScreen = when {
         state.starting || !appPreferences.loaded -> "startup"
@@ -561,6 +574,7 @@ fun ConnectedApp(
              LocalContentWarningRules provides appPreferences.preferences.contentWarningRules.merge(postPreferences.contentWarningRules),
              LocalMutedHashtags provides postPreferences.localMutedHashtags.toSet(),
              LocalHiddenContentPresentation provides appPreferences.preferences.hiddenContentPresentation,
+             LocalPostActionOwner provides postActionOwner,
         ) {
         Box(Modifier.fillMaxSize()) {
         AnimatedContent(
@@ -594,7 +608,6 @@ fun ConnectedApp(
                   account = state.account,
                   sessionGeneration = state.sessionGeneration,
                   sessionRevision = activeSession?.sessionRevision ?: 0L,
-                  actionSource = sharedSource,
                  feedState = feed,
                   postPreferences = postPreferences,
                   contentWarningRules = appPreferences.preferences.contentWarningRules.merge(postPreferences.contentWarningRules),

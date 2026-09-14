@@ -686,3 +686,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Replaced the duplicated `ConnectedApp` fan-out with one coordinator for external updates and publications.
 - Added `PostProjectionCoordinatorTest` with five cases: origin exclusion, nested suppression, foreign account, old revision, and publication fan-out.
 - Verification passed: `PostProjectionCoordinatorTest`, `FeedViewModelReactionTest`, `PostThreadViewModelTest`, `HomeFeedTest`, and `NavigationTest`.
+
+01-C post-action host:
+- Removed the `actionSource` service parameter from `PalustrisApp`.
+- Moved `PostActionOwner` construction into `ConnectedApp` and provided it through `LocalPostActionOwner` above the shell.
+- `PalustrisApp` now reads the ambient owner and no longer constructs a source-backed service.
+- Verification passed: `NavigationTest`, `SignInScreenTest`, `HomeFeedTest`, `MediaViewerScreenTest`, `SinglePostScreenTest`, and `ShellCharacterizationTest`.

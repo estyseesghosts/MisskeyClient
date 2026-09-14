@@ -135,7 +135,6 @@ import me.foxtails.palustris.ui.thread.PostThreadUiState
 import me.foxtails.palustris.ui.posts.LocalPostRepostConfirmationOwner
 import me.foxtails.palustris.ui.posts.PostRepostConfirmationOwner
 import me.foxtails.palustris.ui.posts.LocalPostActionOwner
-import me.foxtails.palustris.ui.posts.PostActionOwner
 import me.foxtails.palustris.ui.posts.PostShareSheet
 import me.foxtails.palustris.ui.posts.copyPostShareContent
 import me.foxtails.palustris.ui.components.AccountAvatar
@@ -163,7 +162,6 @@ fun PalustrisApp(
     account: Account? = null,
     sessionGeneration: Long = 0L,
     sessionRevision: Long = 0L,
-     actionSource: me.foxtails.palustris.domain.SocialSource? = null,
      feedState: FeedState? = null,
      postPreferences: me.foxtails.palustris.domain.PostPreferences = me.foxtails.palustris.domain.PostPreferences(),
      contentWarningRules: me.foxtails.palustris.domain.ContentWarningRules = me.foxtails.palustris.domain.ContentWarningRules(),
@@ -193,13 +191,10 @@ fun PalustrisApp(
     val mediaTransitionRegistry = remember { MediaTransitionRegistry() }
     val repostConfirmationOwner = remember(account?.id, sessionGeneration, sessionRevision) { PostRepostConfirmationOwner() }
     val scope = rememberCoroutineScope()
-    val postActionOwner = remember(account?.id, sessionGeneration, sessionRevision, actionSource) {
-        account?.let { PostActionOwner(it.id, sessionRevision, actionSource, scope, profile.actions::refresh) }
-    }
+    val postActionOwner = LocalPostActionOwner.current
     CompositionLocalProvider(
         LocalMediaTransitionRegistry provides mediaTransitionRegistry,
         LocalPostRepostConfirmationOwner provides repostConfirmationOwner,
-        LocalPostActionOwner provides postActionOwner,
     ) {
     val context = LocalContext.current
     val replySentMessage = stringResource(R.string.reply_sent)
