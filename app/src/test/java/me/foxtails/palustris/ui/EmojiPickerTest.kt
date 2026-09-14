@@ -302,8 +302,8 @@ class EmojiPickerTest {
         compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).performTouchInput { longClick() }
 
         compose.onNodeWithTag("emoji_pin_confirmation").assertIsDisplayed()
-        compose.onNodeWithText("Pin emoji?").assertIsDisplayed()
-        compose.onNodeWithTag("emoji_pin_confirm").performClick()
+        compose.onNodeWithText("pin emoji?").assertIsDisplayed()
+        compose.onNodeWithTag("emoji_pin_confirmation").performClick()
 
         assertEquals(null, selected)
         assertEquals(":wave:", pinned)
@@ -324,8 +324,8 @@ class EmojiPickerTest {
 
         compose.onNodeWithTag("emoji_picker_cell_:wave:", useUnmergedTree = true).performTouchInput { longClick() }
 
-        compose.onNodeWithText("Remove emoji?").assertIsDisplayed()
-        compose.onNodeWithTag("emoji_pin_confirm").performClick()
+        compose.onNodeWithText("remove emoji?").assertIsDisplayed()
+        compose.onNodeWithTag("emoji_pin_confirmation").performClick()
         assertEquals(":wave:", pinned)
     }
 

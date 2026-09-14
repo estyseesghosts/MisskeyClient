@@ -202,8 +202,8 @@
     <string name="emoji_pin_group">Pin %1$s</string>
     <string name="emoji_unpin_group">Unpin %1$s</string>
     <string name="emoji_pin_limit_group">Cannot pin %1$s; five groups are already pinned</string>
-    <string name="emoji_pin_question">Pin emoji?</string>
-    <string name="emoji_remove_question">Remove emoji?</string>
+    <string name="emoji_pin_question">pin emoji?</string>
+    <string name="emoji_remove_question">remove emoji?</string>
     <string name="emoji_pin_action">Pin</string>
     <string name="emoji_remove_action">Remove</string>
     <string name="emoji_pin_state_pinned">Pinned emoji</string>

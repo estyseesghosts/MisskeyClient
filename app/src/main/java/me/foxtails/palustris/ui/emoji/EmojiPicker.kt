@@ -79,6 +79,7 @@ import me.foxtails.palustris.domain.EmojiPickerPreferences
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.ui.AppIcons
+import me.foxtails.palustris.ui.components.PillAction
 
 enum class ComposerField { Text, Warning }
 
@@ -649,9 +650,6 @@ private fun EmojiPinConfirmationPopup(
     val question = stringResource(
         if (pending.pinned) R.string.emoji_remove_question else R.string.emoji_pin_question,
     )
-    val action = stringResource(
-        if (pending.pinned) R.string.emoji_remove_action else R.string.emoji_pin_action,
-    )
     Popup(
         popupPositionProvider = me.foxtails.palustris.ui.WindowAnchorPositionProvider(
             pending.bounds,
@@ -665,32 +663,17 @@ private fun EmojiPinConfirmationPopup(
             clippingEnabled = false,
         ),
     ) {
-        androidx.compose.material3.Surface(
+        PillAction(
+            label = question,
+            onClick = { onConfirm(pending) },
             modifier = Modifier
                 .widthIn(min = 176.dp, max = 280.dp)
                 .testTag("emoji_pin_confirmation")
                 .semantics {
                     contentDescription = question
                 },
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shadowElevation = 8.dp,
-        ) {
-            Row(
-                modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(question, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                TextButton(
-                    onClick = { onConfirm(pending) },
-                    modifier = Modifier
-                        .testTag("emoji_pin_confirm")
-                        .semantics { contentDescription = action },
-                ) {
-                    Text(action)
-                }
-            }
-        }
+            fillContent = true,
+        )
     }
 }
 

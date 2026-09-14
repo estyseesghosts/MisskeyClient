@@ -29,3 +29,10 @@ The planned files are listed in `docs/0.2.2.cont.md`. The implementation will ad
 - Source baseline: `90dffc2`.
 - No application tests ran before this task.
 - Existing untracked files must remain unchanged.
+
+## Slice 1 result
+
+- Added shared bubble geometry for `PillAction`.
+- Replaced the emoji pin confirmation row with one full-size pill.
+- Kept the existing pin and unpin callback path.
+- Focused tests passed: `PillActionTest`, `EmojiPickerTest`, `PostRepostConfirmationOwnerTest`, and `ReactionPickerGestureTest`.
