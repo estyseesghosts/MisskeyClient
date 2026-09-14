@@ -50,7 +50,9 @@ class ShellCharacterizationTest {
                         ownedPosts = listOf(AppShellFixtures.owned(account, post)),
                         actions = setOf(PostAction.React),
                     ),
-                    emojiCapabilities = EmojiCapabilities(reactionMutation = CapabilityStatus.Supported),
+                    emojiPresentation = AppShellFixtures.emoji(
+                        capabilities = EmojiCapabilities(reactionMutation = CapabilityStatus.Supported),
+                    ),
                 )
             }
         }

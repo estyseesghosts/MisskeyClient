@@ -70,7 +70,6 @@ import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EditableProfileField
 import me.foxtails.palustris.domain.EditableProfilePatch
-import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
@@ -85,7 +84,6 @@ import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.Timeline
 import java.util.UUID
 import me.foxtails.palustris.ui.emoji.ComposerField
-import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.emoji.EmojiPickerHost
 import me.foxtails.palustris.ui.emoji.EmojiPickerTarget
 import me.foxtails.palustris.ui.navigation.AppRoute
@@ -107,6 +105,7 @@ import me.foxtails.palustris.ui.navigation.edgeSwipeDismiss
 import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.shell.AccountSwitcher
+import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageUiState
@@ -204,13 +203,7 @@ fun PalustrisApp(
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onSavedPostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     onProfilePostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
-    emojiCatalogState: EmojiCatalogState = EmojiCatalogState(),
-    emojiCapabilities: EmojiCapabilities = EmojiCapabilities(),
-    onLoadEmojiCatalog: () -> Unit = {},
-    onRetryEmojiCatalog: () -> Unit = {},
-    onToggleEmojiGroupCollapsed: (String) -> Unit = {},
-    onToggleEmojiGroupPinned: (String) -> Unit = {},
-    onTogglePinnedEmoji: (String) -> Unit = {},
+    emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
     savedPostsState: SavedPostsUiState? = null,
     onRefreshSavedPosts: () -> Unit = {},
     onLoadMoreSavedPosts: () -> Unit = {},
@@ -629,7 +622,7 @@ fun PalustrisApp(
         handler: (OwnedPost, EmojiChoice) -> Unit,
     ) {
         val owner = account ?: return
-        if (ownedPost.fetchedBy != owner.id || emojiCapabilities.reactionMutation != CapabilityStatus.Supported) return
+        if (ownedPost.fetchedBy != owner.id || emojiPresentation.capabilities.reactionMutation != CapabilityStatus.Supported) return
         postReactionHandler = handler
         postActionBubbleTarget = PostActionBubbleTarget.Reaction(ownedPost, bounds)
     }
@@ -1237,13 +1230,13 @@ fun PalustrisApp(
         }
           PostActionBubbleHost(
             target = postActionBubbleTarget,
-            emojiCatalog = emojiCatalogState,
-             emojiCapabilities = emojiCapabilities,
-             onLoadEmojiCatalog = onLoadEmojiCatalog,
-             onRetryEmojiCatalog = onRetryEmojiCatalog,
-             onToggleEmojiGroupCollapsed = onToggleEmojiGroupCollapsed,
-             onToggleEmojiGroupPinned = onToggleEmojiGroupPinned,
-             onTogglePinnedEmoji = onTogglePinnedEmoji,
+            emojiCatalog = emojiPresentation.catalog,
+             emojiCapabilities = emojiPresentation.capabilities,
+             onLoadEmojiCatalog = emojiPresentation.actions::loadCatalog,
+             onRetryEmojiCatalog = emojiPresentation.actions::retryCatalog,
+             onToggleEmojiGroupCollapsed = emojiPresentation.actions::toggleGroupCollapsed,
+             onToggleEmojiGroupPinned = emojiPresentation.actions::toggleGroupPinned,
+             onTogglePinnedEmoji = emojiPresentation.actions::togglePinnedEmoji,
              onDismiss = ::clearPostActionBubble,
             onHashtagSelected = { hashtag ->
                 clearPostActionBubble()
@@ -1252,7 +1245,7 @@ fun PalustrisApp(
             onReactionSelected = { target, choice ->
                 val owner = account
                 val handler = postReactionHandler
-                if (owner != null && target.fetchedBy == owner.id && emojiCapabilities.reactionMutation == CapabilityStatus.Supported) {
+                if (owner != null && target.fetchedBy == owner.id && emojiPresentation.capabilities.reactionMutation == CapabilityStatus.Supported) {
                     handler?.invoke(target, choice)
                 }
                 clearPostActionBubble()
@@ -1431,14 +1424,14 @@ fun PalustrisApp(
     if (emojiPickerTarget != null) {
         EmojiPickerHost(
             target = emojiPickerTarget,
-            catalog = emojiCatalogState,
-            selectionMode = emojiCapabilities.selectionMode,
-            mutationSupported = emojiCapabilities.reactionMutation == CapabilityStatus.Supported,
-            onLoadCatalog = onLoadEmojiCatalog,
-            onRetryCatalog = onRetryEmojiCatalog,
-            onToggleGroupCollapsed = onToggleEmojiGroupCollapsed,
-            onToggleGroupPinned = onToggleEmojiGroupPinned,
-            onTogglePinnedEmoji = onTogglePinnedEmoji,
+            catalog = emojiPresentation.catalog,
+            selectionMode = emojiPresentation.capabilities.selectionMode,
+            mutationSupported = emojiPresentation.capabilities.reactionMutation == CapabilityStatus.Supported,
+            onLoadCatalog = emojiPresentation.actions::loadCatalog,
+            onRetryCatalog = emojiPresentation.actions::retryCatalog,
+            onToggleGroupCollapsed = emojiPresentation.actions::toggleGroupCollapsed,
+            onToggleGroupPinned = emojiPresentation.actions::toggleGroupPinned,
+            onTogglePinnedEmoji = emojiPresentation.actions::togglePinnedEmoji,
             onDismiss = {
                 emojiPickerTarget = null
             },

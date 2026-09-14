@@ -5,11 +5,14 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.shell.AccountSwitcher
+import me.foxtails.palustris.ui.shell.EmojiPresentation
 
 /**
  * Explicit shell identities for presentation tests.
@@ -62,6 +65,22 @@ internal object AppShellFixtures {
             override fun addAccount() = onAdd()
             override fun openSettings() = onSettings()
             override fun signOut() = onSignOut()
+        },
+    )
+
+    /** Test-only emoji presentation with inert picker-preference actions. */
+    fun emoji(
+        catalog: EmojiCatalogState = EmojiCatalogState(),
+        capabilities: EmojiCapabilities = EmojiCapabilities(),
+    ): EmojiPresentation = EmojiPresentation(
+        catalog = catalog,
+        capabilities = capabilities,
+        actions = object : EmojiPresentation.Actions {
+            override fun loadCatalog() = Unit
+            override fun retryCatalog() = Unit
+            override fun toggleGroupCollapsed(groupId: String) = Unit
+            override fun toggleGroupPinned(groupId: String) = Unit
+            override fun togglePinnedEmoji(identity: String) = Unit
         },
     )
 }

@@ -58,6 +58,7 @@ import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
 import me.foxtails.palustris.ui.settings.SettingsHost
 import me.foxtails.palustris.ui.shell.AccountSwitcher
+import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.settings.ModerationViewModel
 import me.foxtails.palustris.ui.settings.ModerationKind
 import me.foxtails.palustris.domain.ModerationListKind
@@ -311,6 +312,22 @@ fun ConnectedApp(
     DisposableEffect(state.sessionGeneration, emojiCatalogModel) {
         onDispose { emojiCatalogModel?.stop() }
     }
+    val emojiActions = remember(emojiCatalogModel) {
+        object : EmojiPresentation.Actions {
+            override fun loadCatalog() { emojiCatalogModel?.loadIfNeeded() }
+            override fun retryCatalog() { emojiCatalogModel?.retry() }
+            override fun toggleGroupCollapsed(groupId: String) { emojiCatalogModel?.toggleGroupCollapsed(groupId) }
+            override fun toggleGroupPinned(groupId: String) { emojiCatalogModel?.toggleGroupPinned(groupId) }
+            override fun togglePinnedEmoji(identity: String) { emojiCatalogModel?.togglePinnedEmoji(identity) }
+        }
+    }
+    val emojiPresentation = remember(emojiCatalogState, sharedSource?.capabilities?.emoji, emojiActions) {
+        EmojiPresentation(
+            catalog = emojiCatalogState,
+            capabilities = sharedSource?.capabilities?.emoji ?: EmojiCapabilities(),
+            actions = emojiActions,
+        )
+    }
     LaunchedEffect(profileState.account, state.account) {
         profileState.account
             ?.takeIf { it.id == state.account?.id && it != state.account }
@@ -480,14 +497,8 @@ fun ConnectedApp(
                 },
                 onOpenProfileEditor = { profileModel?.openEditor() },
                 onCloseEditor = { profileModel?.closeEditor() },
-                emojiCatalogState = emojiCatalogState,
-                emojiCapabilities = sharedSource?.capabilities?.emoji ?: EmojiCapabilities(),
-                  onLoadEmojiCatalog = { emojiCatalogModel?.loadIfNeeded() },
-                  onRetryEmojiCatalog = { emojiCatalogModel?.retry() },
-                  onToggleEmojiGroupCollapsed = { groupId -> emojiCatalogModel?.toggleGroupCollapsed(groupId) },
-                  onToggleEmojiGroupPinned = { groupId -> emojiCatalogModel?.toggleGroupPinned(groupId) },
-                  onTogglePinnedEmoji = { identity -> emojiCatalogModel?.togglePinnedEmoji(identity) },
-                  onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
+                emojiPresentation = emojiPresentation,
+                onSavedPostReaction = { ownedPost, choice -> savedPostsModel?.react(ownedPost, choice) },
                 onProfilePostReaction = { ownedPost, choice -> profileModel?.react(ownedPost, choice) },
             )
             }

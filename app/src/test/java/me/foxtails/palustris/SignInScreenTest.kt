@@ -257,10 +257,12 @@ class SignInScreenTest {
             PalustrisApp(
                 account = account,
                 feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React)),
-                emojiCapabilities = EmojiCapabilities(
-                    reactionListing = CapabilityStatus.Supported,
-                    reactionMutation = CapabilityStatus.Supported,
-                    selectionMode = ReactionSelectionMode.Single,
+                emojiPresentation = AppShellFixtures.emoji(
+                    capabilities = EmojiCapabilities(
+                        reactionListing = CapabilityStatus.Supported,
+                        reactionMutation = CapabilityStatus.Supported,
+                        selectionMode = ReactionSelectionMode.Single,
+                    ),
                 ),
                  onReaction = { _, emoji -> chosenReaction = emoji.submissionValue },
             )
@@ -299,10 +301,12 @@ class SignInScreenTest {
             PalustrisApp(
                 account = account,
                 feedState = FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React)),
-                emojiCapabilities = EmojiCapabilities(
-                    reactionListing = CapabilityStatus.Supported,
-                    reactionMutation = CapabilityStatus.Supported,
-                    selectionMode = ReactionSelectionMode.Single,
+                emojiPresentation = AppShellFixtures.emoji(
+                    capabilities = EmojiCapabilities(
+                        reactionListing = CapabilityStatus.Supported,
+                        reactionMutation = CapabilityStatus.Supported,
+                        selectionMode = ReactionSelectionMode.Single,
+                    ),
                 ),
             )
         } }

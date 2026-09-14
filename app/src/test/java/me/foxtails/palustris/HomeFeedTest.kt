@@ -840,8 +840,8 @@ private fun show(
                         ownedPosts = listOf(OwnedPost(account.id, post)),
                         actions = setOf(PostAction.React),
                     ),
-                    emojiCapabilities = EmojiCapabilities(
-                        reactionMutation = CapabilityStatus.Supported,
+                    emojiPresentation = AppShellFixtures.emoji(
+                        capabilities = EmojiCapabilities(reactionMutation = CapabilityStatus.Supported),
                     ),
                     onReaction = { _, choice -> selected = choice.submissionValue },
                 )
@@ -877,11 +877,13 @@ private fun show(
                         ownedPosts = listOf(OwnedPost(account.id, post)),
                         actions = setOf(PostAction.React),
                     ),
-                    emojiCapabilities = EmojiCapabilities(
-                        catalog = CapabilityStatus.Supported,
-                        reactionMutation = CapabilityStatus.Supported,
+                    emojiPresentation = AppShellFixtures.emoji(
+                        capabilities = EmojiCapabilities(
+                            catalog = CapabilityStatus.Supported,
+                            reactionMutation = CapabilityStatus.Supported,
+                        ),
+                        catalog = me.foxtails.palustris.ui.emoji.EmojiCatalogState(items = custom),
                     ),
-                    emojiCatalogState = me.foxtails.palustris.ui.emoji.EmojiCatalogState(items = custom),
                     onReaction = { _, choice -> selected = choice.submissionValue },
                 )
             }
@@ -909,8 +911,8 @@ private fun show(
                         ownedPosts = listOf(OwnedPost(account.id, post)),
                         actions = setOf(PostAction.React),
                     ),
-                    emojiCapabilities = EmojiCapabilities(
-                        reactionMutation = CapabilityStatus.Supported,
+                    emojiPresentation = AppShellFixtures.emoji(
+                        capabilities = EmojiCapabilities(reactionMutation = CapabilityStatus.Supported),
                     ),
                     onReaction = { _, choice -> selected = choice.submissionValue },
                 )

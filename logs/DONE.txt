@@ -625,3 +625,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Bound a registered `AccountSwitcher` in `ConnectedApp`.
 - Migrated `NavigationTest` and `SignInScreenTest` through a test-only `AppShellFixtures.switcher` recorder.
 - Verification passed: `NavigationTest`, `SignInScreenTest`, `HomeFeedTest`, and `ShellCharacterizationTest`.
+
+01-B emoji presentation contract:
+- Added `ui/shell/EmojiPresentation` as catalog, capabilities, and typed picker-preference actions.
+- Removed `emojiCatalogState`, `emojiCapabilities`, and five emoji callbacks from `PalustrisApp`.
+- Bound a registered `EmojiPresentation` in `ConnectedApp`.
+- Migrated `HomeFeedTest`, `SignInScreenTest`, and `ShellCharacterizationTest` through `AppShellFixtures.emoji`.
+- Verification passed: `HomeFeedTest`, `SignInScreenTest`, `ShellCharacterizationTest`, and `NavigationTest`.

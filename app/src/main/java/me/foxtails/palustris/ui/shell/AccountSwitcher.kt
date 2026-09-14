@@ -25,11 +25,11 @@ data class AccountSwitcher(
     }
 
     companion object {
-        val Empty = AccountSwitcher(accounts = emptyList(), actions = EmptyActions)
+        val Empty = AccountSwitcher(accounts = emptyList(), actions = AccountSwitcherEmptyActions)
     }
 }
 
-private object EmptyActions : AccountSwitcher.Actions {
+private object AccountSwitcherEmptyActions : AccountSwitcher.Actions {
     override fun switchTo(accountId: AccountId) = Unit
     override fun addAccount() = Unit
     override fun openSettings() = Unit
