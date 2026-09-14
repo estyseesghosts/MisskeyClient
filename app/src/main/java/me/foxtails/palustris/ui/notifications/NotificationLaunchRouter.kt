@@ -101,6 +101,11 @@ class NotificationLaunchRouter internal constructor(
         _pending.value = null
     }
 
+    /** Acknowledges only the launch that was accepted, so a newer launch is not dropped. */
+    fun clear(launch: NotificationLaunch) {
+        if (_pending.value == launch) clear()
+    }
+
     fun parse(intent: Intent): NotificationLaunch? {
         return parse(intent, Intent.ACTION_VIEW)
     }

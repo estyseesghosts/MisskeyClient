@@ -64,4 +64,19 @@ class NotificationLaunchRouterTest {
         assertNull(router.parse(auth))
         assertNull(router.parse(foreign))
     }
+
+    @Test
+    fun acknowledgingAnOlderLaunchDoesNotDropANewerLaunch() {
+        val router = NotificationLaunchRouter(InMemoryNotificationLaunchStore())
+        val first = NotificationLaunch(account, EntityId(account.connection.origin, "event-a"))
+        val second = NotificationLaunch(account, EntityId(account.connection.origin, "event-b"))
+        router.accept(NotificationLaunchRouter.intentFor(first))
+        router.accept(NotificationLaunchRouter.intentFor(second))
+
+        router.clear(first)
+        assertEquals(second, router.pending.value)
+
+        router.clear(second)
+        assertNull(router.pending.value)
+    }
 }

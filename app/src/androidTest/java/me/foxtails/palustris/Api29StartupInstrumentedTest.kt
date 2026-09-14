@@ -13,10 +13,13 @@ import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.MediaKind
+import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
-import me.foxtails.palustris.ui.FeedState
+import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.PalustrisApp
+import me.foxtails.palustris.ui.shell.HomeContract
+import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,7 +53,19 @@ class Api29StartupInstrumentedTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(account = account, feedState = FeedState(posts = listOf(post)))
+                PalustrisApp(
+                    account = account,
+                    home = HomeContract(
+                        state = HomeFeedUiState(
+                            ownedPosts = listOf(OwnedPost(account.id, post)),
+                            posts = listOf(post),
+                        ),
+                        actions = object : HomeContract.Actions {
+                            override fun refresh(timeline: Timeline) = Unit
+                            override fun loadMore(timeline: Timeline) = Unit
+                        },
+                    ),
+                )
             }
         }
 
