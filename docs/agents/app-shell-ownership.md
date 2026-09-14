@@ -6,7 +6,7 @@
 
 **Last reviewed:** 2026-09-14.
 
-**Source baseline:** `5196d3a`.
+**Source baseline:** `1ce9842`.
 
 **Evidence:** source verified. Test verified with the full JVM suite. Device and live-server
 behavior remain unverified.
@@ -33,6 +33,11 @@ contracts. Test code binds test-only recorders in
 
 The removed dead parameter `onOpenReactionPicker` and the duplicate `ownedPosts` input are gone.
 Home rows now come from `feedState.ownedPosts` only.
+
+`ui/shell/PostProjectionCoordinator` is the single fan-out owner for normalized post updates and
+accepted publications. It validates account and durable revision, excludes the origin sink, and
+suppresses nested forwarding so feed and thread cannot echo. `PostProjectionCoordinatorTest`
+covers origin exclusion, nested suppression, foreign accounts, old revisions, and publications.
 
 ## Remaining Flat Parameters
 
@@ -62,5 +67,6 @@ test-only observer until its tests assert composer behavior.
 
 - Contract verification is JVM and Robolectric only.
 - Live-server and physical-device behavior are unverified.
-- The full parameter removal, the connected-session host, the post projection coordinator, and the
-  settings host remain in `docs/decomposition_3/01.md`.
+- The connected-session host, the settings host, and the remaining parameter removal are not
+  implemented. They remain in `docs/decomposition_3/01.md`.
+- The post projection coordinator is implemented.
