@@ -38,8 +38,7 @@ import me.foxtails.palustris.ui.AccountManager
 import me.foxtails.palustris.ui.FeedViewModel
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.PhotoGridFeed
-import me.foxtails.palustris.ui.SavedPostsCollection
-import me.foxtails.palustris.ui.SavedPostsViewModel
+import me.foxtails.palustris.ui.SavedCollectionsHost
 import me.foxtails.palustris.ui.directmessages.DirectMessagesHost
 import me.foxtails.palustris.ui.emoji.EmojiHost
 import me.foxtails.palustris.ui.navigation.AppRoute
@@ -49,12 +48,10 @@ import me.foxtails.palustris.ui.posts.LocalPostActionOwner
 import me.foxtails.palustris.ui.posts.PostActionOwner
 import me.foxtails.palustris.ui.profile.ProfileHost
 import me.foxtails.palustris.ui.shell.AccountSwitcher
-import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
-import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.PhotoGridContract
 import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
@@ -137,24 +134,8 @@ fun ConnectedSessionHost(
             factory.create(session.accountId, sharedSource, session.sessionRevision)
         },
     )
-    val savedPostsModel = hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
-        key = "saved-posts-${session.accountId}-$sessionGeneration",
-        creationCallback = { factory ->
-            factory.create(session.accountId, sharedSource, SavedPostsCollection.Bookmarks, session.sessionRevision)
-        },
-    )
-    val likedPostsModel = hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
-        key = "liked-posts-${session.accountId}-$sessionGeneration",
-        creationCallback = { factory ->
-            factory.create(session.accountId, sharedSource, SavedPostsCollection.Likes, session.sessionRevision)
-        },
-    )
-    DisposableEffect(sessionGeneration, feedModel, savedPostsModel, likedPostsModel) {
-        onDispose {
-            feedModel.stop()
-            savedPostsModel.stop()
-            likedPostsModel.stop()
-        }
+    DisposableEffect(sessionGeneration, feedModel) {
+        onDispose { feedModel.stop() }
     }
     val feed by feedModel.feed.collectAsStateWithLifecycle()
     val homeActions = remember(feedModel) {
@@ -217,58 +198,34 @@ fun ConnectedSessionHost(
     val photoGrid = remember(photoGridFeed, photoGridActions) {
         PhotoGridContract(state = photoGridFeed, actions = photoGridActions)
     }
-    val savedPostsState by savedPostsModel.state.collectAsStateWithLifecycle()
-    val likedPostsState by likedPostsModel.state.collectAsStateWithLifecycle()
-    val bookmarksActions = remember(savedPostsModel, accountManager) {
-        object : BookmarksContract.Actions {
-            override fun refresh() { savedPostsModel.refresh() }
-            override fun loadMore() { savedPostsModel.loadMore() }
-            override fun remove(post: OwnedPost) { savedPostsModel.unsave(post) }
-            override fun upgradePermissions() { accountManager.upgradePermissions(account.id) }
-            override fun react(post: OwnedPost, choice: EmojiChoice) { savedPostsModel.react(post, choice) }
-        }
+    val postReaction = remember(feedModel) {
+        { post: OwnedPost, choice: EmojiChoice -> feedModel.react(post, choice) }
     }
-    val bookmarks = remember(savedPostsState, bookmarksActions) {
-        BookmarksContract(state = savedPostsState, actions = bookmarksActions)
-    }
-    val likesActions = remember(likedPostsModel, feedModel) {
-        object : LikesContract.Actions {
-            override fun refresh() { likedPostsModel.refresh() }
-            override fun loadMore() { likedPostsModel.loadMore() }
-            override fun toggle(post: OwnedPost) { likedPostsModel.toggleFavourite(post) }
-            override fun react(post: OwnedPost, choice: EmojiChoice) { feedModel.react(post, choice) }
-        }
-    }
-    val likes = remember(likedPostsState, likesActions) {
-        LikesContract(state = likedPostsState, actions = likesActions)
-    }
+    val savedCollections = SavedCollectionsHost(
+        accountId = session.accountId,
+        sessionGeneration = sessionGeneration,
+        sessionRevision = session.sessionRevision,
+        source = sharedSource,
+        account = account,
+        accountManager = accountManager,
+        coordinator = projectionCoordinator,
+        react = postReaction,
+    )
     val feedSink = remember(feedModel) {
         object : PostProjectionCoordinator.Sink {
             override fun applyExternalPost(updated: OwnedPost) { feedModel.applyExternalPost(updated) }
             override fun applyPublishedPost(request: CreatePostRequest) { feedModel.applyPublishedPost(request) }
         }
     }
-    val savedSink = remember(savedPostsModel) {
-        object : PostProjectionCoordinator.Sink {
-            override fun applyExternalPost(updated: OwnedPost) { savedPostsModel.applyExternalPost(updated) }
-            override fun applyPublishedPost(request: CreatePostRequest) { savedPostsModel.applyPublishedPost(request) }
-        }
-    }
-    val likedSink = remember(likedPostsModel) {
-        object : PostProjectionCoordinator.Sink {
-            override fun applyExternalPost(updated: OwnedPost) { likedPostsModel.applyExternalPost(updated) }
-            override fun applyPublishedPost(request: CreatePostRequest) { likedPostsModel.applyPublishedPost(request) }
-        }
-    }
-    DisposableEffect(projectionCoordinator, feedSink, savedSink, likedSink, feedModel) {
-        listOf(feedSink, savedSink, likedSink).forEach(projectionCoordinator::register)
+    DisposableEffect(projectionCoordinator, feedSink, feedModel) {
+        projectionCoordinator.register(feedSink)
         val feedProjection: (OwnedPost) -> Unit = { updated ->
             projectionCoordinator.forwardExternalPost(feedSink, updated)
         }
         feedModel.addPostProjectionListener(feedProjection)
         onDispose {
             feedModel.removePostProjectionListener(feedProjection)
-            listOf(feedSink, savedSink, likedSink).forEach(projectionCoordinator::unregister)
+            projectionCoordinator.unregister(feedSink)
         }
     }
     val profile = ProfileHost(
@@ -387,8 +344,8 @@ fun ConnectedSessionHost(
             search = search,
             draftsContract = draftsContract,
             postInteractions = postInteractions,
-            bookmarks = bookmarks,
-            likes = likes,
+            bookmarks = savedCollections.bookmarks,
+            likes = savedCollections.likes,
             notifications = notifications,
             directMessages = directMessages,
             initialNotificationRoute = initialNotificationRoute,
