@@ -630,16 +630,19 @@ Read these items at the start of a session, after compaction, and when you are u
 
 ## Task Logs
 
+- Treat `logs/` as an audit trail, not as agent memory.
+- Keep the current truth in `docs/agents/tasks/`.
+- Keep verified history in Git commits.
+
 - Create `logs/YYMMDD-HHMMSS.txt` when a coding task starts.
 - Record the task goal in the task log.
 - Record the planned slices in the task log.
 - Record affected files in the task log.
 - Record important risks in the task log.
 
-- Track active work in `logs/TODO.txt`.
-- Add the current slice to `logs/TODO.txt`.
-- Remove a slice after it is complete.
-- Do not leave completed work in `logs/TODO.txt`.
+- Track active long work in `docs/agents/tasks/<task>.md`.
+- Rewrite the task-state file at each slice boundary.
+- Do not leave completed slices in the task-state file.
 
 - Append completed results to `logs/DONE.txt`.
 - Keep each result concise.
