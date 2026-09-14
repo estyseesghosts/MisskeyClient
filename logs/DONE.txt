@@ -692,3 +692,12 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved `PostActionOwner` construction into `ConnectedApp` and provided it through `LocalPostActionOwner` above the shell.
 - `PalustrisApp` now reads the ambient owner and no longer constructs a source-backed service.
 - Verification passed: `NavigationTest`, `SignInScreenTest`, `HomeFeedTest`, `MediaViewerScreenTest`, `SinglePostScreenTest`, and `ShellCharacterizationTest`.
+
+260914-021742 Long-horizon agent state:
+- Tracked `AGENTS.md` and added the `Long-Horizon Work` rules for size checks, slices, checkpoints, and recovery.
+- Added `docs/agents/README.md` and `docs/agents/tasks/` with a template and the app-shell task state.
+- Replaced the stale `logs/TODO.txt` entries with a pointer to the task-state files.
+- Added `.opencode/plugins/compaction-state.ts` and the `/checkpoint` and `/resume` commands.
+- Commits: `826e516`, `d6340db`, `180d2ab`, `6d18903`, `7431883`. No push.
+- Verification: `git check-ignore` checks passed and every new file is tracked. The Gradle gate did not run because the worktree holds uncommitted application code and this task changed no application code.
+- The app-shell state file now reflects the current committed truth through `e39eace`.

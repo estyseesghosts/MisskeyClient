@@ -25,34 +25,45 @@ shell layers.
 
 # Completed
 
-- 01-A characterization — commit `ef8e8e6` "Characterize the app shell before decomposition".
-- 01-B account switcher contract — commit `7a81eb7` "Introduce narrow account-switcher contract".
+- 01-A characterization — `ef8e8e6`.
+- 01-B account switcher — `7a81eb7`.
+- 01-B emoji presentation — `afc77ef`.
+- 01-B notification settings — `eabbeb2`.
+- 01-B saved collections — `04d31db`.
+- 01-B notification inbox — `57a1753`.
+- 01-B direct messages — `3816bd8`.
+- 01-B profile — `5dfa74b`.
+- 01-B thread — `d77e58c`.
+- 01-B photo grid — `56fb1f0`.
+- 01-B boundary cleanup — `5196d3a`.
+- 01-D post projection coordinator — `1ce9842`, `27d2f7d`.
+- 01-C post-action host — `0de4585`, `e39eace`.
 
 # Current slice
 
-01-B remaining feature contracts. The account switcher is committed. Other
-contracts are present as uncommitted work in progress.
+01-B remaining contracts and 01-C composer host. The worktree holds
+uncommitted work for the Home contract, the Search contract, the composer
+contract, and post interactions.
 
 # Files involved
 
 - `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt` (uncommitted edits)
 - `app/src/main/java/me/foxtails/palustris/ui/AppHomeDestinationContent.kt` (uncommitted edits)
 - `app/src/main/java/me/foxtails/palustris/ui/HomeFeed.kt` (uncommitted edits)
-- `app/src/main/java/me/foxtails/palustris/ui/shell/AccountSwitcher.kt` (committed)
-- Uncommitted shell contracts: `HomeContract.kt`, `SearchContract.kt`, `ComposerContract.kt`, `PostInteractions.kt`, `PhotoGridContract.kt`, `ProfileContract.kt`, `ThreadContract.kt`, `NotificationsContract.kt`, `NotificationSettingsContract.kt`, `DirectMessagesContract.kt`, `SavedCollections.kt`, `PostProjectionCoordinator.kt`, `EmojiPresentation.kt`
+- Uncommitted shell contracts: `HomeContract.kt`, `SearchContract.kt`, `ComposerContract.kt`, `PostInteractions.kt`
+- Committed shell contracts: `AccountSwitcher.kt`, `EmojiPresentation.kt`, `NotificationSettingsContract.kt`, `SavedCollections.kt`, `NotificationsContract.kt`, `DirectMessagesContract.kt`, `ProfileContract.kt`, `ThreadContract.kt`, `PhotoGridContract.kt`, `PostProjectionCoordinator.kt`
 - Tests: `HomeFeedTest.kt`, `NavigationTest.kt`, `SignInScreenTest.kt`, `ReplyComposerTest.kt`, `SearchPanelRestorationTest.kt`, `WideNavigationTest.kt`
 
 # Verification
 
-- 01-A: `ShellCharacterizationTest` passed. The shell test group passed.
-- 01-B: `NavigationTest`, `SignInScreenTest`, `HomeFeedTest`, and `ShellCharacterizationTest` passed.
+- Every committed slice passed its focused tests. See `logs/DONE.txt` lines 616-694.
 - The uncommitted work in progress is not verified.
 
 # Next
 
-Inspect the uncommitted `ui/shell` contract files before editing. Continue one
-feature contract at a time. Start with Home. Run the focused shell tests. Commit
-each feature contract as its own slice.
+Inspect the uncommitted contract files before editing. Finish the Home and
+Search contracts. Finish the composer host. Run the focused shell tests. Commit
+each contract as its own slice.
 
 # Blockers
 
@@ -62,4 +73,6 @@ each feature contract as its own slice.
 
 # Last safe commit
 
-`7a81eb7` "Introduce narrow account-switcher contract".
+`e39eace` "Record post-action host ownership". Later commits on `main`
+(`826e516` through `7431883`) change documentation and tooling only. They do
+not change application behavior.
