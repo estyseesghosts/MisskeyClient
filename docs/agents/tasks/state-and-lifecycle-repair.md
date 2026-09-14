@@ -62,4 +62,17 @@ Run focused suites per slice, then `.\gradlew.bat test assembleRelease` and
 
 `111f0c3` "Share post mutation ownership across surfaces".
 
-Slice 02-F is complete and verified. No later slice has started.
+`509b3d1` "Finish mutation family ownership".
+
+`d8fdecc` "Share mutation authority with profile and thread".
+
+Slice 02-F is complete and verified. The document audit confirms:
+
+- Feed and saved collections use the session-bound execution authority.
+- Profile and thread reaction owners also reserve the same authority.
+- Native Favorite and emoji React use separate families unless Favorite is reaction-backed.
+- Saved collection membership removal stays hidden when refresh or paging returns a stale row.
+- 02-A through 02-E remain covered by their recorded commits and focused tests.
+- 02-G through 02-L and the Plan 01 skipped items remain pending.
+
+No later slice has started.

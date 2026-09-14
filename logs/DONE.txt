@@ -821,3 +821,13 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Fixed two tests that left gated NonCancellable children in flight and wedged runTest teardown.
 - Verification passed: focused mutation suites (32 tests), test assembleRelease, and :app:lintDebug.
 - Commit: `111f0c3`. Live-server and device behavior remain unverified.
+
+260914-230000 State and lifecycle repair Slice 02-F completion audit:
+- Re-read `docs/decomposition_3/02.md` and corrected stale plan metadata.
+- Separated native Favorite and emoji React execution families unless Favorite is reaction-backed.
+- Preserved confirmed collection removals when refresh or paging returns stale rows.
+- Extended the shared session-bound execution authority to Profile and Thread reaction owners.
+- Added regression coverage for independent native Favorite/React failure and stale collection membership.
+- Focused verification passed: PostInteractionMutationOwnerTest (14), SavedPostsViewModelTest (9), PostThreadViewModelTest (6), and ProfileViewModelTest.
+- Full verification passed: `test assembleRelease` and `:app:lintDebug`.
+- Commits: `509b3d1`, `d8fdecc`. Live-server and physical-device behavior remain unverified.
