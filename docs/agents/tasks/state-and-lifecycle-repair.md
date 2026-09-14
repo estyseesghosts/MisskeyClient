@@ -25,7 +25,7 @@ availability, and cancellation.
 | Slice | Status | Commit |
 | --- | --- | --- |
 | 02-A Feed epochs | completed | `518c0c5` |
-| 02-B DM visible state | pending | |
+| 02-B DM visible state | completed | pending commit |
 | 02-C DM durable state | pending | |
 | 02-D Notification request context | pending | |
 | 02-E Moderation lifetimes | pending | |
@@ -52,4 +52,5 @@ Run focused suites per slice, then `.\gradlew.bat test assembleRelease` and
 
 `518c0c5` "Repair feed request ownership".
 
-Slice 02-A is complete and verified. No later slice has started.
+Slice 02-B is complete and verified. The implementation commit is the next
+operation. No later slice has started.

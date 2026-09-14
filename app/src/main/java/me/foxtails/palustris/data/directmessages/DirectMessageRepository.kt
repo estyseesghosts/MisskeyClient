@@ -1,7 +1,9 @@
 package me.foxtails.palustris.data.directmessages
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.ConversationId
@@ -17,8 +19,9 @@ class DirectMessageRepository(
     private val accountId: AccountId,
     private val source: DirectMessageSource,
     private val store: DirectMessageStore,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    suspend fun conversations(cursor: String? = null): Page<DirectConversation> = withContext(Dispatchers.IO) {
+    suspend fun conversations(cursor: String? = null): Page<DirectConversation> = withContext(ioDispatcher) {
         val remote = source.conversations(cursor)
         val cached = store.conversations(accountId)
         val byId = linkedMapOf<ConversationId, DirectConversation>()
@@ -39,7 +42,7 @@ class DirectMessageRepository(
         )
     }
 
-    suspend fun thread(id: ConversationId): List<Post> = withContext(Dispatchers.IO) {
+    suspend fun thread(id: ConversationId): List<Post> = withContext(ioDispatcher) {
         val remote = source.conversationThread(id)
         if (remote.isNotEmpty()) {
             store.conversation(accountId, id)?.let { current ->
@@ -55,7 +58,7 @@ class DirectMessageRepository(
         request: DirectMessageRequest,
         conversationId: ConversationId? = null,
         recipientAccounts: List<Account> = emptyList(),
-    ): Post = withContext(Dispatchers.IO) {
+    ): Post = withContext(ioDispatcher) {
         val post = source.sendDirectMessage(request)
         val id = conversationId ?: ConversationId(accountId.connection.origin, post.id.value)
         val previous = store.conversation(accountId, id)
@@ -74,7 +77,7 @@ class DirectMessageRepository(
         post
     }
 
-    suspend fun markRead(id: ConversationId) = withContext(Dispatchers.IO) {
+    suspend fun markRead(id: ConversationId) = withContext(ioDispatcher) {
         source.markConversationRead(id)
         store.markRead(accountId, id)
     }

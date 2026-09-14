@@ -86,7 +86,7 @@ fun DirectMessageConversationScreen(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (state.error != null && state.thread.isEmpty()) {
+        if (state.error != null) {
             Text(state.error, Modifier.padding(20.dp), color = MaterialTheme.colorScheme.error)
         }
         LazyColumn(

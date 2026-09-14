@@ -1,6 +1,7 @@
 package me.foxtails.palustris.ui.directmessages
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -27,6 +28,9 @@ fun DirectMessagesHost(
         key = "direct-messages-$accountId-$sessionGeneration",
         creationCallback = { factory -> factory.create(accountId, source) },
     )
+    DisposableEffect(model) {
+        onDispose { model.stop() }
+    }
     val state by model.state.collectAsStateWithLifecycle()
     val actions = remember(model) {
         object : DirectMessagesContract.Actions {

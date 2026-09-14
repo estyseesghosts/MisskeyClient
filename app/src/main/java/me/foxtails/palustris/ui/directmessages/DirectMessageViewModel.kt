@@ -7,12 +7,15 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.directmessages.DirectMessageRepository
 import me.foxtails.palustris.data.directmessages.DirectMessageStore
+import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.ConversationId
@@ -28,13 +31,24 @@ class DirectMessageViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted source: SocialSource,
     store: DirectMessageStore,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
     private val directSource = source as? DirectMessageSource
-    private val repository = directSource?.let { DirectMessageRepository(accountId, it, store) }
+    private val repository = directSource?.let { DirectMessageRepository(accountId, it, store, ioDispatcher) }
     private val _state = MutableStateFlow(DirectMessageUiState())
     val state = _state.asStateFlow()
     private var refreshJob: Job? = null
     private var threadJob: Job? = null
+    private var sendJob: Job? = null
+    private var stopped = false
+    /** Binds inbox publication authority. Advances on refresh and stop. */
+    private var inboxEpoch = 0L
+    /** Binds selection publication authority. Advances on open, start, close, and stop. */
+    private var selectionEpoch = 0L
+    /** Distinguishes two new conversations that both have a null conversation ID. */
+    private var composeGeneration = 0L
+    private var composeTarget: Account? = null
+    private val acceptedCursors = mutableSetOf<String>()
 
     init {
         val cached = repository?.cachedConversations().orEmpty()
@@ -43,21 +57,35 @@ class DirectMessageViewModel @AssistedInject constructor(
     }
 
     fun refresh() {
+        if (stopped) return
+        val epoch = ++inboxEpoch
+        acceptedCursors.clear()
         refreshJob?.cancel()
+        val repo = repository
+        if (repo == null) {
+            _state.value = _state.value.copy(
+                loading = false,
+                error = sourceErrorMessage(SourceError.Unsupported("direct messages")),
+            )
+            return
+        }
+        val previous = _state.value
+        val cached = previous.conversations.isNotEmpty()
+        // Reserve the inbox slot synchronously. A queued paging call must not start behind it.
+        _state.value = previous.copy(loading = !cached, error = null)
         refreshJob = viewModelScope.launch {
-            val repo = repository
-            if (repo == null) {
-                _state.value = _state.value.copy(error = sourceErrorMessage(SourceError.Unsupported("direct messages")))
-                return@launch
-            }
-            val cached = _state.value.conversations.isNotEmpty()
-            _state.value = _state.value.copy(loading = !cached, error = null)
             try {
                 val page = repo.conversations()
-                val selected = selectedConversation(page.items, _state.value.selectedConversationId)
-                _state.value = _state.value.copy(
+                if (epoch != inboxEpoch || stopped) return@launch
+                val current = _state.value
+                page.nextCursor?.let(acceptedCursors::add)
+                _state.value = current.copy(
                     conversations = page.items,
-                    selectedConversation = selected,
+                    selectedConversation = preserveSelection(
+                        current.selectedConversation,
+                        page.items,
+                        current.selectedConversationId,
+                    ),
                     nextCursor = page.nextCursor,
                     loading = false,
                     error = null,
@@ -65,36 +93,58 @@ class DirectMessageViewModel @AssistedInject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                if (epoch != inboxEpoch || stopped) return@launch
                 _state.value = _state.value.copy(loading = false, error = sourceErrorMessage(error))
             }
         }
     }
 
     fun loadMore() {
-        val cursor = _state.value.nextCursor ?: return
-        if (_state.value.loadingMore || repository == null) return
+        if (stopped) return
+        val repo = repository
+        if (repo == null) {
+            _state.value = _state.value.copy(error = sourceErrorMessage(SourceError.Unsupported("direct messages")))
+            return
+        }
+        val current = _state.value
+        val cursor = current.nextCursor ?: return
+        // Paging cannot start during refresh. Reserve the page slot synchronously.
+        if (current.loading || current.loadingMore || refreshJob?.isActive == true) return
+        val epoch = inboxEpoch
+        _state.value = current.copy(loadingMore = true, error = null)
         viewModelScope.launch {
-            _state.value = _state.value.copy(loadingMore = true, error = null)
             try {
-                val page = repository!!.conversations(cursor)
-                val combined = (_state.value.conversations + page.items).distinctBy { it.id }
+                val page = repo.conversations(cursor)
+                if (epoch != inboxEpoch || stopped) return@launch
+                val latest = _state.value
+                val combined = (latest.conversations + page.items).distinctBy { it.id }
                     .sortedByDescending { it.lastPost.publishedAtEpochMillis }
-                _state.value = _state.value.copy(
+                val repeatedCursor = page.nextCursor != null &&
+                    (page.nextCursor == cursor || !acceptedCursors.add(page.nextCursor))
+                _state.value = latest.copy(
                     conversations = combined,
-                    selectedConversation = selectedConversation(combined, _state.value.selectedConversationId),
-                    nextCursor = page.nextCursor,
+                    selectedConversation = preserveSelection(
+                        latest.selectedConversation,
+                        combined,
+                        latest.selectedConversationId,
+                    ),
+                    nextCursor = page.nextCursor.takeUnless { repeatedCursor },
                     loadingMore = false,
                 )
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                if (epoch != inboxEpoch || stopped) return@launch
                 _state.value = _state.value.copy(loadingMore = false, error = sourceErrorMessage(error))
             }
         }
     }
 
     fun openConversation(conversation: DirectConversation) {
+        if (stopped) return
         val id = conversation.id
+        val selection = ++selectionEpoch
+        composeTarget = null
         threadJob?.cancel()
         _state.value = _state.value.copy(
             selectedConversationId = id,
@@ -102,26 +152,52 @@ class DirectMessageViewModel @AssistedInject constructor(
             recipient = conversation.participants.firstOrNull { it.id != accountId },
             thread = repository?.cachedThread(id).orEmpty(),
             loadingThread = true,
+            sending = false,
             error = null,
             conversations = _state.value.conversations.map { item ->
                 if (item.id == id) item.copy(unread = false) else item
             },
         )
-        val repo = repository ?: return
+        val repo = repository
+        if (repo == null) {
+            _state.value = _state.value.copy(
+                loadingThread = false,
+                error = sourceErrorMessage(SourceError.Unsupported("direct messages")),
+            )
+            return
+        }
         threadJob = viewModelScope.launch {
             try {
                 val thread = repo.thread(id)
-                _state.value = _state.value.copy(thread = thread, loadingThread = false)
-                runCatching { repo.markRead(id) }
+                if (selection != selectionEpoch || stopped) return@launch
+                val current = _state.value
+                if (current.selectedConversationId != id) return@launch
+                _state.value = current.copy(
+                    thread = mergeThread(current.thread, thread),
+                    loadingThread = false,
+                )
+                try {
+                    repo.markRead(id)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    // Keep the loaded thread. Read acknowledgement stays recoverable.
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                if (selection != selectionEpoch || stopped) return@launch
+                if (_state.value.selectedConversationId != id) return@launch
                 _state.value = _state.value.copy(loadingThread = false, error = sourceErrorMessage(error))
             }
         }
     }
 
     fun startConversation(account: Account) {
+        if (stopped) return
+        selectionEpoch += 1
+        composeGeneration += 1
+        composeTarget = account
         threadJob?.cancel()
         _state.value = _state.value.copy(
             selectedConversationId = null,
@@ -129,11 +205,15 @@ class DirectMessageViewModel @AssistedInject constructor(
             recipient = account,
             thread = emptyList(),
             loadingThread = false,
+            sending = false,
             error = null,
         )
     }
 
     fun closeConversation() {
+        if (stopped) return
+        selectionEpoch += 1
+        composeTarget = null
         threadJob?.cancel()
         _state.value = _state.value.copy(
             selectedConversationId = null,
@@ -141,58 +221,107 @@ class DirectMessageViewModel @AssistedInject constructor(
             recipient = null,
             thread = emptyList(),
             loadingThread = false,
+            sending = false,
             error = null,
         )
     }
 
     fun send(text: String) {
-        val repo = repository ?: return
+        if (stopped) return
+        val repo = repository
+        if (repo == null) {
+            _state.value = _state.value.copy(
+                sending = false,
+                error = sourceErrorMessage(SourceError.Unsupported("direct messages")),
+            )
+            return
+        }
         val current = _state.value
         val recipients = current.selectedConversation?.participants
             ?.filterNot { it.id == accountId }
             .orEmpty()
             .ifEmpty { listOfNotNull(current.recipient) }
         if (recipients.isEmpty() || text.isBlank() || current.sending) return
-        val replyTo = current.thread.lastOrNull()?.id ?: current.selectedConversation?.lastPost?.id
-        viewModelScope.launch {
-            _state.value = _state.value.copy(sending = true, error = null)
+        if (sendJob?.isActive == true) return
+        val selection = selectionEpoch
+        val compose = composeGeneration
+        val target = composeTarget
+        val selectedId = current.selectedConversationId
+        val request = DirectMessageRequest(recipients.map(Account::id), text.trim(), current.thread.lastOrNull()?.id ?: current.selectedConversation?.lastPost?.id)
+        // Reserve the send slot synchronously. A selection change clears visible sending state.
+        _state.value = current.copy(sending = true, error = null)
+        sendJob = viewModelScope.launch {
             try {
                 val post = repo.send(
-                    DirectMessageRequest(recipients.map(Account::id), text.trim(), replyTo),
-                    conversationId = current.selectedConversationId,
+                    request,
+                    conversationId = selectedId,
                     recipientAccounts = recipients,
                 )
-                val id = current.selectedConversationId ?: ConversationId(accountId.connection.origin, post.id.value)
-                val existing = current.selectedConversation
+                if (selection != selectionEpoch || stopped) return@launch
+                val latest = _state.value
+                if (latest.selectedConversationId != selectedId) return@launch
+                if (selectedId == null && (latest.recipient?.id != target?.id || compose != composeGeneration)) return@launch
+                val id = selectedId ?: ConversationId(accountId.connection.origin, post.id.value)
+                val existing = latest.selectedConversation
                 val conversation = DirectConversation(
                     id = id,
                     participants = (recipients + post.author).distinctBy { it.id },
                     lastPost = post,
                     unread = false,
-                    rootPostId = existing?.rootPostId ?: replyTo ?: post.id,
+                    rootPostId = existing?.rootPostId ?: request.replyTo ?: post.id,
                 )
-                val conversations = (_state.value.conversations.filterNot { it.id == id } + conversation)
+                val conversations = (latest.conversations.filterNot { it.id == id } + conversation)
                     .sortedByDescending { it.lastPost.publishedAtEpochMillis }
-                _state.value = _state.value.copy(
+                _state.value = latest.copy(
                     conversations = conversations,
                     selectedConversationId = id,
                     selectedConversation = conversation,
                     recipient = recipients.firstOrNull(),
-                    thread = (current.thread + post).distinctBy { it.id },
+                    thread = mergeThread(latest.thread, listOf(post)),
                     sending = false,
                 )
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                if (selection != selectionEpoch || stopped) return@launch
+                if (_state.value.selectedConversationId != selectedId) return@launch
+                if (selectedId == null && compose != composeGeneration) return@launch
                 _state.value = _state.value.copy(sending = false, error = sourceErrorMessage(error))
             }
         }
     }
 
-    private fun selectedConversation(
+    fun stop() {
+        if (stopped) return
+        stopped = true
+        inboxEpoch += 1
+        selectionEpoch += 1
+        refreshJob?.cancel()
+        threadJob?.cancel()
+        sendJob?.cancel()
+    }
+
+    override fun onCleared() {
+        stop()
+        super.onCleared()
+    }
+
+    private fun preserveSelection(
+        previous: DirectConversation?,
         conversations: List<DirectConversation>,
         id: ConversationId?,
-    ): DirectConversation? = id?.let { selected -> conversations.firstOrNull { it.id == selected } }
+    ): DirectConversation? {
+        if (id == null) return previous
+        return conversations.firstOrNull { it.id == id } ?: previous
+    }
+
+    private fun mergeThread(
+        existing: List<me.foxtails.palustris.domain.Post>,
+        incoming: List<me.foxtails.palustris.domain.Post>,
+    ): List<me.foxtails.palustris.domain.Post> {
+        if (incoming.isEmpty()) return existing
+        return (existing + incoming).distinctBy { it.id }
+    }
 
     @AssistedFactory
     interface Factory {

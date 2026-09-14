@@ -755,3 +755,19 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added delayed success/failure, stop, merge, cursor-cycle, retry, and queued-paging regression coverage in `FeedViewModelRequestTest`.
 - Focused verification passed: `:app:testDebugUnitTest --tests "me.foxtails.palustris.FeedViewModelRequestTest"`.
 - Commit: `518c0c5`. Live-server and device behavior remain unverified.
+260914-152043 Gradle no-daemon task:
+- Required --no-daemon --console=plain for every agent Gradle call in AGENTS.md.
+- Added GRADLE_OPTS daemon=false safety net, explicit timeout, closed stdin.
+- Hardened build-debug.bat and build-release.bat with plain console and NUL stdin.
+- Made release password prompts fail fast under AGENT_NONINTERACTIVE or CI.
+- Verification passed: --version exits, :app:help BUILD SUCCESSFUL in 8s, release wrapper exits 1 without prompt.
+
+260914-153000 State and lifecycle repair Slice 02-B:
+- Added DM inbox, selection, and send ownership with stale-result guards.
+- Added explicit ViewModel teardown and wired it through DirectMessagesHost.
+- Fixed unsupported-source thread state and preserved the selected seed on refresh.
+- Added DirectMessageViewModelTest with A-to-B, close, draft, send, paging, and stop coverage.
+- Stale inbox-page success needs durable write authority and stays owned by Slice 02-C.
+- Verification passed: focused DM suites, test assembleRelease, and :app:lintDebug.
+- Commit: pending at log creation. Live-server and device behavior remain unverified.
+- No commit created. Live full test assembleRelease remains unverified.
