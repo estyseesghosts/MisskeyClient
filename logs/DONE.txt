@@ -780,5 +780,5 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved DM cache reads off main-thread construction into background loads.
 - Added DirectMessageRepositoryTest with removal, replacement, merge, and isolation coverage.
 - Verification passed: focused DM and session suites, test assembleRelease, and :app:lintDebug.
-- Commit: pending at log creation. Live-server and device behavior remain unverified.
+- Commit: `2a4fa44`. Live-server and device behavior remain unverified.
 - No commit created. Live full test assembleRelease remains unverified.
