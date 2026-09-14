@@ -854,3 +854,21 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added HomePagingDemandTest (10 tests) and a HomeFeedTest filtered-empty case.
 - Verification passed: 769 unit tests, `test assembleRelease`, and `:app:lintDebug`.
 - Commit: `aa19bc4`. Live-server and physical-device behavior remain unverified.
+
+260915-013000 State and lifecycle repair Slice 02-I:
+- Made SettingsViewModel the single command owner for application and post preferences.
+- Added granular post commands that capture the target account and transform current state.
+- Removed the separate settingsViewModelUpdate path; the overlay writes through the owner.
+- SettingsHost renders load, save, and command errors with a dismiss recovery action.
+- FileAppPreferencesRepository rethrows cancellation without publishing a save error.
+- Added a SettingsRoute saver preserving origin, protocol, local ID, and moderation kind.
+- Malformed routes restore to Main; unavailable accounts fall back to a safe parent after index load.
+- Added SettingsViewModelTest and SettingsRouteRestorationTest.
+- Verification passed: 779 unit tests, `test assembleRelease`, and `:app:lintDebug`.
+- Commit: `9679fce`. Live-server and physical-device behavior remain unverified.
+
+260915-014000 Plan 01 continuation with Slice 02-I:
+- Extracted SavedCollectionsHost owning the saved and liked models, state, actions, and sinks.
+- ConnectedSessionHost passes the narrow SavedCollections contracts and keeps the shared feed sink.
+- Verification passed: full unit suite, `test assembleRelease`, and `:app:lintDebug`.
+- Commit: `977bf03`.

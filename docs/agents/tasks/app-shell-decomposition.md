@@ -41,6 +41,7 @@ shell layers.
 - 01-G profile editor state behind `ProfileContract` — `921d7f8`.
 - 01-G shared detail action policy — `af793a8`.
 - 01-G focused feature hosts — `fb9d8bf`.
+- 01-G saved collections host (Plan 02 continuation) — `977bf03`.
 - Boundary records — `fbe6c2d`.
 
 # Current slice
@@ -71,17 +72,17 @@ All requested items are implemented. No code work is uncommitted.
 
 # Next
 
-- Optional: extract `FeedHost` and `SavedCollectionsHost` after a feed-action handoff.
+- Optional: extract `FeedHost` after a feed-action handoff.
 - Optional 01-H work: remove the production no-argument app construction used by tests.
-- Recommended: start `docs/decomposition_3/02.md`.
+- Active: finish `docs/decomposition_3/02.md` slices 02-J through 02-L.
 
 # Blockers
 
-- The feed, composer, saved collections, and post-action owner share the feed model, so those
-  owners stay in the session host.
-- `NotificationsViewModel`, `DirectMessageViewModel`, `NotificationSettingsViewModel`,
-  and `ModerationViewModel` expose no `stop()`. Explicit teardown belongs to Plan 02.
-- Account removal still does not delete account-scoped drafts. See `logs/BUGS.txt`.
+- The feed, composer, and post-action owner share the feed model, so those owners stay in the
+  session host. `SavedCollectionsHost` is extracted in `977bf03`.
+- `NotificationsViewModel` and `SettingsViewModel` expose no `stop()`; Plan 02 owns their
+  teardown. `DirectMessageViewModel` and `ModerationViewModel` now expose `stop()`.
+- Account removal deletes account-scoped drafts (`69467c1`).
 - Android 15 system-bar instrumentation failure. See `logs/BUGS.txt`.
 
 # Last safe commit
