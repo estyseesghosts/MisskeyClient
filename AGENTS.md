@@ -160,6 +160,64 @@
 - Verify each completed implementation slice.
 - Record unresolved problems before you continue.
 
+## Long-Horizon Work
+
+- Treat repository state as authoritative.
+- Treat conversation context as disposable.
+- Do not use conversation history as the only record of unfinished work.
+- Keep permanent rules in `AGENTS.md`.
+- Keep the current truth of a long task in `docs/agents/tasks/<task>.md`.
+- Keep verified history in Git commits.
+- Rewrite the task-state file at each slice boundary.
+- Do not append to the task-state file.
+- Recover state from files and Git, not from memory.
+
+### Task Size Check
+
+- Decide whether the request is safe for one execution before you edit.
+- Stop and write a slice plan when the request has several architectural changes.
+- Stop and write a slice plan when the request has several unrelated behaviors.
+- Stop and write a slice plan when the request has several verification stages.
+- Record this statement: `This task is larger than one safe implementation slice.`
+- Do not try to finish everything while context permits.
+
+### Slice Definition
+
+- Define a slice by behavior, not by file count.
+- Give each slice one purpose.
+- Make each slice reviewable on its own.
+- Leave the repository working.
+- Give each slice one verification method.
+- Give each slice one commit.
+
+### Slice Checkpoint
+
+Use this order at every slice boundary:
+
+1. Implement.
+2. Test.
+3. Inspect the diff.
+4. Update the task-state file.
+5. Commit.
+6. Start the next slice.
+
+- Update the task-state file before you move on.
+- Record the last safe commit in the task-state file.
+
+### State Recovery
+
+Read these items at the start of a session, after compaction, and when you are unsure:
+
+1. `AGENTS.md`.
+2. The active task-state file in `docs/agents/tasks/`.
+3. `git status`.
+4. Recent relevant commits.
+5. The current diff.
+
+- Rebuild the TODO list from these items.
+- Treat TODO lists as execution aids, not as the durable record.
+- Stop implementation and reconstruct state when context is incomplete.
+
 ## Implementation Slices
 
 - Divide coding work into small coherent slices.
