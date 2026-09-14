@@ -1,6 +1,7 @@
 package me.foxtails.palustris.ui.settings
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +63,9 @@ fun SettingsOverlayHost(
                 },
             )
         }
+    }
+    DisposableEffect(moderationModel) {
+        onDispose { moderationModel?.stop() }
     }
     val notificationState by if (notificationModel != null) notificationModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationSettingsUiState()) }

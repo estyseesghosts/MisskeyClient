@@ -800,4 +800,15 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added NotificationSynchronizerTest and extended NotificationRepositoryTest with mismatch coverage.
 - Verification passed: focused notification suites, test assembleRelease, and :app:lintDebug.
 - Commit: `175d97c`. Live-server and device behavior remain unverified.
+
+260914-163000 State and lifecycle repair Slice 02-E:
+- Separated moderation list epochs from per-entry removal tokens.
+- Confirmed removals during refresh reconcile with a fresh list request.
+- Refresh reserves both loading flags so cancelled paging cannot strand them.
+- Source identity is rechecked after every suspension, with silent session-gone cleanup.
+- Added explicit moderation teardown and wired it through the settings host.
+- Hashtag fallback stays limited to confirmed unsupported behavior with granular updates.
+- Added ModerationViewModelTest with removal, paging, replacement, and fallback coverage.
+- Verification passed: focused moderation suites, test assembleRelease, and :app:lintDebug.
+- Commit: pending at log creation. Live-server and device behavior remain unverified.
 - No commit created. Live full test assembleRelease remains unverified.

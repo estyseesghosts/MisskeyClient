@@ -8,6 +8,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -49,19 +50,26 @@ class ModerationViewModel @AssistedInject constructor(
     val state = _state.asStateFlow()
     private var loadJob: Job? = null
     private var loadMoreJob: Job? = null
-    private var requestGeneration = 0L
+    private val removalJobs = mutableMapOf<String, Job>()
+    /** List epoch. Refresh advances it. Removal ownership lives in removal tokens. */
+    private var listEpoch = 0L
+    /** Removal tokens are keyed by entry. A refresh never invalidates them. */
+    private var removalEpoch = 0L
+    private val removalTokens = mutableMapOf<String, Long>()
+    private var stopped = false
 
     init { load() }
 
     fun load() {
+        if (stopped) return
         loadJob?.cancel()
         loadMoreJob?.cancel()
-        val request = ++requestGeneration
+        val epoch = ++listEpoch
+        // Reserve both loading flags synchronously. A cancelled paging call cannot strand them.
+        _state.value = _state.value.copy(loading = true, loadingMore = false, error = null, unsupported = false)
         loadJob = viewModelScope.launch {
-            _state.value = _state.value.copy(loading = true, error = null, unsupported = false)
             try {
                 ensureCurrent()
-                if (request != requestGeneration) return@launch
                 val nextState = when (kind) {
                     ModerationListKind.Blocked -> source.blockedAccounts().let { page ->
                         _state.value.copy(accounts = page.items, nextCursor = page.nextCursor, loading = false)
@@ -77,28 +85,43 @@ class ModerationViewModel @AssistedInject constructor(
                          localHashtagPage()
                      }
                 }
-                if (request == requestGeneration) _state.value = nextState
+                if (epoch != listEpoch || stopped) return@launch
+                if (!isSessionCurrent()) {
+                    _state.value = _state.value.copy(loading = false)
+                    return@launch
+                }
+                _state.value = nextState
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (invalid: IllegalStateException) {
+                if (epoch == listEpoch && !stopped) _state.value = _state.value.copy(loading = false)
             } catch (error: Exception) {
-                if (request == requestGeneration) updateError(error)
+                if (epoch != listEpoch || stopped) return@launch
+                if (!isSessionCurrent()) {
+                    _state.value = _state.value.copy(loading = false)
+                    return@launch
+                }
+                updateError(error)
             }
         }
     }
 
     fun loadMore() {
+        if (stopped) return
         val cursor = _state.value.nextCursor ?: return
         if (_state.value.loading || _state.value.loadingMore) return
-        val request = requestGeneration
+        // Paging cannot start during refresh. Reserve the page slot synchronously.
+        if (loadJob?.isActive == true) return
+        val epoch = listEpoch
         val requestedCursor = cursor
+        _state.value = _state.value.copy(loadingMore = true, error = null)
         loadMoreJob = viewModelScope.launch {
-            _state.value = _state.value.copy(loadingMore = true, error = null)
             try {
                 ensureCurrent()
                 when (kind) {
                     ModerationListKind.Blocked -> source.blockedAccounts(cursor).let { page ->
                         ensureCurrent()
-                        if (request != requestGeneration || _state.value.nextCursor != requestedCursor) return@launch
+                        if (stopped || epoch != listEpoch || _state.value.nextCursor != requestedCursor) return@launch
                         _state.value = _state.value.copy(
                             accounts = (_state.value.accounts + page.items).distinctBy { it.account.id },
                             nextCursor = page.nextCursor?.takeUnless { it == requestedCursor },
@@ -107,7 +130,7 @@ class ModerationViewModel @AssistedInject constructor(
                     }
                     ModerationListKind.Muted -> source.mutedAccounts(cursor).let { page ->
                         ensureCurrent()
-                        if (request != requestGeneration || _state.value.nextCursor != requestedCursor) return@launch
+                        if (stopped || epoch != listEpoch || _state.value.nextCursor != requestedCursor) return@launch
                         _state.value = _state.value.copy(
                             accounts = (_state.value.accounts + page.items).distinctBy { it.account.id },
                             nextCursor = page.nextCursor?.takeUnless { it == requestedCursor },
@@ -116,7 +139,7 @@ class ModerationViewModel @AssistedInject constructor(
                     }
                     ModerationListKind.Hashtags -> source.mutedHashtags(cursor).let { page ->
                         ensureCurrent()
-                        if (request != requestGeneration || _state.value.nextCursor != requestedCursor) return@launch
+                        if (stopped || epoch != listEpoch || _state.value.nextCursor != requestedCursor) return@launch
                         _state.value = _state.value.copy(
                             hashtags = (_state.value.hashtags + page.items).distinctBy { it.value.lowercase() },
                             nextCursor = page.nextCursor?.takeUnless { it == requestedCursor },
@@ -126,32 +149,61 @@ class ModerationViewModel @AssistedInject constructor(
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (invalid: IllegalStateException) {
+                if (epoch == listEpoch && !stopped) _state.value = _state.value.copy(loadingMore = false)
             } catch (error: Exception) {
-                if (request == requestGeneration) updateError(error, loadingMore = false)
+                if (stopped || epoch != listEpoch) return@launch
+                if (!isSessionCurrent()) {
+                    _state.value = _state.value.copy(loadingMore = false)
+                    return@launch
+                }
+                updateError(error, loadingMore = false)
             }
         }
     }
 
     fun remove(entry: ModerationAccount) {
+        // Hashtag removal has its own local route. Account removal never runs here.
+        if (kind == ModerationListKind.Hashtags || stopped) return
         val key = "${entry.account.id.connection.origin}\u0000${entry.account.id.localId}"
-        val request = requestGeneration
-        if (key in _state.value.removing) return
-        viewModelScope.launch {
-            _state.value = _state.value.copy(removing = _state.value.removing + key, error = null)
+        if (removalJobs[key]?.isActive == true || key in _state.value.removing) return
+        val token = ++removalEpoch
+        removalTokens[key] = token
+        val list = listEpoch
+        // Reserve the entry marker synchronously. A retry behind it waits for cleanup.
+        _state.value = _state.value.copy(removing = _state.value.removing + key, error = null)
+        removalJobs[key] = viewModelScope.launch {
             try {
                 ensureCurrent()
                 if (kind == ModerationListKind.Blocked) source.removeBlockedAccount(entry)
                 else source.removeMutedAccount(entry)
                 ensureCurrent()
-                if (request != requestGeneration) return@launch
-                _state.value = _state.value.copy(
-                    accounts = _state.value.accounts.filterNot { it.account.id == entry.account.id },
-                    removing = _state.value.removing - key,
-                )
+                if (stopped || removalTokens[key] != token) return@launch
+                _state.value = _state.value.copy(removing = _state.value.removing - key)
+                if (list == listEpoch) {
+                    _state.value = _state.value.copy(
+                        accounts = _state.value.accounts.filterNot { it.account.id == entry.account.id },
+                    )
+                } else {
+                    // A refresh moved on while removal ran. Reconcile with a fresh list.
+                    load()
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (invalid: IllegalStateException) {
+                if (removalTokens[key] == token && !stopped) {
+                    _state.value = _state.value.copy(removing = _state.value.removing - key)
+                }
             } catch (error: Exception) {
+                if (removalTokens[key] != token || stopped) return@launch
+                if (!isSessionCurrent()) {
+                    _state.value = _state.value.copy(removing = _state.value.removing - key)
+                    return@launch
+                }
                 updateError(error, removing = key)
+            } finally {
+                val finished = currentCoroutineContext()[Job]
+                if (removalJobs[key] === finished) removalJobs.remove(key)
             }
         }
     }
@@ -168,19 +220,26 @@ class ModerationViewModel @AssistedInject constructor(
     }
 
     private fun updateLocalHashtags(transform: (List<String>) -> List<String>) {
+        if (stopped) return
+        val epoch = listEpoch
         viewModelScope.launch {
             try {
                 ensureCurrent()
                 postPreferencesRepository.update(accountId) { preferences ->
                     preferences.copy(localMutedHashtags = transform(preferences.localMutedHashtags))
                 }
+                ensureCurrent()
+                if (epoch != listEpoch || stopped) return@launch
                 _state.value = _state.value.copy(
                     hashtags = localHashtagEntries(postPreferencesRepository.observe(accountId).first().localMutedHashtags),
                     error = null,
                 )
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (invalid: IllegalStateException) {
+                // The session is gone. The durable update stays; nothing is published.
             } catch (error: Exception) {
+                if (epoch != listEpoch || stopped || !isSessionCurrent()) return@launch
                 updateError(error)
             }
         }
@@ -199,8 +258,32 @@ class ModerationViewModel @AssistedInject constructor(
 
     private fun localHashtagEntries(values: List<String>) = values.map { MutedHashtag(it) }
 
+    fun stop() {
+        if (stopped) return
+        stopped = true
+        listEpoch += 1
+        removalEpoch += 1
+        loadJob?.cancel()
+        loadMoreJob?.cancel()
+        removalJobs.values.forEach(Job::cancel)
+        removalJobs.clear()
+        _state.value = _state.value.copy(loading = false, loadingMore = false, removing = emptySet())
+    }
+
+    override fun onCleared() {
+        stop()
+        super.onCleared()
+    }
+
     private fun ensureCurrent() {
         check(sourceRegistry.isCurrent(accountId, source)) { "This account session is no longer available." }
+    }
+
+    private fun isSessionCurrent(): Boolean = try {
+        ensureCurrent()
+        true
+    } catch (invalid: IllegalStateException) {
+        false
     }
 
     private fun updateError(error: Exception, loadingMore: Boolean = false, removing: String? = null) {
