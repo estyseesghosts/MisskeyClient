@@ -28,7 +28,7 @@ availability, and cancellation.
 | 02-B DM visible state | completed | `e12fbd3` |
 | 02-C DM durable state | completed | `2a4fa44` |
 | 02-D Notification request context | completed | `175d97c` |
-| 02-E Moderation lifetimes | completed | pending commit |
+| 02-E Moderation lifetimes | completed | `8dd093e` |
 | 02-F Mutation families | pending | |
 | 02-G Thread overlays and projections | pending | |
 | 02-H Home paging demand | pending | |
@@ -58,5 +58,6 @@ Run focused suites per slice, then `.\gradlew.bat test assembleRelease` and
 
 `175d97c` "Repair notification request context".
 
-Slice 02-E is complete and verified. The implementation commit is the next
-operation. No later slice has started.
+`8dd093e` "Repair moderation lifetimes".
+
+Slice 02-E is complete and verified. No later slice has started.

@@ -810,5 +810,5 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Hashtag fallback stays limited to confirmed unsupported behavior with granular updates.
 - Added ModerationViewModelTest with removal, paging, replacement, and fallback coverage.
 - Verification passed: focused moderation suites, test assembleRelease, and :app:lintDebug.
-- Commit: pending at log creation. Live-server and device behavior remain unverified.
+- Commit: `8dd093e`. Live-server and device behavior remain unverified.
 - No commit created. Live full test assembleRelease remains unverified.
