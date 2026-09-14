@@ -701,3 +701,12 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Commits: `826e516`, `d6340db`, `180d2ab`, `6d18903`, `7431883`. No push.
 - Verification: `git check-ignore` checks passed and every new file is tracked. The Gradle gate did not run because the worktree holds uncommitted application code and this task changed no application code.
 - The app-shell state file now reflects the current committed truth through `e39eace`.
+
+260914-022623 Wiki pages and agent ownership:
+- Filled `docs/wiki/overview.md` with platform facts, supported servers, feature areas, privacy, and known limits.
+- Filled `docs/wiki/architecture.md` with the layer map, protocol boundary, identities, persistence, presentation, and tests.
+- Added `docs/agents/protocol-and-session-ownership.md` with source, identity, error, origin, capability, and persistence contracts.
+- Recorded the account-removal draft gap in `logs/BUGS.txt`.
+- Commits: `454337b`, `15adeb5`, `465232d`. No push.
+- Verification: each claim was checked against the cited source file. No application code changed. The Gradle gate did not run because the worktree holds uncommitted application code.
+- The `README.md` TODO claims are stale for block, mute, and report. The overview page records the source truth.
