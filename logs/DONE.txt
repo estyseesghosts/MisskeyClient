@@ -789,5 +789,5 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Removed the resolved account-removal draft entry from logs/BUGS.txt.
 - Remaining skipped items: FeedHost and SavedCollectionsHost extraction, test construction rewrite, explicit teardown for notifications, notification settings, and moderation.
 - Verification passed: SessionViewModelTest and the full unit suite green.
-- Commit: pending at log creation. Live-server and device behavior remain unverified.
+- Commit: `69467c1`. Live-server and device behavior remain unverified.
 - No commit created. Live full test assembleRelease remains unverified.
