@@ -304,6 +304,13 @@ fun PalustrisApp(
         repostConfirmationOwner.dismiss()
         thread.actions.deactivate()
     }
+    // A same-account reauthentication changes the durable revision but not the account id.
+    // Rebind the popup authority so a stale handler cannot run a later reaction selection.
+    LaunchedEffect(sessionGeneration, sessionRevision) {
+        postActionBubbleTarget = null
+        pendingExpandedReactionTarget = null
+        postReactionHandler = null
+    }
     LaunchedEffect(destination, searchPanel, account?.id, sessionGeneration) {
         if (destination == Destination.Search && searchPanel == SearchPanel.PhotoGrid) {
             photoGrid.actions.ensureLoaded()
@@ -535,7 +542,11 @@ fun PalustrisApp(
         handler: (OwnedPost, EmojiChoice) -> Unit,
     ) {
         val owner = account ?: return
-        if (ownedPost.fetchedBy != owner.id || emojiPresentation.capabilities.reactionMutation != CapabilityStatus.Supported) return
+        if (ownedPost.fetchedBy != owner.id || ownedPost.sessionRevision != sessionRevision ||
+            emojiPresentation.capabilities.reactionMutation != CapabilityStatus.Supported
+        ) {
+            return
+        }
         postReactionHandler = handler
         postActionBubbleTarget = PostActionBubbleTarget.Reaction(ownedPost, bounds)
     }
@@ -1158,7 +1169,9 @@ fun PalustrisApp(
             onReactionSelected = { target, choice ->
                 val owner = account
                 val handler = postReactionHandler
-                if (owner != null && target.fetchedBy == owner.id && emojiPresentation.capabilities.reactionMutation == CapabilityStatus.Supported) {
+                if (owner != null && target.fetchedBy == owner.id && target.sessionRevision == sessionRevision &&
+                    emojiPresentation.capabilities.reactionMutation == CapabilityStatus.Supported
+                ) {
                     handler?.invoke(target, choice)
                 }
                 clearPostActionBubble()

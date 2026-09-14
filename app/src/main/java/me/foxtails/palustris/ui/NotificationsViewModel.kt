@@ -31,6 +31,7 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.effectiveTargetId
+import me.foxtails.palustris.domain.mergeExternalActionFields
 
 data class NotificationsUiState(
     val items: List<Notification> = emptyList(),
@@ -52,6 +53,7 @@ data class NotificationsUiState(
 class NotificationsViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted private val source: SocialSource,
+    @Assisted private val sessionRevision: Long,
     private val repository: NotificationRepository,
     private val syncIntents: NotificationSyncIntents,
 ) : ViewModel() {
@@ -59,9 +61,11 @@ class NotificationsViewModel @AssistedInject constructor(
         accountId: AccountId,
         source: SocialSource,
         repository: NotificationRepository,
+        sessionRevision: Long = 0L,
     ) : this(
         accountId,
         source,
+        sessionRevision,
         repository,
         SourceBackedNotificationSyncIntents(accountId, source, repository, NotificationSynchronizer(repository)),
     )
@@ -179,7 +183,7 @@ class NotificationsViewModel @AssistedInject constructor(
 
     /** Keeps optimistic interaction fields local to notification presentation. */
     fun applyExternalPost(updated: OwnedPost) {
-        if (updated.fetchedBy != accountId) return
+        if (updated.fetchedBy != accountId || updated.sessionRevision != sessionRevision) return
         val target = updated.effectiveTargetId()
         val overlays = _state.value.postOverlays +
             (target to updated.post) + (updated.post.id to updated.post)
@@ -215,8 +219,8 @@ class NotificationsViewModel @AssistedInject constructor(
         overlays: Map<EntityId, Post>,
     ): Notification {
         val post = notification.post ?: return notification
-        val overlay = overlays[post.id] ?: overlays[post.effectiveTargetId()]
-        return notification.copy(post = overlay ?: post)
+        val overlay = overlays[post.id] ?: overlays[post.effectiveTargetId()] ?: return notification
+        return notification.copy(post = post.mergeExternalActionFields(overlay))
     }
 
     fun respondToFollowRequest(notification: Notification, accept: Boolean) {
@@ -256,6 +260,6 @@ class NotificationsViewModel @AssistedInject constructor(
 
     @AssistedFactory
     interface Factory {
-        fun create(accountId: AccountId, source: SocialSource): NotificationsViewModel
+        fun create(accountId: AccountId, source: SocialSource, sessionRevision: Long): NotificationsViewModel
     }
 }

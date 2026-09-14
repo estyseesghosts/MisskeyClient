@@ -290,6 +290,7 @@ fun ConnectedSessionHost(
     val notifications = NotificationsHost(
         accountId = session.accountId,
         sessionGeneration = sessionGeneration,
+        sessionRevision = session.sessionRevision,
         source = sharedSource,
         coordinator = projectionCoordinator,
     )

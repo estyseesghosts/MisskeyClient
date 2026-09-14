@@ -26,12 +26,13 @@ import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
 fun NotificationsHost(
     accountId: AccountId,
     sessionGeneration: Long,
+    sessionRevision: Long,
     source: SocialSource,
     coordinator: PostProjectionCoordinator,
 ): NotificationsContract {
     val model = hiltViewModel<NotificationsViewModel, NotificationsViewModel.Factory>(
-        key = "notifications-$accountId-$sessionGeneration",
-        creationCallback = { factory -> factory.create(accountId, source) },
+        key = "notifications-$accountId-$sessionGeneration-$sessionRevision",
+        creationCallback = { factory -> factory.create(accountId, source, sessionRevision) },
     )
     val sink = remember(model) {
         object : PostProjectionCoordinator.Sink {

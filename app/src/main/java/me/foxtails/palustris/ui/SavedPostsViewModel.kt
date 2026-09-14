@@ -21,6 +21,7 @@ import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.effectiveTargetId
+import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
 
@@ -131,11 +132,11 @@ class SavedPostsViewModel @AssistedInject constructor(
     }
 
     fun applyExternalPost(updated: OwnedPost) {
-        if (stopped || updated.fetchedBy != accountId) return
+        if (stopped || updated.fetchedBy != accountId || updated.sessionRevision != sessionRevision) return
         val target = updated.effectiveTargetId()
         _state.value = _state.value.copy(
             posts = _state.value.posts.map { owned ->
-                if (owned.fetchedBy == accountId &&
+                if (owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision &&
                     (owned.post.id == target || owned.effectiveTargetId() == target)
                 ) {
                     owned.copy(post = mergeExternalActionFields(owned.post, updated.post))
@@ -191,16 +192,7 @@ class SavedPostsViewModel @AssistedInject constructor(
     private fun mergeExternalActionFields(
         existing: me.foxtails.palustris.domain.Post,
         incoming: me.foxtails.palustris.domain.Post,
-    ) = existing.copy(
-        favourited = incoming.favourited,
-        myReaction = incoming.myReaction,
-        selectedReactions = incoming.selectedReactions,
-        reactions = incoming.reactions.ifEmpty { existing.reactions },
-        reposted = incoming.reposted,
-        interactionCounts = existing.interactionCounts.merge(incoming.interactionCounts),
-        ownRepostId = incoming.ownRepostId,
-        saved = incoming.saved,
-    )
+    ) = existing.mergeExternalActionFields(incoming)
 
     private suspend fun load(kind: SavedPostsKind, cursor: String?, replace: Boolean, epoch: Long) {
         try {

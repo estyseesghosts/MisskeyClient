@@ -30,6 +30,7 @@ import me.foxtails.palustris.domain.PrimaryFavouriteMode
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.effectiveTargetId
+import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
 
@@ -424,16 +425,8 @@ class FeedViewModel @AssistedInject constructor(
         searchController.updateExternalPost(target, incoming)
     }
 
-    private fun mergeExternalActionFields(existing: Post, incoming: Post): Post = existing.copy(
-        favourited = incoming.favourited,
-        myReaction = incoming.myReaction,
-        selectedReactions = incoming.selectedReactions,
-        reactions = incoming.reactions.ifEmpty { existing.reactions },
-        reposted = incoming.reposted,
-        interactionCounts = existing.interactionCounts.merge(incoming.interactionCounts),
-        ownRepostId = incoming.ownRepostId,
-        saved = incoming.saved,
-    )
+    private fun mergeExternalActionFields(existing: Post, incoming: Post): Post =
+        existing.mergeExternalActionFields(incoming)
 
     private fun updatePosts(transform: (Post) -> Post) {
         val transformed = _feed.value.posts.associate { it.id to transform(it) }

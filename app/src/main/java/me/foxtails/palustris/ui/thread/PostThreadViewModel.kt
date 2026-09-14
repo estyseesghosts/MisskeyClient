@@ -34,6 +34,7 @@ import me.foxtails.palustris.domain.ThreadRow
 import me.foxtails.palustris.domain.ThreadSessionKey
 import me.foxtails.palustris.domain.ThreadTreeBuilder
 import me.foxtails.palustris.domain.effectiveTargetId
+import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
 import me.foxtails.palustris.domain.normalizeFavouriteEmoji
 import me.foxtails.palustris.domain.adjustedBy
@@ -90,18 +91,7 @@ class PostThreadViewModel @AssistedInject constructor(
     fun applyExternalPost(updated: OwnedPost) {
         if (stopped || updated.fetchedBy != accountId || updated.sessionRevision != sessionRevision) return
         val target = updated.effectiveTargetId()
-        updateMatching(target) { existing ->
-            existing.copy(
-                favourited = updated.post.favourited,
-                myReaction = updated.post.myReaction,
-                selectedReactions = updated.post.selectedReactions,
-                reactions = updated.post.reactions,
-                reposted = updated.post.reposted,
-                interactionCounts = existing.interactionCounts.merge(updated.post.interactionCounts),
-                ownRepostId = updated.post.ownRepostId,
-                saved = updated.post.saved,
-            )
-        }
+        updateMatching(target) { existing -> existing.mergeExternalActionFields(updated.post) }
     }
 
     fun activate(ownedPost: OwnedPost?, supportsComments: Boolean) {
@@ -110,6 +100,9 @@ class PostThreadViewModel @AssistedInject constructor(
             deactivate()
             return
         }
+        // A foreign or old-revision snapshot cannot open or replace a thread. Never make
+        // an old callback current by rewriting its durable revision here.
+        if (ownedPost.fetchedBy != accountId || ownedPost.sessionRevision != sessionRevision) return
         val key = ThreadSessionKey(accountId, sessionRevision, ownedPost.effectiveTargetId())
         if (key == activeKey && _state.value.focal != null) {
             activeWrapper = ownedPost
@@ -126,11 +119,15 @@ class PostThreadViewModel @AssistedInject constructor(
             return
         }
         stopAcquisition()
+        // A replacement thread owns new action jobs. Cancel the old jobs; the launch-key
+        // guard in runAction drops their late results.
+        actionJobs.values.forEach { it.cancel() }
+        actionJobs.clear()
         activeKey = key
         activeWrapper = ownedPost
         posts.clear()
         overlays.clear()
-        posts[ownedPost.post.id] = ownedPost.copy(sessionRevision = sessionRevision)
+        posts[ownedPost.post.id] = ownedPost
         _state.value = PostThreadUiState(
             phase = if (supportsComments) PostThreadPhase.InitialLoading else PostThreadPhase.Inactive,
             focal = ownedPost,
@@ -350,6 +347,7 @@ class PostThreadViewModel @AssistedInject constructor(
             posts.clear()
             returned.forEach { post -> posts[post.post.id] = applyOverlay(post) }
             confirmed.forEach { post -> if (!posts.containsKey(post.post.id)) posts[post.post.id] = post }
+            retireAcknowledgedOverlays(returned)
         } else {
             returned.forEach { post -> posts[post.post.id] = applyOverlay(post) }
         }
@@ -369,6 +367,19 @@ class PostThreadViewModel @AssistedInject constructor(
         )
         _state.value = updated
         rebuildState()
+    }
+
+    /**
+     * Drops an overlay once a fresh authoritative page already equals its projection.
+     * A confirmed mutation then stops hiding later remote changes from the server.
+     */
+    private fun retireAcknowledgedOverlays(returned: List<OwnedPost>) {
+        overlays.keys.toList().forEach { target ->
+            val raw = returned.firstOrNull { it.post.id == target || it.effectiveTargetId() == target }
+                ?: return@forEach
+            val overlay = overlays[target] ?: return@forEach
+            if (overlay.applyTo(raw.post) == raw.post) overlays.remove(target)
+        }
     }
 
     private fun scheduleAutomaticRefresh(state: PostThreadUiState) {
@@ -418,36 +429,42 @@ class PostThreadViewModel @AssistedInject constructor(
         if (actionJobs[key]?.isActive == true) return
         val before = posts[ownedPost.post.id] ?: return
         if (!executionAuthority.acquire(accountId, sessionRevision, family, target)) return
+        val launchKey = activeKey
+        val previousOverlay = overlays[target]
+        val favoriteOwnsReaction = action == PostAction.Favorite &&
+            source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction
         val after = before.copy(post = optimistic(before.post))
-        overlays[target] = overlays[target].orEmpty().with(
-            action,
-            after.post,
-            favoriteOwnsReaction = action == PostAction.Favorite &&
-                source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction,
-        )
+        overlays[target] = overlays[target].orEmpty().with(action, after.post, favoriteOwnsReaction)
         updateMatching(target) { current -> optimistic(current) }
         val job = viewModelScope.launch {
             _state.value = _state.value.copy(pendingActions = _state.value.pendingActions + key.toString())
             try {
                 val result = operation()
+                // A replaced thread drops the late result before it can touch rows, overlays,
+                // or the popup listener.
+                if (launchKey != activeKey) return@launch
                 updateMatching(target) { current -> reconcile(action, current, result) }
                 val updatedPost = posts.values.firstOrNull { it.post.id == target || it.effectiveTargetId() == target }?.post
                     ?: before.post
-                overlays[target] = overlays[target].orEmpty().with(
-                    action,
-                    updatedPost,
-                    favoriteOwnsReaction = action == PostAction.Favorite &&
-                        source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction,
-                )
+                overlays[target] = overlays[target].orEmpty().with(action, updatedPost, favoriteOwnsReaction)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+                if (launchKey != activeKey) return@launch
                 updateMatching(target) { current -> restore(action, current, before.post) }
-                overlays[target] = overlays[target].orEmpty().without(action)
+                // Restore the family overlay captured before this attempt. A blind removal
+                // would erase a previously confirmed mutation in the same family, and would
+                // leave a reaction favorite's optimistic snapshot behind.
+                overlays[target] = overlays[target].orEmpty()
+                    .restoredFamily(action, favoriteOwnsReaction, previousOverlay)
             } finally {
-                if (actionJobs[key] === kotlinx.coroutines.currentCoroutineContext()[Job]) actionJobs.remove(key)
+                // Cleanup releases only the slot of the current operation. A replaced
+                // job must not clear a newer pending entry with the same key.
+                if (actionJobs[key] === kotlinx.coroutines.currentCoroutineContext()[Job]) {
+                    actionJobs.remove(key)
+                    _state.value = _state.value.copy(pendingActions = _state.value.pendingActions - key.toString())
+                }
                 executionAuthority.release(accountId, sessionRevision, family, target)
-                _state.value = _state.value.copy(pendingActions = _state.value.pendingActions - key.toString())
             }
         }
         actionJobs[key] = job
@@ -548,35 +565,28 @@ class PostThreadViewModel @AssistedInject constructor(
 
     private data class ActionKey(val target: me.foxtails.palustris.domain.EntityId, val family: String)
 
+    /**
+     * One accepted mutation snapshot per action family. A null family field means that
+     * family has no overlay; a present [reactionState] owns the reaction fields
+     * outright, including an explicit null selection after a confirmed removal.
+     */
     private data class MutationOverlay(
         val favourited: Boolean? = null,
-        val myReaction: String? = null,
-        val reposted: Boolean? = null,
         val favouriteCount: Int? = null,
-        val reactionCount: Int? = null,
+        val reposted: Boolean? = null,
         val repostCount: Int? = null,
         val ownRepostId: me.foxtails.palustris.domain.EntityId? = null,
-        val myReactionOverride: Boolean = false,
         val ownRepostIdOverride: Boolean = false,
         val saved: Boolean? = null,
         val reactionState: ReactionState? = null,
         val confirmedReply: Boolean = false,
     ) {
         fun with(action: PostAction, post: Post, favoriteOwnsReaction: Boolean = false) = when (action) {
-            PostAction.Favorite -> copy(
-                favourited = post.favourited,
-                myReaction = post.myReaction.takeIf { favoriteOwnsReaction },
-                favouriteCount = post.interactionCounts.favouriteCount.takeUnless { favoriteOwnsReaction },
-                reactionCount = post.interactionCounts.reactionCount.takeIf { favoriteOwnsReaction },
-                reactionState = ReactionState(
-                    reactions = post.reactions,
-                    myReaction = post.myReaction,
-                    selectedReactions = post.selectedReactions,
+            PostAction.Favorite -> if (favoriteOwnsReaction) copy(reactionState = post.toReactionState())
+                else copy(
                     favourited = post.favourited,
-                    reactionCount = post.interactionCounts.reactionCount,
-                ).takeIf { favoriteOwnsReaction },
-                myReactionOverride = favoriteOwnsReaction,
-            )
+                    favouriteCount = post.interactionCounts.favouriteCount,
+                )
             PostAction.Reshare -> copy(
                 reposted = post.reposted,
                 repostCount = post.interactionCounts.repostCount,
@@ -584,43 +594,52 @@ class PostThreadViewModel @AssistedInject constructor(
                 ownRepostIdOverride = true,
             )
             PostAction.Bookmark -> copy(saved = post.saved)
-            PostAction.React -> copy(reactionState = ReactionState(
-                post.reactions,
-                post.myReaction,
-                post.selectedReactions,
-                post.favourited,
-                post.interactionCounts.reactionCount,
-            ))
+            PostAction.React -> copy(reactionState = post.toReactionState())
             PostAction.Reply -> this
         }
 
-        fun without(action: PostAction) = when (action) {
-            PostAction.Favorite -> copy(
-                favourited = null,
-                myReaction = null,
-                favouriteCount = null,
-                reactionCount = null,
-                myReactionOverride = false,
+        /** Restores one family from the overlay captured before the failed attempt. */
+        fun restoredFamily(
+            action: PostAction,
+            favoriteOwnsReaction: Boolean,
+            previous: MutationOverlay?,
+        ): MutationOverlay = when (action) {
+            PostAction.Favorite -> if (favoriteOwnsReaction) copy(reactionState = previous?.reactionState)
+                else copy(favourited = previous?.favourited, favouriteCount = previous?.favouriteCount)
+            PostAction.React -> copy(reactionState = previous?.reactionState)
+            PostAction.Reshare -> copy(
+                reposted = previous?.reposted,
+                repostCount = previous?.repostCount,
+                ownRepostId = previous?.ownRepostId,
+                ownRepostIdOverride = previous?.ownRepostIdOverride ?: false,
             )
-            PostAction.Reshare -> copy(reposted = null, repostCount = null, ownRepostId = null, ownRepostIdOverride = false)
-            PostAction.Bookmark -> copy(saved = null)
-            PostAction.React -> copy(reactionState = null)
+            PostAction.Bookmark -> copy(saved = previous?.saved)
             PostAction.Reply -> this
         }
 
         fun applyTo(post: Post) = post.copy(
             favourited = reactionState?.favourited ?: favourited ?: post.favourited,
-            myReaction = if (myReactionOverride) myReaction else post.myReaction,
-            reposted = reposted ?: post.reposted,
-            interactionCounts = post.interactionCounts.copy(
-                favouriteCount = favouriteCount ?: post.interactionCounts.favouriteCount,
-                reactionCount = reactionState?.reactionCount ?: reactionCount ?: post.interactionCounts.reactionCount,
-                repostCount = repostCount ?: post.interactionCounts.repostCount,
-            ),
-            ownRepostId = if (ownRepostIdOverride) ownRepostId else post.ownRepostId,
-            saved = saved ?: post.saved,
+            // A present reaction snapshot owns the selection outright. An Elvis fallback
+            // to the old post would revive a reaction the user just removed.
+            myReaction = if (reactionState != null) reactionState.myReaction else post.myReaction,
             reactions = reactionState?.reactions ?: post.reactions,
             selectedReactions = reactionState?.selectedReactions ?: post.selectedReactions,
+            reposted = reposted ?: post.reposted,
+            ownRepostId = if (ownRepostIdOverride) ownRepostId else post.ownRepostId,
+            saved = saved ?: post.saved,
+            interactionCounts = post.interactionCounts.copy(
+                favouriteCount = favouriteCount ?: post.interactionCounts.favouriteCount,
+                reactionCount = reactionState?.reactionCount ?: post.interactionCounts.reactionCount,
+                repostCount = repostCount ?: post.interactionCounts.repostCount,
+            ),
+        )
+
+        private fun Post.toReactionState() = ReactionState(
+            reactions = reactions,
+            myReaction = myReaction,
+            selectedReactions = selectedReactions,
+            favourited = favourited,
+            reactionCount = interactionCounts.reactionCount,
         )
     }
 

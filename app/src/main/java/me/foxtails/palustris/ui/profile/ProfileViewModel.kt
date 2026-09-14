@@ -31,6 +31,7 @@ import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.effectiveTargetId
+import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.domain.mergeInto
 import me.foxtails.palustris.ui.requiresSignIn
 import me.foxtails.palustris.ui.sourceErrorMessage
@@ -269,20 +270,9 @@ class ProfileViewModel @AssistedInject constructor(
     }
 
     fun applyExternalPost(updated: OwnedPost) {
-        if (stopped || updated.fetchedBy != accountId) return
+        if (stopped || updated.fetchedBy != accountId || updated.sessionRevision != sessionRevision) return
         val target = updated.effectiveTargetId()
-        updateOwnedPost(target) { existing ->
-            existing.copy(
-                favourited = updated.post.favourited,
-                myReaction = updated.post.myReaction,
-                selectedReactions = updated.post.selectedReactions,
-                reactions = updated.post.reactions.ifEmpty { existing.reactions },
-                reposted = updated.post.reposted,
-                interactionCounts = existing.interactionCounts.merge(updated.post.interactionCounts),
-                ownRepostId = updated.post.ownRepostId,
-                saved = updated.post.saved,
-            )
-        }
+        updateOwnedPost(target) { existing -> existing.mergeExternalActionFields(updated.post) }
     }
 
     fun applyPublishedPost(request: me.foxtails.palustris.domain.CreatePostRequest) {

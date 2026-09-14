@@ -17,6 +17,7 @@ import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.hashtagIdentity
+import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.domain.timelineDisplayOrder
 import me.foxtails.palustris.domain.timelineStatus
 import me.foxtails.palustris.domain.validateExactHashtag
@@ -250,14 +251,6 @@ internal class PhotoGridController(
         }
     }
 
-    private fun mergeExternalActionFields(existing: Post, incoming: Post): Post = existing.copy(
-        favourited = incoming.favourited,
-        myReaction = incoming.myReaction,
-        selectedReactions = incoming.selectedReactions,
-        reactions = incoming.reactions.ifEmpty { existing.reactions },
-        reposted = incoming.reposted,
-        interactionCounts = existing.interactionCounts.merge(incoming.interactionCounts),
-        ownRepostId = incoming.ownRepostId,
-        saved = incoming.saved,
-    )
+    private fun mergeExternalActionFields(existing: Post, incoming: Post): Post =
+        existing.mergeExternalActionFields(incoming)
 }

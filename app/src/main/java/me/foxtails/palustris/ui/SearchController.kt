@@ -10,6 +10,7 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.isExactHashtag
+import me.foxtails.palustris.domain.mergeExternalActionFields
 
 internal class SearchController(
     private val source: SocialSource,
@@ -125,16 +126,8 @@ internal class SearchController(
         }
     }
 
-    private fun mergeExternalActionFields(existing: Post, incoming: Post): Post = existing.copy(
-        favourited = incoming.favourited,
-        myReaction = incoming.myReaction,
-        selectedReactions = incoming.selectedReactions,
-        reactions = incoming.reactions.ifEmpty { existing.reactions },
-        reposted = incoming.reposted,
-        interactionCounts = existing.interactionCounts.merge(incoming.interactionCounts),
-        ownRepostId = incoming.ownRepostId,
-        saved = incoming.saved,
-    )
+    private fun mergeExternalActionFields(existing: Post, incoming: Post): Post =
+        existing.mergeExternalActionFields(incoming)
 
     private fun publish(next: AccountSearchState) {
         _state.value = next
