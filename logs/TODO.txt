@@ -1,4 +1,10 @@
 # Active tasks
 
 - Run authorized live-server checks.
-- Plan 01 slice 01-A characterization (in progress).
+- Plan 01 slice 01-B: remaining flat parameters (home/composer, search, post interactions, identity, services, launch).
+- Plan 01 slice 01-C: composer and post-action hosts.
+- Plan 01 slice 01-D: post projection coordinator.
+- Plan 01 slice 01-E: connected session composition.
+- Plan 01 slice 01-F: settings and launch handoff.
+- Plan 01 slice 01-G: reduce shell assembly.
+- Plan 01 slice 01-H: finish test construction and documentation.
