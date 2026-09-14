@@ -63,6 +63,10 @@ class FeedViewModel @AssistedInject constructor(
     private var preferencesJob: Job? = null
     private var favouriteEmoji = DEFAULT_FAVOURITE_EMOJI
     private var stopped = false
+    /** Advances on refresh, timeline replacement, and stop. Binds publication authority. */
+    private var feedEpoch = 0L
+    /** Accepted page cursors for the active epoch. Protects against source cursor cycles. */
+    private val acceptedCursors = mutableSetOf<String>()
     private val postProjectionListeners = mutableSetOf<(OwnedPost) -> Unit>()
     private val interactionMutations = PostInteractionMutationOwner(
         accountId = accountId,
@@ -113,21 +117,27 @@ class FeedViewModel @AssistedInject constructor(
 
     fun refresh(timeline: Timeline = _feed.value.timeline) {
         if (stopped) return
+        val epoch = ++feedEpoch
+        acceptedCursors.clear()
         feedJob?.cancel()
+        val previous = _feed.value
+        val timelineChanged = timeline != previous.timeline
+        // Reserve the request synchronously. A queued paging call must not start behind it.
+        _feed.value = previous.copy(
+            posts = if (timelineChanged) emptyList() else previous.posts,
+            ownedPosts = if (timelineChanged) emptyList() else previous.ownedPosts,
+            timeline = timeline,
+            loading = true,
+            loadingMore = false,
+            nextCursor = if (timelineChanged) null else previous.nextCursor,
+            error = null,
+        )
         feedJob = viewModelScope.launch {
-            val previousState = _feed.value
-            _feed.value = _feed.value.copy(
-                posts = emptyList(),
-                ownedPosts = emptyList(),
-                timeline = timeline,
-                loading = true,
-                loadingMore = false,
-                nextCursor = null,
-                error = null,
-            )
             try {
                 val page = source.timeline(timeline)
+                if (epoch != feedEpoch || stopped) return@launch
                 val posts = page.items.distinctBy { it.id }.map(::applyFavouritePreference)
+                page.nextCursor?.let(acceptedCursors::add)
                 _feed.value = FeedState(
                     posts = posts,
                     ownedPosts = posts.map { OwnedPost(accountId, it, sessionRevision) },
@@ -145,8 +155,29 @@ class FeedViewModel @AssistedInject constructor(
                 )
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _feed.value = previousState.copy(publishing = _feed.value.publishing)
-                feedFailure(e)
+                if (epoch != feedEpoch || stopped) return@launch
+                val error = sourceErrorMessage(e)
+                val needsSignIn = requiresSignIn(e)
+                _feed.value = if (timelineChanged) {
+                    // A failed timeline change restores the previous timeline and its rows so old
+                    // rows are never labeled as the new timeline.
+                    previous.copy(
+                        loading = false,
+                        loadingMore = false,
+                        error = error,
+                        needsSignIn = needsSignIn,
+                        publishing = _feed.value.publishing,
+                    )
+                } else {
+                    // Keep the accepted rows for a same-timeline refresh so a late failure cannot
+                    // restore captured rows over a mutation applied while the request waited.
+                    _feed.value.copy(
+                        loading = false,
+                        loadingMore = false,
+                        error = error,
+                        needsSignIn = needsSignIn,
+                    )
+                }
             }
         }
     }
@@ -157,22 +188,43 @@ class FeedViewModel @AssistedInject constructor(
         if (timeline != state.timeline) return
         val cursor = state.nextCursor ?: return
         if (state.loading || state.loadingMore || state.needsSignIn) return
+        val epoch = feedEpoch
+        // Reserve the page slot synchronously so a second queued call cannot also acquire it.
+        _feed.value = state.copy(loadingMore = true, error = null)
         feedJob = viewModelScope.launch {
-            _feed.value = state.copy(loadingMore = true, error = null)
             try {
                 val page = source.timeline(state.timeline, cursor)
+                if (epoch != feedEpoch || stopped) return@launch
+                val current = _feed.value
+                if (current.timeline != state.timeline) return@launch
                 val newPosts = page.items.map(::applyFavouritePreference)
-                _feed.value = _feed.value.copy(
-                    posts = (state.posts + newPosts).distinctBy { it.id },
-                    ownedPosts = (state.ownedPosts + newPosts.map { OwnedPost(accountId, it, sessionRevision) })
-                        .distinctBy { it.post.id },
+                // Merge the accepted page into current rows. Overlapping rows keep current fields.
+                val mergedOwned = mergeAcceptedPage(current.ownedPosts, newPosts)
+                val repeatedCursor = page.nextCursor != null &&
+                    (page.nextCursor == cursor || !acceptedCursors.add(page.nextCursor))
+                _feed.value = current.copy(
+                    posts = mergedOwned.map { it.post },
+                    ownedPosts = mergedOwned,
                     loadingMore = false,
-                    nextCursor = page.nextCursor?.takeUnless { it == cursor },
+                    nextCursor = page.nextCursor.takeUnless { repeatedCursor },
                 )
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                if (epoch != feedEpoch || stopped) return@launch
                 feedFailure(e)
             }
         }
+    }
+
+    private fun mergeAcceptedPage(existing: List<OwnedPost>, incoming: List<Post>): List<OwnedPost> {
+        val merged = existing.toMutableList()
+        val known = existing.mapTo(mutableSetOf()) { it.post.id }
+        incoming.forEach { post ->
+            if (known.add(post.id)) {
+                merged += OwnedPost(accountId, post, sessionRevision)
+            }
+        }
+        return merged
     }
 
     fun ensurePhotoGridLoaded() {
@@ -202,15 +254,18 @@ class FeedViewModel @AssistedInject constructor(
     fun create(request: CreatePostRequest, onSuccess: (OwnedPost) -> Unit = {}) {
         if (stopped || _feed.value.publishing) return
         publishJob?.cancel()
+        // Reserve the publish slot synchronously. A timeline refresh does not cancel a valid publish.
+        _feed.value = _feed.value.copy(publishing = true, error = null)
         publishJob = viewModelScope.launch {
-            _feed.value = _feed.value.copy(publishing = true, error = null)
             try {
                 val created = source.create(request)
+                if (stopped) return@launch
                 _feed.value = _feed.value.copy(publishing = false, error = null)
-                if (!stopped) onSuccess(OwnedPost(accountId, created, sessionRevision))
+                onSuccess(OwnedPost(accountId, created, sessionRevision))
                 refresh()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
+                if (stopped) return@launch
                 _feed.value = _feed.value.copy(publishing = false)
                 feedFailure(e)
             }
@@ -281,6 +336,7 @@ class FeedViewModel @AssistedInject constructor(
     fun stop() {
         if (stopped) return
         stopped = true
+        feedEpoch += 1
         setupJob?.cancel()
         feedJob?.cancel()
         searchController.stop()
@@ -288,7 +344,6 @@ class FeedViewModel @AssistedInject constructor(
         preferencesJob?.cancel()
         interactionMutations.stop()
         photoGridController.stop()
-        interactionMutations.stop()
     }
 
     private fun effectiveActions(): Set<PostAction> = buildSet {
