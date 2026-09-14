@@ -29,7 +29,7 @@ availability, and cancellation.
 | 02-C DM durable state | completed | `2a4fa44` |
 | 02-D Notification request context | completed | `175d97c` |
 | 02-E Moderation lifetimes | completed | `8dd093e` |
-| 02-F Mutation families | pending | |
+| 02-F Mutation families | completed | `111f0c3` |
 | 02-G Thread overlays and projections | pending | |
 | 02-H Home paging demand | pending | |
 | 02-I Settings commands and routes | pending | |
@@ -60,4 +60,6 @@ Run focused suites per slice, then `.\gradlew.bat test assembleRelease` and
 
 `8dd093e` "Repair moderation lifetimes".
 
-Slice 02-E is complete and verified. No later slice has started.
+`111f0c3` "Share post mutation ownership across surfaces".
+
+Slice 02-F is complete and verified. No later slice has started.

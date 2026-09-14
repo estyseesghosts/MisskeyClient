@@ -812,3 +812,12 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Verification passed: focused moderation suites, test assembleRelease, and :app:lintDebug.
 - Commit: `8dd093e`. Live-server and device behavior remain unverified.
 - No commit created. Live full test assembleRelease remains unverified.
+
+260914-180500 State and lifecycle repair Slice 02-F:
+- Added shared session-bound PostInteractionExecutionAuthority for mutation families.
+- Reworked PostInteractionMutationOwner with family slots, reconcile, guarded rollback, and partial-risk server refresh.
+- Scoped FeedViewModel and SavedPostsViewModel mutations to the shared authority.
+- Added PostInteractionMutationOwnerTest and extended SavedPostsViewModelTest.
+- Fixed two tests that left gated NonCancellable children in flight and wedged runTest teardown.
+- Verification passed: focused mutation suites (32 tests), test assembleRelease, and :app:lintDebug.
+- Commit: `111f0c3`. Live-server and device behavior remain unverified.
