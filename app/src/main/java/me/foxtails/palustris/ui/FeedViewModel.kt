@@ -30,6 +30,7 @@ import me.foxtails.palustris.domain.PrimaryFavouriteMode
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.effectiveTargetId
+import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
 
 @HiltViewModel(assistedFactory = FeedViewModel.Factory::class)
@@ -40,6 +41,7 @@ class FeedViewModel @AssistedInject constructor(
     private val postPreferencesRepository: PostPreferencesRepository,
     private val photoGridPreferencesRepository: PhotoGridPreferencesRepository,
     @Assisted private val sessionRevision: Long,
+    private val executionAuthority: PostInteractionExecutionAuthority = PostInteractionExecutionAuthority(),
 ) : ViewModel() {
     constructor(
         accountId: AccountId,
@@ -77,6 +79,7 @@ class FeedViewModel @AssistedInject constructor(
         favouriteEmoji = { favouriteEmoji },
         updatePost = ::updatePost,
         onFailure = ::feedFailure,
+        executionAuthority = executionAuthority,
     )
     private val photoGridController = PhotoGridController(
         accountId = accountId,

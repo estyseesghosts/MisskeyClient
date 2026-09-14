@@ -14,12 +14,15 @@ import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.adjustedBy
+import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
+import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
-import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.effectiveTargetId
+import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
+import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
 
 @HiltViewModel(assistedFactory = SavedPostsViewModel.Factory::class)
 class SavedPostsViewModel @AssistedInject constructor(
@@ -27,14 +30,34 @@ class SavedPostsViewModel @AssistedInject constructor(
     @Assisted private val source: SocialSource,
     @Assisted private val collection: SavedPostsCollection = SavedPostsCollection.Bookmarks,
     @Assisted private val sessionRevision: Long = 0L,
+    private val executionAuthority: PostInteractionExecutionAuthority = PostInteractionExecutionAuthority(),
 ) : ViewModel() {
     private val _state = MutableStateFlow(SavedPostsUiState(collection = collection))
     val state = _state.asStateFlow()
-    private var requestJob: Job? = null
-    private val unsaveJobs = mutableMapOf<String, Job>()
-    private val reactionJobs = mutableMapOf<String, Job>()
-    private val requestedCursors = mutableSetOf<String?>()
+    private var refreshJob: Job? = null
+    private var pageJob: Job? = null
+    /** Advances on refresh and stop. Binds paging publication authority. */
+    private var collectionEpoch = 0L
+    /** Accepted page cursors for the active epoch. Protects against cursor cycles. */
+    private val acceptedCursors = mutableSetOf<String?>()
+    /**
+     * Rows with a confirmed membership removal. A refresh never reinserts them from an
+     * older page. Entries leave the overlay once a fresh page stops returning them.
+     */
+    private val confirmedRemovals = mutableSetOf<EntityId>()
     private var stopped = false
+    private val interactionMutations = PostInteractionMutationOwner(
+        accountId = accountId,
+        source = source,
+        sessionRevision = sessionRevision,
+        scope = viewModelScope,
+        isActionAvailable = { true },
+        // Collections have no preference owner. The feed path keeps the real emoji.
+        favouriteEmoji = { DEFAULT_FAVOURITE_EMOJI },
+        updatePost = { _, target, transform -> updatePostByTarget(target, transform) },
+        onFailure = ::mutationFailure,
+        executionAuthority = executionAuthority,
+    )
 
     init {
         refresh()
@@ -42,9 +65,11 @@ class SavedPostsViewModel @AssistedInject constructor(
 
     fun refresh() {
         if (stopped) return
-        requestJob?.cancel()
-        requestedCursors.clear()
-        requestJob = viewModelScope.launch {
+        refreshJob?.cancel()
+        pageJob?.cancel()
+        val epoch = ++collectionEpoch
+        acceptedCursors.clear()
+        refreshJob = viewModelScope.launch {
             val capability = source.capabilities.savedPosts
             val kind = capability?.kind ?: SavedPostsKind.Bookmarks
             val status = when (collection) {
@@ -60,8 +85,9 @@ class SavedPostsViewModel @AssistedInject constructor(
                 _state.value = SavedPostsUiState(collection = collection, kind = kind, permissionRequired = true)
                 return@launch
             }
+            // Reserve the refresh slot synchronously. A queued page cannot start behind it.
             _state.value = SavedPostsUiState(collection = collection, kind = kind, loading = true)
-            load(kind, null, replace = true)
+            load(kind, null, replace = true, epoch)
         }
     }
 
@@ -70,114 +96,38 @@ class SavedPostsViewModel @AssistedInject constructor(
         val current = _state.value
         val cursor = current.nextCursor ?: return
         if (current.loading || current.loadingMore) return
-        if (current.error != null) {
-            requestedCursors.remove(cursor)
-            _state.value = current.copy(error = null)
-        }
-        if (!requestedCursors.add(cursor)) return
-        requestJob?.cancel()
-        requestJob = viewModelScope.launch {
-            _state.value = current.copy(loadingMore = true, error = null)
-            load(current.kind, cursor, replace = false)
+        // Paging cannot start during refresh. Reserve the page slot synchronously.
+        if (refreshJob?.isActive == true) return
+        val epoch = collectionEpoch
+        _state.value = current.copy(loadingMore = true, error = null)
+        pageJob?.cancel()
+        pageJob = viewModelScope.launch {
+            load(current.kind, cursor, replace = false, epoch)
         }
     }
 
     fun unsave(ownedPost: OwnedPost) {
         if (collection != SavedPostsCollection.Bookmarks) return
-        if (stopped || ownedPost.fetchedBy != accountId) return
-        val key = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}"
-        unsaveJobs[key]?.cancel()
-        val job = viewModelScope.launch {
-            try {
-                source.unsave(ownedPost.post.actionTargetId ?: ownedPost.post.id)
-                _state.value = _state.value.copy(posts = _state.value.posts.filterNot { it.post.id == ownedPost.post.id })
-            } catch (error: Exception) {
-                if (error is CancellationException) throw error
-                _state.value = _state.value.copy(error = sourceErrorMessage(error), needsSignIn = requiresSignIn(error))
-            } finally {
-                if (unsaveJobs[key] === coroutineContext[Job]) unsaveJobs.remove(key)
-            }
+        interactionMutations.bookmark(ownedPost) { result ->
+            if (result.selected == false) removeMembership(ownedPost.post.id)
         }
-        unsaveJobs[key] = job
     }
 
     fun toggleFavourite(ownedPost: OwnedPost) {
         if (collection != SavedPostsCollection.Likes) return
-        if (stopped || ownedPost.fetchedBy != accountId) return
-        val key = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}"
-        unsaveJobs[key]?.cancel()
-        val before = ownedPost.post
-        val selected = before.favourited
-        val reactionFavourite = source.capabilities.primaryFavourite.mode == me.foxtails.palustris.domain.PrimaryFavouriteMode.Reaction
-        updatePost(before.id) { post ->
-            post.copy(
-                favourited = !selected,
-                interactionCounts = post.interactionCounts.copy(
-                    favouriteCount = post.interactionCounts.favouriteCount.adjustedBy(if (reactionFavourite) 0 else if (selected) -1 else 1),
-                    reactionCount = post.interactionCounts.reactionCount.adjustedBy(if (reactionFavourite) if (selected) -1 else 1 else 0),
-                ),
-            )
+        interactionMutations.favorite(ownedPost) { result ->
+            if (result.selected == false) removeMembership(ownedPost.post.id)
         }
-        val job = viewModelScope.launch {
-            try {
-                val target = before.actionTargetId ?: before.id
-                if (selected) source.unfavorite(target) else source.favorite(target)
-                if (selected) {
-                    _state.value = _state.value.copy(posts = _state.value.posts.filterNot { it.post.id == before.id })
-                }
-            } catch (error: Exception) {
-                if (error is CancellationException) throw error
-                updatePost(before.id) { before }
-                _state.value = _state.value.copy(error = sourceErrorMessage(error), needsSignIn = requiresSignIn(error))
-            } finally {
-                if (unsaveJobs[key] === coroutineContext[Job]) unsaveJobs.remove(key)
-            }
-        }
-        unsaveJobs[key] = job
     }
 
-    /** Collection-local reaction mutation using the same reducer and source rules as the feed. */
+    /** Collection reaction mutation shares the session-bound owner with the feed. */
     fun react(ownedPost: OwnedPost, choice: me.foxtails.palustris.domain.EmojiChoice) {
-        if (stopped || ownedPost.fetchedBy != accountId) return
-        val selectionMode = source.capabilities.emoji.selectionMode
-        val identity = choice.submissionValue
-        val selected = ownedPost.post.selectedReactions.any { it.submissionValue == identity } ||
-            ownedPost.post.myReaction == identity
-        val key = "${ownedPost.post.id.connection}/${ownedPost.post.id.value}"
-        if (reactionJobs[key]?.isActive == true) return
-        val before = ownedPost.post
-        val optimistic = me.foxtails.palustris.domain.PostReactionReducer.apply(
-            before, choice, !selected, selectionMode,
-        )
-        updatePost(before.id) { optimistic }
-        val job = viewModelScope.launch {
-            try {
-                val target = before.actionTargetId ?: before.id
-                val previousSelections = before.selectedReactions.ifEmpty {
-                    before.myReaction?.let { mine ->
-                        listOf(me.foxtails.palustris.domain.EmojiChoice(
-                            mine, mine, before.reactions.firstOrNull { it.emoji == mine }?.emojiMetadata,
-                        ))
-                    }.orEmpty()
-                }
-                if (selected) {
-                    source.removeReaction(target, choice)
-                } else {
-                    if (selectionMode != me.foxtails.palustris.domain.ReactionSelectionMode.Independent) {
-                        previousSelections.filterNot { it.submissionValue == identity }
-                            .forEach { previous -> source.removeReaction(target, previous) }
-                    }
-                    source.react(target, choice)
-                }
-            } catch (error: Exception) {
-                if (error is CancellationException) throw error
-                updatePost(before.id) { before }
-                _state.value = _state.value.copy(error = sourceErrorMessage(error), needsSignIn = requiresSignIn(error))
-            } finally {
-                if (reactionJobs[key] === coroutineContext[Job]) reactionJobs.remove(key)
-            }
-        }
-        reactionJobs[key] = job
+        interactionMutations.react(ownedPost, choice)
+    }
+
+    private fun removeMembership(id: EntityId) {
+        confirmedRemovals += id
+        _state.value = _state.value.copy(posts = _state.value.posts.filterNot { it.post.id == id })
     }
 
     fun applyExternalPost(updated: OwnedPost) {
@@ -202,17 +152,28 @@ class SavedPostsViewModel @AssistedInject constructor(
     fun stop() {
         if (stopped) return
         stopped = true
-        requestJob?.cancel()
-        unsaveJobs.values.forEach(Job::cancel)
-        reactionJobs.values.forEach(Job::cancel)
+        refreshJob?.cancel()
+        pageJob?.cancel()
+        interactionMutations.stop()
     }
 
-    private fun updatePost(id: me.foxtails.palustris.domain.EntityId, transform: (me.foxtails.palustris.domain.Post) -> me.foxtails.palustris.domain.Post) {
+    private fun mutationFailure(error: Exception) {
+        if (stopped) return
+        _state.value = _state.value.copy(error = sourceErrorMessage(error), needsSignIn = requiresSignIn(error))
+    }
+
+    private fun updatePostByTarget(id: EntityId, transform: (me.foxtails.palustris.domain.Post) -> me.foxtails.palustris.domain.Post) {
         _state.value = _state.value.copy(posts = _state.value.posts.map { owned ->
-            if ((owned.post.id == id || owned.effectiveTargetId() == id) && owned.fetchedBy == accountId) {
+            if ((owned.post.id == id || owned.effectiveTargetId() == id) &&
+                owned.fetchedBy == accountId && owned.sessionRevision == sessionRevision
+            ) {
                 owned.copy(post = transform(owned.post))
             } else owned
         })
+    }
+
+    private fun updatePost(id: me.foxtails.palustris.domain.EntityId, transform: (me.foxtails.palustris.domain.Post) -> me.foxtails.palustris.domain.Post) {
+        updatePostByTarget(id, transform)
     }
 
     private fun incrementKnownReplyCount(target: me.foxtails.palustris.domain.EntityId) = updatePost(target) { post ->
@@ -241,13 +202,13 @@ class SavedPostsViewModel @AssistedInject constructor(
         saved = incoming.saved,
     )
 
-    private suspend fun load(kind: SavedPostsKind, cursor: String?, replace: Boolean) {
+    private suspend fun load(kind: SavedPostsKind, cursor: String?, replace: Boolean, epoch: Long) {
         try {
             val page = when (collection) {
                 SavedPostsCollection.Bookmarks -> source.savedPosts(cursor)
                 SavedPostsCollection.Likes -> source.likedPosts(cursor)
             }
-            if (stopped) return
+            if (epoch != collectionEpoch || stopped) return
             val rows = page.items.map { post ->
                 OwnedPost(
                     accountId,
@@ -257,24 +218,31 @@ class SavedPostsViewModel @AssistedInject constructor(
                     ),
                     sessionRevision,
                 )
+            }.filterNot { it.post.id in confirmedRemovals }
+            if (replace) {
+                // A fresh page that stops returning a removed row agrees with the
+                // removal. Entries the server still returns stay hidden behind it.
+                confirmedRemovals.removeAll { id -> rows.none { it.post.id == id } }
             }
+            val repeatedCursor = page.nextCursor != null &&
+                (page.nextCursor == cursor || !acceptedCursors.add(page.nextCursor))
             val current = _state.value
             val combined = if (replace) rows else (current.posts + rows).distinctBy { it.post.id }
             _state.value = current.copy(
                 kind = kind,
-                posts = combined,
+                posts = combined.filterNot { it.post.id in confirmedRemovals },
                 loading = false,
                 loadingMore = false,
-                nextCursor = page.nextCursor?.takeUnless { it == cursor },
+                nextCursor = page.nextCursor.takeUnless { repeatedCursor },
                 error = null,
                 permissionRequired = false,
                 needsSignIn = false,
             )
         } catch (error: Exception) {
             if (error is CancellationException) throw error
+            if (epoch != collectionEpoch || stopped) return
             val permission = error is SourceError.Unauthorized || error is SourceError.Unsupported &&
                 error.feature.contains("permission", ignoreCase = true)
-            if (cursor != null) requestedCursors.remove(cursor)
             _state.value = _state.value.copy(
                 loading = false,
                 loadingMore = false,

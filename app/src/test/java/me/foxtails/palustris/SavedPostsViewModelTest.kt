@@ -1,12 +1,15 @@
 package me.foxtails.palustris
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.withContext
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
@@ -22,6 +25,8 @@ import me.foxtails.palustris.ui.SavedPostsCollection
 import me.foxtails.palustris.ui.SavedPostsViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -90,6 +95,182 @@ class SavedPostsViewModelTest {
         }
     }
 
+    @Test
+    fun stalePageCannotReplaceNewerRefresh() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedCollectionSource()
+            val viewModel = SavedPostsViewModel(account, source, SavedPostsCollection.Likes)
+            advanceUntilIdle()
+            viewModel.refresh()
+            advanceUntilIdle()
+            source.completeLiked(1, Page(listOf(post("new")), null))
+            advanceUntilIdle()
+            source.completeLiked(0, Page(listOf(post("stale")), null))
+            advanceUntilIdle()
+
+            assertEquals(listOf("new"), viewModel.state.value.posts.map { it.post.id.value })
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun unlikeDuringRefreshKeepsRowRemoved() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedCollectionSource()
+            val viewModel = SavedPostsViewModel(account, source, SavedPostsCollection.Likes)
+            advanceUntilIdle()
+            source.completeLiked(0, Page(listOf(post("a")), null))
+            advanceUntilIdle()
+
+            viewModel.toggleFavourite(viewModel.state.value.posts.single())
+            advanceUntilIdle()
+            viewModel.refresh()
+            advanceUntilIdle()
+            source.completeFavourite(0, me.foxtails.palustris.domain.PostActionResult(selected = false))
+            advanceUntilIdle()
+            // The server snapshot still returns the row. The confirmed removal wins.
+            source.completeLiked(1, Page(listOf(post("a")), null))
+            advanceUntilIdle()
+
+            assertTrue(viewModel.state.value.posts.isEmpty())
+            viewModel.refresh()
+            advanceUntilIdle()
+            source.completeLiked(2, Page(emptyList(), null))
+            advanceUntilIdle()
+            assertTrue(viewModel.state.value.posts.isEmpty())
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun unsaveFailureKeepsRowAndShowsError() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedCollectionSource()
+            val viewModel = SavedPostsViewModel(account, source)
+            advanceUntilIdle()
+
+            viewModel.unsave(viewModel.state.value.posts.single())
+            advanceUntilIdle()
+            source.failSaved(0, java.io.IOException("unsave failed"))
+            advanceUntilIdle()
+
+            assertEquals(listOf("first"), viewModel.state.value.posts.map { it.post.id.value })
+            assertNotNull(viewModel.state.value.error)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun stopRejectsLateCollectionPage() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedCollectionSource()
+            val viewModel = SavedPostsViewModel(account, source, SavedPostsCollection.Likes)
+            advanceUntilIdle()
+            viewModel.stop()
+            source.completeLiked(0, Page(listOf(post("late")), null))
+            advanceUntilIdle()
+
+            assertTrue(viewModel.state.value.posts.isEmpty())
+            assertNull(viewModel.state.value.error)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun pagingDoesNotStartDuringRefresh() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedCollectionSource()
+            val viewModel = SavedPostsViewModel(account, source, SavedPostsCollection.Likes)
+            advanceUntilIdle()
+            source.completeLiked(0, Page(listOf(post("a")), "c1"))
+            advanceUntilIdle()
+
+            viewModel.loadMore()
+            advanceUntilIdle()
+            viewModel.refresh()
+            advanceUntilIdle()
+            assertEquals(false, viewModel.state.value.loadingMore)
+            source.completeLiked(1, Page(listOf(post("late")), "c2"))
+            advanceUntilIdle()
+            source.completeLiked(2, Page(listOf(post("a"), post("b"))))
+            advanceUntilIdle()
+
+            assertEquals(listOf("a", "b"), viewModel.state.value.posts.map { it.post.id.value })
+            assertEquals(false, viewModel.state.value.loadingMore)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    private fun post(id: String) = Post(
+        id = EntityId(account.connection.origin, id),
+        author = author,
+        text = id,
+        publishedAtEpochMillis = 1,
+        audience = Audience.Public,
+    )
+
+    private inner class GatedCollectionSource : SocialSource {
+        override val capabilities = ServerCapabilities(
+            savedPosts = me.foxtails.palustris.domain.SavedPostsCapability(
+                me.foxtails.palustris.domain.CapabilityStatus.Supported,
+                SavedPostsKind.Bookmarks,
+            ),
+            likedPosts = me.foxtails.palustris.domain.CapabilityStatus.Supported,
+            actions = setOf(
+                me.foxtails.palustris.domain.PostAction.Favorite,
+                me.foxtails.palustris.domain.PostAction.Bookmark,
+            ),
+        )
+        private val likedPending = ArrayDeque<CompletableDeferred<Page<Post>>>()
+        private val favouritePending = ArrayDeque<CompletableDeferred<me.foxtails.palustris.domain.PostActionResult>>()
+        private val savedPending = ArrayDeque<CompletableDeferred<me.foxtails.palustris.domain.PostActionResult>>()
+
+        override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
+
+        override suspend fun savedPosts(cursor: String?): Page<Post> = Page(listOf(post("first")), null)
+
+        override suspend fun likedPosts(cursor: String?): Page<Post> {
+            val gate = CompletableDeferred<Page<Post>>()
+            likedPending += gate
+            return withContext(NonCancellable) { gate.await() }
+        }
+
+        override suspend fun setPrimaryFavourite(
+            id: EntityId,
+            favouriteEmoji: String,
+            selected: Boolean,
+        ): me.foxtails.palustris.domain.PostActionResult {
+            val gate = CompletableDeferred<me.foxtails.palustris.domain.PostActionResult>()
+            favouritePending += gate
+            return withContext(NonCancellable) { gate.await() }
+        }
+
+        override suspend fun setSaved(
+            id: EntityId,
+            selected: Boolean,
+        ): me.foxtails.palustris.domain.PostActionResult {
+            val gate = CompletableDeferred<me.foxtails.palustris.domain.PostActionResult>()
+            savedPending += gate
+            return withContext(NonCancellable) { gate.await() }
+        }
+
+        fun completeLiked(index: Int, page: Page<Post>) { likedPending[index].complete(page) }
+        fun completeFavourite(index: Int, result: me.foxtails.palustris.domain.PostActionResult) {
+            favouritePending[index].complete(result)
+        }
+        fun failSaved(index: Int, error: Exception) { savedPending[index].completeExceptionally(error) }
+    }
+
     private class SavedSource(
         private val account: AccountId,
         private val author: Account,
@@ -134,8 +315,9 @@ class SavedPostsViewModelTest {
             }
         }
 
-        override suspend fun unsave(id: EntityId) {
-            unsavedIds += id.value
+        override suspend fun setSaved(id: EntityId, selected: Boolean): me.foxtails.palustris.domain.PostActionResult {
+            if (!selected) unsavedIds += id.value
+            return me.foxtails.palustris.domain.PostActionResult(selected = selected)
         }
 
         private fun post(id: String) = Post(
