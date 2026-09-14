@@ -741,3 +741,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Removed four pass-through destination wrappers (`2dca95e`). Kept `AppNotificationsDestinationContent`, which owns panel and direct-message integration.
 - Verification: `test assembleRelease` passed, `:app:lintDebug` passed, `:app:compileDebugAndroidTestKotlin` passed. Live-server and device behavior unverified.
 - Deferred: explicit teardown for notifications, direct messages, notification settings, and moderation (no `stop()` exists; Plan 02 owns it). Focused feature-host split and test-construction rewrite remain.
+
+260914-125233 Shell decomposition items 2-4:
+- Moved profile editor draft and dirty state into `ProfileViewModel`/`ProfileContract` (`921d7f8`). `PalustrisApp` holds no editor state. Added `ProfileViewModelTest.editorDraftTracksChangesAndClearsOnClose`.
+- Added `ui/DetailActionPolicy.kt` (`af793a8`). Compact and wide detail surfaces share one origin-based handler policy. Fixed the compact reaction route for Profile and Saved origins. Added `DetailActionPolicyTest`.
+- Split `ConnectedSessionHost` into focused feature hosts (`fb9d8bf`): `ProfileHost`, `ThreadHost`, `NotificationsHost`, `NotificationSettingsHost`, `DirectMessagesHost`, `EmojiHost`. Each owns its model, state, actions, and projection registration.
+- Verification: `test`, `:app:lintDebug`, and `:app:compileDebugAndroidTestKotlin` passed after each slice. Live-server and device behavior unverified.
+- Remaining: `FeedHost` and `SavedCollectionsHost` stay in the session host because the composer, feed projection origin, and like reaction share the feed model.

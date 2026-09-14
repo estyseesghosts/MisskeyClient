@@ -6,7 +6,7 @@
 
 **Last reviewed:** 2026-09-14.
 
-**Source baseline:** `2dca95e`.
+**Source baseline:** `fb9d8bf`.
 
 **Evidence:** source verified. Test verified with the full JVM suite, `assembleRelease`, and
 `:app:lintDebug`. Device and live-server behavior remain unverified.
@@ -18,9 +18,24 @@ sign-in, or connected presentation, installs theme and application-wide content 
 three hosts. It does not write settings, assemble feature actions, or own post fan-out.
 
 `ConnectedSessionHost` in `app/src/main/java/me/foxtails/palustris/ui/session/` owns one coherent
-account/session presentation lifetime. It resolves the registered source once per connected session,
-binds every source-backed feature owner, owns projection wiring, and renders `PalustrisApp`. It
-exposes no token and no `SocialSource`.
+account/session presentation lifetime. It resolves the registered source once per connected session
+and composes focused feature hosts. It keeps only the shared feed owner, the saved-collection owner,
+the draft owner, the post-action owner, and the projection coordinator. It exposes no token and no
+`SocialSource`.
+
+Focused feature hosts own their model, state, actions, and projection registration:
+
+| Host | Owner | Contract |
+| --- | --- | --- |
+| `ui/profile/ProfileHost.kt` | `ProfileViewModel` | `ProfileContract` |
+| `ui/thread/ThreadHost.kt` | `PostThreadViewModel` | `ThreadContract` |
+| `ui/notifications/NotificationsHost.kt` | `NotificationsViewModel` | `NotificationsContract` |
+| `ui/notifications/NotificationSettingsHost.kt` | `NotificationSettingsViewModel` | `NotificationSettingsContract` |
+| `ui/directmessages/DirectMessagesHost.kt` | `DirectMessageViewModel` | `DirectMessagesContract` |
+| `ui/emoji/EmojiHost.kt` | `EmojiCatalogViewModel` | `EmojiPresentation` |
+
+`ui/DetailActionPolicy.kt` resolves the origin-based post-action handlers. Compact and wide detail
+surfaces share it, so one origin resolves to the same owner.
 
 `SettingsOverlayHost` in `ui/settings/` owns the settings route, settings models, and settings
 commands. `NotificationLaunchHost` in `ui/notifications/` owns launch delivery: it waits for the
@@ -71,15 +86,16 @@ These still cross the `PalustrisApp` boundary and belong to later slices:
 
 ## Deferred Work
 
-- The session host binds all feature owners in one composable. The plan prefers focused feature-host
-  functions beside each feature package. This split is not implemented.
+- The Home feed, saved collections, composer, and post-action owner remain in `ConnectedSessionHost`
+  because the composer, the feed projection origin, and the like reaction share the feed model. A
+  `FeedHost` and `SavedCollectionsHost` would need a feed-action handoff first.
 - Teardown: `NotificationsViewModel`, `DirectMessageViewModel`, `NotificationSettingsViewModel`, and
   `ModerationViewModel` expose no `stop()`. They rely on session-generation ViewModel keys, not an
   explicit release. Their owner repair belongs to `docs/decomposition_3/02.md`.
 - `PalustrisApp` retains `Empty` contract defaults and remains callable with few arguments. Test
   construction was not rewritten to require explicit feature hosts.
-- Navigation transitions and the shared compact/wide detail action policy are not extracted.
-- Profile editor draft state still lives in `PalustrisApp` rather than the profile host.
+- Navigation transitions use the pure `motionDirection` function. No separate mutable holder was
+  added because the shell already owns the saveable navigation state by design.
 
 ## Invariants
 
