@@ -843,4 +843,14 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added PostProjectionTest and eight PostThreadViewModelTest regression cases.
 - Verification passed: 758 unit tests, `test assembleRelease`, and `:app:lintDebug`.
 - Commit: `7f03284`. Live-server and physical-device behavior remain unverified.
-- Evaluated the Plan 01 skipped items. Host extraction and 01-H construction remain deferred until 02-H through 02-L complete.
+- Evaluated the Plan 01 skipped items. Host extraction and 01-H construction remain deferred until 02-I through 02-L complete.
+
+260915-001500 State and lifecycle repair Slice 02-H:
+- Added HomePagingDemand policy separating post rows from error, empty, loading, and footer rows.
+- Fully filtered lists still advance automatically while a usable cursor exists.
+- Bounded automatic paging to three accepted pages without a new visible row.
+- Manual continuation, refresh, timeline change, and new visible rows reset the budget.
+- Added a localized filtered-empty state and kept the manual Load older control.
+- Added HomePagingDemandTest (10 tests) and a HomeFeedTest filtered-empty case.
+- Verification passed: 769 unit tests, `test assembleRelease`, and `:app:lintDebug`.
+- Commit: `aa19bc4`. Live-server and physical-device behavior remain unverified.
