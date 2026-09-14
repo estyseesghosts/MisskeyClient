@@ -110,6 +110,7 @@ import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
+import me.foxtails.palustris.ui.shell.ProfileContract
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
@@ -165,13 +166,7 @@ fun PalustrisApp(
      postPreferences: me.foxtails.palustris.domain.PostPreferences = me.foxtails.palustris.domain.PostPreferences(),
      contentWarningRules: me.foxtails.palustris.domain.ContentWarningRules = me.foxtails.palustris.domain.ContentWarningRules(),
     photoGridFeed: PhotoGridFeedState = PhotoGridFeedState(),
-    profileState: ProfileUiState = ProfileUiState(),
-    onProfileShown: (Account) -> Unit = {},
-    onProfileCategorySelected: (ProfileCategory) -> Unit = {},
-    onRefreshProfile: () -> Unit = {},
-    onLoadMoreProfile: () -> Unit = {},
-    onFollowProfile: () -> Unit = {},
-    onUnfollowProfile: () -> Unit = {},
+    profile: ProfileContract = ProfileContract.Empty,
     onRefresh: (Timeline) -> Unit = {},
     onLoadMore: (Timeline) -> Unit = {},
     onEnsurePhotoGridLoaded: () -> Unit = {},
@@ -191,9 +186,6 @@ fun PalustrisApp(
     onThreadReshare: (OwnedPost) -> Unit = {},
     onThreadBookmark: (OwnedPost) -> Unit = {},
     onThreadReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
-    onUpdateProfile: (EditableProfilePatch, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
-    onOpenProfileEditor: () -> Unit = {},
-    onCloseEditor: () -> Unit = {},
     onSearchAccounts: (String) -> Unit = {},
     onLoadMoreSearch: () -> Unit = {},
     draftStore: DraftStore? = null,
@@ -204,7 +196,6 @@ fun PalustrisApp(
     onBookmark: (OwnedPost) -> Unit = {},
     onReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
-    onProfilePostReaction: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
     emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
     bookmarks: BookmarksContract = BookmarksContract.Empty,
     likes: LikesContract = LikesContract.Empty,
@@ -217,7 +208,7 @@ fun PalustrisApp(
     val repostConfirmationOwner = remember(account?.id, sessionGeneration, sessionRevision) { PostRepostConfirmationOwner() }
     val scope = rememberCoroutineScope()
     val postActionOwner = remember(account?.id, sessionGeneration, sessionRevision, actionSource) {
-        account?.let { PostActionOwner(it.id, sessionRevision, actionSource, scope, onRefreshProfile) }
+        account?.let { PostActionOwner(it.id, sessionRevision, actionSource, scope, profile.actions::refresh) }
     }
     CompositionLocalProvider(
         LocalMediaTransitionRegistry provides mediaTransitionRegistry,
@@ -287,7 +278,7 @@ fun PalustrisApp(
     val modalOverlayOpen = overlay != null || sheet != null || profileDialog || signOutDialog || mediaRequest != null || profileImageRequest != null || singlePost != null || emojiPickerTarget != null
     val availableTimelines = if (account == null) Timeline.entries.toSet() else feedState?.timelines ?: setOf(Timeline.Home)
     val profileTargetId = viewedProfile?.id ?: account?.id
-    val refreshedProfile = profileState.account?.takeIf { it.id == profileTargetId }
+    val refreshedProfile = profile.state.account?.takeIf { it.id == profileTargetId }
     val displayedProfile = refreshedProfile ?: viewedProfile ?: account
     val savedKind = bookmarks.state?.kind ?: feedState?.savedPosts?.kind
     val savedTitle = savedCollectionTitle(savedKind)
@@ -297,8 +288,8 @@ fun PalustrisApp(
         composerQuoteOf?.value != savedQuoteOf ||
         composerReplyTo?.value != savedReplyTo ||
         composerAudience != savedAudience
-    val editableProfile = profileState.account?.takeIf { it.id == account?.id } ?: account
-    val editorBase = profileState.editable
+    val editableProfile = profile.state.account?.takeIf { it.id == account?.id } ?: account
+    val editorBase = profile.state.editable
         ?: editableProfile?.let { account ->
             EditableProfile(
                 id = account.id.localId,
@@ -562,18 +553,18 @@ fun PalustrisApp(
     fun discardProfileEditor() {
         profileEditor = null
         overlayKey = null
-        onCloseEditor()
+        profile.actions.closeEditor()
     }
 
     fun closeProfile() {
-        if (profileState.savingProfile) return
+        if (profile.state.savingProfile) return
         if (profileDirty) profileDialog = true else discardProfileEditor()
     }
 
     fun openProfileEditor() {
-        if (account != null && displayedProfile?.id == account.id && profileState.editableSupported) {
+        if (account != null && displayedProfile?.id == account.id && profile.state.editableSupported) {
             clearPostActionBubble()
-            onOpenProfileEditor()
+            profile.actions.openEditor()
             overlayKey = EDIT_PROFILE_OVERLAY_KEY
         }
     }
@@ -733,8 +724,8 @@ fun PalustrisApp(
             photoGridFeed.posts +
             bookmarks.state?.posts.orEmpty() +
             likes.state?.posts.orEmpty() +
-            profileState.pinnedPosts +
-            profileState.pages.values.flatMap { it.posts }
+            profile.state.pinnedPosts +
+            profile.state.pages.values.flatMap { it.posts }
         return candidates.firstOrNull {
             it.fetchedBy == selected.fetchedBy &&
                 it.sessionRevision == selected.sessionRevision &&
@@ -1006,22 +997,22 @@ fun PalustrisApp(
                                   )
                  Destination.Profile -> AppProfileDestinationContent(
                      account = displayedProfile,
-                     profileState = profileState,
+                     profileState = profile.state,
                      compactLayout = !largePresentation,
                      largeLayout = largePresentation,
                      largeShowSummary = singlePost == null,
                      listState = profileListState,
                      compactNavigationVisible = navigationVisible,
                      authenticatedAccountId = account?.id,
-                     onProfileShown = onProfileShown,
+                     onProfileShown = profile.actions::open,
                      onCategorySelected = { category ->
                          if (largePresentation) clearSelectedPost()
-                         onProfileCategorySelected(category)
+                         profile.actions.selectCategory(category)
                      },
-                     onRefresh = onRefreshProfile,
-                     onLoadMore = onLoadMoreProfile,
-                     onFollow = onFollowProfile,
-                     onUnfollow = onUnfollowProfile,
+                     onRefresh = profile.actions::refresh,
+                     onLoadMore = profile.actions::loadMore,
+                     onFollow = profile.actions::follow,
+                     onUnfollow = profile.actions::unfollow,
                      onMessage = ::openDirectMessage,
                      onOpenProfileImage = ::openProfileImage,
                      onEditProfile = ::openProfileEditor,
@@ -1045,9 +1036,9 @@ fun PalustrisApp(
                      onReply = handleReply,
                      onReshare = onReshare,
                      onBookmark = onBookmark,
-                     onReaction = onProfilePostReaction,
+                     onReaction = profile.actions::react,
                       onOpenReactionBubble = { ownedPost, bounds ->
-                          openReactionBubble(ownedPost, bounds, onProfilePostReaction)
+                          openReactionBubble(ownedPost, bounds, profile.actions::react)
                       },
                       onOpenReactionPicker = ::expandReactionPicker,
                      onOpenMedia = ::openMedia,
@@ -1078,7 +1069,7 @@ fun PalustrisApp(
                          detailContent = { paneModifier ->
                              val threadEnabled = selectedThreadState != null && singlePostOrigin.supportsComments()
                              val detailReaction = if (threadEnabled) onThreadReaction else when (singlePostOrigin) {
-                                 LargePostOrigin.Profile -> onProfilePostReaction
+                                 LargePostOrigin.Profile -> profile.actions::react
                                  LargePostOrigin.Saved -> bookmarks.actions::react
                                  LargePostOrigin.Liked -> likes.actions::react
                                  else -> onReaction
@@ -1152,7 +1143,7 @@ fun PalustrisApp(
                                         notificationsPanel = notificationsPanel,
                                         profileTarget = displayedProfile,
                                         authenticatedAccountId = account?.id,
-                                        profileState = profileState,
+                                        profileState = profile.state,
                                         onCompose = ::openComposer,
                                         onSearchToggle = {
                                             searchPanelName = if (searchPanel == SearchPanel.Search) {
@@ -1169,8 +1160,8 @@ fun PalustrisApp(
                                             }
                                         },
                                         onEditProfile = ::openProfileEditor,
-                                        onFollowProfile = onFollowProfile,
-                                        onUnfollowProfile = onUnfollowProfile,
+                                        onFollowProfile = profile.actions::follow,
+                                        onUnfollowProfile = profile.actions::unfollow,
                                     ),
                                     account = account,
                                      onOpenAccounts = { clearPostActionBubble(); sheet = "Accounts" },
@@ -1376,14 +1367,14 @@ fun PalustrisApp(
         account = account,
         editor = profileEditor,
         editorBase = editorBase,
-        capabilities = profileState.editorCapabilities,
-        emoji = profileState.account?.emoji ?: emptyMap(),
-        loading = profileState.editableLoading,
-        saving = profileState.savingProfile,
-        error = profileState.editError ?: profileState.editableError,
+        capabilities = profile.state.editorCapabilities,
+        emoji = profile.state.account?.emoji ?: emptyMap(),
+        loading = profile.state.editableLoading,
+        saving = profile.state.savingProfile,
+        error = profile.state.editError ?: profile.state.editableError,
         onEditorChange = { profileEditor = it },
         onSave = { patch ->
-            onUpdateProfile(patch) {
+            profile.actions.saveEditor(patch) {
                 profileEditor = null
                 overlayKey = null
             }

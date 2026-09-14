@@ -6,6 +6,8 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EmojiCapabilities
+import me.foxtails.palustris.domain.EmojiChoice
+import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationQuery
@@ -14,9 +16,12 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
+import me.foxtails.palustris.ui.profile.ProfileCategory
+import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.NotificationsContract
+import me.foxtails.palustris.ui.shell.ProfileContract
 
 /**
  * Explicit shell identities for presentation tests.
@@ -101,6 +106,35 @@ internal object AppShellFixtures {
             override fun dismiss(notification: Notification) = Unit
             override fun respondToFollowRequest(notification: Notification, accept: Boolean) = Unit
             override fun selectQuery(query: NotificationQuery) = Unit
+        },
+    )
+
+    /** Test-only profile presentation with recorder hooks. */
+    fun profile(
+        state: ProfileUiState = ProfileUiState(),
+        onOpen: (Account) -> Unit = {},
+        onSelectCategory: (ProfileCategory) -> Unit = {},
+        onRefresh: () -> Unit = {},
+        onLoadMore: () -> Unit = {},
+        onFollow: () -> Unit = {},
+        onUnfollow: () -> Unit = {},
+        onReact: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
+        onSaveEditor: (EditableProfilePatch, () -> Unit) -> Unit = { _, onSuccess -> onSuccess() },
+        onOpenEditor: () -> Unit = {},
+        onCloseEditor: () -> Unit = {},
+    ): ProfileContract = ProfileContract(
+        state = state,
+        actions = object : ProfileContract.Actions {
+            override fun open(account: Account) = onOpen(account)
+            override fun selectCategory(category: ProfileCategory) = onSelectCategory(category)
+            override fun refresh() = onRefresh()
+            override fun loadMore() = onLoadMore()
+            override fun follow() = onFollow()
+            override fun unfollow() = onUnfollow()
+            override fun react(post: OwnedPost, choice: EmojiChoice) = onReact(post, choice)
+            override fun saveEditor(patch: EditableProfilePatch, onSuccess: () -> Unit) = onSaveEditor(patch, onSuccess)
+            override fun openEditor() = onOpenEditor()
+            override fun closeEditor() = onCloseEditor()
         },
     )
 }

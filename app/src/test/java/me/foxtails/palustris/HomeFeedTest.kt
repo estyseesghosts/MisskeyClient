@@ -248,17 +248,19 @@ private fun show(
                 PalustrisApp(
                     account = account,
                     feedState = FeedState(posts = listOf(Post(postId("profile"), author, "A visible post", 0, Audience.Public))),
-                    profileState = profileState.value,
-                    onProfileShown = { seed ->
-                        profileState.value = profileState.value.copy(
-                            targetId = seed.id,
-                            seedAccount = seed,
-                            account = seed,
-                        )
-                    },
-                    onProfileCategorySelected = { category ->
-                        profileState.value = profileState.value.copy(selectedTab = category)
-                    },
+                    profile = AppShellFixtures.profile(
+                        state = profileState.value,
+                        onOpen = { seed ->
+                            profileState.value = profileState.value.copy(
+                                targetId = seed.id,
+                                seedAccount = seed,
+                                account = seed,
+                            )
+                        },
+                        onSelectCategory = { category ->
+                            profileState.value = profileState.value.copy(selectedTab = category)
+                        },
+                    ),
                 )
             }
         }

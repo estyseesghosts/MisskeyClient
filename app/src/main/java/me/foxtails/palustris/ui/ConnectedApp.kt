@@ -48,6 +48,7 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.DirectConversation
+import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.AppColorScheme
@@ -71,10 +72,12 @@ import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
+import me.foxtails.palustris.ui.shell.ProfileContract
 import me.foxtails.palustris.ui.settings.ModerationViewModel
 import me.foxtails.palustris.ui.settings.ModerationKind
 import me.foxtails.palustris.domain.ModerationListKind
 import me.foxtails.palustris.ui.settings.SettingsRoute
+import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.profile.ProfileViewModel
 import me.foxtails.palustris.ui.thread.PostThreadUiState
@@ -391,6 +394,28 @@ fun ConnectedApp(
     }
     val profileState by if (profileModel != null) profileModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(ProfileUiState()) }
+    val profileActions = remember(profileModel, accountManager) {
+        object : ProfileContract.Actions {
+            override fun open(account: Account) { profileModel?.open(account) }
+            override fun selectCategory(category: ProfileCategory) { profileModel?.selectCategory(category) }
+            override fun refresh() { profileModel?.refresh() }
+            override fun loadMore() { profileModel?.loadMoreSelected() }
+            override fun follow() { profileModel?.follow() }
+            override fun unfollow() { profileModel?.unfollow() }
+            override fun react(post: OwnedPost, choice: EmojiChoice) { profileModel?.react(post, choice) }
+            override fun saveEditor(patch: EditableProfilePatch, onSuccess: () -> Unit) {
+                profileModel?.saveEditor(patch) { updated ->
+                    accountManager.updateAccount(updated)
+                    onSuccess()
+                }
+            }
+            override fun openEditor() { profileModel?.openEditor() }
+            override fun closeEditor() { profileModel?.closeEditor() }
+        }
+    }
+    val profile = remember(profileState, profileActions) {
+        ProfileContract(state = profileState, actions = profileActions)
+    }
     val emojiCatalogModel = activeSession?.let { session ->
         hiltViewModel<EmojiCatalogViewModel, EmojiCatalogViewModel.Factory>(
             key = "emoji-catalog-${session.accountId}-${state.sessionGeneration}",
@@ -538,23 +563,8 @@ fun ConnectedApp(
                  directMessages = directMessages,
                 initialNotificationRoute = initialNotificationRoute,
                 notificationSettings = notificationSettings,
-                profileState = profileState,
-                onProfileShown = { seed -> profileModel?.open(seed) },
-                onProfileCategorySelected = { category -> profileModel?.selectCategory(category) },
-                onRefreshProfile = { profileModel?.refresh() },
-                onLoadMoreProfile = { profileModel?.loadMoreSelected() },
-                onFollowProfile = { profileModel?.follow() },
-                onUnfollowProfile = { profileModel?.unfollow() },
-                onUpdateProfile = { patch, onSuccess ->
-                    profileModel?.saveEditor(patch) { updated ->
-                        accountManager.updateAccount(updated)
-                        onSuccess()
-                    }
-                },
-                onOpenProfileEditor = { profileModel?.openEditor() },
-                onCloseEditor = { profileModel?.closeEditor() },
+                profile = profile,
                 emojiPresentation = emojiPresentation,
-                onProfilePostReaction = { ownedPost, choice -> profileModel?.react(ownedPost, choice) },
             )
             }
         }

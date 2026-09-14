@@ -471,7 +471,7 @@ class NavigationTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(account = account, profileState = profileState)
+                PalustrisApp(account = account, profile = AppShellFixtures.profile(profileState))
             }
         }
         compose.waitForIdle()
@@ -535,24 +535,26 @@ class NavigationTest {
                 PalustrisApp(
                     account = alice,
                     feedState = FeedState(posts = listOf(post)),
-                    profileState = profileState.value,
-                    onProfileShown = { seed ->
-                        val sameTarget = profileState.value.targetId == seed.id
-                        profileState.value = profileState.value.copy(
-                            targetId = seed.id,
-                            seedAccount = seed,
-                            account = seed,
-                            selectedTab = if (sameTarget) {
-                                profileState.value.selectedTab
-                            } else {
-                                ProfileCategory.Posts
-                            },
-                            pages = if (sameTarget) profileState.value.pages else emptyMap(),
-                        )
-                    },
-                    onProfileCategorySelected = { category ->
-                        profileState.value = profileState.value.copy(selectedTab = category)
-                    },
+                    profile = AppShellFixtures.profile(
+                        state = profileState.value,
+                        onOpen = { seed ->
+                            val sameTarget = profileState.value.targetId == seed.id
+                            profileState.value = profileState.value.copy(
+                                targetId = seed.id,
+                                seedAccount = seed,
+                                account = seed,
+                                selectedTab = if (sameTarget) {
+                                    profileState.value.selectedTab
+                                } else {
+                                    ProfileCategory.Posts
+                                },
+                                pages = if (sameTarget) profileState.value.pages else emptyMap(),
+                            )
+                        },
+                        onSelectCategory = { category ->
+                            profileState.value = profileState.value.copy(selectedTab = category)
+                        },
+                    ),
                 )
             }
         }
@@ -590,10 +592,12 @@ class NavigationTest {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    profileState = ProfileUiState(
-                        targetId = account.id,
-                        seedAccount = account,
-                        account = account,
+                    profile = AppShellFixtures.profile(
+                        ProfileUiState(
+                            targetId = account.id,
+                            seedAccount = account,
+                            account = account,
+                        ),
                     ),
                 )
             }
@@ -617,14 +621,16 @@ class NavigationTest {
             compose.activity.setContent {
                 PalustrisApp(
                     account = account,
-                    profileState = ProfileUiState(
-                        targetId = account.id,
-                        seedAccount = account,
-                        account = account,
-                        editable = EditableProfile(
-                            id = account.id.localId,
-                            displayName = account.displayName,
-                            biography = account.biography,
+                    profile = AppShellFixtures.profile(
+                        ProfileUiState(
+                            targetId = account.id,
+                            seedAccount = account,
+                            account = account,
+                            editable = EditableProfile(
+                                id = account.id.localId,
+                                displayName = account.displayName,
+                                biography = account.biography,
+                            ),
                         ),
                     ),
                 )
@@ -870,7 +876,7 @@ class NavigationTest {
             relationshipSupported = true,
         )
         compose.activity.runOnUiThread {
-            compose.activity.setContent { PalustrisApp(account = old, profileState = state) }
+            compose.activity.setContent { PalustrisApp(account = old, profile = AppShellFixtures.profile(state)) }
         }
         compose.waitForIdle()
 

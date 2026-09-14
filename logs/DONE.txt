@@ -656,3 +656,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Removed the DM state and six callbacks from `PalustrisApp`.
 - Bound the registered contract in `ConnectedApp`.
 - Verification passed: `NavigationTest`, `HomeFeedTest`, `SignInScreenTest`, `ShellCharacterizationTest`, and `DirectMessageScreenTest`.
+
+01-B profile contract:
+- Added `ui/shell/ProfileContract` with target state, browsing, relationship, and editor actions.
+- Removed `profileState`, `onProfilePostReaction`, and nine profile callbacks from `PalustrisApp`.
+- Bound the registered contract in `ConnectedApp` and migrated `HomeFeedTest` and `NavigationTest` through `AppShellFixtures.profile`.
+- Verification passed: `HomeFeedTest`, `NavigationTest`, `ProfileScreenTest`, `SignInScreenTest`, and `ShellCharacterizationTest`.
