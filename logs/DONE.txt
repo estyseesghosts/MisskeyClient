@@ -732,3 +732,12 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Commit: `2379b44`. No push.
 - Verification: focused suites `NavigationTest`, `HomeFeedTest`, `ShellCharacterizationTest`, `SignInScreenTest` passed. Full `test` suite passed. `:app:lintDebug` passed. Live-server and device behavior unverified.
 - Corrected the stale remaining-parameter list in `docs/agents/app-shell-ownership.md`.
+
+260914-122320 Shell decomposition slices:
+- Removed obsolete `moved...` import aliases (`d2d65c8`). Two aliases were unused.
+- Extracted `ConnectedSessionHost` (`1f852c1`). `ConnectedApp` dropped from 792 to 158 lines. The host resolves one registered source per session, binds every source-backed feature owner, and owns projection wiring.
+- Extracted `SettingsOverlayHost` and `NotificationLaunchHost` (`7232978`). `ConnectedApp` no longer writes settings. Launch delivery waits for the receiving account and acknowledges only the accepted launch. Added `NotificationLaunchRouter.clear(launch)` with a test.
+- Fixed the stale `Api29StartupInstrumentedTest` shell argument and re-enabled `:app:compileDebugAndroidTestKotlin`.
+- Removed four pass-through destination wrappers (`2dca95e`). Kept `AppNotificationsDestinationContent`, which owns panel and direct-message integration.
+- Verification: `test assembleRelease` passed, `:app:lintDebug` passed, `:app:compileDebugAndroidTestKotlin` passed. Live-server and device behavior unverified.
+- Deferred: explicit teardown for notifications, direct messages, notification settings, and moderation (no `stop()` exists; Plan 02 owns it). Focused feature-host split and test-construction rewrite remain.

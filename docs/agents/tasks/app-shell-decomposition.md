@@ -42,48 +42,49 @@ shell layers.
 - 01-C post-action host — `0de4585`, `e39eace`.
 - 01-B Home, Search, composer, post interactions — `b8037af`.
 - 01-B reply seam and content policy removal — `32313eb`.
-- 01-C draft host — `2379b44`.
+- 01-C draft host — `2379b44`, `c5b01b8`.
+- 01-G obsolete import aliases — `d2d65c8`.
+- 01-E connected-session host — `1f852c1`.
+- 01-F settings overlay host and notification launch host — `7232978`.
+- 01-G pass-through destination wrappers removed — `2dca95e`.
 
 # Current slice
 
-01-E connected-session host and 01-F settings/launch handoff. No work is
-uncommitted. The next slice moves identity parameters and launch routing behind
-owners.
+01-H. Documentation and ownership records are updated. Remaining 01-H work is the
+test-construction rewrite. No code work is uncommitted.
 
 # Files involved
 
+- `app/src/main/java/me/foxtails/palustris/ui/ConnectedApp.kt` (root composition, 158 lines)
+- `app/src/main/java/me/foxtails/palustris/ui/session/ConnectedSessionHost.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/settings/SettingsOverlayHost.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/notifications/NotificationLaunchHost.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/ConnectedApp.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/shell/` contracts
-- `app/src/test/java/me/foxtails/palustris/AppShellFixtures.kt`
-- `app/test` shell tests: `NavigationTest.kt`, `HomeFeedTest.kt`,
-  `ShellCharacterizationTest.kt`, `SignInScreenTest.kt`, `ReplyComposerTest.kt`,
-  `WideNavigationTest.kt`, `SearchPanelRestorationTest.kt`
+- `docs/agents/app-shell-ownership.md`
 
 # Verification
 
-- `2379b44` passed focused suites (`NavigationTest`, `HomeFeedTest`,
-  `ShellCharacterizationTest`, `SignInScreenTest`), the full `test` suite, and
-  `lintDebug`.
-- `app-shell-ownership.md` records the present boundary.
-- Live-server and physical-device behavior remain unverified.
+- `test assembleRelease` passed after `2dca95e`.
+- `:app:lintDebug` passed.
+- `:app:compileDebugAndroidTestKotlin` passed.
+- `NotificationLaunchRouterTest` covers launch acknowledgment.
+- Live-server, physical-device, and instrumentation execution remain unverified.
 
 # Next
 
-Implement 01-E: introduce the connected-session host and remove
-`sessionGeneration`/`sessionRevision` pass-through where a host can own them.
-Then 01-F: move settings and launch routing behind owners and remove
-`initialNotificationRoute` and the `settingsViewModelUpdate` writes from
-`ConnectedApp`. Then 01-G shell assembly and 01-H test construction and docs.
-Run `test assembleRelease` before declaring the plan complete.
+Optional 01-H work: move small screen scenarios to leaf or feature-host tests,
+provide explicit feature fixtures, and remove the production no-argument app
+construction used only by tests. Then either start `docs/decomposition_3/02.md`
+or split the session host into focused feature hosts.
 
 # Blockers
 
-- `logs/BUGS.txt` records a system-bar instrumentation failure on Android 15.
-- Live-server and physical-device behavior remain unverified.
+- `NotificationsViewModel`, `DirectMessageViewModel`, `NotificationSettingsViewModel`,
+  and `ModerationViewModel` expose no `stop()`. Explicit teardown belongs to Plan 02.
 - Account removal still does not delete account-scoped drafts. See `logs/BUGS.txt`.
+- Android 15 system-bar instrumentation failure. See `logs/BUGS.txt`.
 
 # Last safe commit
 
-`2379b44` "Move draft persistence behind the host". Earlier slice commits
-`b8037af` and `32313eb` are also on `main`.
+`2dca95e` "Remove pass-through destination wrappers".

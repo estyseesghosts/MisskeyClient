@@ -6,16 +6,29 @@
 
 **Last reviewed:** 2026-09-14.
 
-**Source baseline:** `2379b44`.
+**Source baseline:** `2dca95e`.
 
-**Evidence:** source verified. Test verified with the full JVM suite. Device and live-server
-behavior remain unverified.
+**Evidence:** source verified. Test verified with the full JVM suite, `assembleRelease`, and
+`:app:lintDebug`. Device and live-server behavior remain unverified.
 
 ## Present Boundary
 
-`PalustrisApp` accepts narrow feature contracts in `app/src/main/java/me/foxtails/palustris/ui/shell/`.
-Each contract has one owner and one presentation responsibility. `ConnectedApp` binds the real
-contracts. Test code binds test-only recorders in
+`ConnectedApp` is root composition. It collects session and account index, chooses the startup,
+sign-in, or connected presentation, installs theme and application-wide content policy, and composes
+three hosts. It does not write settings, assemble feature actions, or own post fan-out.
+
+`ConnectedSessionHost` in `app/src/main/java/me/foxtails/palustris/ui/session/` owns one coherent
+account/session presentation lifetime. It resolves the registered source once per connected session,
+binds every source-backed feature owner, owns projection wiring, and renders `PalustrisApp`. It
+exposes no token and no `SocialSource`.
+
+`SettingsOverlayHost` in `ui/settings/` owns the settings route, settings models, and settings
+commands. `NotificationLaunchHost` in `ui/notifications/` owns launch delivery: it waits for the
+receiving account to become active and acknowledges only the launch it accepted.
+
+`PalustrisApp` owns navigation, adaptive layout, and surface placement. It accepts narrow feature
+contracts in `app/src/main/java/me/foxtails/palustris/ui/shell/`. Each contract has one owner and one
+presentation responsibility. Test code binds test-only recorders in
 `app/src/test/java/me/foxtails/palustris/AppShellFixtures.kt`.
 
 | Contract | Owner | State | Actions |
@@ -32,13 +45,22 @@ contracts. Test code binds test-only recorders in
 | `PhotoGridContract` | Photo Grid `FeedViewModel` | Independent Photo Grid feed | Load, select, refresh, paging, hashtag, error |
 | `DraftsContract` | account draft store | Saved drafts for the active account | Load, save, delete |
 
-The removed dead parameter `onOpenReactionPicker` and the duplicate `ownedPosts` input are gone.
-Home rows now come from `feedState.ownedPosts` only.
-
 `ui/shell/PostProjectionCoordinator` is the single fan-out owner for normalized post updates and
 accepted publications. It validates account and durable revision, excludes the origin sink, and
-suppresses nested forwarding so feed and thread cannot echo. `PostProjectionCoordinatorTest`
-covers origin exclusion, nested suppression, foreign accounts, old revisions, and publications.
+suppresses nested forwarding so feed and thread cannot echo. `PostProjectionCoordinatorTest` covers
+origin exclusion, nested suppression, foreign accounts, old revisions, and publications.
+
+## Removed In This Migration
+
+- The dead outer `onOpenReactionPicker` parameter. Live `expandReactionPicker` forwarding remains.
+- The duplicate shell `ownedPosts` input. Home rows come from `HomeFeedUiState.ownedPosts` only.
+- `actionSource`, `draftStore`, and `postPreferences` as generic shell parameters.
+- The test-only `onReply` seam. Reply behavior is asserted through composer state.
+- The obsolete `moved...` import aliases.
+- The pass-through wrappers `AppHomeDestinationContent`, `AppSearchDestinationContent`,
+  `AppPhotoGridDestinationContent`, and `AppProfileDestinationContent`. The shell calls the feature
+  presenters directly. `AppNotificationsDestinationContent` remains because it owns panel and
+  direct-message integration.
 
 ## Remaining Flat Parameters
 
@@ -47,17 +69,24 @@ These still cross the `PalustrisApp` boundary and belong to later slices:
 - Identity: `account`, `sessionGeneration`, `sessionRevision`.
 - Launch: `initialNotificationRoute`.
 
-`DraftStore` now leaves the shell. `ConnectedApp` builds `DraftsContract` from the injected
-`DraftStore`, the legacy `local_draft` preferences, and the settings scope. The shell keeps only
-composer fields. `onReply` is a test-only observer until its tests assert composer behavior.
+## Deferred Work
 
-`PostActionOwner` construction now lives in `ConnectedApp`, which provides it through
-`LocalPostActionOwner`. The shell reads the ambient owner and no longer carries a `SocialSource`.
+- The session host binds all feature owners in one composable. The plan prefers focused feature-host
+  functions beside each feature package. This split is not implemented.
+- Teardown: `NotificationsViewModel`, `DirectMessageViewModel`, `NotificationSettingsViewModel`, and
+  `ModerationViewModel` expose no `stop()`. They rely on session-generation ViewModel keys, not an
+  explicit release. Their owner repair belongs to `docs/decomposition_3/02.md`.
+- `PalustrisApp` retains `Empty` contract defaults and remains callable with few arguments. Test
+  construction was not rewritten to require explicit feature hosts.
+- Navigation transitions and the shared compact/wide detail action policy are not extracted.
+- Profile editor draft state still lives in `PalustrisApp` rather than the profile host.
 
 ## Invariants
 
 - A contract carries no session secret, access token, source, repository, or ViewModel.
 - `presentationGeneration` and durable `sessionRevision` stay distinct.
+- The connected session resolves one registered source per session. Recomposition does not create
+  replacement sources.
 - Photo Grid keeps independent feed state and selection from Home.
 - Active-account and selected-account notification settings stay distinct.
 - Preview values (`Empty`) exist only because call sites are not fully migrated. Remove them when
@@ -67,6 +96,5 @@ composer fields. `onReply` is a test-only observer until its tests assert compos
 
 - Contract verification is JVM and Robolectric only.
 - Live-server and physical-device behavior are unverified.
-- The connected-session host, the settings host, and the remaining parameter removal are not
-  implemented. They remain in `docs/decomposition_3/01.md`.
-- The post projection coordinator is implemented.
+- The Android 15 system-bar instrumentation failure remains in `logs/BUGS.txt`.
+- Account removal does not delete account-scoped drafts. See `logs/BUGS.txt`.
