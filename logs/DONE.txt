@@ -896,3 +896,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Japanese coverage is now 118 of 562 resources (21.0 percent); 118 of 554 strings (21.3 percent). Plurals remain in English.
 - Standalone checks passed: XML parses, keys and placeholders match the default catalog, no banned platform words.
 - Gradle LocalizationResourceTest remains blocked: another process locks app build R.jar. See logs/BUGS.txt. Rerun the focused test when the build directory is free.
+
+260914-204307 Reference localization expansion (7 slices, one commit each):
+- zh-CN +44, zh-TW +37, de-DE +64, fr-FR +60, es-ES +17 (es-419 untouched), pt-BR +15 (mastodon-android only), pt-PT +25.
+- Kept all existing entries. Every added string has an exact English match in at least one reference. Dropped reference hits with wrong meaning, platform jargon, or file-convention clashes; those keys stay in English fallback.
+- Standalone checks passed per slice: XML parses, keys in default catalog, kinds and placeholders match, no platform words in added strings.
+- ru-RU and in-ID remain blocked: no Beeline locale files exist and new locales need code changes. See logs/BUGS.txt.

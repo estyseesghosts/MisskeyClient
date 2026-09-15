@@ -26,7 +26,7 @@ Add missing localized keys to Beeline locale files from mastodon-android and Ari
 - Slice fr-FR — added 60 keys to values-fr (133 keys, 21.5 percent). Dropped post_share_clip_label (verb with wrong meaning), dialog_discard (wrong destructive meaning), notifications_dismiss and settings_error_dismiss (wrong reject meaning). Commit 8f456a4.
 - Slice es-ES — added 17 keys to values-es-rES (167 keys, 27.8 percent). Dropped setup_welcome_back (malformed inclusive form in reference) and post_action_remove_bookmark (clashes with file convention). Never touched values-b+es+419. Commit e141818.
 - Slice pt-BR — added 15 keys to values-pt-rBR (139 keys, 23.8 percent, mastodon-android reference only). Dropped settings_error_dismiss (wrong fire-from-job meaning). Commit b250340.
-- Slice pt-PT — added 25 keys to values-pt-rPT (149 keys, 25.4 percent). Dropped post_share_clip_label and single_post_title (verb with wrong meaning), photo_grid_add_hashtag and post_share_unmute and notification_activity_follow (clash with file convention). Commits next.
+- Slice pt-PT — added 25 keys to values-pt-rPT (149 keys, 25.4 percent). Dropped post_share_clip_label and single_post_title (verb with wrong meaning), photo_grid_add_hashtag and post_share_unmute and notification_activity_follow (clash with file convention). Commit ccfa9ea.
 
 # Current slice
 
@@ -38,17 +38,18 @@ Done. ru-RU and in-ID stay blocked (no Beeline locale files; new files need code
 
 # Verification
 
-- None yet.
+- Standalone checks passed per slice: XML parses, keys stay in the default catalog, kinds and placeholders match, no platform words in added strings.
+- Gradle LocalizationResourceTest stays blocked by the locked app build R.jar unless the IDE releases it.
 
 # Next
 
-Build the reference-match pipeline and run the zh-CN slice.
+Done. No further slices in this task.
 
 # Blockers
 
-- ru-RU and in-ID have no Beeline locale files. New locale files need AppLanguage, locale-config, and test-mapping code changes, which are out of scope.
+- ru-RU and in-ID have no Beeline locale files. New locale files need AppLanguage, locale-config, and test-mapping code changes, which are out of scope. Mastodon-android has values-ru-rRU and values-in-rID; Aria has misskey_ru-RU and id-ID references ready.
 - Gradle LocalizationResourceTest may stay blocked by the locked app build R.jar.
 
 # Last safe commit
 
-b759a8c Extend Japanese strings from reference applications.
+ccfa9ea Add pt-PT strings from reference applications.
