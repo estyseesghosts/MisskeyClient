@@ -5,6 +5,7 @@ import android.util.AtomicFile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.notifications.db.NotificationDatabase
@@ -74,25 +75,51 @@ class RoomNotificationStore @javax.inject.Inject constructor(
     private val importer: LegacyNotificationFileImporter,
 ) : NotificationStore {
     private val dao = database.notificationDao()
+
+    /**
+     * Restart-safe legacy import. The Room row is authoritative: when present it
+     * wins over any legacy file. Otherwise the legacy file is read first, saved to
+     * Room, and only then marked. A failed save or a transient legacy failure stays
+     * unmarked so the next restart retries. Corrupt and future-format rows keep
+     * their bytes and never reach Room. The marker and Room cannot commit
+     * atomically; the ordering above keeps retries idempotent instead.
+     */
     override fun read(accountId: AccountId): NotificationStoreRead = runBlocking(Dispatchers.IO) {
         val key = accountId.stableFileName()
         val row = try {
             dao.state(key)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             return@runBlocking NotificationStoreRead.Unavailable
         }
         if (row != null) return@runBlocking decodeRow(row.stateJson, accountId)
-        val imported = try {
-            importer.importIfPresent(accountId)
-        } catch (error: Exception) {
-            return@runBlocking NotificationStoreRead.Unavailable
-        } ?: return@runBlocking NotificationStoreRead.Absent
-        try {
-            dao.saveState(NotificationStateEntity(key, encode(imported).toString(), System.currentTimeMillis()))
+        if (importer.isMarked(accountId)) return@runBlocking NotificationStoreRead.Absent
+        val legacy = try {
+            importer.readLegacy(accountId)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             return@runBlocking NotificationStoreRead.Unavailable
         }
-        NotificationStoreRead.Readable(imported)
+        val imported = legacy as? NotificationStoreRead.Readable
+            ?: return@runBlocking legacy
+        try {
+            dao.saveState(NotificationStateEntity(key, encode(imported.state).toString(), System.currentTimeMillis()))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            return@runBlocking NotificationStoreRead.Unavailable
+        }
+        // Best effort. A missing marker never reimports over the saved Room row.
+        try {
+            importer.markImported(accountId)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            // Ignore. The Room row is authoritative on retry.
+        }
+        NotificationStoreRead.Readable(imported.state)
     }
 
     override fun write(accountId: AccountId, state: NotificationRepositoryState) = runBlocking(Dispatchers.IO) {
@@ -105,6 +132,14 @@ class RoomNotificationStore @javax.inject.Inject constructor(
             dao.deleteState(key); dao.deleteEvents(key); dao.deleteActors(key); dao.deleteGroups(key)
             dao.deleteQueryState(key); dao.deleteDismissals(key); dao.deleteDelivery(key)
             dao.deleteAcknowledgements(key); dao.deletePushRegistration(key); dao.deleteSettings(key)
+        }
+        // Seal the legacy file so a removed account cannot resurrect old state.
+        try {
+            importer.deleteLegacyForRemoval(accountId)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            // Best effort. Memory removal stays authoritative.
         }
     }
 
