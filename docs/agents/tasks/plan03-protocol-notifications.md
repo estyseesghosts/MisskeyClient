@@ -60,8 +60,10 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
   contract, Room fixed-JSON read, activity variants, navigation, read states, delivery
   records, posts and accounts, interaction counts, unread state, settings, push, checkpoints,
   malformed structure, and known omissions are frozen.
-- 03-E: still required. Recursive codecs remain in `NotificationRepository.kt:529-1117`.
-  `NotificationJsonCodec.kt` holds only state-level `encode`/`decode`.
+- 03-E: closed. `NotificationJsonCodec.kt` owns the state boundary and every recursive
+  conversion helper. `NotificationRepository.kt` keeps no `JSONObject` or `JSONArray`
+  conversion helper. `Notification.matches`, `AccountId.stableFileName`, and
+  `stableNotificationId` stay in the repository for 03-J.
 - 03-H: still required. `LegacyNotificationFileImporter` writes the marker before returning
   state and before Room saves (`LegacyNotificationFileImporter.kt:22-25`).
 - 03-J: `AccountId.stableFileName()` still lives in the domain or data path. Rebase its
@@ -75,7 +77,8 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 - Notification caller-query validation already exists from Plan 02. Preserve it during codec work.
 - Verification commands gained `--no-daemon --console=plain`.
 - Added `MastodonReactionExtensionMapper` and the per-protocol cursor codecs to the authority map.
-- `Post.contentVisibility` omission is confirmed and stays in 03-I behind approval.
+- `Post.contentVisibility` omission is confirmed and approved for 03-I. The approved policy
+  discards old notification data instead of migrating it forward.
 
 ## Completed Slices
 
@@ -90,6 +93,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-A2 | Add NodeInfo discovery when instance metadata omits the reaction advertisement. Validate discovery URLs, keep the request credential-free, disable redirects, bound reads, and fetch one document. | A server that advertises reactions only in NodeInfo gets React. A foreign, credentialed, or fragmented URL triggers no request. All discovery failures stay Unknown. | implemented, test verified. |
 | 03-D2 | Freeze the activity, navigation, read-state, and delivery fixtures. Add the Room fixed-JSON read test. | Every activity discriminant, navigation target, read state, and delivery state is characterized. Room decodes JSON inserted directly. | implemented, test verified. |
 | 03-D3 | Freeze the remaining fixtures: posts and accounts, interaction counts, unread state, settings, push, checkpoints, malformed structure, and known omissions. | Every remaining 03-D family has a fixed decoder contract, and the encoder-stable families round-trip. | implemented, test verified. |
+| 03-E | Move every recursive encode and decode helper from `NotificationRepository` into `NotificationJsonCodec` and make them private. | No conversion helper remains in the repository. The moved text stays identical apart from ownership and visibility. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -163,13 +167,20 @@ individually; a malformed singular checkpoint or push registration fails the com
 file store returns no state for broken JSON while the Room store throws. Post visibility and group
 actor continuation stay unpersisted. `test assembleRelease` and `:app:lintDebug` pass.
 
+03-E verification: `NotificationJsonCodecTest` passes with forty tests and
+`NotificationRoomStoreFixtureTest` passes with four tests. The recursive helpers moved into
+`NotificationJsonCodec.kt` and became private. `encode` and `decode` stay internal for both
+stores. `Notification.matches`, `AccountId.stableFileName`, and `stableNotificationId` stay in
+`NotificationRepository.kt`. A `Compare-Object` check confirms the moved text is identical to
+the previous repository text apart from `internal` to `private`. Added file-store and Room
+coverage for the nested unknown server destination. `test assembleRelease` and `:app:lintDebug`
+pass. All frozen fixture expectations are unchanged.
+
 ## Current Slice
 
-03-E — Complete codec ownership. Move the recursive conversion helpers from
-`NotificationRepository.kt` into `NotificationJsonCodec.kt` without changing the stored format.
-
-`03-D` is closed. 03-F and 03-I are approved. The approved policy discards old notification
-data instead of migrating it forward.
+03-F — Define Room corruption recovery. The maintainer approved the reset policy on
+2026-09-15. The accepted policy discards old notification data instead of migrating it forward.
+03-G, 03-H, 03-I, and 03-J follow. 03-I is approved to code.
 
 ## Required Verification
 
@@ -194,6 +205,6 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`5d1f8b2` "Freeze the remaining notification codec fixtures".
+`861e457` "Move notification codec helpers into NotificationJsonCodec".
 
-03-D is closed. 03-E is the current slice. It rebases on the frozen fixture boundary.
+03-D and 03-E are closed. 03-F is the current slice.

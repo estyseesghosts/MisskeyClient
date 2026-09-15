@@ -137,6 +137,11 @@ fixtures in `app/src/test/resources/notifications/`. Fixture provenance is recor
 characterization fixtures, not captured released files. Do not generate the expected
 fixture content with the encoder under test.
 
+`NotificationJsonCodec.kt` owns the state boundary and every recursive encode and decode
+helper. `NotificationRepository.kt` keeps the merge, generation, query-validation, and
+delivery-claim behavior. It keeps no JSON conversion helper. Both `FileNotificationStore` and
+`RoomNotificationStore` use the same internal `encode` and `decode` boundary.
+
 ## Direct-Message Write Authority
 
 `data/directmessages/DirectMessageWriteAuthority.kt` owns one writer generation for each account.
