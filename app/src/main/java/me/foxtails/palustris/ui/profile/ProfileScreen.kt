@@ -2,7 +2,6 @@
 
 package me.foxtails.palustris.ui.profile
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,49 +11,31 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EmojiChoice
@@ -66,16 +47,13 @@ import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.layout.compactContextualControlsPositioningInsets
 import me.foxtails.palustris.ui.layout.compactScrollEndClearance
-import me.foxtails.palustris.ui.openExternal
 import me.foxtails.palustris.ui.layout.CompactFilterDockHeight
 import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding
-import me.foxtails.palustris.ui.large.LargeBottomDock
 import me.foxtails.palustris.ui.large.LargeBottomDockClearance
 import me.foxtails.palustris.ui.components.FilterChipEntry
 import me.foxtails.palustris.ui.components.FilterChipRow
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
 import me.foxtails.palustris.ui.media.MediaOpenRequest
-import me.foxtails.palustris.ui.motion.PopEffect
 
 @Composable
 fun ProfileScreen(
@@ -289,332 +267,6 @@ fun ProfileScreen(
                     rowContentDescription = "Profile categories; swipe horizontally for more",
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun LegacyLargeProfilePresentation(
-    account: Account,
-    state: ProfileUiState,
-    isSelf: Boolean,
-    showSummary: Boolean,
-    listState: LazyListState?,
-    endContentClearance: androidx.compose.ui.unit.Dp,
-    onCategorySelected: (ProfileCategory) -> Unit,
-    onOpenDrafts: () -> Unit,
-    onOpenBookmarks: () -> Unit,
-    onOpenLikes: () -> Unit,
-    onRefresh: () -> Unit,
-    onLoadMore: () -> Unit,
-    onFollow: () -> Unit,
-    onUnfollow: () -> Unit,
-    onMessage: () -> Unit,
-    onOpenProfile: (Account) -> Unit,
-    onOpenProfileImage: (String) -> Unit,
-    details: @Composable () -> Unit,
-    availableActions: Set<PostAction>,
-    onReact: (OwnedPost) -> Unit,
-    onReply: (OwnedPost) -> Unit,
-    onReshare: (OwnedPost) -> Unit,
-    onBookmark: (OwnedPost) -> Unit,
-    onReaction: (OwnedPost, EmojiChoice) -> Unit,
-    onOpenReactionBubble: ((OwnedPost, Rect) -> Unit)?,
-    onOpenReactionPicker: (OwnedPost) -> Unit,
-    onOpenHashtagBubble: ((OwnedPost, List<String>, Rect) -> Unit)?,
-    onOpenMedia: (MediaOpenRequest) -> Unit,
-    onOpenPost: (OwnedPost) -> Unit,
-    onSearchHashtag: (String) -> Unit,
-    onOpenUrl: ((String) -> Unit)?,
-    onOpenUsername: ((String) -> Unit)?,
-    onEditProfile: (() -> Unit)?,
-) {
-    @Composable
-    fun timeline() {
-        ProfileTimelineList(
-            account = account,
-            state = state,
-            compactLayout = false,
-            endContentClearance = endContentClearance,
-            isSelf = isSelf,
-            onCategorySelected = onCategorySelected,
-            onOpenDrafts = onOpenDrafts,
-            onOpenBookmarks = onOpenBookmarks,
-            onRefresh = onRefresh,
-            onLoadMore = onLoadMore,
-            onOpenProfile = onOpenProfile,
-            onSearchHashtag = onSearchHashtag,
-            availableActions = availableActions,
-            onReact = onReact,
-            onReply = onReply,
-            onReshare = onReshare,
-            onBookmark = onBookmark,
-            onReaction = onReaction,
-            onOpenReactionBubble = onOpenReactionBubble,
-            onOpenReactionPicker = onOpenReactionPicker,
-            onOpenHashtagBubble = onOpenHashtagBubble,
-            onOpenMedia = onOpenMedia,
-            onOpenPost = onOpenPost,
-            onOpenUrl = onOpenUrl,
-            onOpenUsername = onOpenUsername,
-            header = {},
-            details = details,
-             listState = listState,
-             showHeader = false,
-             showInlineCategories = false,
-             largeLayout = true,
-         )
-    }
-
-    @Composable
-    fun dock(modifier: Modifier = Modifier) {
-        LargeBottomDock(
-            content = {
-                ProfileCategoryChips(
-                    selected = state.selectedTab,
-                    isSelf = isSelf,
-                    onCategorySelected = onCategorySelected,
-                         onOpenDrafts = onOpenDrafts,
-                         onOpenBookmarks = onOpenBookmarks,
-                         onOpenLikes = onOpenLikes,
-                         onEditProfile = onEditProfile ?: {},
-                         includeLikes = true,
-                         includeShowMore = false,
-                         includeEditProfile = true,
-                     )
-            },
-            modifier = modifier,
-        )
-    }
-
-    if (showSummary) {
-        Box(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxSize()) {
-                Column(
-                    Modifier
-                        .weight(0.42f)
-                        .fillMaxHeight()
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    ProfileHeader(
-                        account = account,
-                        state = state,
-                        isSelf = isSelf,
-                        onRefresh = onRefresh,
-                        onFollow = onFollow,
-                        onUnfollow = onUnfollow,
-                        onMessage = onMessage,
-                         onOpenProfile = onOpenProfile,
-                         onOpenProfileImage = onOpenProfileImage,
-                         onEditProfile = onEditProfile,
-                         largeSummary = showSummary,
-                     )
-                    details()
-                }
-                Box(Modifier.weight(0.58f).fillMaxHeight()) {
-                    timeline()
-                }
-            }
-            dock(Modifier.align(Alignment.BottomStart))
-        }
-    } else {
-        Box(Modifier.fillMaxSize()) {
-            timeline()
-            dock(Modifier.align(Alignment.BottomStart))
-        }
-    }
-}
-
-@Composable
-private fun LegacyProfileHeader(
-    account: Account,
-    state: ProfileUiState,
-    isSelf: Boolean,
-    onRefresh: () -> Unit,
-    onFollow: () -> Unit,
-    onUnfollow: () -> Unit,
-    onMessage: () -> Unit,
-    onOpenProfile: (Account) -> Unit,
-    onOpenProfileImage: (String) -> Unit = {},
-    onEditProfile: (() -> Unit)? = null,
-    largeSummary: Boolean = false,
-) {
-    val context = LocalContext.current
-    val mediaImageLoader = remember(context) { MediaImageLoader.get(context) }
-    val statusBarHeight = with(LocalDensity.current) {
-        WindowInsets.statusBars.getTop(this).toDp()
-    }.coerceAtLeast(1.dp)
-    Column(Modifier.fillMaxWidth().testTag("profile_header")) {
-        val movedTo = account.movedTo?.takeIf { it.hasUsableProfileIdentity() }
-        movedTo?.let { destination ->
-            ProfileRedirectBanner(
-                account = account,
-                destination = destination,
-                onOpenProfile = { onOpenProfile(destination) },
-            )
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp)
-                .testTag("profile_banner"),
-        ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().height(152.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-            ) {
-                AsyncImage(
-                    model = account.bannerUrl,
-                    imageLoader = mediaImageLoader.imageLoader,
-                    contentDescription = stringResource(R.string.profile_banner),
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            if (statusBarHeight > 0.dp) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(statusBarHeight)
-                        .clip(RectangleShape)
-                        .testTag("profile_banner_status_bar_blur"),
-                ) {
-                    AsyncImage(
-                        model = account.bannerUrl,
-                        imageLoader = mediaImageLoader.imageLoader,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().blur(24.dp),
-                    )
-                }
-            }
-            Surface(
-                modifier = Modifier
-                    .then(
-                        if (largeSummary) {
-                            Modifier.align(Alignment.BottomCenter).size(96.dp).testTag("profile_large_avatar")
-                        } else {
-                            Modifier.padding(start = 16.dp, top = 104.dp).size(112.dp)
-                        },
-                    )
-                    .clip(CircleShape)
-                    .then(account.avatarUrl?.let { Modifier.clickable { onOpenProfileImage(it) } } ?: Modifier),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 4.dp,
-            ) {
-                PopEffect(account.id) {
-                    AccountAvatar(account, Modifier.padding(4.dp))
-                }
-            }
-            account.bannerUrl?.let { bannerUrl ->
-                Box(
-                    Modifier
-                        .matchParentSize()
-                        .clickable { onOpenProfileImage(bannerUrl) },
-                )
-            }
-        }
-
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    InlineEmojiText(
-                        text = account.displayName.ifBlank { account.handle },
-                        emoji = account.emoji,
-                        style = if (largeSummary) MaterialTheme.typography.titleMedium
-                        else MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    )
-                    Text(
-                        text = account.handle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = if (largeSummary) MaterialTheme.typography.bodyMedium
-                        else MaterialTheme.typography.bodyLarge,
-                    )
-                }
-                if (isSelf && !largeSummary && onEditProfile != null && state.editableSupported) {
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = onEditProfile,
-                        modifier = Modifier.testTag("profile_edit_action"),
-                    ) { Text(stringResource(R.string.profile_edit)) }
-                } else if (!isSelf && movedTo == null) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = onMessage,
-                            modifier = Modifier.testTag("profile_message_action"),
-                        ) { Text(stringResource(R.string.profile_message)) }
-                        if (state.relationshipSupported == true && state.relationship != null) {
-                            val relationship = state.relationship
-                            val following = relationship.following || relationship.requested
-                            Button(
-                                onClick = if (following) onUnfollow else onFollow,
-                                enabled = !state.relationshipMutation,
-                                modifier = Modifier.testTag("profile_follow_action"),
-                            ) {
-                                if (state.relationshipMutation) {
-                                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                                } else {
-                                    Text(
-                                        when {
-                                            relationship.following -> "Following"
-                                            relationship.requested -> "Requested"
-                                            else -> "Follow"
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (account.locked || account.bot) {
-                Row(
-                    modifier = Modifier.padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (account.locked) ProfileBadge("Locked")
-                    if (account.bot) ProfileBadge("Bot")
-                }
-            }
-
-            InlineEmojiText(
-                text = account.biography.ifBlank { "No biography yet." },
-                emoji = account.emoji,
-                modifier = Modifier.padding(top = 16.dp).testTag("profile_biography"),
-                style = if (largeSummary) MaterialTheme.typography.bodyMedium
-                else MaterialTheme.typography.bodyLarge,
-            )
-
-            ProfileStats(account)
-
-            when {
-                state.detailLoading -> LinearProfileProgress("Loading profile details")
-                state.staleDetails && state.detailError != null -> ProfileStatus(
-                    message = "Showing saved profile details. ${state.detailError}",
-                    action = "Retry",
-                    onAction = onRefresh,
-                )
-                state.detailError != null -> ProfileStatus(
-                    message = state.detailError,
-                    action = "Retry",
-                    onAction = onRefresh,
-                )
-            }
-
-            if (!isSelf && state.relationshipError != null) {
-                ProfileStatus(
-                    message = state.relationshipError,
-                    action = "Retry",
-                    onAction = onRefresh,
-                )
-            }
-
-            Spacer(Modifier.height(20.dp))
         }
     }
 }

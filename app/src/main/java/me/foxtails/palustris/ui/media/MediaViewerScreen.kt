@@ -38,26 +38,17 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -409,73 +400,6 @@ fun MediaViewerScreen(
             }
         }
     }
-}
-
-@Composable
-private fun LegacyMediaTransitionImage(
-    frame: MediaTransitionFrame,
-    previewRequest: ImageRequest?,
-    fullRequest: ImageRequest?,
-    imageLoader: coil.ImageLoader,
-    useFullImage: Boolean,
-    onFullImageReady: () -> Unit,
-) {
-    if (!frame.visibleBounds.isValid() || (previewRequest == null && fullRequest == null)) return
-    val previewPainter = previewRequest?.let { rememberAsyncImagePainter(it, imageLoader) }
-    val fullPainter = fullRequest?.let { rememberAsyncImagePainter(it, imageLoader) }
-    val fullReady = fullPainter?.state is AsyncImagePainter.State.Success
-    LaunchedEffect(fullPainter?.state) {
-        if (fullPainter?.state is AsyncImagePainter.State.Success) onFullImageReady()
-    }
-    val painter = if (useFullImage && fullReady) fullPainter else previewPainter ?: fullPainter
-    if (painter == null) return
-    LegacyMediaTransitionImageCanvas(painter, frame)
-}
-
-@Composable
-internal fun LegacyMediaTransitionImageCanvas(
-    painter: Painter,
-    frame: MediaTransitionFrame,
-) {
-    if (!frame.visibleBounds.isValid() || !frame.clipBounds.isValid() || !frame.imageBounds.isValid()) return
-    Box(
-        Modifier
-            .fillMaxSize()
-            .drawWithCache {
-                val radius = frame.cornerRadiusPx.coerceIn(
-                    0f,
-                    minOf(frame.clipBounds.width, frame.clipBounds.height) / 2f,
-                )
-                val roundedClip = Path().apply {
-                    addRoundRect(
-                        RoundRect(
-                            rect = frame.clipBounds,
-                            radiusX = radius,
-                            radiusY = radius,
-                        ),
-                    )
-                }
-                onDrawWithContent {
-                    drawContent()
-                    clipRect(
-                        left = frame.visibleBounds.left,
-                        top = frame.visibleBounds.top,
-                        right = frame.visibleBounds.right,
-                        bottom = frame.visibleBounds.bottom,
-                    ) {
-                        clipPath(roundedClip) {
-                            translate(frame.imageBounds.left, frame.imageBounds.top) {
-                                with(painter) {
-                                    draw(
-                                        size = Size(frame.imageBounds.width, frame.imageBounds.height),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-    )
 }
 
 private fun mediaRequest(

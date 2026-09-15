@@ -31,6 +31,7 @@ import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.mergeExternalActionFields
+import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
 
@@ -38,7 +39,7 @@ import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
 class FeedViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted private val source: SocialSource,
-    private val syncCoordinator: AccountSyncCoordinator,
+    private val syncCoordinator: NotificationSyncOrchestrator,
     private val postPreferencesRepository: PostPreferencesRepository,
     private val photoGridPreferencesRepository: PhotoGridPreferencesRepository,
     @Assisted private val sessionRevision: Long,
@@ -47,7 +48,7 @@ class FeedViewModel @AssistedInject constructor(
     constructor(
         accountId: AccountId,
         source: SocialSource,
-        syncCoordinator: AccountSyncCoordinator,
+        syncCoordinator: NotificationSyncOrchestrator,
     ) : this(
         accountId,
         source,
@@ -119,6 +120,10 @@ class FeedViewModel @AssistedInject constructor(
         }
     }
 
+    /**
+     * Reloads the timeline from the first page. Each call advances the feed epoch.
+     * A superseded launch drops its page instead of writing stale rows.
+     */
     fun refresh(timeline: Timeline = _feed.value.timeline) {
         if (stopped) return
         val epoch = ++feedEpoch

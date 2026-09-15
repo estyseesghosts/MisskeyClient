@@ -22,7 +22,7 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.ui.AccountSyncCoordinator
+import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
 import me.foxtails.palustris.ui.FeedViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -70,7 +70,7 @@ class FeedViewModelRequestTest {
     @Test
     fun acceptedPageMergesIntoCurrentRowsAndKeepsMutations() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = GatedSource()
             val model = FeedViewModel(accountId, source, coordinator)
@@ -98,7 +98,7 @@ class FeedViewModelRequestTest {
     @Test
     fun refreshAdvancesTheRequestEpochAndPagingKeepsIt() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = GatedSource()
             val model = FeedViewModel(accountId, source, coordinator)
@@ -138,7 +138,7 @@ class FeedViewModelRequestTest {
             }
             override suspend fun searchHashtag(tag: String, cursor: String?): Page<Post> = Page(emptyList())
         }
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val model = FeedViewModel(accountId, failing, coordinator)
             advanceUntilIdle()
@@ -158,7 +158,7 @@ class FeedViewModelRequestTest {
     @Test
     fun staleRefreshSuccessCannotReplaceNewerRefresh() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = GatedSource()
             val model = FeedViewModel(accountId, source, coordinator)
@@ -185,7 +185,7 @@ class FeedViewModelRequestTest {
     @Test
     fun staleRefreshFailureDoesNotPublishAnError() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = GatedSource()
             val model = FeedViewModel(accountId, source, coordinator)
@@ -213,7 +213,7 @@ class FeedViewModelRequestTest {
     @Test
     fun stopRejectsLateRefreshCompletion() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = GatedSource()
             val model = FeedViewModel(accountId, source, coordinator)
@@ -234,7 +234,7 @@ class FeedViewModelRequestTest {
     @Test
     fun repeatedCursorStopsAutomaticPaging() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = GatedSource()
             val model = FeedViewModel(accountId, source, coordinator)
@@ -258,7 +258,7 @@ class FeedViewModelRequestTest {
     @Test
     fun acceptedCursorCycleStopsPaging() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = GatedSource()
             val model = FeedViewModel(accountId, source, coordinator)
@@ -288,7 +288,7 @@ class FeedViewModelRequestTest {
     @Test
     fun queuedPagingCallsReserveOneSlot() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = GatedSource()
             val model = FeedViewModel(accountId, source, coordinator)
@@ -313,7 +313,7 @@ class FeedViewModelRequestTest {
     @Test
     fun failedPageKeepsCursorForARetry() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = GatedSource()
             val model = FeedViewModel(accountId, source, coordinator)

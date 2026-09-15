@@ -7,17 +7,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.SpringyIconButton
-import me.foxtails.palustris.ui.motion.rememberSelectedColor
-import me.foxtails.palustris.ui.motion.rememberSelectedScale
 
 @Composable
 fun ActionIcon(icon: ImageVector, label: String, onClick: () -> Unit) {
@@ -68,30 +64,6 @@ fun Avatar(modifier: Modifier = Modifier, description: String? = "Profile avatar
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(AppIcons.Person, null, Modifier.fillMaxSize(.55f), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SectionTabs(titles: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    PrimaryTabRow(selectedTabIndex = selected) {
-        titles.forEachIndexed { index, title ->
-            val isSelected = selected == index
-            val selectedColor = rememberSelectedColor(isSelected, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onSurfaceVariant)
-            val selectedScale = rememberSelectedScale(isSelected)
-            Tab(selected = selected == index, onClick = { onSelect(index) }, text = {
-                Text(
-                    title,
-                    modifier = Modifier.graphicsLayer {
-                        scaleX = selectedScale
-                        scaleY = selectedScale
-                    },
-                    color = selectedColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            })
         }
     }
 }

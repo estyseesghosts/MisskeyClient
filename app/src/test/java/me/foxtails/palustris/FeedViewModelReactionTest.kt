@@ -28,7 +28,7 @@ import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.ValidatedUrl
-import me.foxtails.palustris.ui.AccountSyncCoordinator
+import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
 import me.foxtails.palustris.ui.FeedViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -105,7 +105,7 @@ class FeedViewModelReactionTest {
     @Test
     fun singleModeReplaceRemovesPreviousReactionBeforeAddingTheNewOne() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(
                 post(
@@ -145,7 +145,7 @@ class FeedViewModelReactionTest {
     @Test
     fun independentModeTogglesOnlyTheChosenReaction() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(
                 post(
@@ -182,7 +182,7 @@ class FeedViewModelReactionTest {
     @Test
     fun deselectingTheSelectedReactionRemovesIt() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(
                 post(
@@ -212,7 +212,7 @@ class FeedViewModelReactionTest {
     @Test
     fun failedMutationRollsBackToThePreviousPost() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(post(), ReactionSelectionMode.Single)
             val model = FeedViewModel(accountId, source, coordinator)
@@ -233,7 +233,7 @@ class FeedViewModelReactionTest {
     @Test
     fun duplicateTapsSuppressUntilTheInFlightActionCompletes() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(post(), ReactionSelectionMode.Single)
             source.reactGate = CompletableDeferred()
@@ -257,7 +257,7 @@ class FeedViewModelReactionTest {
     @Test
     fun reactionOnAPostOutsideHomePublishesAnOptimisticProjection() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(post(), ReactionSelectionMode.Single)
             val model = FeedViewModel(accountId, source, coordinator)
@@ -278,7 +278,7 @@ class FeedViewModelReactionTest {
     @Test
     fun unicodeReactionOnExistingRowIncrementsItsCount() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(
                 post(reactions = listOf(Reaction("❤️", 1, selected = true))),
@@ -300,7 +300,7 @@ class FeedViewModelReactionTest {
     @Test
     fun reactionSelectionsSurviveWithImageMetadata() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(
                 post(reactions = listOf(Reaction(":blob:", 1, selected = true, emojiMetadata = blob))),
@@ -322,7 +322,7 @@ class FeedViewModelReactionTest {
     @Test
     fun knownReactionTotalChangesForAddRemoveAndReplacement() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(
                 post(
@@ -354,7 +354,7 @@ class FeedViewModelReactionTest {
     @Test
     fun unavailableReactionTotalStaysUnavailableAfterOptimisticMutation() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(post(), ReactionSelectionMode.Independent)
             val model = FeedViewModel(accountId, source, coordinator)
@@ -371,7 +371,7 @@ class FeedViewModelReactionTest {
     @Test
     fun hashtagSearchReactionMutationUpdatesTheSearchResultRow() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ReactionSource(post(), ReactionSelectionMode.Single)
             val model = FeedViewModel(accountId, source, coordinator)

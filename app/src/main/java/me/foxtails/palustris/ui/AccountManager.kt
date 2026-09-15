@@ -39,11 +39,12 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
+import me.foxtails.palustris.data.notifications.NotificationSyncController
+import me.foxtails.palustris.data.notifications.NoOpNotificationSyncController
 import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.domain.PhotoGridPreferencesRepository
 import me.foxtails.palustris.domain.PushSessionState
-import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
@@ -68,7 +69,7 @@ class AccountManager @Inject constructor(
     private val auth: AuthGateway,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val sourceFactory: SocialSourceFactory,
-    private val notificationSync: AccountNotificationSyncController,
+    private val notificationSync: NotificationSyncController,
     private val pushRegistrationManager: PushRegistrationManager,
     private val notificationStreamController: NotificationStreamController,
     private val postPreferencesRepository: PostPreferencesRepository,
@@ -91,7 +92,7 @@ class AccountManager @Inject constructor(
         auth,
         ioDispatcher,
         SocialSourceFactory(HttpClientPool()),
-        NoOpAccountNotificationSyncController(),
+        NoOpNotificationSyncController(),
         NoOpPushRegistrationManager(),
         NoOpNotificationStreamController(),
         InMemoryPostPreferencesRepository(),
@@ -313,6 +314,11 @@ class AccountManager @Inject constructor(
         }
     }
 
+    /**
+     * Removes one account with every account-scoped row. Live delivery stops first.
+     * Writers are revoked before their rows are deleted. Storage commits before the
+     * in-memory index moves, so a late write cannot resurrect deleted data.
+     */
     fun removeAccount(accountId: me.foxtails.palustris.domain.AccountId) {
         viewModelScope.launch {
             try {

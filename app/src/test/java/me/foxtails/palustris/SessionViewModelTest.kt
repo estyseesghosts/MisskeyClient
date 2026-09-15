@@ -10,7 +10,7 @@ import me.foxtails.palustris.data.misskey.ApiFailure
 import me.foxtails.palustris.data.misskey.MisskeyErrorMapper
 import me.foxtails.palustris.domain.*
 import me.foxtails.palustris.ui.AccountManager
-import me.foxtails.palustris.ui.AccountSyncCoordinator
+import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
 import me.foxtails.palustris.ui.FeedViewModel
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -156,7 +156,7 @@ class SessionViewModelTest {
             val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
             val source = Source()
             val accountManager = AccountManager(store, auth(login), StandardTestDispatcher(testScheduler))
-            val feedModel = FeedViewModel(login.account.id, source, AccountSyncCoordinator())
+            val feedModel = FeedViewModel(login.account.id, source, NotificationSyncOrchestrator())
             owner.put("account", accountManager)
             owner.put("feed", feedModel)
             advanceUntilIdle()
@@ -318,7 +318,7 @@ class SessionViewModelTest {
         try {
             val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
             val source = Source()
-            val model = FeedViewModel(login.account.id, source, AccountSyncCoordinator())
+            val model = FeedViewModel(login.account.id, source, NotificationSyncOrchestrator())
             owner.put("feed", model)
             advanceUntilIdle()
 
@@ -349,7 +349,7 @@ class SessionViewModelTest {
                     canPublish = true,
                 ),
             )
-            val model = FeedViewModel(login.account.id, source, AccountSyncCoordinator())
+            val model = FeedViewModel(login.account.id, source, NotificationSyncOrchestrator())
             owner.put("feed", model)
             advanceUntilIdle()
 
@@ -386,7 +386,7 @@ class SessionViewModelTest {
                     canPublish = true,
                 ),
             )
-            val model = FeedViewModel(login.account.id, source, AccountSyncCoordinator())
+            val model = FeedViewModel(login.account.id, source, NotificationSyncOrchestrator())
             owner.put("feed", model)
             advanceUntilIdle()
             val previous = model.feed.value
@@ -408,7 +408,7 @@ class SessionViewModelTest {
     @Test fun actionsUseFetchedAccountFilterClientReadinessAndRejectDuplicates() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val owner = ViewModelStore()
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val source = ActionSource()
             val model = FeedViewModel(login.account.id, source, coordinator)
@@ -450,7 +450,7 @@ class SessionViewModelTest {
     @Test fun switchingAccountsRebindsFeedTimelineActionsAndOwnership() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val owner = ViewModelStore()
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val secondLogin = LoginSession(
                 "https://other.example",
@@ -517,7 +517,7 @@ class SessionViewModelTest {
     @Test fun stoppingFeedDoesNotStopAccountNotificationPolling() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val owner = ViewModelStore()
-        val coordinator = AccountSyncCoordinator()
+        val coordinator = NotificationSyncOrchestrator()
         try {
             val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
             val source = Source()
@@ -543,7 +543,7 @@ class SessionViewModelTest {
         try {
             val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
             val source = Source()
-            val model = FeedViewModel(login.account.id, source, AccountSyncCoordinator())
+            val model = FeedViewModel(login.account.id, source, NotificationSyncOrchestrator())
             owner.put("feed", model)
             advanceUntilIdle()
             source.timelineCalls.clear()

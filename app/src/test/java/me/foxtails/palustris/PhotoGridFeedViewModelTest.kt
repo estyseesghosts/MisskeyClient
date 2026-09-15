@@ -21,7 +21,7 @@ import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.timelineDisplayOrder
-import me.foxtails.palustris.ui.AccountSyncCoordinator
+import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
 import me.foxtails.palustris.ui.FeedViewModel
 import me.foxtails.palustris.ui.PhotoGridFeed
 import org.junit.Assert.assertEquals
@@ -104,7 +104,7 @@ class PhotoGridFeedViewModelTest {
     private fun model(source: GridSource) = FeedViewModel(
         account,
         source,
-        AccountSyncCoordinator(),
+        NotificationSyncOrchestrator(),
         InMemoryPostPreferencesRepository(),
         InMemoryPhotoGridPreferencesRepository(),
         7L,
