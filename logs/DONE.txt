@@ -902,3 +902,4 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Kept all existing entries. Every added string has an exact English match in at least one reference. Dropped reference hits with wrong meaning, platform jargon, or file-convention clashes; those keys stay in English fallback.
 - Standalone checks passed per slice: XML parses, keys in default catalog, kinds and placeholders match, no platform words in added strings.
 - ru-RU and in-ID remain blocked: no Beeline locale files exist and new locales need code changes. See logs/BUGS.txt.
+- Verification complete: LocalizationResourceTest passes (5 tests, 0 failures), which covers all touched locale files. The earlier locked-R.jar blocker is resolved.

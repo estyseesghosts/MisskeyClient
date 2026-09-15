@@ -39,7 +39,7 @@ Done. ru-RU and in-ID stay blocked (no Beeline locale files; new files need code
 # Verification
 
 - Standalone checks passed per slice: XML parses, keys stay in the default catalog, kinds and placeholders match, no platform words in added strings.
-- Gradle LocalizationResourceTest stays blocked by the locked app build R.jar unless the IDE releases it.
+- Gradle LocalizationResourceTest passes: 5 tests, 0 failures. This covers every touched locale file. The earlier locked-R.jar blocker is resolved and its BUGS.txt entry is removed.
 
 # Next
 
@@ -48,8 +48,7 @@ Done. No further slices in this task.
 # Blockers
 
 - ru-RU and in-ID have no Beeline locale files. New locale files need AppLanguage, locale-config, and test-mapping code changes, which are out of scope. Mastodon-android has values-ru-rRU and values-in-rID; Aria has misskey_ru-RU and id-ID references ready.
-- Gradle LocalizationResourceTest may stay blocked by the locked app build R.jar.
 
 # Last safe commit
 
-ccfa9ea Add pt-PT strings from reference applications.
+78fb2c4 Record reference localization results.
