@@ -22,11 +22,29 @@ app file. Do not describe them as verified released-file captures.
 | `read_states.json` | Read, unread, and unknown. Independent local-seen, server-acknowledged, Android-presented, and Android-dismissed flags. |
 | `delivery_variants.json` | Every delivery state. Claims, expiry, attempt count, tags, and IDs. |
 | `delivery_duplicate_ids.json` | Two delivery records for one notification. The last record wins. |
+| `posts_and_accounts.json` | Recursive quotes, moved accounts, profile fields, emoji maps, attachments, polls, wrapper IDs, and action IDs. |
+| `interaction_counts.json` | Missing, null, zero, positive, negative, numeric-string, fractional, overflow, malformed-text, and boolean counts. |
+| `unread_states.json` | Manifest. Exact, at-least, present, none, unknown, missing, negative normalization, and an unknown kind. |
+| `settings_states.json` | Manifest. Absent settings, empty object, empty categories, unknown categories, valid and out-of-range quiet hours, distributor, preview, and fallback flags. |
+| `push_states.json` | Manifest. Every persisted push field, an endpoint-only connected legacy record, a revision default, and unavailable-state retry metadata. |
+| `checkpoints.json` | Singular and keyed checkpoints with all cursor fields, completeness, baseline, and capture time. |
+| `checkpoint_fallback.json` | Missing completeness, capture time, and baseline decode to their defaults. |
+| `malformed_root_shape.json` | Wrong root value types decode to an empty state. |
+| `malformed_entries.json` | Invalid item, dismissal, and delivery entries drop one at a time. |
+| `malformed_checkpoint.json` | A singular checkpoint without its account or query fails the complete decode. |
+| `malformed_push.json` | A push registration without its account or instance fails the complete decode. |
+| `malformed_broken.json` | Text that is not JSON. The file store returns no state; the Room store throws. |
+| `known_omissions.json` | Post visibility and group actor continuation are not persisted. |
 
-The `activity_variants`, `navigation_variants`, `read_states`, and `delivery_variants` fixtures
-are encoder-stable. The `legacy_minimal_state`, `navigation_malformed`, and
-`delivery_duplicate_ids` fixtures characterize the decoder only; the encoder does not reproduce
-their omitted or rejected fields.
+The `unread_states`, `settings_states`, and `push_states` fixtures are case manifests. Each key
+holds a full state object for the decoder. They exist because the codec stores one unread,
+settings, or push value per state.
+
+The `activity_variants`, `navigation_variants`, `read_states`, `delivery_variants`,
+`posts_and_accounts`, and `checkpoints` fixtures are encoder-stable. The `legacy_minimal_state`,
+`navigation_malformed`, `delivery_duplicate_ids`, `interaction_counts`, `checkpoint_fallback`,
+`known_omissions`, and all `malformed_*` fixtures characterize the decoder only; the encoder
+does not reproduce their omitted or rejected fields.
 
 All account names, origins, and endpoints are synthetic. No real notification history,
 access token, or push credential appears in these files.

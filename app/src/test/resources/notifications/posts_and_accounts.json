@@ -1,0 +1,226 @@
+{
+  "version": 2,
+  "items": [
+    {
+      "id": { "connection": "https://misskey.example", "value": "posts-1" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "createdAt": 100,
+      "activity": { "kind": "mention" },
+      "actors": [],
+      "target": { "kind": "post", "id": { "connection": "https://misskey.example", "value": "post-1" } },
+      "destination": {
+        "kind": "in_app",
+        "target": { "kind": "post", "id": { "connection": "https://misskey.example", "value": "post-1" } }
+      },
+      "post": {
+        "id": { "connection": "https://misskey.example", "value": "post-1" },
+        "author": {
+          "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-1" },
+          "displayName": "Actor One",
+          "handle": "@actor1@misskey.example",
+          "avatarUrl": "https://misskey.example/avatar.png",
+          "biography": "Bio",
+          "profileFields": [ { "name": "Site", "value": "https://actor.example" } ],
+          "bannerUrl": "https://misskey.example/banner.png",
+          "followersCount": 5,
+          "followingCount": 6,
+          "postsCount": 7,
+          "locked": false,
+          "bot": false,
+          "emoji": {
+            "blobcat": {
+              "shortcode": "blobcat",
+              "animatedUrl": "https://misskey.example/blobcat.gif",
+              "staticUrl": "https://misskey.example/blobcat.png",
+              "category": "cats",
+              "aliases": [ "bc" ],
+              "visibleInPicker": true,
+              "submissionValue": ":blobcat:"
+            }
+          },
+          "movedTo": {
+            "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-2" },
+            "displayName": "Actor Two",
+            "handle": "@actor2@misskey.example",
+            "biography": "",
+            "profileFields": [],
+            "locked": false,
+            "bot": false,
+            "emoji": {}
+          }
+        },
+        "text": "Hello world",
+        "publishedAt": 111,
+        "audience": "Public",
+        "attachments": [
+          {
+            "url": "https://misskey.example/file.png",
+            "mimeType": "image/png",
+            "description": "A cat",
+            "previewUrl": "https://misskey.example/file-preview.png",
+            "sensitive": false,
+            "id": "att-1",
+            "kind": "Image",
+            "width": 100,
+            "height": 200,
+            "previewWidth": 50,
+            "previewHeight": 100,
+            "blurhash": "LEHV6nWB2yk8pyo0adR*",
+            "remoteOriginalUrl": "https://remote.example/file.png"
+          }
+        ],
+        "contentWarning": "cw",
+        "replyTo": { "connection": "https://misskey.example", "value": "post-0" },
+        "replyToAuthorId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-0" },
+        "reactions": [
+          {
+            "emoji": ":blobcat:",
+            "count": 2,
+            "selected": true,
+            "emojiMetadata": {
+              "shortcode": "blobcat",
+              "animatedUrl": "https://misskey.example/blobcat.gif",
+              "staticUrl": "https://misskey.example/blobcat.png",
+              "category": "cats",
+              "aliases": [ "bc" ],
+              "visibleInPicker": true,
+              "submissionValue": ":blobcat:"
+            }
+          }
+        ],
+        "availableActions": [ "Reply", "React", "Bookmark" ],
+        "url": "https://misskey.example/notes/post-1",
+        "replyCount": 5,
+        "reshareCount": 3,
+        "favouriteCount": 1,
+        "reactionCount": 2,
+        "quoteRepostCount": 4,
+        "quote": {
+          "id": { "connection": "https://misskey.example", "value": "post-2" },
+          "author": {
+            "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-1" },
+            "displayName": "Actor One",
+            "handle": "@actor1@misskey.example",
+            "avatarUrl": "https://misskey.example/avatar.png",
+            "biography": "Bio",
+            "profileFields": [ { "name": "Site", "value": "https://actor.example" } ],
+            "bannerUrl": "https://misskey.example/banner.png",
+            "followersCount": 5,
+            "followingCount": 6,
+            "postsCount": 7,
+            "locked": false,
+            "bot": false,
+            "emoji": {},
+            "movedTo": {
+              "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-2" },
+              "displayName": "Actor Two",
+              "handle": "@actor2@misskey.example",
+              "biography": "",
+              "profileFields": [],
+              "locked": false,
+              "bot": false,
+              "emoji": {}
+            }
+          },
+          "text": "Quoted",
+          "publishedAt": 112,
+          "audience": "Unlisted",
+          "attachments": [],
+          "reactions": [],
+          "availableActions": [],
+          "quote": {
+            "id": { "connection": "https://misskey.example", "value": "post-3" },
+            "author": {
+              "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-1" },
+              "displayName": "Actor One",
+              "handle": "@actor1@misskey.example",
+              "avatarUrl": "https://misskey.example/avatar.png",
+              "biography": "Bio",
+              "profileFields": [ { "name": "Site", "value": "https://actor.example" } ],
+              "bannerUrl": "https://misskey.example/banner.png",
+              "followersCount": 5,
+              "followingCount": 6,
+              "postsCount": 7,
+              "locked": false,
+              "bot": false,
+              "emoji": {},
+              "movedTo": {
+                "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-2" },
+                "displayName": "Actor Two",
+                "handle": "@actor2@misskey.example",
+                "biography": "",
+                "profileFields": [],
+                "locked": false,
+                "bot": false,
+                "emoji": {}
+              }
+            },
+            "text": "Deep quote",
+            "publishedAt": 113,
+            "audience": "Followers",
+            "attachments": [],
+            "reactions": [],
+            "availableActions": [],
+            "pollOptions": [],
+            "reposted": false,
+            "favourited": false,
+            "saved": false,
+            "selectedReactions": [],
+            "emoji": {}
+          },
+          "pollOptions": [],
+          "reposted": false,
+          "favourited": false,
+          "saved": false,
+          "selectedReactions": [],
+          "emoji": {}
+        },
+        "pollOptions": [ { "text": "Cats", "votes": 3 }, { "text": "Dogs", "votes": 2 } ],
+        "reposted": false,
+        "favourited": true,
+        "saved": true,
+        "myReaction": ":blobcat:",
+        "selectedReactions": [
+          {
+            "submissionValue": ":blobcat:",
+            "displayText": ":blobcat:",
+            "emoji": {
+              "shortcode": "blobcat",
+              "animatedUrl": "https://misskey.example/blobcat.gif",
+              "staticUrl": "https://misskey.example/blobcat.png",
+              "category": "cats",
+              "aliases": [ "bc" ],
+              "visibleInPicker": true,
+              "submissionValue": ":blobcat:"
+            }
+          }
+        ],
+        "emoji": {
+          "blobcat": {
+            "shortcode": "blobcat",
+            "animatedUrl": "https://misskey.example/blobcat.gif",
+            "staticUrl": "https://misskey.example/blobcat.png",
+            "category": "cats",
+            "aliases": [ "bc" ],
+            "visibleInPicker": true,
+            "submissionValue": ":blobcat:"
+          }
+        },
+        "ownRepostId": { "connection": "https://misskey.example", "value": "repost-1" },
+        "actionTargetId": { "connection": "https://misskey.example", "value": "target-1" }
+      },
+      "readStatus": "Unread",
+      "locallySeen": false,
+      "serverAcknowledged": false,
+      "androidPresented": false,
+      "androidDismissed": false,
+      "rawType": "mention"
+    }
+  ],
+  "unread": { "kind": "none" },
+  "lastSyncedAt": 0,
+  "dismissedIds": [],
+  "checkpoints": {},
+  "deliveries": [],
+  "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "periodicFallbackEnabled": false }
+}

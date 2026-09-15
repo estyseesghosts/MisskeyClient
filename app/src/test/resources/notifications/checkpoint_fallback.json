@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "checkpoint": {
+    "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+    "query": { "categories": [ "All" ] }
+  },
+  "checkpoints": {
+    "fallback|30|false": {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "query": { "categories": [ "All" ] },
+      "baselineEstablished": true
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "full": {
+    "version": 2,
+    "pushRegistration": {
+      "accountId": { "origin": "https://mastodon.example", "protocol": "MASTODON", "localId": "receiver" },
+      "generation": 7,
+      "sessionRevision": 3,
+      "instanceName": "push-instance",
+      "distributorPackage": "org.example.distributor",
+      "endpoint": "https://push.example/endpoint",
+      "serverEndpoint": "https://push.example/server-endpoint",
+      "serverRemoteId": "remote-1",
+      "confirmedEndpointGeneration": 2,
+      "state": "Connected",
+      "endpointGeneration": 2,
+      "retryCount": 1,
+      "lastErrorCategory": "network",
+      "lastErrorDetail": "timeout",
+      "failureStage": "ServerSubscription",
+      "failureReason": "Network",
+      "nextRetryAt": 9000
+    }
+  },
+  "legacy_connected": {
+    "version": 2,
+    "pushRegistration": {
+      "accountId": { "origin": "https://mastodon.example", "protocol": "MASTODON", "localId": "receiver" },
+      "generation": 1,
+      "instanceName": "push-instance",
+      "endpoint": "https://push.example/legacy-endpoint",
+      "state": "Connected"
+    }
+  },
+  "revision_default": {
+    "version": 2,
+    "pushRegistration": {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "generation": 2,
+      "instanceName": "push-instance",
+      "state": "Off"
+    }
+  },
+  "temporarily_unavailable": {
+    "version": 2,
+    "pushRegistration": {
+      "accountId": { "origin": "https://mastodon.example", "protocol": "MASTODON", "localId": "receiver" },
+      "generation": 3,
+      "sessionRevision": 4,
+      "instanceName": "push-instance",
+      "state": "TemporarilyUnavailable",
+      "retryCount": 4,
+      "lastErrorCategory": "network",
+      "lastErrorDetail": "timeout",
+      "failureStage": "ServerSubscription",
+      "failureReason": "Network",
+      "nextRetryAt": 9000
+    }
+  }
+}

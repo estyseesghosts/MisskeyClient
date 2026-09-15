@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "items": "not-an-array",
+  "unread": "not-an-object",
+  "lastSyncedAt": "not-a-number",
+  "dismissedIds": "not-an-array",
+  "checkpoint": "not-an-object",
+  "checkpoints": [],
+  "deliveries": 5,
+  "settings": 42,
+  "pushRegistration": "not-an-object"
+}

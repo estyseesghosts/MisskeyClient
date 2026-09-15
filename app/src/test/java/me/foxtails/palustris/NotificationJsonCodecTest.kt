@@ -9,13 +9,18 @@ import me.foxtails.palustris.data.notifications.decode
 import me.foxtails.palustris.data.notifications.encode
 import me.foxtails.palustris.data.notifications.stableFileName
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.EntityId
+import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCategory
+import me.foxtails.palustris.domain.NotificationCursor
 import me.foxtails.palustris.domain.NotificationDeliveryState
 import me.foxtails.palustris.domain.NotificationDestination
+import me.foxtails.palustris.domain.NotificationGroup
+import me.foxtails.palustris.domain.NotificationGroupId
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.NotificationReaction
 import me.foxtails.palustris.domain.NotificationReadStatus
@@ -23,14 +28,22 @@ import me.foxtails.palustris.domain.NotificationSettings
 import me.foxtails.palustris.domain.NotificationSyncCompleteness
 import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.NotificationUnreadState
+import me.foxtails.palustris.domain.PollOption
+import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.domain.PostContentVisibility
+import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.PushRegistrationFailureReason
+import me.foxtails.palustris.domain.PushRegistrationFailureStage
 import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -401,6 +414,317 @@ class NotificationJsonCodecTest {
         val record = deliveries.getValue(EntityId("https://misskey.example", "d-duplicate"))
         assertEquals(NotificationDeliveryState.Presented, record.state)
         assertEquals("tag-last", record.androidTag)
+    }
+
+    @Test
+    fun postsAndAccountsDecodeRecursiveQuotesAndIdentity() {
+        val post = decode(fixture("posts_and_accounts.json")).items.single().post!!
+
+        assertEquals(EntityId("https://misskey.example", "post-1"), post.id)
+        assertEquals("Actor One", post.author.displayName)
+        assertEquals(ProfileField("Site", "https://actor.example"), post.author.profileFields.single())
+        assertEquals(5L, post.author.followersCount)
+        assertEquals("blobcat", post.author.emoji.getValue("blobcat").shortcode)
+        assertEquals(
+            AccountId(Connection("https://misskey.example", Protocol.MISSKEY), "actor-2"),
+            post.author.movedTo?.id,
+        )
+        val attachment = post.attachments.single()
+        assertEquals("https://misskey.example/file.png", attachment.url)
+        assertEquals("A cat", attachment.description)
+        assertEquals("LEHV6nWB2yk8pyo0adR*", attachment.blurhash)
+        assertEquals("cw", post.contentWarning)
+        assertEquals(EntityId("https://misskey.example", "post-0"), post.replyTo)
+        assertEquals(2, post.reactions.single().count)
+        assertEquals(setOf(PostAction.Reply, PostAction.React, PostAction.Bookmark), post.availableActions)
+        assertEquals(1, post.interactionCounts.favouriteCount)
+        assertEquals(4, post.interactionCounts.quoteRepostCount)
+        assertEquals(PollOption("Cats", 3), post.pollOptions.first())
+        assertEquals(":blobcat:", post.myReaction)
+        assertEquals(EntityId("https://misskey.example", "repost-1"), post.ownRepostId)
+        assertEquals(EntityId("https://misskey.example", "target-1"), post.actionTargetId)
+
+        val quote = post.quote!!
+        assertEquals(EntityId("https://misskey.example", "post-2"), quote.id)
+        assertEquals(Audience.Unlisted, quote.audience)
+        assertEquals(EntityId("https://misskey.example", "post-3"), quote.quote?.id)
+        assertEquals("Deep quote", quote.quote?.text)
+    }
+
+    @Test
+    fun postsAndAccountsEncodeToTheFrozenFixture() {
+        val fixture = fixture("posts_and_accounts.json")
+
+        assertJsonEquals(fixture, encode(decode(fixture)))
+    }
+
+    @Test
+    fun interactionCountsDecodeSupportedAndUnsupportedValues() {
+        val items = decode(fixture("interaction_counts.json")).items.associateBy { it.id.value }
+
+        val known = items.getValue("counts-known").post!!.interactionCounts
+        assertEquals(0, known.favouriteCount)
+        assertEquals(12, known.reactionCount)
+        assertEquals(3, known.repostCount)
+        assertNull(known.quoteRepostCount)
+        assertNull(known.replyCount)
+
+        val unsupported = items.getValue("counts-unsupported").post!!.interactionCounts
+        assertNull(unsupported.favouriteCount)
+        assertNull(unsupported.reactionCount)
+        assertNull(unsupported.repostCount)
+        assertNull(unsupported.quoteRepostCount)
+        assertNull(unsupported.replyCount)
+    }
+
+    @Test
+    fun interactionCountsEncodeOmitsUnsupportedValues() {
+        val encodedItems = encode(decode(fixture("interaction_counts.json"))).getJSONArray("items")
+        val posts = (0 until encodedItems.length()).map { encodedItems.getJSONObject(it).getJSONObject("post") }
+        val unsupported = posts.single { it.getJSONObject("id").getString("value") == "post-unsupported" }
+
+        assertFalse(unsupported.has("favouriteCount"))
+        assertFalse(unsupported.has("reactionCount"))
+        assertFalse(unsupported.has("reshareCount"))
+        assertFalse(unsupported.has("quoteRepostCount"))
+        assertFalse(unsupported.has("replyCount"))
+    }
+
+    @Test
+    fun unreadStatesDecodeEveryKind() {
+        val cases = fixture("unread_states.json")
+
+        assertEquals(NotificationUnreadState.Exact(4), decode(cases.getJSONObject("exact")).unreadState)
+        assertEquals(NotificationUnreadState.AtLeast(2), decode(cases.getJSONObject("at_least")).unreadState)
+        assertEquals(NotificationUnreadState.Present, decode(cases.getJSONObject("present")).unreadState)
+        assertEquals(NotificationUnreadState.None, decode(cases.getJSONObject("none")).unreadState)
+        assertEquals(NotificationUnreadState.Unknown, decode(cases.getJSONObject("unknown")).unreadState)
+        assertEquals(NotificationUnreadState.Unknown, decode(cases.getJSONObject("missing")).unreadState)
+        assertEquals(NotificationUnreadState.Exact(0), decode(cases.getJSONObject("negative_count")).unreadState)
+        assertEquals(NotificationUnreadState.Unknown, decode(cases.getJSONObject("future_kind")).unreadState)
+    }
+
+    @Test
+    fun settingsStatesDecodeDefaultsAndValidation() {
+        val cases = fixture("settings_states.json")
+
+        assertEquals(NotificationSettings(), decode(cases.getJSONObject("absent")).settings)
+        assertEquals(NotificationSettings(), decode(cases.getJSONObject("empty_object")).settings)
+        assertEquals(
+            NotificationSettings(
+                alertsEnabled = true,
+                categories = emptySet(),
+                showPreviews = true,
+                periodicFallbackEnabled = true,
+            ),
+            decode(cases.getJSONObject("empty_categories")).settings,
+        )
+        assertEquals(
+            NotificationSettings(categories = setOf(NotificationCategory.Mentions)),
+            decode(cases.getJSONObject("unknown_categories")).settings,
+        )
+        assertEquals(
+            NotificationSettings(
+                categories = setOf(NotificationCategory.All),
+                quietHoursStartMinutes = 1320,
+                quietHoursEndMinutes = 420,
+            ),
+            decode(cases.getJSONObject("valid_quiet_hours")).settings,
+        )
+        assertEquals(
+            NotificationSettings(
+                categories = setOf(NotificationCategory.All),
+                selectedDistributor = "org.example.distributor",
+            ),
+            decode(cases.getJSONObject("distributor")).settings,
+        )
+        assertThrows(IllegalArgumentException::class.java) { decode(cases.getJSONObject("out_of_range_quiet_start")) }
+        assertThrows(IllegalArgumentException::class.java) { decode(cases.getJSONObject("out_of_range_quiet_end")) }
+    }
+
+    @Test
+    fun pushStatesDecodeFieldsAndLegacyDefaults() {
+        val cases = fixture("push_states.json")
+
+        val full = decode(cases.getJSONObject("full")).pushRegistration!!
+        assertEquals(NotificationPushRegistrationState.Connected, full.state)
+        assertEquals("remote-1", full.serverRemoteId)
+        assertEquals(3L, full.sessionRevision)
+        assertEquals(2L, full.confirmedEndpointGeneration)
+        assertEquals(PushRegistrationFailureStage.ServerSubscription, full.failureStage)
+        assertEquals(PushRegistrationFailureReason.Network, full.failureReason)
+        assertEquals("timeout", full.lastErrorDetail)
+        assertEquals(9000L, full.nextRetryAtEpochMillis)
+
+        val legacy = decode(cases.getJSONObject("legacy_connected")).pushRegistration!!
+        assertEquals(NotificationPushRegistrationState.Connected, legacy.state)
+        assertEquals(legacy.endpoint, legacy.serverEndpoint)
+        assertEquals(1L, legacy.sessionRevision)
+
+        val revisionDefault = decode(cases.getJSONObject("revision_default")).pushRegistration!!
+        assertEquals(1L, revisionDefault.sessionRevision)
+
+        val unavailable = decode(cases.getJSONObject("temporarily_unavailable")).pushRegistration!!
+        assertEquals(NotificationPushRegistrationState.TemporarilyUnavailable, unavailable.state)
+        assertEquals(4, unavailable.retryCount)
+        assertEquals(PushRegistrationFailureStage.ServerSubscription, unavailable.failureStage)
+        assertEquals(PushRegistrationFailureReason.Network, unavailable.failureReason)
+    }
+
+    @Test
+    fun checkpointsDecodeAllCursorFieldsAndKeyedForms() {
+        val state = decode(fixture("checkpoints.json"))
+        val checkpoint = state.checkpoint!!
+
+        assertEquals(setOf(NotificationCategory.Mentions, NotificationCategory.Replies), checkpoint.query.categories)
+        assertEquals(30, checkpoint.query.limit)
+        assertEquals("cursor-newest", checkpoint.newest?.value)
+        assertEquals("cursor-oldest", checkpoint.oldest?.value)
+        assertEquals("cursor-newer", checkpoint.newerContinuation?.value)
+        assertEquals("cursor-older", checkpoint.olderContinuation?.value)
+        assertEquals(NotificationSyncCompleteness.Gap, checkpoint.completeness)
+        assertTrue(checkpoint.baselineEstablished)
+        assertEquals(4000L, checkpoint.capturedAtEpochMillis)
+
+        val keyed = state.checkpoints.getValue("Social|50|true")
+        assertEquals("keyed-newest", keyed.newest?.value)
+        assertEquals("keyed-oldest", keyed.oldest?.value)
+        assertEquals("keyed-newer", keyed.newerContinuation?.value)
+        assertEquals("keyed-older", keyed.olderContinuation?.value)
+        assertEquals(NotificationSyncCompleteness.Complete, keyed.completeness)
+        assertEquals(50, keyed.query.limit)
+        assertTrue(keyed.query.grouped)
+        assertEquals(4500L, keyed.capturedAtEpochMillis)
+    }
+
+    @Test
+    fun checkpointsEncodeToTheFrozenFixture() {
+        val fixture = fixture("checkpoints.json")
+
+        assertJsonEquals(fixture, encode(decode(fixture)))
+    }
+
+    @Test
+    fun checkpointFallbackDecodesDefaults() {
+        val state = decode(fixture("checkpoint_fallback.json"))
+        val checkpoint = state.checkpoint!!
+
+        assertEquals(NotificationSyncCompleteness.Unknown, checkpoint.completeness)
+        assertEquals(0L, checkpoint.capturedAtEpochMillis)
+        assertFalse(checkpoint.baselineEstablished)
+        assertNull(checkpoint.newest)
+        assertEquals(30, checkpoint.query.limit)
+
+        val keyed = state.checkpoints.getValue("fallback|30|false")
+        assertEquals(NotificationSyncCompleteness.Unknown, keyed.completeness)
+        assertTrue(keyed.baselineEstablished)
+    }
+
+    @Test
+    fun malformedRootShapeDecodesToEmptyState() {
+        val state = decode(fixture("malformed_root_shape.json"))
+
+        assertTrue(state.items.isEmpty())
+        assertEquals(NotificationUnreadState.Unknown, state.unreadState)
+        assertNull(state.checkpoint)
+        assertTrue(state.checkpoints.isEmpty())
+        assertTrue(state.dismissedIds.isEmpty())
+        assertTrue(state.deliveries.isEmpty())
+        assertEquals(NotificationSettings(), state.settings)
+        assertNull(state.pushRegistration)
+    }
+
+    @Test
+    fun malformedEntriesDropOnlyTheBrokenEntry() {
+        val state = decode(fixture("malformed_entries.json"))
+
+        assertEquals(listOf(EntityId("https://misskey.example", "ok-1")), state.items.map { it.id })
+        assertEquals(setOf(EntityId("https://misskey.example", "dismiss-ok")), state.dismissedIds)
+        assertEquals(1, state.deliveries.size)
+        assertEquals("tag", state.deliveries.values.single().androidTag)
+    }
+
+    @Test
+    fun malformedSingularCheckpointFailsTheDecode() {
+        assertThrows(JSONException::class.java) { decode(fixture("malformed_checkpoint.json")) }
+    }
+
+    @Test
+    fun malformedPushRegistrationFailsTheDecode() {
+        assertThrows(JSONException::class.java) { decode(fixture("malformed_push.json")) }
+    }
+
+    @Test
+    fun brokenJsonTextIsNotParseable() {
+        assertThrows(JSONException::class.java) { JSONObject(fixtureText("malformed_broken.json")) }
+    }
+
+    @Test
+    fun fileStoreReturnsNoStateForBrokenJson() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FileNotificationStore(context)
+        val directory = File(context.noBackupFilesDir, "notifications")
+        directory.mkdirs()
+        File(directory, "${misskeyReceiver.stableFileName()}.json").writeText(fixtureText("malformed_broken.json"))
+
+        assertNull(store.read(misskeyReceiver))
+    }
+
+    @Test
+    fun fileStoreReadsNestedQuotesAndInteractionCounts() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FileNotificationStore(context)
+        val directory = File(context.noBackupFilesDir, "notifications")
+        directory.mkdirs()
+        File(directory, "${misskeyReceiver.stableFileName()}.json").writeText(fixtureText("posts_and_accounts.json"))
+
+        val post = store.read(misskeyReceiver)?.items?.single()?.post
+
+        assertNotNull(post)
+        assertEquals(4, post?.interactionCounts?.quoteRepostCount)
+        assertEquals(EntityId("https://misskey.example", "post-2"), post?.quote?.id)
+    }
+
+    @Test
+    fun knownOmissionsAreNotRoundTripComplete() {
+        val items = decode(fixture("known_omissions.json")).items.associateBy { it.id.value }
+
+        assertEquals(PostContentVisibility.Visible, items.getValue("omit-visibility").post?.contentVisibility)
+        assertNull(items.getValue("omit-continuation").group?.actorContinuation)
+    }
+
+    @Test
+    fun encodedGroupContinuationAndInAppUnknownDestinationAreLost() {
+        val groupItem = Notification(
+            id = EntityId("https://misskey.example", "omit-continuation"),
+            accountId = misskeyReceiver,
+            createdAtEpochMillis = 1,
+            activity = NotificationActivity.Mention,
+            rawType = "mention",
+            group = NotificationGroup(
+                id = NotificationGroupId(misskeyReceiver, "group-1"),
+                totalCount = 2,
+                actorContinuation = NotificationCursor("continuation-1"),
+            ),
+        )
+        val unknownItem = Notification(
+            id = EntityId("https://misskey.example", "omit-unknown"),
+            accountId = misskeyReceiver,
+            createdAtEpochMillis = 1,
+            activity = NotificationActivity.Unknown(
+                fallbackText = "New thing",
+                validatedDestination = NotificationDestination.InApp(
+                    NotificationTarget.Post(EntityId("https://misskey.example", "post-1")),
+                ),
+            ),
+            rawType = "thing",
+        )
+        val decoded = decode(encode(NotificationRepositoryState(items = listOf(groupItem, unknownItem))))
+            .items.associateBy { it.id.value }
+
+        assertNull(decoded.getValue("omit-continuation").group?.actorContinuation)
+        val unknown = decoded.getValue("omit-unknown").activity as NotificationActivity.Unknown
+        assertNull(unknown.validatedDestination)
     }
 
     private fun fixture(name: String): JSONObject = JSONObject(fixtureText(name))

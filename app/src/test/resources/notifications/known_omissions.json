@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "items": [
+    {
+      "id": { "connection": "https://misskey.example", "value": "omit-visibility" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "activity": { "kind": "mention" },
+      "post": {
+        "id": { "connection": "https://misskey.example", "value": "post-hidden" },
+        "author": {
+          "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-1" },
+          "displayName": "Actor One",
+          "handle": "@actor1@misskey.example",
+          "profileFields": [],
+          "emoji": {}
+        },
+        "text": "hidden body",
+        "publishedAt": 1,
+        "audience": "Public",
+        "contentVisibility": "Hidden"
+      },
+      "rawType": "mention"
+    },
+    {
+      "id": { "connection": "https://misskey.example", "value": "omit-continuation" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "activity": { "kind": "mention" },
+      "group": {
+        "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+        "value": "group-1",
+        "actors": [],
+        "totalCount": 2,
+        "actorContinuation": "continuation-1"
+      },
+      "rawType": "mention"
+    }
+  ]
+}

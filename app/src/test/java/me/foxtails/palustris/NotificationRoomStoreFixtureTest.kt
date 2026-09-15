@@ -17,9 +17,11 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Protocol
+import org.json.JSONException
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -70,6 +72,25 @@ class NotificationRoomStoreFixtureTest {
             val row = runBlocking(Dispatchers.IO) { database.notificationDao().state(accountId.stableFileName()) }
             assertNotNull(row)
             assertEquals(original, decode(JSONObject(row!!.stateJson)))
+        } finally {
+            runBlocking(Dispatchers.IO) { database.close() }
+        }
+    }
+
+    @Test
+    fun roomStoreThrowsOnBrokenJson() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, NotificationDatabase::class.java).build()
+        try {
+            val accountId = AccountId(Connection("https://misskey.example", Protocol.MISSKEY), "receiver")
+            runBlocking(Dispatchers.IO) {
+                database.notificationDao().saveState(
+                    NotificationStateEntity(accountId.stableFileName(), fixtureText("malformed_broken.json"), 1L),
+                )
+            }
+            val store = RoomNotificationStore(database, importer(context))
+
+            assertThrows(JSONException::class.java) { store.read(accountId) }
         } finally {
             runBlocking(Dispatchers.IO) { database.close() }
         }

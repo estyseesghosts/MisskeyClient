@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "items": [
+    "not-an-object",
+    5,
+    {
+      "id": { "connection": "https://misskey.example", "value": "ok-1" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "activity": { "kind": "mention" },
+      "rawType": "mention"
+    },
+    { "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" } }
+  ],
+  "dismissedIds": [
+    { "connection": "https://misskey.example", "value": "dismiss-ok" },
+    "bad",
+    { "value": "missing-connection" }
+  ],
+  "deliveries": [
+    {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "notificationId": { "connection": "https://misskey.example", "value": "ok-1" },
+      "state": "Pending",
+      "androidTag": "tag",
+      "androidId": 1
+    },
+    "bad",
+    {}
+  ]
+}

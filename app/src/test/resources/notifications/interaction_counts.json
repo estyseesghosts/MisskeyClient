@@ -1,0 +1,72 @@
+{
+  "version": 2,
+  "items": [
+    {
+      "id": { "connection": "https://misskey.example", "value": "counts-known" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "createdAt": 1,
+      "activity": { "kind": "mention" },
+      "actors": [],
+      "post": {
+        "id": { "connection": "https://misskey.example", "value": "post-known" },
+        "author": {
+          "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-1" },
+          "displayName": "Actor One",
+          "handle": "@actor1@misskey.example",
+          "profileFields": [],
+          "emoji": {}
+        },
+        "text": "",
+        "publishedAt": 1,
+        "audience": "Public",
+        "favouriteCount": 0,
+        "reactionCount": "12",
+        "reshareCount": 3,
+        "quoteRepostCount": null
+      },
+      "readStatus": "Unknown",
+      "locallySeen": false,
+      "serverAcknowledged": false,
+      "androidPresented": false,
+      "androidDismissed": false,
+      "rawType": "mention"
+    },
+    {
+      "id": { "connection": "https://misskey.example", "value": "counts-unsupported" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "createdAt": 2,
+      "activity": { "kind": "mention" },
+      "actors": [],
+      "post": {
+        "id": { "connection": "https://misskey.example", "value": "post-unsupported" },
+        "author": {
+          "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-1" },
+          "displayName": "Actor One",
+          "handle": "@actor1@misskey.example",
+          "profileFields": [],
+          "emoji": {}
+        },
+        "text": "",
+        "publishedAt": 2,
+        "audience": "Public",
+        "favouriteCount": -3,
+        "reactionCount": 1.5,
+        "reshareCount": 99999999999,
+        "quoteRepostCount": "abc",
+        "replyCount": true
+      },
+      "readStatus": "Unknown",
+      "locallySeen": false,
+      "serverAcknowledged": false,
+      "androidPresented": false,
+      "androidDismissed": false,
+      "rawType": "mention"
+    }
+  ],
+  "unread": { "kind": "unknown" },
+  "lastSyncedAt": 0,
+  "dismissedIds": [],
+  "checkpoints": {},
+  "deliveries": [],
+  "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "periodicFallbackEnabled": false }
+}

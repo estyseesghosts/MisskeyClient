@@ -1,0 +1,10 @@
+{
+  "exact": { "version": 2, "unread": { "kind": "exact", "count": 4 } },
+  "at_least": { "version": 2, "unread": { "kind": "at_least", "count": 2 } },
+  "present": { "version": 2, "unread": { "kind": "present" } },
+  "none": { "version": 2, "unread": { "kind": "none" } },
+  "unknown": { "version": 2, "unread": { "kind": "unknown" } },
+  "missing": { "version": 2 },
+  "negative_count": { "version": 2, "unread": { "kind": "exact", "count": -3 } },
+  "future_kind": { "version": 2, "unread": { "kind": "future_kind", "count": 1 } }
+}

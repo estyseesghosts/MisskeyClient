@@ -1,0 +1,28 @@
+{
+  "absent": { "version": 2 },
+  "empty_object": { "version": 2, "settings": {} },
+  "empty_categories": {
+    "version": 2,
+    "settings": { "alertsEnabled": true, "categories": [], "showPreviews": true, "periodicFallbackEnabled": true }
+  },
+  "unknown_categories": {
+    "version": 2,
+    "settings": { "alertsEnabled": false, "categories": [ "Mentions", "FutureCategory" ], "showPreviews": false, "periodicFallbackEnabled": false }
+  },
+  "valid_quiet_hours": {
+    "version": 2,
+    "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "quietStart": 1320, "quietEnd": 420, "periodicFallbackEnabled": false }
+  },
+  "distributor": {
+    "version": 2,
+    "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "periodicFallbackEnabled": false, "selectedDistributor": "org.example.distributor" }
+  },
+  "out_of_range_quiet_start": {
+    "version": 2,
+    "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "quietStart": 2000, "periodicFallbackEnabled": false }
+  },
+  "out_of_range_quiet_end": {
+    "version": 2,
+    "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "quietEnd": -1, "periodicFallbackEnabled": false }
+  }
+}

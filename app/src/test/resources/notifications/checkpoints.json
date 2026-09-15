@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "items": [],
+  "unread": { "kind": "unknown" },
+  "checkpoint": {
+    "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+    "capturedAt": 4000,
+    "query": { "categories": [ "Mentions", "Replies" ], "limit": 30, "grouped": false },
+    "newest": "cursor-newest",
+    "oldest": "cursor-oldest",
+    "newerContinuation": "cursor-newer",
+    "olderContinuation": "cursor-older",
+    "completeness": "Gap",
+    "baselineEstablished": true
+  },
+  "lastSyncedAt": 5000,
+  "dismissedIds": [],
+  "checkpoints": {
+    "Social|50|true": {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "capturedAt": 4500,
+      "query": { "categories": [ "Social" ], "limit": 50, "grouped": true },
+      "newest": "keyed-newest",
+      "oldest": "keyed-oldest",
+      "newerContinuation": "keyed-newer",
+      "olderContinuation": "keyed-older",
+      "completeness": "Complete",
+      "baselineEstablished": false
+    }
+  },
+  "deliveries": [],
+  "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "periodicFallbackEnabled": false }
+}
