@@ -113,10 +113,12 @@ class AccountFileStore internal constructor(
     @Synchronized
     fun updateCapabilities(
         accountId: AccountId,
+        expectedRevision: Long? = null,
         update: (ServerCapabilities) -> ServerCapabilities,
     ): Boolean {
         val file = fileFor(accountId)
         val current = read(accountId) ?: return false
+        if (expectedRevision != null && current.sessionRevision != expectedRevision) return false
         val json = readJson(file)
         val updated = current.copy(capabilities = update(current.capabilities))
         write(accountId, updated, json.optJSONObject("profile") ?: JSONObject())

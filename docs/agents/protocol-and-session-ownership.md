@@ -104,6 +104,15 @@ read; `MastodonAuth` reuses that owner at login.
 that recorded reaction support from the removed sentinel mutation probe. `refreshCapabilities`
 re-probes a snapshot whose schema revision is not current.
 
+A successful refresh publishes the snapshot through `onCapabilitiesUpdated`. `SocialSourceFactory`
+wires that callback to `SessionStore.updateCapabilities` with the source `sessionRevision`.
+`updateCapabilities` compares the stored session revision inside its transaction and writes nothing
+when the revision differs. A stale source therefore cannot overwrite a replaced session.
+
+`MastodonSource` bounds capability refresh retries. After a metadata failure it records
+`capabilitiesRetryNotBefore = now + 30 seconds`. A request inside that window reuses the existing
+capability evidence instead of re-probing. A successful probe clears the window.
+
 ## Persistence Contracts
 
 | Data | Location | Protection |

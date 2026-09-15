@@ -24,12 +24,12 @@ Read these in order. Treat the repository as the authority.
 - Gate slices P-01 through P-07 are committed.
 - Plan 03 is rebased at `b715430` and recorded in `docs/decomposition_3/03.md`. Slice `03-C`
   is committed at `3603ef3`. Slice `03-A1` is committed at `44b3483`. Slice `03-B1` is
-  committed at `36eeeb9`. The last safe commit is `36eeeb9`.
+  committed at `36eeeb9`. Slice `03-B2` is committed in this slice. The last safe commit is
+  `36eeeb9` before the `03-B2` commit.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-B2` — revision-guarded capability publication and bounded refresh retry.
-  Then `03-A2` (NodeInfo discovery) or the next chunk.
-- The 03-F reset policy and the 03-I visibility migration need maintainer approval before coding.
+- Next slice: `03-D` (freeze compatibility fixtures), then the remaining Plan 03 chunks.
+  `03-A2` (NodeInfo discovery) stays open. 03-F and 03-I need maintainer approval before coding.
 
 ## Completed Plan 03 Slices
 
@@ -40,6 +40,9 @@ Read these in order. Treat the repository as the authority.
 - 03-B1 runtime capability evidence and reactive publication. Verification:
   `MastodonIntegrationTest`, `MastodonCapabilityProbeTest`, `MisskeyIntegrationTest`,
   `CrossCuttingTest`, `SignInScreenTest`, then `test assembleRelease` and `:app:lintDebug`.
+- 03-B2 revision-guarded capability publication and bounded refresh retry. Verification:
+  `MastodonIntegrationTest`, `CrossCuttingTest`, `MisskeyIntegrationTest`,
+  `ConnectedSessionContextTest`, then `test assembleRelease` and `:app:lintDebug`.
 - Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 
 ## Process Rules

@@ -27,7 +27,8 @@ class SocialSourceFactory @Inject constructor(
             capabilityCache = capabilityCache,
             sessionRevision = session.sessionRevision,
             onCapabilitiesUpdated = { capabilities ->
-                sessionStore?.updateCapabilities(session.accountId) { capabilities }
+                // Persist only when the stored session still matches the source revision.
+                sessionStore?.updateCapabilities(session.accountId, session.sessionRevision) { capabilities }
             },
         )
         Protocol.MASTODON -> {
@@ -40,6 +41,10 @@ class SocialSourceFactory @Inject constructor(
                 initialCapabilities = session.capabilities,
                 capabilityProbe = MastodonCapabilityProbe(api),
                 sessionRevision = session.sessionRevision,
+                onCapabilitiesUpdated = { capabilities ->
+                    // Persist only when the stored session still matches the source revision.
+                    sessionStore?.updateCapabilities(session.accountId, session.sessionRevision) { capabilities }
+                },
             )
         }
     }

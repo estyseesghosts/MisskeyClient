@@ -130,9 +130,11 @@ interface SessionStore {
 
     fun updateCapabilities(
         accountId: AccountId,
+        expectedRevision: Long? = null,
         update: (ServerCapabilities) -> ServerCapabilities,
     ): Boolean = transaction {
         val session = read(accountId) ?: return@transaction false
+        if (expectedRevision != null && session.sessionRevision != expectedRevision) return@transaction false
         write(accountId, session.copy(capabilities = update(session.capabilities)))
         true
     }
@@ -289,10 +291,11 @@ class EncryptedSessionStore private constructor(
     @Synchronized
     override fun updateCapabilities(
         accountId: AccountId,
+        expectedRevision: Long?,
         update: (ServerCapabilities) -> ServerCapabilities,
     ): Boolean {
         migrateFromLegacy()
-        return accountFiles.updateCapabilities(accountId, update)
+        return accountFiles.updateCapabilities(accountId, expectedRevision, update)
     }
 
     private fun readIndexInternal(): AccountIndex {

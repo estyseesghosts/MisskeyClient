@@ -574,18 +574,7 @@ class MastodonIntegrationTest {
             override suspend fun probeCapabilities(connection: Connection): ServerCapabilities =
                 reactionCapabilities()
         }
-        val source = MastodonSource(
-            origin = origin,
-            token = "token",
-            api = MisskeyApi(),
-            accountId = AccountId(Connection(origin, Protocol.MASTODON), "local-user"),
-            initialCapabilities = ServerCapabilities(
-                timelines = setOf(me.foxtails.palustris.domain.Timeline.Home),
-                capabilitySchemaVersion = 0,
-            ),
-            capabilityProbe = probe,
-            clock = { 0L },
-        )
+        val source = staleSchemaSource(probe)
         assertFalse(PostAction.React in source.capabilities.actions)
 
         val published = source.observeCapabilities()
@@ -595,6 +584,44 @@ class MastodonIntegrationTest {
         // the collected flow without a catalog or navigation change.
         assertEquals(CapabilityStatus.Supported, published.first().emoji.reactionMutation)
         assertTrue(PostAction.React in published.first().actions)
+    }
+
+    @Test
+    fun refreshedCapabilitiesReachTheCapabilityCallback() = runBlocking {
+        server.enqueue(MockResponse().setBody("[${status("newest")}]"))
+        val callbackSnapshots = mutableListOf<ServerCapabilities>()
+        val probe = object : CapabilityProbe {
+            override suspend fun probeCapabilities(connection: Connection): ServerCapabilities =
+                reactionCapabilities()
+        }
+        val source = staleSchemaSource(probe, onCapabilitiesUpdated = { callbackSnapshots += it })
+
+        source.timeline(me.foxtails.palustris.domain.Timeline.Home)
+
+        // The account/session owner must receive the refreshed snapshot to persist it.
+        assertEquals(CapabilityStatus.Supported, callbackSnapshots.single().emoji.reactionMutation)
+    }
+
+    @Test
+    fun metadataFailureBoundsCapabilityRetries() = runBlocking {
+        server.enqueue(MockResponse().setBody("[${status("one")}]"))
+        server.enqueue(MockResponse().setBody("[${status("two")}]"))
+        var now = 1_000_000L
+        var probes = 0
+        val probe = object : CapabilityProbe {
+            override suspend fun probeCapabilities(connection: Connection): ServerCapabilities {
+                probes++
+                throw RuntimeException("offline")
+            }
+        }
+        val source = staleSchemaSource(probe, clock = { now })
+
+        source.timeline(me.foxtails.palustris.domain.Timeline.Home)
+        now += 1_000L
+        source.timeline(me.foxtails.palustris.domain.Timeline.Home)
+
+        // A failed probe must not retry on every request during an outage.
+        assertEquals(1, probes)
     }
 
     @Test
@@ -871,6 +898,25 @@ class MastodonIntegrationTest {
     )
 
     private fun reactionSource() = sourceWith(reactionCapabilities())
+
+    /** A source with a probe and a stale schema revision, so the next request re-probes. */
+    private fun staleSchemaSource(
+        probe: CapabilityProbe,
+        clock: () -> Long = { 0L },
+        onCapabilitiesUpdated: ((ServerCapabilities) -> Unit)? = null,
+    ) = MastodonSource(
+        origin = origin,
+        token = "token",
+        api = MisskeyApi(),
+        accountId = AccountId(Connection(origin, Protocol.MASTODON), "local-user"),
+        initialCapabilities = ServerCapabilities(
+            timelines = setOf(me.foxtails.palustris.domain.Timeline.Home),
+            capabilitySchemaVersion = 0,
+        ),
+        capabilityProbe = probe,
+        clock = clock,
+        onCapabilitiesUpdated = onCapabilitiesUpdated,
+    )
 
     private fun profileResponse(id: String) = JSONObject()
         .put("id", id)

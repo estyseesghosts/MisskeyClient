@@ -188,6 +188,22 @@ class CrossCuttingTest {
     }
 
     @Test
+    fun capabilityUpdateRequiresTheCurrentSessionRevision() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val key = SecretKeySpec(ByteArray(16) { 13 }, "AES")
+        val store = AccountFileStore(context, key)
+        store.clear()
+        val accountId = AccountId(Connection("https://revision.example", Protocol.MASTODON), "account")
+        store.write(accountId, Session(accountId, "session-token", ServerCapabilities(), sessionRevision = 5L))
+
+        assertFalse(store.updateCapabilities(accountId, expectedRevision = 4L) { it.copy(canPublish = true) })
+        assertFalse(store.read(accountId)?.capabilities?.canPublish ?: false)
+
+        assertTrue(store.updateCapabilities(accountId, expectedRevision = 5L) { it.copy(canPublish = true) })
+        assertTrue(store.read(accountId)?.capabilities?.canPublish ?: false)
+    }
+
+    @Test
     fun olderSessionJsonDefaultsNewCapabilityValuesSafely() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val key = SecretKeySpec(ByteArray(16) { 11 }, "AES")

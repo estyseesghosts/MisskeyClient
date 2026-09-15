@@ -77,6 +77,7 @@ class MastodonSource(
     private val capabilityProbe: CapabilityProbe? = null,
     private val clock: () -> Long = System::currentTimeMillis,
     private val sessionRevision: Long = 0L,
+    private val onCapabilitiesUpdated: ((ServerCapabilities) -> Unit)? = null,
 ) : SocialSource, DirectMessageSource {
     private val _capabilities = kotlinx.coroutines.flow.MutableStateFlow(
         if (initialCapabilities.timelines.isEmpty() && initialCapabilities.actions.isEmpty() &&
@@ -99,6 +100,14 @@ class MastodonSource(
     private val timelineService = MastodonTimelineService(pageClient, origin)
     override val capabilities: ServerCapabilities get() = _capabilities.value
     override fun observeCapabilities(): Flow<ServerCapabilities> = _capabilities
+
+    /**
+     * Bounds capability refresh retries after a metadata failure. Without it, a failed probe
+     * clears [ServerCapabilities.capabilitiesLastUpdated] and every later request re-probes
+     * during an outage. Reads and writes happen from IO dispatcher threads.
+     */
+    @Volatile
+    private var capabilitiesRetryNotBefore = 0L
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request {
         refreshCapabilities()
@@ -445,20 +454,27 @@ class MastodonSource(
     private suspend fun refreshCapabilities() {
         val probe = capabilityProbe ?: return
         val now = clock()
+        if (now < capabilitiesRetryNotBefore) return
         val schemaCurrent = capabilities.capabilitySchemaVersion == ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION
         if (schemaCurrent && now - capabilities.capabilitiesLastUpdated < CAPABILITIES_TTL_MILLIS) return
         try {
             val probed = probe.probeCapabilities(Connection(origin, Protocol.MASTODON))
-            _capabilities.value = probed.copy(
+            val updated = probed.copy(
                 canPublish = probed.canPublish || capabilities.canPublish,
                 notifications = probed.notifications.takeVerifiedOr(capabilities.notifications),
                 profile = probed.profile.takeVerifiedOr(capabilities.profile),
                 emoji = probed.emoji.takeVerifiedOr(capabilities.emoji),
             )
+            _capabilities.value = updated
+            capabilitiesRetryNotBefore = 0L
+            // Publish the refreshed snapshot through the account/session owner. The owner
+            // compares the session revision before it persists.
+            onCapabilitiesUpdated?.invoke(updated)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             _capabilities.value = capabilities.copy(capabilitiesLastUpdated = 0)
+            capabilitiesRetryNotBefore = now + CAPABILITIES_RETRY_MILLIS
         }
     }
 
@@ -481,6 +497,9 @@ class MastodonSource(
     private companion object {
         const val DEFAULT_NOTIFICATION_LIMIT = 30
         const val CAPABILITIES_TTL_MILLIS = 5 * 60 * 1000L
+
+        /** Minimum delay before a failed capability probe retries. Bounds outage traffic. */
+        const val CAPABILITIES_RETRY_MILLIS = 30 * 1000L
         val DEFAULT_CAPABILITIES = ServerCapabilities(
             timelines = setOf(Timeline.Home, Timeline.Local, Timeline.Federated),
             audiences = setOf(Audience.Public, Audience.Unlisted, Audience.Followers, Audience.Direct),
