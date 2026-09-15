@@ -143,4 +143,4 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`44b3483` "Use Mastodon reaction advertisement instead of a sentinel probe".
+`36eeeb9` "Preserve Mastodon reaction support after resource failures".
