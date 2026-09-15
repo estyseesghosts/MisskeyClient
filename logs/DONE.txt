@@ -1110,3 +1110,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - C-12b committed at 0dec102.
 - Unverified: device rendering, live-server, signed release.
 
+260915-061500 Slice C-12c feature-level reply composition:
+- Added `ComposerFeatureFixtures.reply` beside the composer tests. The harness composes the Home feed presenter with the composer feature owner and overlay host, without the full shell.
+- Moved `ReplyComposerTest` to the harness with no assertion change. It passed on the first run.
+- `HomeFeedTest` and `SignInScreenTest` still construct the full shell. Their scroll-clearance, capability-gated, and account-switching assertions need shell assembly.
+- Verification passed: `ReplyComposerTest`, `NavigationTest`, `ComposerOwnerTest`, `ShellBackPolicyTest`, `test assembleRelease`, and `:app:lintDebug` when run alone.
+- C-12c committed at PENDING.
+- Unverified: device rendering, live-server, signed release.
+

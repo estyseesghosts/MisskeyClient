@@ -47,7 +47,7 @@ class ReplyComposerTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                AppShellFixtures.app(
+                ComposerFeatureFixtures.reply(
                     account = account,
                     home = AppShellFixtures.home(
                         FeedState(

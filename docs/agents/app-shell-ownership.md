@@ -3,13 +3,13 @@
 **Owner:** app-shell and feature-presentation maintainers.
 
 **Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through
-C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, C-12a, and C-12b are implemented and test
-verified. Slice C-12c repairs the remaining assembly and isolation gaps. Slices C-13 and C-14
-verify and document. Slice C-15 removes dead scaffolding.
+C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, and C-12a through C-12c are implemented
+and test verified. Slice C-12d repairs the remaining assembly and isolation gaps. Slices C-13
+and C-14 verify and document. Slice C-15 removes dead scaffolding.
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (planning). Status refreshed against `0dec102`.
+**Source baseline:** `b629a2c` (planning). Status refreshed against `PENDING`.
 
 **Evidence:** source verified. Device and live-server behavior remain unverified. No test ran during
 this documentation pass.
@@ -108,8 +108,8 @@ acceptance matrix records the status.
 | Home paging demand | Closed by C-08. `HomePagingDemand` tracks filter identity and the request epoch beside the row count. Only accepted pages consume the budget. | — |
 | Notification launch | Closed by C-09. `NotificationLaunchHost` acknowledges a launch only when the receiving shell accepts its route. Rejected pages change no state. | — |
 | Dead scaffolding | Unused `Legacy*` functions, `MarkdownPostText`, `AppBackHandler`, `BackNavigationState`, `SectionTabs`, and compatibility aliases remain. | C-15 |
-| Shell assembly | `PalustrisApp.kt` owns navigation and still holds shell assembly. Composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt` in C-12a. Back precedence moved to `ui/navigation/ShellBackPolicy.kt` in C-12b. | C-12c |
-| Test isolation | Small feature scenarios still construct the full shell. | C-12c |
+| Shell assembly | `PalustrisApp.kt` owns navigation and still holds shell assembly. Composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt` in C-12a. Back precedence moved to `ui/navigation/ShellBackPolicy.kt` in C-12b. | C-12d |
+| Test isolation | `ReplyComposerTest` composes at feature level through `ComposerFeatureFixtures` since C-12c. `HomeFeedTest` and `SignInScreenTest` still construct the full shell. | C-12d |
 
 ## Removed In The Migration
 
