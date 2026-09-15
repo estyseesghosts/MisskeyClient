@@ -14,9 +14,12 @@ import me.foxtails.palustris.data.notifications.db.NotificationStateEntity
 import me.foxtails.palustris.data.notifications.stableFileName
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
+import me.foxtails.palustris.domain.NotificationActivity
+import me.foxtails.palustris.domain.NotificationDestination
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONException
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -91,6 +94,31 @@ class NotificationRoomStoreFixtureTest {
             val store = RoomNotificationStore(database, importer(context))
 
             assertThrows(JSONException::class.java) { store.read(accountId) }
+        } finally {
+            runBlocking(Dispatchers.IO) { database.close() }
+        }
+    }
+
+    @Test
+    fun roomStorePreservesNestedUnknownServerDestination() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, NotificationDatabase::class.java).build()
+        try {
+            val accountId = AccountId(Connection("https://misskey.example", Protocol.MISSKEY), "receiver")
+            runBlocking(Dispatchers.IO) {
+                database.notificationDao().saveState(
+                    NotificationStateEntity(accountId.stableFileName(), fixtureText("activity_variants.json"), 1L),
+                )
+            }
+            val store = RoomNotificationStore(database, importer(context))
+
+            val activity = store.read(accountId)?.items
+                ?.first { it.id.value == "a-unknown" }?.activity as NotificationActivity.Unknown
+
+            assertEquals(
+                NotificationDestination.Server(ValidatedUrl.https("https://misskey.example/notice/9")!!),
+                activity.validatedDestination,
+            )
         } finally {
             runBlocking(Dispatchers.IO) { database.close() }
         }

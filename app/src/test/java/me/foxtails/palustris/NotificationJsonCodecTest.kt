@@ -686,6 +686,23 @@ class NotificationJsonCodecTest {
     }
 
     @Test
+    fun fileStorePreservesNestedUnknownServerDestination() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FileNotificationStore(context)
+        val directory = File(context.noBackupFilesDir, "notifications")
+        directory.mkdirs()
+        File(directory, "${misskeyReceiver.stableFileName()}.json").writeText(fixtureText("activity_variants.json"))
+
+        val activity = store.read(misskeyReceiver)?.items
+            ?.first { it.id.value == "a-unknown" }?.activity as NotificationActivity.Unknown
+
+        assertEquals(
+            NotificationDestination.Server(ValidatedUrl.https("https://misskey.example/notice/9")!!),
+            activity.validatedDestination,
+        )
+    }
+
+    @Test
     fun knownOmissionsAreNotRoundTripComplete() {
         val items = decode(fixture("known_omissions.json")).items.associateBy { it.id.value }
 
