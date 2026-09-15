@@ -15,6 +15,7 @@ import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.ForegroundNotificationStreamController
+import me.foxtails.palustris.domain.AppLanguage
 import me.foxtails.palustris.domain.AppPreferencesRepository
 import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.ui.AccountManager
@@ -23,6 +24,7 @@ import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
 import me.foxtails.palustris.ui.display.RefreshRateController
 import me.foxtails.palustris.ui.localization.AppLocaleController
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -37,7 +39,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var appPreferencesRepository: AppPreferencesRepository
     @Inject lateinit var postPreferencesRepository: PostPreferencesRepository
     private lateinit var refreshRateController: RefreshRateController
-    private var appliedLanguage = me.foxtails.palustris.domain.AppLanguage.SystemDefault
+    private var appliedLanguage = AppLanguage.SystemDefault
 
     override fun attachBaseContext(newBase: android.content.Context) {
         val language = AppLocaleController.persistedLanguage(newBase)
@@ -67,16 +69,46 @@ class MainActivity : ComponentActivity() {
                 appPreferencesRepository.observe()
                     .map { it.loaded to (it.preferences.request60Hz to it.preferences.language) }
                     .distinctUntilChanged()
-                    .collect { (_, values) ->
+                    .collect { (loaded, values) ->
                         val (request60Hz, language) = values
                         refreshRateController.apply(request60Hz)
-                        AppLocaleController.applyPlatformLocale(this@MainActivity, language)
-                        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU && language != appliedLanguage) {
-                            appliedLanguage = language
-                            recreate()
-                        }
+                        applyLocaleState(loaded, language)
                     }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // An external Android App Languages change does not emit through the repository.
+        // Reconcile on return so the platform value and the stored value converge.
+        lifecycleScope.launch {
+            val state = appPreferencesRepository.observe()
+                .first { it.loaded }
+            applyLocaleState(true, state.preferences.language)
+        }
+    }
+
+    private suspend fun applyLocaleState(loaded: Boolean, language: AppLanguage) {
+        // Never apply an unloaded System default over a persisted explicit language.
+        val next = AppLocaleController.effectiveLanguageAfterLoad(loaded, language) ?: return
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            when (val action = AppLocaleController.reconcilePlatformSelection(
+                AppLocaleController.platformTag(this@MainActivity),
+                next,
+            )) {
+                is AppLocaleController.PlatformReconciliation.ImportToRepository ->
+                    appPreferencesRepository.update { it.copy(language = action.language) }
+                is AppLocaleController.PlatformReconciliation.ExportToPlatform -> {
+                    AppLocaleController.applyPlatformLocale(this@MainActivity, action.language)
+                    appliedLanguage = action.language
+                }
+                AppLocaleController.PlatformReconciliation.NoOp -> appliedLanguage = next
+            }
+        } else if (next != appliedLanguage) {
+            AppLocaleController.applyPlatformLocale(this@MainActivity, next)
+            appliedLanguage = next
+            recreate()
         }
     }
 

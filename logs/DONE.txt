@@ -879,3 +879,13 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Made LanguageSettingsScreen a scrollable radio group with resource-localized System-default copy.
 - Added catalog parity, persistence-by-tag, unknown-value fallback, and row reachability/selection tests.
 - Verification passed: focused suites (12 tests), Settings suites, full test assembleRelease, and :app:lintDebug.
+
+260915-023000 Slice 02-K locale lifecycle:
+- Shared AppLanguage.fromNameOrDefault between FileAppPreferencesRepository and AppLocaleController.persistedLanguage; the early bridge stays read-only.
+- Gated MainActivity locale work on loaded preferences; added onResume reconciliation for external Android App Languages changes.
+- Added canonical-tag platform reconciliation: explicit platform locale wins first, otherwise export the loaded preference; System default clears the override.
+- Relaxed the plural test to other plus valid locale quantities with compatible placeholders; kept partial-catalog fallback.
+- Added AppLocaleControllerTest (12 tests): decoding, gating, reconciliation, API 29 contexts, per-locale resolution including es-419 and yue-HK, fallback.
+- Verified the release resource table holds all 15 locales with distinct values; debug resolution proved by runtime tests.
+- Verification passed: focused suites, full test, assembleRelease, and :app:lintDebug. One MediaViewerScreenTest timeout flaked in a full run and passed in isolation.
+- Connected instrumentation on API 29 and API 33+ remains unverified; no emulator or device is reachable.

@@ -36,7 +36,10 @@ class LocalizationResourceTest {
                     assertEquals("$key in ${localeDirectory.name} changed resource kind", original.kind, localized.kind)
                     assertEquals("$key in ${localeDirectory.name} changed placeholders", original.placeholders, localized.placeholders)
                     if (localized.kind == "plurals") {
-                        assertEquals("$key in ${localeDirectory.name} changed plural quantities", original.quantities, localized.quantities)
+                        assertTrue(
+                            "$key in ${localeDirectory.name} uses an invalid plural quantity",
+                            localized.quantities.all { it in validPluralQuantities },
+                        )
                     }
                 }
                 val translated = locale.count { (key, value) -> value.value != defaultCatalog.getValue(key).value }
@@ -198,5 +201,6 @@ class LocalizationResourceTest {
 
     private companion object {
         val placeholderPattern = Regex("%(\\d+)\\$([a-zA-Z])")
+        val validPluralQuantities = setOf("zero", "one", "two", "few", "many", "other")
     }
 }

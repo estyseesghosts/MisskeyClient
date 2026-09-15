@@ -102,7 +102,7 @@ class FileAppPreferencesRepository(
             textSize = enumOrDefault(json, "textSize", AppTextSize.Device),
             font = enumOrDefault(json, "font", AppFont.Device),
             request60Hz = json.optBoolean("request60Hz", false),
-            language = enumOrDefault(json, "language", AppLanguage.SystemDefault),
+            language = AppLanguage.fromNameOrDefault(json.optString("language")),
             cleanTrackingParameters = json.optBoolean("cleanTrackingParameters", false),
             contentWarningRules = warning?.toContentWarningRules() ?: ContentWarningRules(),
             hiddenContentPresentation = enumOrDefault(json, "hiddenContentPresentation", HiddenContentPresentation.Placeholder),

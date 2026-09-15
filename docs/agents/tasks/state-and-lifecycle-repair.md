@@ -34,7 +34,7 @@ availability, and cancellation.
 | 02-H Home paging demand | completed | `aa19bc4` |
 | 02-I Settings commands and routes | completed | `9679fce` |
 | 02-J Locale catalog | completed | |
-| 02-K Locale lifecycle | pending | |
+| 02-K Locale lifecycle | completed | |
 | 02-L Cancellation and integration | pending | |
 | 01 skipped items | pending | |
 
@@ -129,4 +129,31 @@ Slice 02-J is complete and verified.
 - `LanguageSettingsScreenTest` checks row reachability on compact screens with
   large fonts, single-selection radio semantics, and exact regional selection.
 
-Slice 02-K through 02-L remain pending.
+Slice 02-K is complete and verified.
+
+- `AppLanguage.fromNameOrDefault` is the single decoding rule for stored names.
+  `FileAppPreferencesRepository` and `AppLocaleController.persistedLanguage` share
+  it, so enum additions cannot diverge. The early bridge stays read-only.
+- `MainActivity` never applies an unloaded System default. Locale work waits for
+  `loaded` through `effectiveLanguageAfterLoad`.
+- API 29 through 32 use the localized base context plus recreation on real change.
+  API 33 and later reconcile through `LocaleManager`: an explicit platform locale
+  wins on first upgrade, otherwise the loaded preference exports. Canonical-tag
+  comparison converges without feedback loops. `onResume` picks up external
+  Android App Languages changes. System default clears the override and follows
+  the device language.
+- `LocalizationResourceTest` requires `other`, valid locale quantities, and
+  compatible placeholders instead of identical quantity sets. Partial catalogs
+  stay intact under intentional fallback.
+- `AppLocaleControllerTest` checks decoding, gating, reconciliation, localized
+  contexts on API 29, per-locale translated resolution (including `es-419` and
+  `yue-HK` keys), and default fallback for missing keys.
+- The release resource table holds every required locale, including `es-419`
+  (as `es-r419`) and `yue-HK` with distinct Cantonese values. Debug resolution
+  is proved by the runtime tests against debug resources.
+- The Language route round-trips through the 02-I saver, so locale-triggered
+  recreation restores the Language page.
+
+Slice 02-L remains pending. Connected instrumentation (API 29 and API 33+
+activity recreation, `LocaleManager` clearing after a regional selection) is
+unverified: no emulator or device is reachable from this shell.
