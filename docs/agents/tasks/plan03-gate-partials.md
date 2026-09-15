@@ -44,13 +44,16 @@ Close the partial gaps from the 01/02 review. Keep completed extractions. Leave 
 
 | Slice | Scope | Exit | Status |
 | --- | --- | --- | --- |
-| P-01 | Remove duplicate `ownedPosts` input. Make `state.ownedPosts` authoritative. | Home rows come from the Home contract only. | implemented, test verified. |
+| P-01 | Remove duplicate `ownedPosts` input. Make `state.ownedPosts` authoritative. | Home rows come from the Home contract only. | implemented, test verified. Commit `0fbc7c4`. |
+| P-02 | Narrow popup contract. Leaves use `PostPopupPresentation`. | Generic leaves never receive the service-backed owner, source, or scope. | implemented, test verified. |
 
 P-01 verification: `HomeFeedTest` and `NavigationTest` pass. The `SearchScreen` `onReply` observer at `HomeFeedTest.kt:774` is a leaf callback test, not a shell seam. `PalustrisApp` carries no `onReply` parameter.
 
+P-02 verification: `PostActionOwnerTest` and `PostProjectionCoordinatorTest` pass. `LocalPostActionOwner` provides `PostPopupPresentation`. `PostActionOwner` implements it.
+
 ## Current Slice
 
-P-02 — Narrow popup contract and remove concrete owner from leaves.
+P-03 — Make thread external apply non-emitting.
 
 ## Files Involved For P-01
 

@@ -42,7 +42,24 @@ data class PostReportState(
     val submitted: Boolean = false,
 )
 
-internal val LocalPostActionOwner = staticCompositionLocalOf<PostActionOwner?> { null }
+/**
+ * Narrow presentation contract for the post-action popup.
+ *
+ * Generic leaves open, dismiss, and drive the popup through this interface.
+ * They never receive the service-backed [PostActionOwner], its [SocialSource],
+ * or its coroutine scope.
+ */
+interface PostPopupPresentation {
+    val target: PostActionTarget?
+    val relationship: PostRelationshipState
+    val report: PostReportState
+    fun open(ownedPost: OwnedPost, anchorBounds: Rect)
+    fun dismiss()
+    fun mutate(mutation: RelationshipMutation)
+    fun submitReport(comment: String)
+}
+
+internal val LocalPostActionOwner = staticCompositionLocalOf<PostPopupPresentation?> { null }
 
 /**
  * Owns one post-action popup and its account-scoped relationship requests.
@@ -57,12 +74,12 @@ class PostActionOwner(
     private val source: SocialSource?,
     private val scope: CoroutineScope,
     private val onRelationshipChanged: () -> Unit = {},
-) {
-    var target by mutableStateOf<PostActionTarget?>(null)
+) : PostPopupPresentation {
+    override var target by mutableStateOf<PostActionTarget?>(null)
         private set
-    var relationship by mutableStateOf(PostRelationshipState())
+    override var relationship by mutableStateOf(PostRelationshipState())
         private set
-    var report by mutableStateOf(PostReportState())
+    override var report by mutableStateOf(PostReportState())
         private set
 
     private var requestGeneration = 0L
@@ -79,7 +96,7 @@ class PostActionOwner(
         dismiss()
     }
 
-    fun open(ownedPost: OwnedPost, anchorBounds: Rect) {
+    override fun open(ownedPost: OwnedPost, anchorBounds: Rect) {
         if (retired) return
         if (ownedPost.fetchedBy != accountId || ownedPost.sessionRevision != sessionRevision) return
         requestJob?.cancel()
@@ -122,7 +139,7 @@ class PostActionOwner(
         }
     }
 
-    fun dismiss() {
+    override fun dismiss() {
         requestGeneration += 1
         requestJob?.cancel()
         requestJob = null
@@ -131,7 +148,7 @@ class PostActionOwner(
         report = PostReportState()
     }
 
-    fun mutate(mutation: RelationshipMutation) {
+    override fun mutate(mutation: RelationshipMutation) {
         if (retired) return
         val currentTarget = target ?: return
         relationship.relationship ?: return
@@ -164,7 +181,7 @@ class PostActionOwner(
         }
     }
 
-    fun submitReport(comment: String) {
+    override fun submitReport(comment: String) {
         if (retired) return
         val currentTarget = target ?: return
         val reportSource = source ?: return
