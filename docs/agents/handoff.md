@@ -18,7 +18,7 @@ Read these in order. Treat the repository as the authority.
 
 - Completion slices C-01 through C-11, C-12a through C-12d4, C-13, C-14, and C-15 are
   committed. `L-01` is committed.
-- The last safe commit is `b2b143c` (C-15 behavior commit; record follows).
+- The last safe commit is `f6c1725` (C-15 record commit). C-15 is `b2b143c`.
 - Plan 01 and Plan 02 exit conditions are met. Every acceptance row is implemented and
   test verified. Device, live-server, and signed-release behavior stay unverified.
 - No next slice. The dead scaffolding is removed. The remaining open item is the

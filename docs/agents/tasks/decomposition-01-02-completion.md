@@ -507,7 +507,7 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`b2b143c` "Remove dead scaffolding left by extraction waves".
+`f6c1725` "Record C-15 commit in task state".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
