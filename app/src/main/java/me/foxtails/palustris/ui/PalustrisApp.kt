@@ -49,7 +49,6 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -1195,31 +1194,4 @@ fun PalustrisApp(
         onSignOut = accountSwitcher.actions::signOut,
     )
     }
-}
-
-@Preview(showBackground = true, device = "spec:width=411dp,height=891dp,dpi=420")
-@Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
-@Composable
-private fun AppPreview() {
-    PalustrisApp(
-        account = null,
-        sessionGeneration = 0L,
-        sessionRevision = 0L,
-        home = null,
-        photoGrid = PhotoGridContract.Empty,
-        profile = ProfileContract.Empty,
-        accountSwitcher = AccountSwitcher.Empty,
-        composer = ComposerContract.Empty,
-        search = SearchContract.Empty,
-        postInteractions = PostInteractions.Empty,
-        thread = ThreadContract.Empty,
-        draftsContract = DraftsContract.Empty,
-        emojiPresentation = EmojiPresentation.Empty,
-        bookmarks = BookmarksContract.Empty,
-        likes = LikesContract.Empty,
-        notifications = NotificationsContract.Empty,
-        directMessages = DirectMessagesContract.Empty,
-        initialNotificationRoute = null,
-        notificationSettings = NotificationSettingsContract.Empty,
-    )
 }
