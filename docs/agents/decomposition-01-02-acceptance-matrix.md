@@ -173,7 +173,7 @@ These items are not part of the 01/02 completion. Plan 03 or Plan 04 owns each o
 | --- | --- |
 | Mastodon sentinel capability probing | Plan 03, chunk 03-A |
 | Mastodon runtime downgrade on bare 404 | Plan 03, chunk 03-B |
-| Misskey foreign-origin entity validation | Plan 03, chunk 03-C |
+| Misskey foreign-origin entity validation | Plan 03, chunk 03-C (implemented, test verified) |
 | Notification codec extraction and fixtures | Plan 03, chunks 03-D, 03-E |
 | Notification corruption recovery and schema policy | Plan 03, chunks 03-F, 03-G, 03-H |
 | Notification visibility persistence | Plan 03, chunk 03-I |

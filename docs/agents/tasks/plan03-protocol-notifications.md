@@ -77,6 +77,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | --- | --- | --- | --- |
 | R-01 | Rebase `docs/decomposition_3/03.md` against the completed boundaries. | Every rebase requirement is applied. Stale paths and commands are corrected. | implemented, source verified. |
 | 03-C | Close Misskey entity boundaries. Validate `post`, `delete`, and quote identities before network access. | Invalid or foreign identities reach no network request. | implemented, test verified. |
+| 03-A1 | Remove the sentinel reaction probe. Treat the recognized advertisement as the evidence. Bound the instance read and add a v1 fallback on v2 absence. | No capability request contains a sentinel status. Missing advertisement never proves support. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -87,9 +88,16 @@ rebase changed documentation only.
 `misskeyCreateRejectsForeignAndBlankQuoteBeforeNetwork`. `post` and `delete` now call
 `validatePostId`. Quote creation uses the same validator. Repost undo already validated.
 
+03-A1 verification: `MastodonCapabilityProbeTest` and `MastodonIntegrationTest` pass. Removed
+`EmojiMutationProbeOutcome`, `probeEmojiReactionMutation`, and the status-1 sentinel request.
+`parseCapabilities` now takes only the instance. A recognized advertisement yields listing and
+mutation support with independent selection. Missing or malformed advertisement yields Unknown
+and no React action. `fetchInstanceMetadata` prefers `v2/instance`, falls back to `v1/instance`
+only on 404, bounds the read to 512 KiB, and propagates every other failure.
+
 ## Current Slice
 
-03-A — Replace the Mastodon sentinel reaction probe.
+03-A2 — NodeInfo discovery for reaction advertisement when instance metadata lacks it.
 
 ## Required Verification
 

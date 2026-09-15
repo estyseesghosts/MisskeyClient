@@ -22,10 +22,14 @@ import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.withTimelineStatuses
 import org.json.JSONObject
 
-/** Probes Mastodon instance metadata without making protocol details visible to the UI. */
+/**
+ * Probes Mastodon instance metadata without making protocol details visible to the UI.
+ *
+ * Reaction capability comes from a recognized extension advertisement, never from a
+ * mutation request. An arbitrary probe request cannot prove mutation support: the
+ * advertised extension is the only positive evidence this owner accepts.
+ */
 class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
-    enum class EmojiMutationProbeOutcome { Supported, Ambiguous, Failed, Unknown }
-
     data class VersionTriple(val major: Int, val minor: Int, val patch: Int) {
         fun atLeast(major: Int, minor: Int, patch: Int): Boolean = when {
             this.major != major -> this.major > major
@@ -35,28 +39,33 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
     }
 
     override suspend fun probeCapabilities(connection: Connection): ServerCapabilities {
-        val instance = JSONObject(api.get(connection.origin, "v2/instance").body)
-        val mutationOutcome = if (hasVerifiedEmojiReactionMetadata(instance)) {
-            probeEmojiReactionMutation(connection.origin)
-        } else {
-            EmojiMutationProbeOutcome.Unknown
-        }
-        return parseCapabilities(instance, mutationOutcome)
+        val instance = fetchInstanceMetadata(connection.origin)
+        return parseCapabilities(instance)
     }
 
-    private suspend fun probeEmojiReactionMutation(origin: String): EmojiMutationProbeOutcome = try {
-        api.get(origin, "v1/pleroma/statuses/1/reactions/$PROBE_EMOJI_ENCODED")
-        EmojiMutationProbeOutcome.Supported
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: ApiFailure) {
-        EmojiMutationProbeOutcome.Ambiguous
-    } catch (_: Exception) {
-        EmojiMutationProbeOutcome.Failed
+    /**
+     * Fetches instance metadata with a bounded response size.
+     *
+     * The v2 endpoint is preferred. The v1 endpoint is a documented fallback only when the
+     * v2 endpoint is absent (404). Any other failure propagates, so the caller keeps its
+     * existing evidence instead of replacing verified state with a default.
+     */
+    suspend fun fetchInstanceMetadata(origin: String): JSONObject {
+        val v2 = try {
+            JSONObject(api.get(origin, "v2/instance", maxResponseBytes = MAX_INSTANCE_BYTES).body)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiFailure) {
+            if (e.status != 404) throw e
+            null
+        }
+        if (v2 != null) return v2
+        return JSONObject(api.get(origin, "v1/instance", maxResponseBytes = MAX_INSTANCE_BYTES).body)
     }
 
     companion object {
-        private const val PROBE_EMOJI_ENCODED = "%F0%9F%8E%89"
+        /** Bounds the instance metadata read. The document is small on supported servers. */
+        private const val MAX_INSTANCE_BYTES = 512 * 1024L
 
         /** Parses only a leading major.minor.patch value; fork suffixes are ignored. */
         fun parseLeadingVersion(value: String): VersionTriple? {
@@ -69,7 +78,10 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
             )
         }
 
-        /** The optional mutation probe ran successfully against the verified extension. */
+        /**
+         * True when instance metadata advertises the recognized reaction extension.
+         * The shape is fixture-confirmed. A malformed or partial shape returns false.
+         */
         fun hasVerifiedEmojiReactionMetadata(instance: JSONObject): Boolean =
             instance.optJSONObject("pleroma")
                 ?.optJSONObject("metadata")
@@ -79,10 +91,7 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
                 }
                 ?: false
 
-        fun parseCapabilities(
-            instance: JSONObject,
-            emojiMutationProbe: EmojiMutationProbeOutcome = EmojiMutationProbeOutcome.Unknown,
-        ): ServerCapabilities {
+        fun parseCapabilities(instance: JSONObject): ServerCapabilities {
             val machineVersion = instance.optJSONObject("api_versions")?.opt("mastodon")?.let { value ->
                 when (value) {
                     is Number -> value.toInt().takeIf { it >= 0 }
@@ -118,7 +127,7 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
                 }
                 else -> CapabilityStatus.Unknown
             }
-            val emoji = emojiCapabilities(instance, emojiMutationProbe)
+            val emoji = emojiCapabilities(instance)
             val actions = setOf(
                 PostAction.Reply,
                 PostAction.Reshare,
@@ -180,32 +189,21 @@ class MastodonCapabilityProbe(private val api: MisskeyApi) : CapabilityProbe {
             )
         }
 
-        private fun emojiCapabilities(
-            instance: JSONObject,
-            mutationProbe: EmojiMutationProbeOutcome,
-        ): EmojiCapabilities {
-            if (!hasVerifiedEmojiReactionMetadata(instance)) {
-                return EmojiCapabilities(
-                    catalog = CapabilityStatus.Supported,
-                    reactionListing = CapabilityStatus.Unsupported,
-                    reactionMutation = CapabilityStatus.Unsupported,
-                    selectionMode = ReactionSelectionMode.Unknown,
-                )
-            }
-            val mutation = when (mutationProbe) {
-                EmojiMutationProbeOutcome.Supported -> CapabilityStatus.Supported
-                EmojiMutationProbeOutcome.Failed, EmojiMutationProbeOutcome.Unknown -> CapabilityStatus.Unknown
-                EmojiMutationProbeOutcome.Ambiguous -> CapabilityStatus.Unsupported
-            }
+        /**
+         * Reaction capabilities come from the advertisement alone.
+         *
+         * A recognized advertisement proves listing and mutation support at the server
+         * level with independent selection. A missing or malformed advertisement stays
+         * Unknown: absence is not a verified endpoint rejection, and it must never
+         * masquerade as proof of support.
+         */
+        private fun emojiCapabilities(instance: JSONObject): EmojiCapabilities {
+            val advertised = hasVerifiedEmojiReactionMetadata(instance)
             return EmojiCapabilities(
                 catalog = CapabilityStatus.Supported,
-                reactionListing = CapabilityStatus.Supported,
-                reactionMutation = mutation,
-                selectionMode = if (mutation == CapabilityStatus.Supported) {
-                    ReactionSelectionMode.Independent
-                } else {
-                    ReactionSelectionMode.Unknown
-                },
+                reactionListing = if (advertised) CapabilityStatus.Supported else CapabilityStatus.Unknown,
+                reactionMutation = if (advertised) CapabilityStatus.Supported else CapabilityStatus.Unknown,
+                selectionMode = if (advertised) ReactionSelectionMode.Independent else ReactionSelectionMode.Unknown,
             )
         }
 

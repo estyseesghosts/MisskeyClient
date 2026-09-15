@@ -15,6 +15,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -121,24 +122,21 @@ class MastodonCapabilityProbeTest {
     }
 
     @Test
-    fun ordinaryMastodonSupportsCatalogWithoutReactAction() {
+    fun ordinaryMastodonSupportsCatalogWithUnknownReactionsAndNoReactAction() {
         val capabilities = parse(instance("4.6.0"))
 
         assertEquals(CapabilityStatus.Supported, capabilities.emoji.catalog)
-        assertEquals(CapabilityStatus.Unsupported, capabilities.emoji.reactionListing)
-        assertEquals(CapabilityStatus.Unsupported, capabilities.emoji.reactionMutation)
+        assertEquals(CapabilityStatus.Unknown, capabilities.emoji.reactionListing)
+        assertEquals(CapabilityStatus.Unknown, capabilities.emoji.reactionMutation)
+        assertEquals(ReactionSelectionMode.Unknown, capabilities.emoji.selectionMode)
         assertFalse(PostAction.React in capabilities.actions)
         assertTrue(PostAction.Favorite in capabilities.actions)
         assertEquals(CapabilityStatus.Supported, capabilities.likedPosts)
     }
 
     @Test
-    fun verifiedExtensionWithConfirmedProbeAddsReactIndependentAndMutation() {
-        val instance = extensionInstance()
-        val capabilities = MastodonCapabilityProbe.parseCapabilities(
-            instance,
-            MastodonCapabilityProbe.EmojiMutationProbeOutcome.Supported,
-        )
+    fun verifiedExtensionAdvertisementAddsReactIndependentAndMutation() {
+        val capabilities = MastodonCapabilityProbe.parseCapabilities(extensionInstance())
 
         assertEquals(CapabilityStatus.Supported, capabilities.emoji.catalog)
         assertEquals(CapabilityStatus.Supported, capabilities.emoji.reactionListing)
@@ -148,83 +146,85 @@ class MastodonCapabilityProbeTest {
     }
 
     @Test
-    fun ambiguousProbeEvidenceAddsNoReactAction() {
-        val instance = extensionInstance()
-        val capabilities = MastodonCapabilityProbe.parseCapabilities(
-            instance,
-            MastodonCapabilityProbe.EmojiMutationProbeOutcome.Ambiguous,
+    fun missingOrMalformedAdvertisementKeepsReactionSupportUnknown() {
+        val absent = extensionInstance().put("pleroma", JSONObject().put("metadata", JSONObject()))
+        val wrongFeature = extensionInstance().put(
+            "pleroma",
+            JSONObject().put("metadata", JSONObject().put("features", org.json.JSONArray().put("pleroma_other"))),
         )
+        val featuresNotAnArray = extensionInstance().put(
+            "pleroma",
+            JSONObject().put("metadata", JSONObject().put("features", "pleroma_emoji_reactions")),
+        )
+        listOf(instance("4.6.0"), absent, wrongFeature, featuresNotAnArray).forEach { instance ->
+            val capabilities = MastodonCapabilityProbe.parseCapabilities(instance)
 
-        assertEquals(CapabilityStatus.Supported, capabilities.emoji.reactionListing)
-        assertEquals(CapabilityStatus.Unsupported, capabilities.emoji.reactionMutation)
-        assertFalse(PostAction.React in capabilities.actions)
-    }
-
-    @Test
-    fun unknownMutationProbeKeepsMutationUnknownWithoutReactAction() {
-        val capabilities = MastodonCapabilityProbe.parseCapabilities(extensionInstance())
-
-        assertEquals(CapabilityStatus.Supported, capabilities.emoji.reactionListing)
-        assertEquals(CapabilityStatus.Unknown, capabilities.emoji.reactionMutation)
-        assertEquals(ReactionSelectionMode.Unknown, capabilities.emoji.selectionMode)
-        assertFalse(PostAction.React in capabilities.actions)
-    }
-
-    @Test
-    fun optionalProbeFailuresAreNonFatalForOrdinaryMastodon() = runBlocking {
-        listOf(401, 403, 404, 405).forEach { _ ->
-            MockWebServer().use { server ->
-                server.enqueue(MockResponse().setBody(instance("4.6.0").toString()))
-                val origin = server.url("/").toString().removeSuffix("/")
-                val capabilities = MastodonCapabilityProbe(MisskeyApi())
-                    .probeCapabilities(Connection(origin, Protocol.MASTODON))
-
-                assertTrue(capabilities.canPublish)
-                assertFalse(PostAction.React in capabilities.actions)
-            }
+            assertEquals(CapabilityStatus.Unknown, capabilities.emoji.reactionListing)
+            assertEquals(CapabilityStatus.Unknown, capabilities.emoji.reactionMutation)
+            assertEquals(ReactionSelectionMode.Unknown, capabilities.emoji.selectionMode)
+            assertFalse(PostAction.React in capabilities.actions)
         }
     }
 
     @Test
-    fun verifiedExtensionProbeRunsOnlyWhenMetadataIsPresent() = runBlocking {
+    fun metadataAbsenceSendsOneInstanceRequestWithoutAProbe() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody(instance("4.6.0").toString()))
             val origin = server.url("/").toString().removeSuffix("/")
-            MastodonCapabilityProbe(MisskeyApi()).probeCapabilities(Connection(origin, Protocol.MASTODON))
+            val capabilities = MastodonCapabilityProbe(MisskeyApi())
+                .probeCapabilities(Connection(origin, Protocol.MASTODON))
 
+            assertFalse(PostAction.React in capabilities.actions)
             assertEquals(1, server.requestCount)
             assertEquals("/api/v2/instance", server.takeRequest().path)
         }
     }
 
     @Test
-    fun verifiedExtensionProbeSendsOneInstanceAndOneOptionalProbeRequest() = runBlocking {
+    fun extensionAdvertisementNeedsNoMutationProbe() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody(extensionInstance().toString()))
-            server.enqueue(MockResponse().setBody("[]"))
             val origin = server.url("/").toString().removeSuffix("/")
             val capabilities = MastodonCapabilityProbe(MisskeyApi())
                 .probeCapabilities(Connection(origin, Protocol.MASTODON))
 
             assertEquals(CapabilityStatus.Supported, capabilities.emoji.reactionMutation)
             assertTrue(PostAction.React in capabilities.actions)
+            assertEquals(1, server.requestCount)
             assertEquals("/api/v2/instance", server.takeRequest().path)
-            assertEquals("/api/v1/pleroma/statuses/1/reactions/%F0%9F%8E%89", server.takeRequest().path)
         }
     }
 
     @Test
-    fun optionalProbeHttpFailureLeavesMutationUnavailableWithoutThrowing() = runBlocking {
+    fun absentV2InstanceFallsBackToV1() = runBlocking {
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setBody(extensionInstance().toString()))
             server.enqueue(MockResponse().setResponseCode(404).setBody("""{"error":"Record not found"}"""))
+            server.enqueue(MockResponse().setBody(extensionInstance().toString()))
             val origin = server.url("/").toString().removeSuffix("/")
             val capabilities = MastodonCapabilityProbe(MisskeyApi())
                 .probeCapabilities(Connection(origin, Protocol.MASTODON))
 
-            assertEquals(CapabilityStatus.Supported, capabilities.emoji.reactionListing)
-            assertEquals(CapabilityStatus.Unsupported, capabilities.emoji.reactionMutation)
-            assertFalse(PostAction.React in capabilities.actions)
+            assertEquals(CapabilityStatus.Supported, capabilities.emoji.reactionMutation)
+            assertEquals("/api/v2/instance", server.takeRequest().path)
+            assertEquals("/api/v1/instance", server.takeRequest().path)
+        }
+    }
+
+    @Test
+    fun metadataFailurePropagatesWithoutPublishingDefaults() = runBlocking {
+        listOf(401, 429, 500).forEach { status ->
+            MockWebServer().use { server ->
+                server.enqueue(MockResponse().setResponseCode(status).setBody("{}"))
+                val origin = server.url("/").toString().removeSuffix("/")
+
+                assertThrows(me.foxtails.palustris.data.misskey.ApiFailure::class.java) {
+                    runBlocking {
+                        MastodonCapabilityProbe(MisskeyApi())
+                            .probeCapabilities(Connection(origin, Protocol.MASTODON))
+                    }
+                }
+                assertEquals(1, server.requestCount)
+            }
         }
     }
 
