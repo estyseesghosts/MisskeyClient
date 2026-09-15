@@ -42,14 +42,17 @@ slice. It divides into S1a, S1b, and S1c below.
 - S1a — Transient overlay state lives in
   `ui/shell/ShellOverlayPresenter.kt`. Commit `ced43f2`. The six shell
   suites, the full `test assembleRelease` gate, and `lintDebug` pass.
+- S1b — The destination tree lives in
+  `ui/shell/ShellDestinationContent.kt`. Commit `101be82`. The six shell
+  suites, the full `test assembleRelease` gate, and `lintDebug` pass.
 
 # Current slice
 
-S1b — Extract the destination tree into
-`ui/shell/ShellDestinationContent.kt` (destination scaffold, destination
-branches, local pages, notifications destination, profile, search, Photo
-Grid, Home wiring). Keep saveable holders and scroll states in the shell
-unless the slice proves a move safe.
+S1c — Extract overlay, dialog, and bubble hosting into
+`ui/shell/ShellOverlayHost.kt` (bubble host, share sheet, media viewer,
+image viewer, selection sheet, composer overlay, edit-profile sheet,
+emoji picker host, notification settings sheet and its back handler,
+dialogs).
 
 # Files involved
 
@@ -77,13 +80,8 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Next
 
-1. S1b as defined in Current slice above.
-2. S1c — Extract overlay, dialog, and bubble hosting into
-   `ui/shell/ShellOverlayHost.kt` (bubble host, share sheet, media viewer,
-   image viewer, selection sheet, composer overlay, edit-profile sheet,
-   emoji picker host, notification settings sheet and its back handler,
-   dialogs).
-4. After S1: P1 (finish the `ui/` package migration), Q1 (ktlint/detekt
+1. S1c as defined in Current slice above.
+2. After S1: P1 (finish the `ui/` package migration), Q1 (ktlint/detekt
    with baseline; fix wildcard imports and fully-qualified names), T1
    (mirror test packages to production packages; merge the two
    duplicate-named test classes), V1 (repair instrumentation tests,
@@ -102,4 +100,4 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Last safe commit
 
-`ced43f2` "Extract transient overlay state into ShellOverlayPresenter".
+`101be82` "Extract destination tree into ShellDestinationContent".

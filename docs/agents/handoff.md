@@ -36,22 +36,25 @@ Read these in order. Treat the repository as the authority.
 - S1a (extract transient overlay state into `ui/shell/ShellOverlayPresenter.kt`)
   is committed and test verified. The slice commit is `ced43f2`.
 - S1b (extract the destination tree into `ui/shell/ShellDestinationContent.kt`)
-  is approved and not started. The task-state file names S1b as the current
-  slice. The last safe commit is `ced43f2`.
+  is committed and test verified. The slice commit is `101be82`.
+- S1c (extract overlay, dialog, and bubble hosting into
+  `ui/shell/ShellOverlayHost.kt`) is approved and not started. The
+  task-state file names S1c as the current slice. The last safe commit is
+  `101be82`.
 - Plan 01 and Plan 02 exit conditions are met except the S1 remainder of
   Step 13 and blocked device verification.
 
 ## Next Slice
 
-S1b — Extract the destination tree into
-`ui/shell/ShellDestinationContent.kt` (destination scaffold, destination
-branches, local pages, notifications destination, profile, search, Photo
-Grid, Home wiring). Keep the `PalustrisApp` signature and
-`AppShellFixtures.app()` stable. Keep saveable holders and scroll states
-in the shell unless the slice proves a move safe. Run the six shell suites
-plus the full gate. Commit only when green. Full scope, files, and
-verification commands are in `docs/agents/tasks/palustrisapp-decomposition.md`.
-Do not duplicate that file here.
+S1c — Extract overlay, dialog, and bubble hosting into
+`ui/shell/ShellOverlayHost.kt` (bubble host, share sheet, media viewer,
+image viewer, selection sheet, composer overlay, edit-profile sheet,
+emoji picker host, notification settings sheet and its back handler,
+dialogs). Keep the `PalustrisApp` signature and
+`AppShellFixtures.app()` stable. Run the six shell suites plus the full
+gate. Commit only when green. Full scope, files, and verification commands
+are in `docs/agents/tasks/palustrisapp-decomposition.md`. Do not duplicate
+that file here.
 
 ## After S1
 
