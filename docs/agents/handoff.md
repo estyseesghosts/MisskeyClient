@@ -16,12 +16,14 @@ Read these in order. Treat the repository as the authority.
 
 ## Current Position
 
-- Completion slices C-01 through C-11 and C-12a through C-12d3 are committed. `L-01` is committed.
-- The last safe commit is `b995922` (C-12d3 record commit). C-12d3 is `1331ec3`.
-- The next slice is **C-12d4, test isolation**. The task-state file holds its scope: move
-  `HomeFeedTest` and `SignInScreenTest` off the full shell into feature-local harnesses
-  like `ComposerFeatureFixtures`, or document why they need shell assembly.
-- `test assembleRelease` and `:app:lintDebug` pass at the C-12d3 behavior commit.
+- Completion slices C-01 through C-11 and C-12a through C-12d4 are committed. `L-01` is committed.
+- The last safe commit is `5ab3c62` (C-12d4 behavior commit; record follows).
+- Step 13 of the progress report is complete: `PalustrisApp` owns navigation and placement,
+  and feature changes stay local.
+- The next slice is **C-13, cancellation and integration verification**. The task-state file
+  holds its scope: review every touched suspending path and run the integration verification.
+- `test assembleRelease` and `:app:lintDebug` pass at the C-12d4 behavior commit. One full-gate
+  attempt failed without a captured identity; two full runs after it pass with zero failures.
 
 ## Next Cleanup
 
