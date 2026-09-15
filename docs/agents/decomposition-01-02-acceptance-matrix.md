@@ -40,13 +40,13 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 | Slice | Exit condition | Implementation | Evidence | Status | Completion slice |
 | --- | --- | --- | --- | --- | --- |
 | 01-A | Tests protect the behavior being moved. Plan 02 failures stay separate. | `AppShellFixtures.kt`, `ShellCharacterizationTest.kt` | those tests | Implemented, test verified | — |
-| 01-B | One feature action change does not change unrelated contracts. | `ui/shell/*.kt` contracts | contract tests, `AppShellFixtures.kt` | Implemented, source verified | C-12d |
+| 01-B | One feature action change does not change unrelated contracts. | `ui/shell/*.kt` contracts | contract tests, `AppShellFixtures.kt` | Implemented, source verified | C-12d3 |
 | 01-C | No storage selection, repository call, or `SocialSource` remains in `PalustrisApp`. | `LocalPostActionOwner`; composer fields moved to `ui/composer/ComposerOwner.kt` | `ComposerOwnerTest.kt`, `ReplyComposerTest.kt` | Implemented, test verified | — |
 | 01-D | One reviewed path owns fan-out. No duplicate listener, cycle, stale sink, or double increment. | `ui/shell/PostProjectionCoordinator.kt` | `PostProjectionCoordinatorTest.kt` | Implemented, test verified | — |
 | 01-E | Recomposition does not construct replacement sources. Session replacement cannot invoke old owners. | `ui/session/ConnectedSessionContext.kt`, `ui/session/ConnectedEntryStore.kt`, `ConnectedSessionHost.kt`, `AccountManager.kt` | `ConnectedSessionContextTest.kt`, `ConnectedEntryStoreTest.kt`, `SessionViewModelTest.kt` | Implemented, test verified. | — |
 | 01-F | `ConnectedApp` composes root hosts. It does not write settings, assemble actions, or own fan-out. | `ui/ConnectedApp.kt` (root composition only), `SettingsOverlayHost`, `NotificationLaunchHost` | `SettingsViewModelTest.kt`, `NotificationLaunchRouterTest.kt`, `NotificationLaunchHostTest.kt` | Implemented, test verified | — |
-| 01-G | `PalustrisApp` owns navigation and placement, not feature implementation. | navigation shell; composer editor moved to `ui/composer/`; composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt`; back precedence moved to `ui/navigation/ShellBackPolicy.kt` | `NavigationTest.kt`, `WideNavigationTest.kt` | Partially implemented | C-12d |
-| 01-H | A new feature action needs no unrelated fixture change. Source, tests, and documentation agree. | `AppShellFixtures.app` plus `ComposerFeatureFixtures` | `AppShellFixtures.kt`, `ReplyComposerTest.kt` | Partially implemented | C-12d, C-14 |
+| 01-G | `PalustrisApp` owns navigation and placement, not feature implementation. | navigation shell; composer editor moved to `ui/composer/`; composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt`; back precedence moved to `ui/navigation/ShellBackPolicy.kt`; preview-only placement moved to `ui/PalustrisAppPreview.kt` | `NavigationTest.kt`, `WideNavigationTest.kt` | Partially implemented | C-12d2, C-12d3 |
+| 01-H | A new feature action needs no unrelated fixture change. Source, tests, and documentation agree. | `AppShellFixtures.app` plus `ComposerFeatureFixtures` | `AppShellFixtures.kt`, `ReplyComposerTest.kt` | Partially implemented | C-12d3, C-14 |
 
 ### Source Notes
 

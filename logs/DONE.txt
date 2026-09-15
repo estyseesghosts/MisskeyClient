@@ -1118,3 +1118,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - C-12c committed at 56c4cee.
 - Unverified: device rendering, live-server, signed release.
 
+
+260915-063000 C-12d1 preview-only placement:
+- Moved the private preview-only AppPreview out of ui/PalustrisApp.kt into ui/PalustrisAppPreview.kt. The preview still composes the full shell with the empty contracts. No production behavior changed.
+- Removed the now-unused Preview import from PalustrisApp.kt. PalustrisApp.kt keeps navigation and placement only.
+- C-12d splits into d1 (preview, done), d2 (navigation state holder), d3 (remaining test isolation). This task is larger than one safe implementation slice.
+- Verification passed: :app:compileDebugKotlin, test assembleRelease, and :app:lintDebug when run alone. Pre-existing always-false warning at PalustrisApp.kt:719 untouched.
+- C-12d1 committed at 624678f.
+- Unverified: device rendering, live-server, signed release.
