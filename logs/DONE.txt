@@ -1027,6 +1027,6 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - MainActivity injects the authority and threads it through ConnectedApp to ConnectedSessionHost. The host builds the draft owner from connectedContext.draftGeneration.
 - Added DraftActionsTest cases for late save, late delete, and in-flight save against removal. Extended SessionViewModelTest so a pending save cannot recreate the removed draft while a second account keeps its drafts.
 - Verification passed: DraftActionsTest, SessionViewModelTest, ComposerOwnerTest, ConnectedSessionContextTest, test assembleRelease, and :app:lintDebug when run alone.
-- C-06c committed at PENDING.
+- C-06c committed at 4454bae.
 - Unverified: device, live-server, signed release.
 
