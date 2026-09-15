@@ -167,16 +167,18 @@ class MastodonCapabilityProbeTest {
     }
 
     @Test
-    fun metadataAbsenceSendsOneInstanceRequestWithoutAProbe() = runBlocking {
+    fun metadataAbsenceAddsOneNodeInfoDiscoveryWithoutAMutationProbe() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody(instance("4.6.0").toString()))
+            server.enqueue(MockResponse().setBody("""{"links":[]}"""))
             val origin = server.url("/").toString().removeSuffix("/")
             val capabilities = MastodonCapabilityProbe(MisskeyApi())
                 .probeCapabilities(Connection(origin, Protocol.MASTODON))
 
             assertFalse(PostAction.React in capabilities.actions)
-            assertEquals(1, server.requestCount)
+            assertEquals(2, server.requestCount)
             assertEquals("/api/v2/instance", server.takeRequest().path)
+            assertEquals("/.well-known/nodeinfo", server.takeRequest().path)
         }
     }
 

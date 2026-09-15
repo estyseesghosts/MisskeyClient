@@ -44,9 +44,10 @@ without changing installed data.
 
 Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15 and P-01..P-07.
 
-- 03-A: still required. `MastodonCapabilityProbe.probeEmojiReactionMutation` still GETs
-  `v1/pleroma/statuses/1/reactions/...` (`MastodonCapabilityProbe.kt:47-48`). `Ambiguous`
-  still maps to `Unsupported` (`:198`).
+- 03-A: closed by 03-A1 and 03-A2. The sentinel mutation probe is removed. The recognized
+  instance advertisement is the only positive instance-metadata evidence. NodeInfo discovery
+  is the supplemental fallback with validated same-origin URLs, a credential-free request,
+  disabled redirects, bounded reads, and a one-document fetch.
 - 03-B: closed by 03-B1 and 03-B2. The bare-404 downgrade and the non-reactive `EmojiHost`
   read are closed. Refreshed capabilities publish under a session-revision guard, and a
   failed metadata probe backs off for 30 seconds.
@@ -84,6 +85,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-B1 | Preserve runtime capability evidence. Remove the bare-404 downgrade, publish capabilities reactively, reuse the metadata owner at login, and invalidate sentinel-era snapshots. | A resource failure keeps advertised support. Reaction controls read an observable capability value. | implemented, test verified. |
 | 03-B2 | Publish refreshed capabilities under a session-revision guard and bound refresh retries. | A stale source cannot overwrite a replaced session. A failed probe does not re-probe on every request. | implemented, test verified. |
 | 03-D1 | Freeze the notification state-envelope codec. Add `NotificationJsonCodecTest` and literal fixtures for the complete and legacy minimal states. Add file-store fixed-JSON tests. | The state envelope round-trips. Legacy defaults, legacy target-only navigation, and the legacy reaction `imageUrl` are characterized. | implemented, test verified. |
+| 03-A2 | Add NodeInfo discovery when instance metadata omits the reaction advertisement. Validate discovery URLs, keep the request credential-free, disable redirects, bound reads, and fetch one document. | A server that advertises reactions only in NodeInfo gets React. A foreign, credentialed, or fragmented URL triggers no request. All discovery failures stay Unknown. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -129,14 +131,22 @@ The file-store tests write the fixed JSON to disk and read it through `FileNotif
 and write a state and compare the stored file to the fixture. `test assembleRelease` and
 `:app:lintDebug` pass.
 
+03-A2 verification: `MastodonNodeInfoDiscoveryTest` passes with eleven tests. `MastodonCapabilityProbeTest`,
+`MastodonIntegrationTest`, and `MisskeyIntegrationTest` pass. `test assembleRelease` and
+`:app:lintDebug` pass. `probeCapabilities` fetches `/.well-known/nodeinfo` and one same-origin
+NodeInfo document only when instance metadata has no advertisement. NodeInfo 2.1 is preferred.
+Foreign, cross-scheme, credentialed, and fragmented URLs cause no document request. Discovery
+failures and the 256 KiB read bound keep reactions Unknown without throwing. `MastodonAuth` now
+uses `probeCapabilities`, so login applies the same evidence rules. `MisskeyApi.getUrl` uses
+`ProductIdentity.userAgent` instead of the stale `Palustris/0.1` value.
+
 ## Current Slice
 
 03-D2 — Freeze the activity, navigation, read-state, and delivery fixtures, and add the Room
 fixed-JSON test.
 
-Remaining 03-D families: activity variants, navigation, posts and accounts, interaction
-counts, unread state, settings, delivery, push, checkpoints, malformed structure, and known
-omissions. 03-A2 (NodeInfo discovery) stays open. 03-F and 03-I need maintainer approval
+Remaining 03-D families: posts and accounts, interaction counts, unread state, settings, push,
+checkpoints, malformed structure, and known omissions. 03-F and 03-I need maintainer approval
 before coding.
 
 ## Required Verification
@@ -162,4 +172,4 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`e40ef87` "Freeze the notification state-envelope codec fixtures".
+`d2643a5` "Record 03-D1 commit in task state and handoff".

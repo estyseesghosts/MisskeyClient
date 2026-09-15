@@ -94,11 +94,15 @@ returns the current snapshot once. `MisskeySource` and `MastodonSource` return t
 state flow. `EmojiHost` collects that flow and passes `EmojiCapabilities` to `EmojiPresentation`, so
 a refreshed probe can update reaction controls without a catalog or navigation change.
 
-Mastodon reaction support comes from the recognized extension advertisement in instance metadata.
-`MastodonSource.react` and `removeReaction` do not downgrade support on a resource failure. A
-resource 404, 403, 429, network failure, or 5xx returns the normalized `SourceError` and keeps the
-advertised support. `MastodonCapabilityProbe` owns the advertisement rules and the bounded metadata
-read; `MastodonAuth` reuses that owner at login.
+Mastodon reaction support comes from the recognized extension advertisement. `MastodonSource.react`
+and `removeReaction` do not downgrade support on a resource failure. A resource 404, 403, 429,
+network failure, or 5xx returns the normalized `SourceError` and keeps the advertised support.
+`MastodonCapabilityProbe` owns the advertisement rules and the bounded metadata read. It first reads
+instance metadata. When instance metadata has no recognized advertisement, it inspects
+`/.well-known/nodeinfo` and fetches at most one same-origin NodeInfo document. Discovery URLs must
+be same-origin with the validated connection origin, carry no credential, and carry no fragment.
+The reads follow no redirect and are bounded. Every discovery failure stays Unknown; it is not
+Unsupported evidence. `MastodonAuth` uses `probeCapabilities`, so login applies the same rules.
 
 `ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION` is `5`. Revision 5 invalidates snapshots
 that recorded reaction support from the removed sentinel mutation probe. `refreshCapabilities`

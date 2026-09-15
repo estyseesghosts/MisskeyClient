@@ -171,7 +171,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
     suspend fun getUrl(url: String, bearerToken: String? = null, maxResponseBytes: Long? = null): HttpResponse =
         execute(Request.Builder().url(url)
             .header("Accept", "application/json")
-            .header("User-Agent", "Palustris/0.1 (Android)")
+            .header("User-Agent", ProductIdentity.userAgent)
             .apply { bearerToken?.let { header("Authorization", "Bearer $it") } }
             .get().build(), maxResponseBytes)
 
