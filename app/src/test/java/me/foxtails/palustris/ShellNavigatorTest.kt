@@ -19,6 +19,7 @@ import me.foxtails.palustris.ui.Overlay
 import me.foxtails.palustris.ui.SearchPanel
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.navigation.ShellNavigator
+import me.foxtails.palustris.ui.large.LargeNavTarget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -41,8 +42,7 @@ class ShellNavigatorTest {
     @Suppress("UNCHECKED_CAST")
     private val saver = ShellNavigator.Saver as Saver<ShellNavigator, Any>
 
-    private fun ownedPost(id: String) = OwnedPost(
-        fetchedBy = accountId,
+    private fun ownedPost(id: String) = OwnedPost(        fetchedBy = accountId,
         post = Post(
             id = EntityId(connection.origin, id),
             author = account,
@@ -185,5 +185,118 @@ class ShellNavigatorTest {
         assertNull(restored.viewedProfile)
         assertNull(restored.singlePost)
         assertNull(restored.notificationRoute)
+    }
+
+    private fun recordingNavigator(): Triple<ShellNavigator, MutableList<String>, MutableList<Account>> {
+        val cleared = mutableListOf<String>()
+        val searched = mutableListOf<String>()
+        val conversations = mutableListOf<Account>()
+        val navigator = ShellNavigator()
+        navigator.onClearTransient = { cleared += "cleared" }
+        navigator.onSearch = { searched += it }
+        navigator.onStartConversation = { conversations += it }
+        return Triple(navigator, searched, conversations)
+    }
+
+    @Test
+    fun selectDestinationClearsPageAndRoute() {
+        val (navigator, searched, _) = recordingNavigator()
+        navigator.page = LocalPage.Drafts
+        navigator.notificationRoute = AppRoute.Post(accountId, EntityId(connection.origin, "p1"))
+        navigator.selectDestination(Destination.Search)
+        assertEquals(Destination.Search, navigator.destination)
+        assertEquals(1, navigator.destinationTransitionDirection)
+        assertNull(navigator.page)
+        assertNull(navigator.notificationRoute)
+        assertTrue(navigator.navigationVisible)
+        assertTrue(searched.isEmpty())
+    }
+
+    @Test
+    fun selectProfileDestinationClearsViewedProfile() {
+        val (navigator, _, _) = recordingNavigator()
+        navigator.viewedProfile = account
+        navigator.selectDestination(Destination.Profile)
+        assertNull(navigator.viewedProfile)
+        assertEquals(Destination.Profile, navigator.destination)
+    }
+
+    @Test
+    fun reducedMotionHasNoDirection() {
+        val (navigator, _, _) = recordingNavigator()
+        navigator.reducedMotion = true
+        navigator.selectDestination(Destination.Profile)
+        assertEquals(0, navigator.destinationTransitionDirection)
+    }
+
+    @Test
+    fun openProfileShowsOwnProfileDestination() {
+        val (navigator, _, _) = recordingNavigator()
+        navigator.sheet = "Accounts"
+        navigator.openProfile(account)
+        assertEquals(account, navigator.viewedProfile)
+        assertEquals(Destination.Profile, navigator.destination)
+        assertEquals(1, navigator.destinationTransitionDirection)
+        assertNull(navigator.sheet)
+        assertNull(navigator.page)
+        assertNull(navigator.notificationRoute)
+    }
+
+    @Test
+    fun selectLargeTargetBindsPanels() {
+        val (navigator, _, _) = recordingNavigator()
+        navigator.selectLargeTarget(LargeNavTarget.PhotoGrid)
+        assertEquals(Destination.Search, navigator.destination)
+        assertEquals(SearchPanel.PhotoGrid, navigator.searchPanel)
+        navigator.selectLargeTarget(LargeNavTarget.DirectMessages)
+        assertEquals(Destination.Notifications, navigator.destination)
+        assertEquals(NotificationsPanel.DirectMessages, navigator.notificationsPanel)
+        navigator.selectLargeTarget(LargeNavTarget.Profile)
+        assertEquals(Destination.Profile, navigator.destination)
+        assertNull(navigator.viewedProfile)
+    }
+
+    @Test
+    fun openDirectMessageStartsConversation() {
+        val (navigator, _, conversations) = recordingNavigator()
+        navigator.openDirectMessage(account)
+        assertEquals(listOf(account), conversations)
+        assertEquals(Destination.Notifications, navigator.destination)
+        assertEquals(NotificationsPanel.DirectMessages, navigator.notificationsPanel)
+        assertNull(navigator.page)
+        assertNull(navigator.notificationRoute)
+    }
+
+    @Test
+    fun openHashtagSearchExecutesSearch() {
+        val (navigator, searched, _) = recordingNavigator()
+        navigator.searchPrefill = "stale"
+        navigator.openHashtagSearch("#tag")
+        assertEquals("#tag", navigator.searchQuery)
+        assertEquals("", navigator.searchPrefill)
+        assertEquals(SearchPanel.Search, navigator.searchPanel)
+        assertEquals(Destination.Search, navigator.destination)
+        assertEquals(listOf("#tag"), searched)
+    }
+
+    @Test
+    fun openAccountSearchExecutesSearch() {
+        val (navigator, searched, _) = recordingNavigator()
+        navigator.openAccountSearch("owner")
+        assertEquals("owner", navigator.searchQuery)
+        assertEquals(Destination.Search, navigator.destination)
+        assertEquals(listOf("owner"), searched)
+    }
+
+    @Test
+    fun openSinglePostClearsTransientAndSelects() {
+        val (navigator, _, _) = recordingNavigator()
+        var cleared = 0
+        navigator.onClearTransient = { cleared++ }
+        val post = ownedPost("p1")
+        navigator.openSinglePost(post, LargePostOrigin.Home)
+        assertEquals(1, cleared)
+        assertEquals(post, navigator.singlePost)
+        assertEquals(LargePostOrigin.Home, navigator.singlePostOrigin)
     }
 }

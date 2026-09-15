@@ -119,11 +119,9 @@ import me.foxtails.palustris.ui.motion.compactFloatingEnter
 import me.foxtails.palustris.ui.motion.compactFloatingExit
 import me.foxtails.palustris.ui.motion.rememberSelectedColor
 import me.foxtails.palustris.ui.motion.rememberSelectedScale
-import me.foxtails.palustris.ui.motion.motionDirection
 import me.foxtails.palustris.ui.motion.springPress
 import me.foxtails.palustris.ui.large.LargeBottomDockClearance
 import me.foxtails.palustris.ui.large.LargeBottomDock
-import me.foxtails.palustris.ui.large.LargeNavTarget
 import me.foxtails.palustris.ui.large.LargeScreenShell
 import me.foxtails.palustris.ui.large.LargeTimelineDockContent
 import me.foxtails.palustris.ui.large.largeLayoutMode
@@ -201,11 +199,20 @@ fun PalustrisApp(
     var pendingEmojiInsertion by remember { mutableStateOf<Pair<EmojiChoice, ComposerField>?>(null) }
     val motionScheme = LocalPalustrisMotionScheme.current
     val availableTimelines = if (account == null) Timeline.entries.toSet() else home?.state?.availableTimelines ?: setOf(Timeline.Home)
+    fun clearPostActionBubble() {
+        postActionBubbleTarget = null
+        pendingExpandedReactionTarget = null
+        postReactionHandler = null
+    }
     val navigator = rememberShellNavigator(
         accountId = account?.id,
         initialRoute = initialNotificationRoute,
         availableTimelines = availableTimelines,
         selectedHomeTimeline = home?.state?.selectedTimeline,
+        reducedMotion = motionScheme.reducedMotion,
+        onClearTransient = ::clearPostActionBubble,
+        onSearch = search.actions::search,
+        onStartConversation = directMessages.actions::startConversation,
     )
     val modalOverlayOpen = navigator.overlay != null || navigator.sheet != null || profileDialog || signOutDialog || mediaRequest != null || profileImageRequest != null || navigator.singlePost != null || emojiPickerTarget != null
     val profileTargetId = navigator.viewedProfile?.id ?: account?.id
@@ -236,16 +243,6 @@ fun PalustrisApp(
         }
     }
 
-    fun clearPostActionBubble() {
-        postActionBubbleTarget = null
-        pendingExpandedReactionTarget = null
-        postReactionHandler = null
-    }
-
-    fun clearSelectedPost() {
-        navigator.clearSelectedPost()
-    }
-
     LaunchedEffect(account?.id) {
         mediaTransitionRegistry.endActive()
         mediaRequest = null
@@ -270,7 +267,7 @@ fun PalustrisApp(
     }
     LaunchedEffect(photoGrid.state.selectedFeed, account?.id, sessionGeneration) {
         photoGridScrollState.scrollToItem(0)
-        if (navigator.singlePostOrigin == LargePostOrigin.PhotoGrid) clearSelectedPost()
+        if (navigator.singlePostOrigin == LargePostOrigin.PhotoGrid) navigator.clearSelectedPost()
     }
     LaunchedEffect(navigator.singlePost?.post?.id, navigator.singlePostOrigin, navigator.singlePostOrigin.supportsComments()) {
         thread.actions.activate(navigator.singlePost, navigator.singlePostOrigin.supportsComments())
@@ -358,68 +355,6 @@ fun PalustrisApp(
             pendingExpandedReactionTarget = null
         }
     }
-    fun selectDestination(item: Destination) {
-        clearPostActionBubble()
-        navigator.navigationVisible = true
-        if (item == Destination.Profile) navigator.viewedProfile = null
-        navigator.destinationTransitionDirection = motionDirection(navigator.destination.ordinal, item.ordinal, motionScheme.reducedMotion)
-        navigator.destination = item
-        navigator.page = null
-        navigator.notificationRoute = null
-    }
-    fun openProfile(profile: Account) {
-        clearPostActionBubble()
-        clearSelectedPost()
-        navigator.viewedProfile = profile
-        navigator.destinationTransitionDirection = motionDirection(navigator.destination.ordinal, Destination.Profile.ordinal, motionScheme.reducedMotion)
-        navigator.destination = Destination.Profile
-        navigator.page = null
-        navigator.sheet = null
-        navigator.notificationRoute = null
-    }
-
-    fun selectLargeTarget(target: LargeNavTarget) {
-        clearSelectedPost()
-        when (target) {
-            LargeNavTarget.Home -> selectDestination(Destination.Home)
-            LargeNavTarget.Search -> {
-                navigator.searchPanelName = SearchPanel.Search.name
-                selectDestination(Destination.Search)
-            }
-            LargeNavTarget.PhotoGrid -> {
-                navigator.searchPanelName = SearchPanel.PhotoGrid.name
-                selectDestination(Destination.Search)
-            }
-            LargeNavTarget.Notifications -> {
-                navigator.notificationsPanelName = NotificationsPanel.Notifications.name
-                selectDestination(Destination.Notifications)
-            }
-            LargeNavTarget.DirectMessages -> {
-                navigator.notificationsPanelName = NotificationsPanel.DirectMessages.name
-                selectDestination(Destination.Notifications)
-            }
-            LargeNavTarget.Profile -> {
-                navigator.viewedProfile = null
-                selectDestination(Destination.Profile)
-            }
-        }
-    }
-
-    fun openDirectMessage(profile: Account) {
-        clearPostActionBubble()
-        clearSelectedPost()
-        directMessages.actions.startConversation(profile)
-        navigator.notificationsPanelName = NotificationsPanel.DirectMessages.name
-        navigator.destinationTransitionDirection = motionDirection(
-            navigator.destination.ordinal,
-            Destination.Notifications.ordinal,
-            motionScheme.reducedMotion,
-        )
-        navigator.destination = Destination.Notifications
-        navigator.page = null
-        navigator.notificationRoute = null
-    }
-
     fun openNotificationTarget(route: AppRoute) {
         if (route !is AppRoute.Profile) {
             navigator.notificationRoute = null
@@ -429,31 +364,7 @@ fun PalustrisApp(
             .firstOrNull { it.target == me.foxtails.palustris.domain.NotificationTarget.Profile(route.profileId) }
             ?.actors
             ?.firstOrNull { it.id == route.profileId }
-        if (target != null) openProfile(target) else navigator.notificationRoute = null
-    }
-
-    fun openHashtagSearch(hashtag: String) {
-        clearPostActionBubble()
-        clearSelectedPost()
-        navigator.searchQuery = hashtag
-        navigator.searchPrefill = ""
-        navigator.searchPanelName = SearchPanel.Search.name
-        navigator.destinationTransitionDirection = motionDirection(navigator.destination.ordinal, Destination.Search.ordinal, motionScheme.reducedMotion)
-        navigator.destination = Destination.Search
-        navigator.page = null
-        search.actions.search(hashtag)
-    }
-
-    fun openAccountSearch(username: String) {
-        clearPostActionBubble()
-        clearSelectedPost()
-        navigator.searchQuery = username
-        navigator.searchPrefill = ""
-        navigator.searchPanelName = SearchPanel.Search.name
-        navigator.destinationTransitionDirection = motionDirection(navigator.destination.ordinal, Destination.Search.ordinal, motionScheme.reducedMotion)
-        navigator.destination = Destination.Search
-        navigator.page = null
-        search.actions.search(username)
+        if (target != null) navigator.openProfile(target) else navigator.notificationRoute = null
     }
 
     fun openMedia(request: MediaOpenRequest) {
@@ -474,10 +385,8 @@ fun PalustrisApp(
     }
 
     fun openSinglePost(post: OwnedPost, origin: LargePostOrigin = LargePostOrigin.Other) {
-        clearPostActionBubble()
         mediaRequest = null
-        navigator.singlePost = post
-        navigator.singlePostOrigin = origin
+        navigator.openSinglePost(post, origin)
     }
 
     fun latestSelectedPost(): OwnedPost? {
@@ -528,10 +437,10 @@ fun PalustrisApp(
                 ShellTopSurface.NotificationSettings -> closeNotificationSettings()
                 ShellTopSurface.Composer -> closeComposer()
                 ShellTopSurface.EditProfile -> closeProfile()
-                ShellTopSurface.SinglePost -> clearSelectedPost()
+                ShellTopSurface.SinglePost -> navigator.clearSelectedPost()
                 ShellTopSurface.NotificationRoute -> navigator.notificationRoute = null
                 ShellTopSurface.Page -> navigator.page = null
-                ShellTopSurface.Home -> selectDestination(Destination.Home)
+                ShellTopSurface.Home -> navigator.selectDestination(Destination.Home)
                 null -> Unit
             }
         }
@@ -580,7 +489,7 @@ fun PalustrisApp(
                             AppNotificationDetailContent(
                                 route = navigator.notificationRoute!!,
                                 items = notifications.state.items,
-                                onSearchHashtag = ::openHashtagSearch,
+                                onSearchHashtag = navigator::openHashtagSearch,
                                 onOpenHashtagBubble = ::openHashtagBubble,
                                  onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Notification) },
                                  onOpenTarget = (navigator.notificationRoute as? AppRoute.Profile)?.let { route ->
@@ -624,10 +533,10 @@ fun PalustrisApp(
                                   onOpenReactionPicker = ::expandReactionPicker,
                                  onOpenMedia = ::openMedia,
                                  onOpenPost = ::openSinglePost,
-                                 onOpenProfile = ::openProfile,
-                                 onSearchHashtag = ::openHashtagSearch,
+                                 onOpenProfile = navigator::openProfile,
+                                 onSearchHashtag = navigator::openHashtagSearch,
                                  onOpenHashtagBubble = ::openHashtagBubble,
-                                 onOpenUsername = ::openAccountSearch,
+                                 onOpenUsername = navigator::openAccountSearch,
                                  availableActions = availableActions,
                                  largeLayout = largePresentation,
                              )
@@ -650,12 +559,12 @@ fun PalustrisApp(
                                            onOpenReactionBubble = { ownedPost, bounds -> openReactionBubble(ownedPost, bounds, onReaction) },
                                            onOpenReactionPicker = ::expandReactionPicker,
                                           onQuote = handleQuote,
-                                          onOpenProfile = ::openProfile,
-                                          onSearchHashtag = ::openHashtagSearch,
+                                          onOpenProfile = navigator::openProfile,
+                                          onSearchHashtag = navigator::openHashtagSearch,
                                           onOpenHashtagBubble = ::openHashtagBubble,
                                           onOpenMedia = ::openMedia,
                                           onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Home) },
-                                          onOpenUsername = ::openAccountSearch,
+                                          onOpenUsername = navigator::openAccountSearch,
                                           listState = homeListState,
                                           topContentPadding = if (largePresentation) 16.dp else null,
                                           bottomContentClearance = if (largePresentation) LargeBottomDockClearance else null,
@@ -663,7 +572,7 @@ fun PalustrisApp(
                                            bottomDock = if (largePresentation) ({
                                          LargeTimelineDockContent(availableTimelines, navigator.timeline) { item ->
                                              val changed = item != navigator.timeline
-                                             if (changed) clearSelectedPost()
+                                             if (changed) navigator.clearSelectedPost()
                                              navigator.timeline = item
                                              if (changed) home.actions.refresh(item)
                                        }
@@ -674,7 +583,7 @@ fun PalustrisApp(
                                            LargeBottomDock(modifier = Modifier.align(Alignment.BottomStart), content = {
                                                 LargeTimelineDockContent(availableTimelines, navigator.timeline) { item ->
                                                     val changed = item != navigator.timeline
-                                                    if (changed) clearSelectedPost()
+                                                    if (changed) navigator.clearSelectedPost()
                                                     navigator.timeline = item
                                                     if (changed && home != null) home.actions.refresh(item)
                                                }
@@ -689,7 +598,7 @@ fun PalustrisApp(
                                             SearchPanel.Search -> SearchScreen(
                                                accountSearch = search.state,
                                                onSearchAccounts = search.actions::search,
-                                               onAccountClick = ::openProfile,
+                                               onAccountClick = navigator::openProfile,
                                                availableActions = availableActions,
                                                onReact = onReact,
                                                onReply = handleReply,
@@ -702,7 +611,7 @@ fun PalustrisApp(
                                                 onOpenReactionPicker = ::expandReactionPicker,
                                                quoteEnabled = quoteEnabled,
                                                onQuote = handleQuote,
-                                               onSearchHashtag = ::openHashtagSearch,
+                                               onSearchHashtag = navigator::openHashtagSearch,
                                                onOpenHashtagBubble = ::openHashtagBubble,
                                                onLoadMoreSearch = search.actions::loadMore,
                                                initialQuery = navigator.searchPrefill,
@@ -718,7 +627,7 @@ fun PalustrisApp(
                                                 sessionRevision = sessionRevision,
                                                onOpenMedia = ::openMedia,
                                                 onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
-                                               onOpenUsername = ::openAccountSearch,
+                                               onOpenUsername = navigator::openAccountSearch,
                                            )
                                              SearchPanel.PhotoGrid -> PhotoGridScreen(
                                                 state = photoGrid.state,
@@ -748,7 +657,7 @@ fun PalustrisApp(
                                       onFollowRequest = notifications.actions::respondToFollowRequest,
                                        onOpenNotification = { notification ->
                                            clearPostActionBubble()
-                                           if (largePresentation) clearSelectedPost()
+                                           if (largePresentation) navigator.clearSelectedPost()
                                            navigator.notificationRoute = NotificationRouteResolver.resolve(notification)
                                        },
                                       onSelectQuery = notifications.actions::selectQuery,
@@ -778,30 +687,30 @@ fun PalustrisApp(
                      authenticatedAccountId = account?.id,
                      onProfileShown = profile.actions::open,
                      onCategorySelected = { category ->
-                         if (largePresentation) clearSelectedPost()
+                         if (largePresentation) navigator.clearSelectedPost()
                          profile.actions.selectCategory(category)
                      },
                      onRefresh = profile.actions::refresh,
                      onLoadMore = profile.actions::loadMore,
                      onFollow = profile.actions::follow,
                      onUnfollow = profile.actions::unfollow,
-                     onMessage = ::openDirectMessage,
+                     onMessage = navigator::openDirectMessage,
                      onOpenProfileImage = ::openProfileImage,
                      onEditProfile = ::openProfileEditor,
                       onOpenDrafts = {
-                          if (largePresentation) clearSelectedPost()
+                          if (largePresentation) navigator.clearSelectedPost()
                           if (account != null && displayedProfile?.id == account.id) navigator.page = LocalPage.Drafts
                       },
                       onOpenBookmarks = {
-                          if (largePresentation) clearSelectedPost()
+                          if (largePresentation) navigator.clearSelectedPost()
                           if (account != null && displayedProfile?.id == account.id) navigator.page = LocalPage.SavedPosts
                       },
                       onOpenLikes = {
-                          if (largePresentation) clearSelectedPost()
+                          if (largePresentation) navigator.clearSelectedPost()
                           if (account != null && displayedProfile?.id == account.id) navigator.page = LocalPage.Likes
                       },
-                     onOpenProfile = ::openProfile,
-                     onSearchHashtag = ::openHashtagSearch,
+                     onOpenProfile = navigator::openProfile,
+                     onSearchHashtag = navigator::openHashtagSearch,
                      onOpenHashtagBubble = ::openHashtagBubble,
                      availableActions = availableActions,
                      onReact = onReact,
@@ -815,7 +724,7 @@ fun PalustrisApp(
                       onOpenReactionPicker = ::expandReactionPicker,
                      onOpenMedia = ::openMedia,
                       onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
-                      onOpenUsername = ::openAccountSearch,
+                      onOpenUsername = navigator::openAccountSearch,
                       quoteEnabled = quoteEnabled,
                       onQuote = handleQuote,
                   )
@@ -834,7 +743,7 @@ fun PalustrisApp(
                         hasDetail = navigator.singlePost != null,
                         twoPane = presentationMode == LargeLayoutMode.Expanded &&
                             (navigator.destination == Destination.Home || (navigator.destination == Destination.Profile && navigator.singlePost != null)),
-                        onTargetSelected = ::selectLargeTarget,
+                        onTargetSelected = navigator::selectLargeTarget,
                         onOpenAccounts = { clearPostActionBubble(); navigator.sheet = "Accounts" },
                         onCompose = ::openComposer,
                         primaryContent = { paneModifier -> destinationScaffold(paneModifier) },
@@ -860,12 +769,12 @@ fun PalustrisApp(
                                  onReshare = detail.reshare,
                                  onBookmark = detail.bookmark,
                                  onReaction = detail.react,
-                                 onOpenProfile = ::openProfile,
-                                 onSearchHashtag = ::openHashtagSearch,
+                                 onOpenProfile = navigator::openProfile,
+                                 onSearchHashtag = navigator::openHashtagSearch,
                                  onOpenHashtagBubble = ::openHashtagBubble,
                                  onOpenReactionBubble = { post, bounds, handler -> openReactionBubble(post, bounds, handler) },
                                  onOpenMedia = ::openMedia,
-                                 onOpenUsername = ::openAccountSearch,
+                                 onOpenUsername = navigator::openAccountSearch,
                                  onThreadRefresh = thread.actions::refresh,
                                  onThreadContinue = thread.actions::continueAcquisition,
                                  quoteEnabled = quoteEnabled,
@@ -939,7 +848,7 @@ fun PalustrisApp(
                                     ),
                                     account = account,
                                      onOpenAccounts = { clearPostActionBubble(); navigator.sheet = "Accounts" },
-                                    onDestinationSelected = ::selectDestination,
+                                    onDestinationSelected = navigator::selectDestination,
                                 )
                             }
                         }
@@ -975,7 +884,7 @@ fun PalustrisApp(
              onDismiss = ::clearPostActionBubble,
             onHashtagSelected = { hashtag ->
                 clearPostActionBubble()
-                openHashtagSearch(hashtag)
+                navigator.openHashtagSearch(hashtag)
             },
             onReactionSelected = { target, choice ->
                 val owner = account
@@ -1033,11 +942,11 @@ fun PalustrisApp(
                       onReshare = detail.reshare,
                       onBookmark = detail.bookmark,
                        onReaction = detail.react,
-                     onOpenProfile = ::openProfile,
-                     onSearchHashtag = ::openHashtagSearch,
+                     onOpenProfile = navigator::openProfile,
+                     onSearchHashtag = navigator::openHashtagSearch,
                      onOpenHashtagBubble = ::openHashtagBubble,
                      onOpenMedia = ::openMedia,
-                      onOpenUsername = ::openAccountSearch,
+                      onOpenUsername = navigator::openAccountSearch,
                       threadState = selectedThreadState.takeIf { threadEnabled },
                       onThreadRefresh = thread.actions::refresh,
                       onThreadContinue = thread.actions::continueAcquisition,

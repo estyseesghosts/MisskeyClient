@@ -18,13 +18,16 @@ import me.foxtails.palustris.ui.LocalPage
 import me.foxtails.palustris.ui.NotificationsPanel
 import me.foxtails.palustris.ui.Overlay
 import me.foxtails.palustris.ui.SearchPanel
+import me.foxtails.palustris.ui.large.LargeNavTarget
+import me.foxtails.palustris.ui.motion.motionDirection
 
 /**
  * Navigation state holder for the application shell.
  *
- * The holder owns shell navigation and selection state behind one boundary. Feature and
- * session coordination stays with the shell: the shell passes side-effect callbacks in and
- * keeps guarded closes, contract reads, and session-bound validation. Saved fields survive
+ * The holder owns shell navigation and selection state behind one boundary. Transitions run
+ * here and report side effects through the event callbacks: transient-popup clearing,
+ * search execution, and conversation start. Session-bound validation (media, reactions,
+ * guarded closes) and feature-contract reads stay with the shell. Saved fields survive
  * process recreation through [Saver]. Transient selection clears on account change through
  * [resetForAccount].
  */
@@ -46,6 +49,11 @@ internal class ShellNavigator internal constructor() {
     var notificationRoute by mutableStateOf<AppRoute?>(null)
 
     internal var overlayKey by mutableStateOf<String?>(null)
+
+    var reducedMotion: Boolean = false
+    var onClearTransient: () -> Unit = {}
+    var onSearch: (String) -> Unit = {}
+    var onStartConversation: (Account) -> Unit = {}
 
     val overlay: Overlay?
         get() = when (overlayKey) {
@@ -82,6 +90,99 @@ internal class ShellNavigator internal constructor() {
     fun clearSelectedPost() {
         singlePost = null
         singlePostOrigin = LargePostOrigin.Other
+    }
+
+    fun openSinglePost(post: OwnedPost, origin: LargePostOrigin = LargePostOrigin.Other) {
+        onClearTransient()
+        singlePost = post
+        singlePostOrigin = origin
+    }
+
+    fun selectDestination(item: Destination) {
+        onClearTransient()
+        navigationVisible = true
+        if (item == Destination.Profile) viewedProfile = null
+        destinationTransitionDirection = motionDirection(destination.ordinal, item.ordinal, reducedMotion)
+        destination = item
+        page = null
+        notificationRoute = null
+    }
+
+    fun openProfile(profile: Account) {
+        onClearTransient()
+        clearSelectedPost()
+        viewedProfile = profile
+        destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Profile.ordinal, reducedMotion)
+        destination = Destination.Profile
+        page = null
+        sheet = null
+        notificationRoute = null
+    }
+
+    fun selectLargeTarget(target: LargeNavTarget) {
+        clearSelectedPost()
+        when (target) {
+            LargeNavTarget.Home -> selectDestination(Destination.Home)
+            LargeNavTarget.Search -> {
+                searchPanelName = SearchPanel.Search.name
+                selectDestination(Destination.Search)
+            }
+            LargeNavTarget.PhotoGrid -> {
+                searchPanelName = SearchPanel.PhotoGrid.name
+                selectDestination(Destination.Search)
+            }
+            LargeNavTarget.Notifications -> {
+                notificationsPanelName = NotificationsPanel.Notifications.name
+                selectDestination(Destination.Notifications)
+            }
+            LargeNavTarget.DirectMessages -> {
+                notificationsPanelName = NotificationsPanel.DirectMessages.name
+                selectDestination(Destination.Notifications)
+            }
+            LargeNavTarget.Profile -> {
+                viewedProfile = null
+                selectDestination(Destination.Profile)
+            }
+        }
+    }
+
+    fun openDirectMessage(profile: Account) {
+        onClearTransient()
+        clearSelectedPost()
+        onStartConversation(profile)
+        notificationsPanelName = NotificationsPanel.DirectMessages.name
+        destinationTransitionDirection = motionDirection(
+            destination.ordinal,
+            Destination.Notifications.ordinal,
+            reducedMotion,
+        )
+        destination = Destination.Notifications
+        page = null
+        notificationRoute = null
+    }
+
+    fun openHashtagSearch(hashtag: String) {
+        onClearTransient()
+        clearSelectedPost()
+        searchQuery = hashtag
+        searchPrefill = ""
+        searchPanelName = SearchPanel.Search.name
+        destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Search.ordinal, reducedMotion)
+        destination = Destination.Search
+        page = null
+        onSearch(hashtag)
+    }
+
+    fun openAccountSearch(username: String) {
+        onClearTransient()
+        clearSelectedPost()
+        searchQuery = username
+        searchPrefill = ""
+        searchPanelName = SearchPanel.Search.name
+        destinationTransitionDirection = motionDirection(destination.ordinal, Destination.Search.ordinal, reducedMotion)
+        destination = Destination.Search
+        page = null
+        onSearch(username)
     }
 
     fun clampTimeline(available: Set<Timeline>) {
@@ -167,7 +268,7 @@ internal class ShellNavigator internal constructor() {
  * The navigator survives recomposition and process recreation. It clamps the timeline to
  * the available set, follows the Home selection, reasserts navigation visibility on
  * navigation change, applies the launch route once, and clears account-scoped selection
- * when the account changes.
+ * when the account changes. Event callbacks arrive from the shell every composition.
  */
 @Composable
 internal fun rememberShellNavigator(
@@ -175,8 +276,16 @@ internal fun rememberShellNavigator(
     initialRoute: AppRoute?,
     availableTimelines: Set<Timeline>,
     selectedHomeTimeline: Timeline?,
+    reducedMotion: Boolean,
+    onClearTransient: () -> Unit,
+    onSearch: (String) -> Unit,
+    onStartConversation: (Account) -> Unit,
 ): ShellNavigator {
     val navigator = rememberSaveable(saver = ShellNavigator.Saver, init = ::ShellNavigator)
+    navigator.reducedMotion = reducedMotion
+    navigator.onClearTransient = onClearTransient
+    navigator.onSearch = onSearch
+    navigator.onStartConversation = onStartConversation
     LaunchedEffect(accountId) { navigator.resetForAccount() }
     LaunchedEffect(availableTimelines) { navigator.clampTimeline(availableTimelines) }
     LaunchedEffect(selectedHomeTimeline, accountId) { navigator.syncHomeTimeline(selectedHomeTimeline) }
