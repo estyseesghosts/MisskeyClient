@@ -173,7 +173,7 @@ it. A composer presentation change now touches `ui/composer/`, `ui/ComposerScree
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-12a | Step 13, part 1 | Bind composer presentation beside the composer feature owner. | `PalustrisApp` places the composer overlay. Feature changes stay local. | implemented, test verified. Commit `PENDING`. |
+| C-12a | Step 13, part 1 | Bind composer presentation beside the composer feature owner. | `PalustrisApp` places the composer overlay. Feature changes stay local. | implemented, test verified. Commit `9b10905`. |
 | C-12b | Step 13, part 2 | Reduce shell assembly and finish test isolation. Extract a navigation state holder where shared. | `PalustrisApp` owns navigation and placement. Feature changes stay local. | pending |
 | C-13 | Step 14 | Run cancellation and integration verification. Review every touched suspending path. | Cancellation remains cancellation. All required tests pass. | pending |
 | C-14 | Step 15 | Publish the final ownership documentation. Classify every document. | Maintained documentation matches source. | pending |
@@ -441,10 +441,10 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`PENDING` "Bind composer presentation beside the composer feature owner".
+`9b10905` "Bind composer presentation beside the composer feature owner".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
 C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is committed at `0027b60`.
 C-08 is committed at `a011a06`. C-09 is committed at `c6ab9b1`. C-10 is committed at `731b74b`.
-C-11 is committed at `43f8aa0`. C-12a is committed at `PENDING`. C-12b is the next slice.
+C-11 is committed at `43f8aa0`. C-12a is committed at `9b10905`. C-12b is the next slice.

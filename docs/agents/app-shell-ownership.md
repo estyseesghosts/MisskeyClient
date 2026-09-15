@@ -9,7 +9,7 @@ verify and document. Slice C-15 removes dead scaffolding.
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (planning). Status refreshed against `PENDING`.
+**Source baseline:** `b629a2c` (planning). Status refreshed against `9b10905`.
 
 **Evidence:** source verified. Device and live-server behavior remain unverified. No test ran during
 this documentation pass.

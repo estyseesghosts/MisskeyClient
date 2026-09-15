@@ -1099,6 +1099,6 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Owner lifetime and the saveable editor snapshot are unchanged. No behavior changed. Removed the dead `postPreferences` local from `PalustrisApp`.
 - Feature-action review trace: a composer presentation change touches `ui/composer/`, `ui/ComposerScreen.kt`, or `ui/ComposerSheet.kt`. It needs no shell contract change and no fixture change.
 - Verification passed: `ComposerOwnerTest`, `ReplyComposerTest`, `NavigationTest`, `test assembleRelease`, and `:app:lintDebug` when run alone.
-- C-12a committed at PENDING.
+- C-12a committed at 9b10905.
 - Unverified: device rendering, live-server, signed release.
 
