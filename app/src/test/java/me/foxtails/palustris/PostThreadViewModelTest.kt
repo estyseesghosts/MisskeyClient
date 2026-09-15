@@ -353,6 +353,48 @@ class PostThreadViewModelTest {
         assertTrue(model.state.value.focal!!.post.favourited)
     }
 
+    @Test
+    fun failedFavoriteKeepsNewerSameFamilyCountProjection() = runTest {
+        val source = GatedThreadSource(context = ThreadContext(focal = focal.post))
+        val model = PostThreadViewModel(account, source, sessionRevision = 8L)
+
+        model.activate(focal, supportsComments = true)
+        advanceUntilIdle()
+        model.favorite(model.state.value.focal!!)
+        advanceUntilIdle()
+        // A newer same-family projection lands while the favorite waits. Its count
+        // differs from the optimistic value, so the failed rollback must keep it.
+        model.applyExternalPost(OwnedPost(account, focal.post.copy(
+            favourited = true,
+            interactionCounts = PostInteractionCounts(favouriteCount = 5),
+        ), 8L))
+        source.failFavourite(0, java.io.IOException("favorite failed"))
+        advanceUntilIdle()
+
+        assertEquals(5, model.state.value.focal!!.post.interactionCounts.favouriteCount)
+    }
+
+    @Test
+    fun staleServerSnapshotPreservesNewerLocalFields() = runTest {
+        val source = GatedThreadSource(context = ThreadContext(focal = focal.post))
+        val model = PostThreadViewModel(account, source, sessionRevision = 8L)
+
+        model.activate(focal, supportsComments = true)
+        advanceUntilIdle()
+        model.favorite(model.state.value.focal!!)
+        advanceUntilIdle()
+        // The server snapshot carries a stale text body. Reconciliation must keep
+        // the current text and apply only the confirmed favorite selection.
+        source.completeFavourite(0, PostActionResult(
+            selected = true,
+            post = focal.post.copy(text = "Stale body", favourited = false),
+        ))
+        advanceUntilIdle()
+
+        assertEquals("focal", model.state.value.focal!!.post.text)
+        assertTrue(model.state.value.focal!!.post.favourited)
+    }
+
     private fun owned(id: String, replyTo: String? = null): OwnedPost {
         val author = Account(account, "Viewer", "@viewer@example.org")
         return OwnedPost(

@@ -455,7 +455,7 @@ class PostThreadViewModel @AssistedInject constructor(
                 throw e
             } catch (_: Exception) {
                 if (launchKey != activeKey) return@launch
-                updateMatching(target) { current -> restore(action, current, before.post) }
+                updateMatching(target) { current -> restore(action, current, before.post, after.post) }
                 // Restore the family overlay captured before this attempt. A blind removal
                 // would erase a previously confirmed mutation in the same family, and would
                 // leave a reaction favorite's optimistic snapshot behind.
@@ -486,8 +486,13 @@ class PostThreadViewModel @AssistedInject constructor(
     }
 
     private fun reconcile(action: PostAction, current: Post, result: PostActionResult): Post {
-        val server = result.post?.takeIf { it.id == current.id }
-        val base = server?.copy(interactionCounts = current.interactionCounts.merge(server.interactionCounts)) ?: current
+        // Only family-owned fields and counts come from the server response. Every other
+        // field stays current so a stale snapshot cannot erase another family's state or
+        // newer local fields. A full server snapshot never replaces the current post.
+        val serverCounts = result.post?.takeIf { it.id == current.id }?.interactionCounts
+        val base = serverCounts?.let {
+            current.copy(interactionCounts = current.interactionCounts.merge(it))
+        } ?: current
         return when (action) {
             PostAction.Favorite -> base.copy(
                 favourited = result.selected ?: base.favourited,
@@ -504,44 +509,65 @@ class PostThreadViewModel @AssistedInject constructor(
         }
     }
 
-    private fun restore(action: PostAction, current: Post, before: Post): Post = when (action) {
+    private fun restore(action: PostAction, current: Post, before: Post, optimistic: Post): Post = when (action) {
+        // Restore only family fields this operation still owns. A field that no longer
+        // matches the optimistic value was changed by a newer projection and is kept.
         PostAction.Favorite -> if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) {
             current.copy(
-                favourited = before.favourited,
-                myReaction = before.myReaction,
-                selectedReactions = before.selectedReactions,
-                reactions = before.reactions,
+                favourited = restored(current.favourited, before.favourited, optimistic.favourited),
+                myReaction = restored(current.myReaction, before.myReaction, optimistic.myReaction),
+                selectedReactions = restored(current.selectedReactions, before.selectedReactions, optimistic.selectedReactions),
+                reactions = restored(current.reactions, before.reactions, optimistic.reactions),
                 interactionCounts = current.interactionCounts.copy(
-                    reactionCount = before.interactionCounts.reactionCount,
+                    reactionCount = restored(
+                        current.interactionCounts.reactionCount,
+                        before.interactionCounts.reactionCount,
+                        optimistic.interactionCounts.reactionCount,
+                    ),
                 ),
             )
         } else {
             current.copy(
-                favourited = before.favourited,
+                favourited = restored(current.favourited, before.favourited, optimistic.favourited),
                 interactionCounts = current.interactionCounts.copy(
-                    favouriteCount = before.interactionCounts.favouriteCount,
+                    favouriteCount = restored(
+                        current.interactionCounts.favouriteCount,
+                        before.interactionCounts.favouriteCount,
+                        optimistic.interactionCounts.favouriteCount,
+                    ),
                 ),
             )
         }
         PostAction.Reshare -> current.copy(
-            reposted = before.reposted,
-            ownRepostId = before.ownRepostId,
+            reposted = restored(current.reposted, before.reposted, optimistic.reposted),
+            ownRepostId = restored(current.ownRepostId, before.ownRepostId, optimistic.ownRepostId),
             interactionCounts = current.interactionCounts.copy(
-                repostCount = before.interactionCounts.repostCount,
+                repostCount = restored(
+                    current.interactionCounts.repostCount,
+                    before.interactionCounts.repostCount,
+                    optimistic.interactionCounts.repostCount,
+                ),
             ),
         )
-        PostAction.Bookmark -> current.copy(saved = before.saved)
+        PostAction.Bookmark -> current.copy(saved = restored(current.saved, before.saved, optimistic.saved))
         PostAction.React -> current.copy(
-            reactions = before.reactions,
-            myReaction = before.myReaction,
-            selectedReactions = before.selectedReactions,
-            favourited = before.favourited,
+            reactions = restored(current.reactions, before.reactions, optimistic.reactions),
+            myReaction = restored(current.myReaction, before.myReaction, optimistic.myReaction),
+            selectedReactions = restored(current.selectedReactions, before.selectedReactions, optimistic.selectedReactions),
+            favourited = restored(current.favourited, before.favourited, optimistic.favourited),
             interactionCounts = current.interactionCounts.copy(
-                reactionCount = before.interactionCounts.reactionCount,
+                reactionCount = restored(
+                    current.interactionCounts.reactionCount,
+                    before.interactionCounts.reactionCount,
+                    optimistic.interactionCounts.reactionCount,
+                ),
             ),
         )
         PostAction.Reply -> current
     }
+
+    private fun <T> restored(current: T, before: T, optimistic: T): T =
+        if (current == optimistic) before else current
 
     private fun applyOverlay(owned: OwnedPost): OwnedPost {
         val overlay = overlays[owned.post.id] ?: overlays[owned.effectiveTargetId()] ?: return owned

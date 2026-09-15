@@ -47,7 +47,8 @@ Close the partial gaps from the 01/02 review. Keep completed extractions. Leave 
 | P-01 | Remove duplicate `ownedPosts` input. Make `state.ownedPosts` authoritative. | Home rows come from the Home contract only. | implemented, test verified. Commit `0fbc7c4`. |
 | P-02 | Narrow popup contract. Leaves use `PostPopupPresentation`. | Generic leaves never receive the service-backed owner, source, or scope. | implemented, test verified. Commit `108ca3a`. |
 | P-03 | Make thread external apply non-emitting. | Externally applied projections never re-emit. No reliance on the coordinator re-entrancy guard. | implemented, test verified. Commit `3b65104`. |
-| P-04 | Bind paging to the exact input cursor. Bump the collection epoch on stop. | A stale same-epoch page cannot merge or rewind the cursor. A stopped collection cannot publish. | implemented, test verified. |
+| P-04 | Bind paging to the exact input cursor. Bump the collection epoch on stop. | A stale same-epoch page cannot merge or rewind the cursor. A stopped collection cannot publish. | implemented, test verified. Commit `4aa3618`. |
+| P-05 | Guard thread reconcile and rollback by action family. | A stale server snapshot cannot overwrite newer local fields. A failed action cannot roll back a newer same-family projection. | implemented, test verified. |
 
 P-01 verification: `HomeFeedTest` and `NavigationTest` pass. The `SearchScreen` `onReply` observer at `HomeFeedTest.kt:774` is a leaf callback test, not a shell seam. `PalustrisApp` carries no `onReply` parameter.
 
@@ -57,9 +58,11 @@ P-03 verification: `PostThreadViewModelTest` (with new `externalProjectionDoesNo
 
 P-04 verification: `FeedViewModelRequestTest`, `SavedPostsViewModelTest`, and `FeedViewModelReactionTest` pass. Same-epoch page overlap stays serialized by the synchronous `loadingMore` reservation, so no extra operation token is required. The cursor check is defense in depth.
 
+P-05 verification: `PostThreadViewModelTest` (with new `failedFavoriteKeepsNewerSameFamilyCountProjection` and `staleServerSnapshotPreservesNewerLocalFields`), `PostInteractionMutationOwnerTest`, and `PostInteractionExecutionAuthorityTest` pass. Cross-surface same-family concurrency stays serialized by the shared execution authority. The focused mutation owner already merges and rolls back by family.
+
 ## Current Slice
 
-P-05 — Harden mutation family revisions and thread reconcile guards.
+P-06 — Fix Room store dispatcher and add settings gating coverage.
 
 ## Files Involved For P-01
 
