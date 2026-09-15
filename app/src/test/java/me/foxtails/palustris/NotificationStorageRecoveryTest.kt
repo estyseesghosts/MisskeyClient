@@ -99,6 +99,73 @@ class NotificationStorageRecoveryTest {
     }
 
     @Test
+    fun unsupportedFutureFormatBlocksMutationsAndRetry() = runBlocking {
+        val store = ScriptedStore(fallbackRead = NotificationStoreRead.Unsupported)
+        val repository = NotificationRepository(store)
+        val token = NotificationSyncToken(account, 1)
+        repository.activate(token)
+
+        assertEquals(NotificationStorageHealth.Unsupported, repository.observeStorageHealth(account).value)
+        assertFalse(repository.establishBaseline(token, baselineRequest(), baselinePage()))
+        assertFalse(repository.updateSettings(token, NotificationSettings(alertsEnabled = true)))
+        assertEquals(0, store.writes)
+
+        assertFalse(repository.retry(account))
+        assertEquals(NotificationStorageHealth.Unsupported, repository.observeStorageHealth(account).value)
+        assertEquals(0, store.writes)
+    }
+
+    @Test
+    fun resetClearsUnsupportedStateAndRevokesTheOldGeneration() = runBlocking {
+        val store = ScriptedStore(fallbackRead = NotificationStoreRead.Unsupported)
+        val repository = NotificationRepository(store)
+        val staleToken = NotificationSyncToken(account, 1)
+        repository.activate(staleToken)
+        assertEquals(NotificationStorageHealth.Unsupported, repository.observeStorageHealth(account).value)
+
+        assertTrue(repository.reset(account))
+
+        assertEquals(NotificationStorageHealth.Healthy, repository.observeStorageHealth(account).value)
+        assertEquals(NotificationRepositoryState(), repository.observe(account).value)
+        assertEquals(1, store.writes)
+
+        // The old generation is revoked, so a late writer cannot recreate the discarded state.
+        assertFalse(repository.updateSettings(staleToken, NotificationSettings(alertsEnabled = true)))
+        assertEquals(1, store.writes)
+
+        // A fresh token works against the new empty baseline.
+        val freshToken = repository.currentToken(account)!!
+        assertTrue(freshToken.generation > staleToken.generation)
+        assertTrue(repository.updateSettings(freshToken, NotificationSettings(showPreviews = true)))
+        assertTrue(repository.settings(account).showPreviews)
+    }
+
+    @Test
+    fun resetLeavesASecondAccountUntouched() = runBlocking {
+        val store = ScriptedStore(fallbackRead = NotificationStoreRead.Unsupported)
+        store.reads[other] = NotificationStoreRead.Absent
+        val repository = NotificationRepository(store)
+        val otherToken = NotificationSyncToken(other, 1)
+        repository.activate(otherToken)
+        assertTrue(repository.updateSettings(otherToken, NotificationSettings(showPreviews = true)))
+
+        assertTrue(repository.reset(account))
+
+        assertEquals(NotificationStorageHealth.Healthy, repository.observeStorageHealth(other).value)
+        assertTrue(repository.settings(other).showPreviews)
+    }
+
+    @Test
+    fun aFailedResetLeavesTheAccountBlocked() = runBlocking {
+        val store = FailingWriteStore(NotificationStoreRead.Unsupported)
+        val repository = NotificationRepository(store)
+        repository.activate(NotificationSyncToken(account, 1))
+
+        assertFalse(repository.reset(account))
+        assertEquals(NotificationStorageHealth.Unavailable, repository.observeStorageHealth(account).value)
+    }
+
+    @Test
     fun retryReloadsAReadableStateAndClearsTheFailure() = runBlocking {
         val store = ScriptedStore(fallbackRead = NotificationStoreRead.Unavailable)
         val repository = NotificationRepository(store)
@@ -175,6 +242,12 @@ class NotificationStorageRecoveryTest {
         var writes = 0
         override fun read(accountId: AccountId): NotificationStoreRead = reads[accountId] ?: fallbackRead
         override fun write(accountId: AccountId, state: NotificationRepositoryState) { writes += 1 }
+        override fun delete(accountId: AccountId) = Unit
+    }
+
+    private class FailingWriteStore(private val fallbackRead: NotificationStoreRead) : NotificationStore {
+        override fun read(accountId: AccountId): NotificationStoreRead = fallbackRead
+        override fun write(accountId: AccountId, state: NotificationRepositoryState) = error("disk full")
         override fun delete(accountId: AccountId) = Unit
     }
 

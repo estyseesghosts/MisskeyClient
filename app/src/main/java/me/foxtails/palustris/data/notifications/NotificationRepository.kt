@@ -157,6 +157,34 @@ class NotificationRepository @Inject constructor(
         }
     }
 
+    /**
+     * Discards one account's local notification state and returns `true` on success.
+     *
+     * The approved user-visible policy is development-only discard. Unreadable or newer-format
+     * state is removed instead of migrated. The account generation advances first, so a late
+     * writer from the old state cannot recreate it. Only notification-local state changes:
+     * authentication secrets and other accounts are never touched.
+     *
+     * Writing an empty readable state serves three purposes. It prevents the legacy file importer
+     * from re-importing old data, it clears stored settings, dismissals, and delivery history, and
+     * it lets the next page run as a baseline without alerts. A failed write leaves the account
+     * blocked so a later reset can retry.
+     */
+    @Synchronized
+    fun reset(accountId: AccountId): Boolean {
+        invalidate(accountId, generations[accountId] ?: 0L)
+        return try {
+            val empty = NotificationRepositoryState()
+            store.write(accountId, empty)
+            states.getOrPut(accountId) { MutableStateFlow(empty) }.value = empty
+            healthForLocked(accountId).value = NotificationStorageHealth.Healthy
+            true
+        } catch (error: Exception) {
+            healthForLocked(accountId).value = NotificationStorageHealth.Unavailable
+            false
+        }
+    }
+
     suspend fun establishBaseline(
         token: NotificationSyncToken,
         request: NotificationIngestRequest,

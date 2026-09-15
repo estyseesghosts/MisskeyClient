@@ -17,7 +17,8 @@ import androidx.room.RoomDatabase
         NotificationSettingsEntity::class,
     ],
     version = 2,
-    exportSchema = false,
+    // Exported to app/schemas. Reproducible history is required before any future migration.
+    exportSchema = true,
 )
 abstract class NotificationDatabase : RoomDatabase() {
     abstract fun notificationDao(): NotificationDao

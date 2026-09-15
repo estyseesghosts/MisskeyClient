@@ -22,6 +22,14 @@ sealed interface NotificationStoreRead {
     /** Persisted state exists but cannot be decoded. Preserve the original bytes. */
     data object Corrupt : NotificationStoreRead
 
+    /**
+     * Persisted state uses a newer format than this build understands.
+     *
+     * The bytes are well-formed JSON, so this is not corruption. They must stay untouched so a
+     * newer build can still read them. An older writer must never overwrite this value.
+     */
+    data object Unsupported : NotificationStoreRead
+
     /** The read failed for an environment reason. The stored value is unknown. */
     data object Unavailable : NotificationStoreRead
 }

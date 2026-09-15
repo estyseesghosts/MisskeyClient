@@ -14,6 +14,9 @@ sealed interface NotificationStorageHealth {
     /** A stored value exists but cannot be decoded. Preserve the original bytes. */
     data object Recoverable : NotificationStorageHealth
 
+    /** A stored value uses a newer format than this build understands. Preserve the original bytes. */
+    data object Unsupported : NotificationStorageHealth
+
     /** The read failed for an environment reason. The stored value is unknown. */
     data object Unavailable : NotificationStorageHealth
 }
@@ -21,5 +24,6 @@ sealed interface NotificationStorageHealth {
 internal fun NotificationStoreRead.toStorageHealth(): NotificationStorageHealth = when (this) {
     is NotificationStoreRead.Readable, NotificationStoreRead.Absent -> NotificationStorageHealth.Healthy
     NotificationStoreRead.Corrupt -> NotificationStorageHealth.Recoverable
+    NotificationStoreRead.Unsupported -> NotificationStorageHealth.Unsupported
     NotificationStoreRead.Unavailable -> NotificationStorageHealth.Unavailable
 }

@@ -35,7 +35,9 @@ class FileNotificationStore @javax.inject.Inject constructor(
         val file = fileFor(accountId)
         if (!file.baseFile.exists()) return NotificationStoreRead.Absent
         return try {
-            val state = decode(JSONObject(String(file.readFully(), Charsets.UTF_8)))
+            val json = JSONObject(String(file.readFully(), Charsets.UTF_8))
+            if (json.isFutureNotificationStateVersion()) return NotificationStoreRead.Unsupported
+            val state = decode(json)
             if (state.hasReceivingAccount(accountId)) {
                 NotificationStoreRead.Readable(state)
             } else {
@@ -106,17 +108,24 @@ class RoomNotificationStore @javax.inject.Inject constructor(
         }
     }
 
-    /** A malformed or foreign-owned row is corrupt, not unavailable. The original row stays untouched. */
-    private fun decodeRow(json: String, accountId: AccountId): NotificationStoreRead = try {
-        val state = decode(JSONObject(json))
-        if (state.hasReceivingAccount(accountId)) {
-            NotificationStoreRead.Readable(state)
-        } else {
+    /**
+     * A malformed or foreign-owned row is corrupt, not unavailable. A newer format is unsupported,
+     * not corrupt. The original row stays untouched in every non-readable case.
+     */
+    private fun decodeRow(json: String, accountId: AccountId): NotificationStoreRead {
+        return try {
+            val parsed = JSONObject(json)
+            if (parsed.isFutureNotificationStateVersion()) return NotificationStoreRead.Unsupported
+            val state = decode(parsed)
+            if (state.hasReceivingAccount(accountId)) {
+                NotificationStoreRead.Readable(state)
+            } else {
+                NotificationStoreRead.Corrupt
+            }
+        } catch (error: JSONException) {
+            NotificationStoreRead.Corrupt
+        } catch (error: IllegalArgumentException) {
             NotificationStoreRead.Corrupt
         }
-    } catch (error: JSONException) {
-        NotificationStoreRead.Corrupt
-    } catch (error: IllegalArgumentException) {
-        NotificationStoreRead.Corrupt
     }
 }

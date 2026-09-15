@@ -43,6 +43,10 @@ android {
     }
     // *Test classes, including MisskeySourceContractTest, are discovered automatically.
     testOptions { unitTests.isIncludeAndroidResources = true }
+    sourceSets {
+        // Publish the committed Room schema history to unit tests so a test can guard it.
+        getByName("test") { resources.directories.add("$projectDir/schemas") }
+    }
     signingConfigs {
         create("release") {
             storeFile = releaseStoreFile.orNull
@@ -114,4 +118,10 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.9.5")
 }
 
-kapt { correctErrorTypes = true }
+kapt {
+    correctErrorTypes = true
+    arguments {
+        // Reproducible Room schema history. Required before a schema version change.
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+}

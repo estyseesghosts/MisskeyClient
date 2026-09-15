@@ -1,0 +1,528 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "2d0e01533928965f98a8d72ac792a192",
+    "entities": [
+      {
+        "tableName": "notification_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `stateJson` TEXT NOT NULL, `updatedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountKey`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stateJson",
+            "columnName": "stateJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updatedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey"
+          ]
+        }
+      },
+      {
+        "tableName": "notification_events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `eventConnection` TEXT NOT NULL, `eventId` TEXT NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, `payloadJson` TEXT NOT NULL, `locallySeen` INTEGER NOT NULL, `serverAcknowledged` INTEGER NOT NULL, `androidPresented` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `eventConnection`, `eventId`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventConnection",
+            "columnName": "eventConnection",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadJson",
+            "columnName": "payloadJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "locallySeen",
+            "columnName": "locallySeen",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverAcknowledged",
+            "columnName": "serverAcknowledged",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "androidPresented",
+            "columnName": "androidPresented",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "eventConnection",
+            "eventId"
+          ]
+        }
+      },
+      {
+        "tableName": "notification_actors",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `eventConnection` TEXT NOT NULL, `eventId` TEXT NOT NULL, `actorId` TEXT NOT NULL, `position` INTEGER NOT NULL, `payloadJson` TEXT NOT NULL, PRIMARY KEY(`accountKey`, `eventConnection`, `eventId`, `actorId`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventConnection",
+            "columnName": "eventConnection",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "actorId",
+            "columnName": "actorId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadJson",
+            "columnName": "payloadJson",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "eventConnection",
+            "eventId",
+            "actorId"
+          ]
+        }
+      },
+      {
+        "tableName": "notification_groups",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `groupKey` TEXT NOT NULL, `totalCount` INTEGER, `actorContinuation` TEXT, `revision` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `groupKey`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "groupKey",
+            "columnName": "groupKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalCount",
+            "columnName": "totalCount",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "actorContinuation",
+            "columnName": "actorContinuation",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "groupKey"
+          ]
+        }
+      },
+      {
+        "tableName": "notification_query_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `queryKey` TEXT NOT NULL, `newest` TEXT, `oldest` TEXT, `newerContinuation` TEXT, `olderContinuation` TEXT, `completeness` TEXT NOT NULL, `baselineEstablished` INTEGER NOT NULL, `capturedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `queryKey`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "queryKey",
+            "columnName": "queryKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "newest",
+            "columnName": "newest",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "oldest",
+            "columnName": "oldest",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "newerContinuation",
+            "columnName": "newerContinuation",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "olderContinuation",
+            "columnName": "olderContinuation",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "completeness",
+            "columnName": "completeness",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "baselineEstablished",
+            "columnName": "baselineEstablished",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "capturedAtEpochMillis",
+            "columnName": "capturedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "queryKey"
+          ]
+        }
+      },
+      {
+        "tableName": "notification_dismissals",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `eventConnection` TEXT NOT NULL, `eventId` TEXT NOT NULL, `kind` TEXT NOT NULL, `expiresAtEpochMillis` INTEGER, PRIMARY KEY(`accountKey`, `eventConnection`, `eventId`, `kind`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventConnection",
+            "columnName": "eventConnection",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiresAtEpochMillis",
+            "columnName": "expiresAtEpochMillis",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "eventConnection",
+            "eventId",
+            "kind"
+          ]
+        }
+      },
+      {
+        "tableName": "notification_delivery",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `eventConnection` TEXT NOT NULL, `eventId` TEXT NOT NULL, `state` TEXT NOT NULL, `androidTag` TEXT NOT NULL, `androidId` INTEGER NOT NULL, `attemptCount` INTEGER NOT NULL, `lastAttemptAtEpochMillis` INTEGER NOT NULL, `lastErrorCategory` TEXT, PRIMARY KEY(`accountKey`, `eventConnection`, `eventId`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventConnection",
+            "columnName": "eventConnection",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "androidTag",
+            "columnName": "androidTag",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "androidId",
+            "columnName": "androidId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attemptCount",
+            "columnName": "attemptCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastAttemptAtEpochMillis",
+            "columnName": "lastAttemptAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastErrorCategory",
+            "columnName": "lastErrorCategory",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "eventConnection",
+            "eventId"
+          ]
+        }
+      },
+      {
+        "tableName": "notification_acknowledgement",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `intentKey` TEXT NOT NULL, `state` TEXT NOT NULL, `createdAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `intentKey`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "intentKey",
+            "columnName": "intentKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpochMillis",
+            "columnName": "createdAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "intentKey"
+          ]
+        }
+      },
+      {
+        "tableName": "push_registration",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `generation` INTEGER NOT NULL, `instanceName` TEXT NOT NULL, `distributorPackage` TEXT, `endpoint` TEXT, `endpointGeneration` INTEGER NOT NULL, `state` TEXT NOT NULL, `retryCount` INTEGER NOT NULL, `lastErrorCategory` TEXT, PRIMARY KEY(`accountKey`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generation",
+            "columnName": "generation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "instanceName",
+            "columnName": "instanceName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distributorPackage",
+            "columnName": "distributorPackage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "endpoint",
+            "columnName": "endpoint",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "endpointGeneration",
+            "columnName": "endpointGeneration",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "retryCount",
+            "columnName": "retryCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastErrorCategory",
+            "columnName": "lastErrorCategory",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey"
+          ]
+        }
+      },
+      {
+        "tableName": "notification_settings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `alertsEnabled` INTEGER NOT NULL, `categories` TEXT NOT NULL, `showPreviews` INTEGER NOT NULL, `quietHoursStartMinutes` INTEGER, `quietHoursEndMinutes` INTEGER, `periodicFallbackEnabled` INTEGER NOT NULL, `selectedDistributor` TEXT, PRIMARY KEY(`accountKey`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "alertsEnabled",
+            "columnName": "alertsEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categories",
+            "columnName": "categories",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "showPreviews",
+            "columnName": "showPreviews",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quietHoursStartMinutes",
+            "columnName": "quietHoursStartMinutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "quietHoursEndMinutes",
+            "columnName": "quietHoursEndMinutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "periodicFallbackEnabled",
+            "columnName": "periodicFallbackEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "selectedDistributor",
+            "columnName": "selectedDistributor",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2d0e01533928965f98a8d72ac792a192')"
+    ]
+  }
+}

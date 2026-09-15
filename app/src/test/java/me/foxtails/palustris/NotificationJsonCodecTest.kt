@@ -8,6 +8,7 @@ import me.foxtails.palustris.data.notifications.NotificationRepositoryState
 import me.foxtails.palustris.data.notifications.NotificationStoreRead
 import me.foxtails.palustris.data.notifications.decode
 import me.foxtails.palustris.data.notifications.encode
+import me.foxtails.palustris.data.notifications.isFutureNotificationStateVersion
 import me.foxtails.palustris.data.notifications.stableFileName
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
@@ -141,6 +142,45 @@ class NotificationJsonCodecTest {
     @Test
     fun decoderIgnoresUnknownVersion() {
         assertEquals(NotificationRepositoryState(), decode(JSONObject("""{"version":99}""")))
+    }
+
+    @Test
+    fun onlyVersionsNewerThanCurrentAreFuture() {
+        assertFalse(JSONObject("{}").isFutureNotificationStateVersion())
+        assertFalse(JSONObject("""{"version":0}""").isFutureNotificationStateVersion())
+        assertFalse(JSONObject("""{"version":1}""").isFutureNotificationStateVersion())
+        assertFalse(JSONObject("""{"version":2}""").isFutureNotificationStateVersion())
+        assertTrue(JSONObject("""{"version":3}""").isFutureNotificationStateVersion())
+        assertTrue(JSONObject("""{"version":99}""").isFutureNotificationStateVersion())
+    }
+
+    @Test
+    fun fileStoreRefusesFutureFormatAndKeepsTheBytes() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FileNotificationStore(context)
+        val directory = File(context.noBackupFilesDir, "notifications")
+        directory.mkdirs()
+        val file = File(directory, "${misskeyReceiver.stableFileName()}.json")
+        val bytes = """{"version":3,"items":[]}"""
+        file.writeText(bytes)
+
+        assertEquals(NotificationStoreRead.Unsupported, store.read(misskeyReceiver))
+        assertEquals(bytes, file.readText())
+    }
+
+    @Test
+    fun fileStoreReadsLegacyAndCurrentFormats() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FileNotificationStore(context)
+        val directory = File(context.noBackupFilesDir, "notifications")
+        directory.mkdirs()
+        val file = File(directory, "${misskeyReceiver.stableFileName()}.json")
+
+        file.writeText("""{"items":[]}""")
+        assertTrue(store.read(misskeyReceiver) is NotificationStoreRead.Readable)
+
+        store.write(misskeyReceiver, NotificationRepositoryState())
+        assertTrue(store.read(misskeyReceiver) is NotificationStoreRead.Readable)
     }
 
     @Test

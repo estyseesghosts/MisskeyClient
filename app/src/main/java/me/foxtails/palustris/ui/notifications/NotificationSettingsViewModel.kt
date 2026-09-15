@@ -128,6 +128,20 @@ class NotificationSettingsViewModel @AssistedInject constructor(
         viewModelScope.launch { repository.retry(accountId) }
     }
 
+    /**
+     * Explicit destructive recovery for unreadable or newer-format state. The repository
+     * advances the account generation and removes only notification-local state.
+     */
+    fun resetStorage() {
+        viewModelScope.launch {
+            if (!repository.reset(accountId)) {
+                _state.value = _state.value.copy(
+                    error = "Local notification data could not be reset. Try again.",
+                )
+            }
+        }
+    }
+
     fun setAlertsEnabled(enabled: Boolean) = save(_state.value.settings.copy(alertsEnabled = enabled))
 
     fun refreshPermission() {

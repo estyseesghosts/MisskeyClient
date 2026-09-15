@@ -29,8 +29,25 @@ import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONArray
 import org.json.JSONObject
 
+/** The stored notification-state JSON version this build writes and reads. */
+internal const val CURRENT_NOTIFICATION_STATE_VERSION = 2
+
+/** Legacy stores predate the version key. An absent version reads as this value. */
+internal const val LEGACY_NOTIFICATION_STATE_VERSION = 0
+
+/**
+ * True when the JSON declares a version newer than this build understands.
+ *
+ * The codec stays a converter and ignores the version during [decode]. Version refusal belongs at
+ * the store boundary so an older writer never overwrites a payload from a newer build.
+ */
+internal fun JSONObject.isFutureNotificationStateVersion(): Boolean {
+    if (!has("version") || isNull("version")) return false
+    return optInt("version", LEGACY_NOTIFICATION_STATE_VERSION) > CURRENT_NOTIFICATION_STATE_VERSION
+}
+
 internal fun encode(state: NotificationRepositoryState): JSONObject = JSONObject().apply {
-    put("version", 2)
+    put("version", CURRENT_NOTIFICATION_STATE_VERSION)
     put("items", JSONArray(state.items.map(::encodeNotification)))
     put("unread", encodeUnread(state.unreadState))
     state.checkpoint?.let { checkpoint -> put("checkpoint", encodeCheckpoint(checkpoint)) }

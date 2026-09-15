@@ -152,6 +152,7 @@ fun SettingsOverlayHost(
         onNotificationLocalTest = { notificationModel?.runLocalPresentationTest() },
         onNotificationRetryRegistration = { notificationModel?.retryRegistration() },
         onNotificationRetryStorage = { notificationModel?.retryStorage() },
+        onNotificationResetStorage = { notificationModel?.resetStorage() },
         onNotificationPermissionChanged = { notificationModel?.refreshPermission() },
         onNotificationRefreshDistributors = { notificationModel?.refreshDistributors() },
         onNotificationSelectDistributor = { packageName -> notificationModel?.selectDistributor(packageName) },

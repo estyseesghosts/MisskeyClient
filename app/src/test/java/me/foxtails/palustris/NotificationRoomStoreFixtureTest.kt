@@ -3,10 +3,12 @@ package me.foxtails.palustris
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.notifications.FileNotificationStore
 import me.foxtails.palustris.data.notifications.LegacyNotificationFileImporter
+import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.NotificationStoreRead
 import me.foxtails.palustris.data.notifications.RoomNotificationStore
 import me.foxtails.palustris.data.notifications.decode
@@ -23,7 +25,9 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ValidatedUrl
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -123,6 +127,30 @@ class NotificationRoomStoreFixtureTest {
     }
 
     @Test
+    fun roomStoreRefusesFutureFormatAndKeepsTheRow() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, NotificationDatabase::class.java).build()
+        try {
+            val accountId = AccountId(Connection("https://misskey.example", Protocol.MISSKEY), "receiver")
+            val future = """{"version":3,"items":[]}"""
+            runBlocking(Dispatchers.IO) {
+                database.notificationDao().saveState(
+                    NotificationStateEntity(accountId.stableFileName(), future, 1L),
+                )
+            }
+            val store = RoomNotificationStore(database, importer(context))
+
+            assertEquals(NotificationStoreRead.Unsupported, store.read(accountId))
+            assertEquals(
+                future,
+                runBlocking(Dispatchers.IO) { database.notificationDao().state(accountId.stableFileName()) }?.stateJson,
+            )
+        } finally {
+            runBlocking(Dispatchers.IO) { database.close() }
+        }
+    }
+
+    @Test
     fun roomStoreRejectsStateOwnedByAnotherAccount() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, NotificationDatabase::class.java).build()
@@ -139,6 +167,30 @@ class NotificationRoomStoreFixtureTest {
             val store = RoomNotificationStore(database, importer(context))
 
             assertEquals(NotificationStoreRead.Corrupt, store.read(accountId))
+        } finally {
+            runBlocking(Dispatchers.IO) { database.close() }
+        }
+    }
+
+    @Test
+    fun resetWritesAnEmptyRowSoTheLegacyFileIsNotReimported() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, NotificationDatabase::class.java).build()
+        try {
+            val accountId = AccountId(Connection("https://misskey.example", Protocol.MISSKEY), "receiver")
+            val directory = File(context.noBackupFilesDir, "notifications")
+            directory.mkdirs()
+            File(directory, "${accountId.stableFileName()}.json")
+                .writeText("""{"version":2,"settings":{"showPreviews":true}}""")
+            File(directory, "${accountId.stableFileName()}.room-imported").delete()
+            val store = RoomNotificationStore(database, importer(context))
+
+            val repository = NotificationRepository(store)
+            assertTrue(repository.reset(accountId))
+
+            assertNotNull(runBlocking(Dispatchers.IO) { database.notificationDao().state(accountId.stableFileName()) })
+            val reread = store.read(accountId) as NotificationStoreRead.Readable
+            assertFalse(reread.state.settings.showPreviews)
         } finally {
             runBlocking(Dispatchers.IO) { database.close() }
         }

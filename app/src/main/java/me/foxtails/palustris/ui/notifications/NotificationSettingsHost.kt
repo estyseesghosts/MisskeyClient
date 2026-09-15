@@ -36,6 +36,7 @@ fun NotificationSettingsHost(
             }
             override fun runLocalTest() { model.runLocalPresentationTest() }
             override fun retryStorage() { model.retryStorage() }
+            override fun resetStorage() { model.resetStorage() }
             override fun retryRegistration() { model.retryRegistration() }
             override fun refreshPermission() { model.refreshPermission() }
             override fun refreshDistributors() { model.refreshDistributors() }

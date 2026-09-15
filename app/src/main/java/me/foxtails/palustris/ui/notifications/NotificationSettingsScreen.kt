@@ -16,6 +16,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -23,6 +24,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -50,6 +55,7 @@ fun NotificationSettingsScreen(
     onRunPushConnectionTest: () -> Unit = {},
     onPermissionChanged: () -> Unit = {},
     onRetryStorage: () -> Unit = {},
+    onResetStorage: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -63,12 +69,38 @@ fun NotificationSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         if (state.storageUnavailable) {
+            var confirmReset by remember { mutableStateOf(false) }
             Text(
                 stringResource(R.string.notifications_storage_unavailable),
                 color = MaterialTheme.colorScheme.error,
             )
-            TextButton(onClick = onRetryStorage) {
-                Text(stringResource(R.string.notifications_retry))
+            Row {
+                TextButton(onClick = onRetryStorage) {
+                    Text(stringResource(R.string.notifications_retry))
+                }
+                TextButton(onClick = { confirmReset = true }) {
+                    Text(stringResource(R.string.notifications_storage_reset))
+                }
+            }
+            if (confirmReset) {
+                AlertDialog(
+                    onDismissRequest = { confirmReset = false },
+                    title = { Text(stringResource(R.string.notifications_storage_reset_confirm_title)) },
+                    text = { Text(stringResource(R.string.notifications_storage_reset_confirm_text)) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                confirmReset = false
+                                onResetStorage()
+                            },
+                        ) { Text(stringResource(R.string.notifications_storage_reset_confirm)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmReset = false }) {
+                            Text(stringResource(R.string.notifications_storage_reset_cancel))
+                        }
+                    },
+                )
             }
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
         }

@@ -38,6 +38,7 @@ internal fun NotificationSettingsSheet(
     onSelectDistributor: (String) -> Unit,
     onRunPushConnectionTest: () -> Unit,
     onRetryStorage: () -> Unit,
+    onResetStorage: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().fillMaxHeight().testTag("notification_settings_sheet")) {
@@ -59,6 +60,7 @@ internal fun NotificationSettingsSheet(
                 onSelectDistributor = onSelectDistributor,
                 onRunPushConnectionTest = onRunPushConnectionTest,
                 onRetryStorage = onRetryStorage,
+                onResetStorage = onResetStorage,
                 modifier = Modifier.fillMaxWidth().fillMaxHeight(),
             )
         }
