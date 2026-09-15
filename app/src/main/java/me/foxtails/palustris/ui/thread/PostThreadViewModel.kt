@@ -92,7 +92,10 @@ class PostThreadViewModel @AssistedInject constructor(
     fun applyExternalPost(updated: OwnedPost) {
         if (stopped || updated.fetchedBy != accountId || updated.sessionRevision != sessionRevision) return
         val target = updated.effectiveTargetId()
-        updateMatching(target) { existing -> existing.mergeExternalActionFields(updated.post) }
+        // An externally applied projection never emits. The coordinator already
+        // excludes the origin during propagation, but the thread must not rely
+        // on that re-entrancy guard. Local mutations keep emitting below.
+        updateMatching(target, emit = false) { existing -> existing.mergeExternalActionFields(updated.post) }
     }
 
     fun activate(ownedPost: OwnedPost?, supportsComments: Boolean) {
@@ -471,12 +474,12 @@ class PostThreadViewModel @AssistedInject constructor(
         actionJobs[key] = job
     }
 
-    private fun updateMatching(target: me.foxtails.palustris.domain.EntityId, transform: (Post) -> Post) {
+    private fun updateMatching(target: me.foxtails.palustris.domain.EntityId, emit: Boolean = true, transform: (Post) -> Post) {
         posts.entries.toList().forEach { (id, owned) ->
             if (owned.post.id == target || owned.effectiveTargetId() == target) {
                 val updated = owned.copy(post = transform(owned.post))
                 posts[id] = updated
-                postUpdateListener?.invoke(updated)
+                if (emit) postUpdateListener?.invoke(updated)
             }
         }
         rebuildState()

@@ -337,6 +337,22 @@ class PostThreadViewModelTest {
         assertTrue(model.state.value.focal!!.post.reactions.isEmpty())
     }
 
+    @Test
+    fun externalProjectionDoesNotEmitToTheUpdateListener() = runTest {
+        val source = GatedThreadSource(context = ThreadContext(focal = focal.post))
+        val model = PostThreadViewModel(account, source, sessionRevision = 8L)
+        var emissions = 0
+
+        model.setPostUpdateListener { emissions += 1 }
+        model.activate(focal, supportsComments = true)
+        advanceUntilIdle()
+        val baseline = emissions
+        model.applyExternalPost(OwnedPost(account, focal.post.copy(favourited = true), 8L))
+
+        assertEquals(baseline, emissions)
+        assertTrue(model.state.value.focal!!.post.favourited)
+    }
+
     private fun owned(id: String, replyTo: String? = null): OwnedPost {
         val author = Account(account, "Viewer", "@viewer@example.org")
         return OwnedPost(
