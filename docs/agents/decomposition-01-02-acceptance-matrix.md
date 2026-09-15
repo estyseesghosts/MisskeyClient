@@ -43,7 +43,7 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 | 01-C | No storage selection, repository call, or `SocialSource` remains in `PalustrisApp`. | `LocalPostActionOwner`; composer fields moved to `ui/composer/ComposerOwner.kt` | `ComposerOwnerTest.kt`, `ReplyComposerTest.kt` | Implemented, test verified | — |
 | 01-D | One reviewed path owns fan-out. No duplicate listener, cycle, stale sink, or double increment. | `ui/shell/PostProjectionCoordinator.kt` | `PostProjectionCoordinatorTest.kt` | Implemented, test verified | — |
 | 01-E | Recomposition does not construct replacement sources. Session replacement cannot invoke old owners. | `ui/session/ConnectedSessionContext.kt`, `ui/session/ConnectedEntryStore.kt`, `ConnectedSessionHost.kt`, `AccountManager.kt` | `ConnectedSessionContextTest.kt`, `ConnectedEntryStoreTest.kt`, `SessionViewModelTest.kt` | Implemented, test verified. | — |
-| 01-F | `ConnectedApp` composes root hosts. It does not write settings, assemble actions, or own fan-out. | `ui/ConnectedApp.kt` (156 lines), `SettingsOverlayHost`, `NotificationLaunchHost` | `SettingsViewModelTest.kt`, `NotificationLaunchRouterTest.kt` | Partially implemented | C-09, C-10 |
+| 01-F | `ConnectedApp` composes root hosts. It does not write settings, assemble actions, or own fan-out. | `ui/ConnectedApp.kt` (156 lines), `SettingsOverlayHost`, `NotificationLaunchHost` | `SettingsViewModelTest.kt`, `NotificationLaunchRouterTest.kt`, `NotificationLaunchHostTest.kt` | Partially implemented | C-10 |
 | 01-G | `PalustrisApp` owns navigation and placement, not feature implementation. | navigation shell; composer editor moved to `ui/composer/` | `NavigationTest.kt`, `WideNavigationTest.kt` | Partially implemented | C-12 |
 | 01-H | A new feature action needs no unrelated fixture change. Source, tests, and documentation agree. | `AppShellFixtures.app`; documentation was not reconciled | `AppShellFixtures.kt` | Partially implemented | C-12, C-14 |
 
@@ -86,7 +86,7 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | 02-A | Old successes and failures cannot change current rows, cursors, errors, or independent state. | `FeedViewModel` request epochs | `FeedViewModelRequestTest.kt` | Implemented, test verified | — |
 | 02-B | Late thread or send results cannot move selection or write into another conversation. | `DirectMessageViewModel` selection, send, and editor ownership | `DirectMessageViewModelTest.kt` | Implemented, test verified | — |
 | 02-C | Removed accounts stay deleted. Old sessions cannot write. Accepted sends survive thread refresh. | `DirectMessageWriteAuthority`, `DirectMessageRepository` | `DirectMessageRepositoryTest.kt` | Implemented, test verified | — |
-| 02-D | Rejected pages leave memory and persistent state unchanged. Synchronization reports rejection. | `NotificationSynchronizer`, `NotificationRepository` caller query | `NotificationSynchronizerTest.kt`, `NotificationRepositoryTest.kt` | Implemented, source verified | C-09 |
+| 02-D | Rejected pages leave memory and persistent state unchanged. Synchronization reports rejection. | `NotificationSynchronizer`, `NotificationRepository` caller query, `NotificationsViewModel` request epoch | `NotificationSynchronizerTest.kt`, `NotificationRepositoryTest.kt`, `NotificationsViewModelTest.kt` | Implemented, test verified | — |
 | 02-E | Refresh, removal, retry, and replacement cannot leave stuck or misowned moderation state. | `ModerationViewModel`, removal tokens, connected entry store | `ModerationViewModelTest.kt` | Implemented, test verified | — |
 | 02-F | One failed action cannot restore unrelated fields or undo another family's result. | `PostInteractionMutationOwner`, `PostActionFamily` | `PostInteractionMutationOwnerTest.kt`, `PostInteractionExecutionAuthorityTest.kt` | Implemented, test verified | — |
 | 02-G | Refresh cannot revive removed reactions. Stale jobs cannot modify a replacement thread or popup. | `PostThreadViewModel` overlays and projection, retired `PostActionOwner` | `PostThreadViewModelTest.kt`, `PostProjectionTest.kt`, `PostActionOwnerTest.kt` | Implemented, test verified | — |
@@ -109,7 +109,10 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
   so evaluation reruns on unchanged rows. `onPageAccepted` counts only accepted pages. The demand
   blocks while sign-in is required.
 - `AppLocaleController.reconcilePlatformSelection` imports a differing platform locale on every call. It cannot tell startup reconciliation from a later user command.
-- `NotificationLaunchHost` clears a pending launch after a `Unit` callback. That callback cannot confirm receiving-shell acceptance.
+- C-09 made launch delivery return explicit acceptance. The host always calls the latest route
+  callback and clears a launch only when the receiving shell accepts it. `ConnectedApp` accepts
+  only with an accepted connected context. The inbox carries a request epoch, so rejected pages
+  change no state.
 
 ## 4. Progress Report Gap Map
 

@@ -58,6 +58,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-06c | Step 7, part 3 | Coordinate account removal with pending draft writes. | A remove cannot leave recreated draft data. | implemented, test verified. Commit `4454bae`. |
 | C-07 | Step 8 | Stabilize post-action ownership and projection. Use typed families. Retire the coordinator with its entry. | Every surface receives the accepted action result once. Retired popups have no authority. | implemented, test verified. Commit `0027b60`. |
 | C-08 | Step 9 | Complete Home paging demand. Include filter identity and the request epoch. Count accepted pages. | Home reaches older visible content without unbounded automatic requests. | implemented, test verified. Commit `a011a06`. |
+| C-09 | Step 10 | Finish notification request and launch ownership. Add request identity. Return explicit launch acceptance. | Rejected pages change no state. An undelivered launch is not acknowledged. | implemented, test verified. Commit `PENDING`. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -129,11 +130,19 @@ a filter or epoch change at the same count still resets the budget. `reset` adva
 generation so evaluation reruns even when rows are unchanged. `onPageAccepted` counts only
 accepted pages. The demand blocks while sign-in is required.
 
+C-09 gave `NotificationsViewModel` a request epoch. Refresh and paging capture the query identity
+before launch, reserve their slots synchronously, and reject stale completions so rejected pages
+change no state. Paging returns at the reserved slot instead of cancelling the page in flight. A
+refresh supersedes paging display. `NotificationLaunchHost` always calls the latest route callback
+and acknowledges a launch only when the receiving shell accepts its route. `ConnectedApp` accepts
+only with an accepted connected context, so an undelivered launch stays pending. A missing account
+routes to the recoverable unavailable state. A failed switch resolves through the accounts update,
+which reruns the effect into the same unavailable state.
+
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-09 | Step 10 | Finish notification request and launch ownership. Add request identity. Return explicit launch acceptance. | Rejected pages change no state. An undelivered launch is not acknowledged. | pending |
 | C-10 | Step 11 | Complete settings validity and recovery. Bind commands to lifecycle-valid targets. Add recovery. | A settings command cannot change another account or restore deleted state. | pending |
 | C-11 | Step 12 | Repair locale event direction. Separate startup reconciliation from later commands. | The latest accepted user choice controls resources and survives restart. | pending |
 | C-12 | Step 13 | Reduce shell assembly and finish test isolation. Extract a navigation state holder where shared. | `PalustrisApp` owns navigation and placement. Feature changes stay local. | pending |
@@ -144,21 +153,20 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 ## Current Slice
 
-**C-09 — Finish notification request and launch ownership.**
+**C-10 — Complete settings validity and recovery.**
 
-Not started. Work from `progressreport.md` section 3 step 10. C-01 through C-08 are committed.
+Not started. Work from `progressreport.md` section 3 step 11. C-01 through C-09 are committed.
 
-## Files Involved For C-09
+## Files Involved For C-10
 
-- `app/src/main/java/me/foxtails/palustris/ui/NotificationsViewModel.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/notifications/NotificationLaunchHost.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/notifications/NotificationLaunchRouter.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/ConnectedApp.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
-- `app/src/main/java/me/foxtails/palustris/data/notifications/NotificationIngestRequest.kt`
-- `app/src/main/java/me/foxtails/palustris/data/notifications/NotificationRepository.kt`
-- `app/src/main/java/me/foxtails/palustris/data/notifications/NotificationSynchronizer.kt`
-- Related notification tests
+- `app/src/main/java/me/foxtails/palustris/ui/settings/SettingsViewModel.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/settings/SettingsOverlayHost.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/settings/SettingsHost.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/settings/SettingsRouteSaver.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/notifications/NotificationSettingsViewModel.kt`
+- `app/src/main/java/me/foxtails/palustris/data/preferences/PostPreferencesRepository.kt`
+- Relevant settings tests
+- `app/src/main/res/values/strings.xml`
 
 ## Required Verification
 
@@ -306,6 +314,28 @@ Test these cases for C-08:
 
 No device test ran. Live-server and signed-release behavior stay unverified.
 
+C-09 verification result: `NotificationsViewModelTest`, `NotificationLaunchHostTest`,
+`NotificationLaunchRouterTest`, and `NotificationRouteResolverTest` passed.
+`test assembleRelease` passed. `:app:lintDebug` passed when run alone. The full gate hit the
+known intermittent `MediaViewerScreenTest.selectedAttachmentsRemainOnFullQualityAfterSwipingBack`
+timeout once. Its focused rerun passed, and a full `test assembleRelease` rerun passed.
+
+Test these cases for C-09:
+
+- An old page failure after replacement changes nothing. Covered by
+  `NotificationsViewModelTest.oldPageFailureAfterReplacementChangesNothing`.
+- A queued paging call returns at the reserved slot. Covered by
+  `pagingSlotReservationRejectsOverlap`.
+- A delivered launch is acknowledged when accepted. Covered by
+  `NotificationLaunchHostTest.deliveredLaunchIsAcknowledgedWhenAccepted`.
+- An undelivered launch stays pending. Covered by `undeliveredLaunchIsNotAcknowledged`.
+- A missing account routes unavailable and clears. Covered by
+  `missingAccountRoutesUnavailableAndClears`.
+- A launch for another account switches and stays pending. Covered by
+  `launchForAnotherAccountSwitchesAndStaysPending`.
+
+No device test ran. Live-server and signed-release behavior stay unverified.
+
 ## Unresolved Blockers
 
 - No emulator or device is reachable in the agent shell. Connected instrumentation stays unverified.
@@ -317,9 +347,9 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`a011a06` "Complete Home paging demand".
+`PENDING` "Finish notification request and launch ownership".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
 C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is committed at `0027b60`.
-C-08 is committed at `a011a06`. C-09 is the next slice.
+C-08 is committed at `a011a06`. C-09 is committed at `PENDING`. C-10 is the next slice.

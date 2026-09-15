@@ -107,6 +107,121 @@ class NotificationsViewModelTest {
         viewModel.stop()
     }
 
+    @Test
+    fun oldPageFailureAfterReplacementChangesNothing() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val notification = Notification(
+            id = EntityId(account.connection.origin, "notification"),
+            accountId = account,
+            createdAtEpochMillis = 1,
+            activity = NotificationActivity.Follow,
+            actors = listOf(Account(account, "Actor", "@actor@example.org")),
+            rawType = "follow",
+        )
+        val source = ScriptedNotificationSource()
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        repository.activate(NotificationSyncToken(account, 1))
+        val viewModel = NotificationsViewModel(account, source, repository)
+        advanceUntilIdle()
+        source.complete(0, page(notification))
+        advanceUntilIdle()
+        assertEquals(1, viewModel.state.value.items.size)
+
+        viewModel.loadOlder()
+        advanceUntilIdle()
+        viewModel.refresh()
+        advanceUntilIdle()
+        source.fail(1, java.io.IOException("old page failed"))
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.state.value.items.size)
+        assertNull(viewModel.state.value.error)
+        assertEquals(false, viewModel.state.value.loadingMore)
+        source.complete(2, page(notification))
+        advanceUntilIdle()
+        assertEquals(false, viewModel.state.value.loading)
+    }
+
+    @Test
+    fun pagingSlotReservationRejectsOverlap() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val notification = Notification(
+            id = EntityId(account.connection.origin, "notification"),
+            accountId = account,
+            createdAtEpochMillis = 1,
+            activity = NotificationActivity.Follow,
+            actors = listOf(Account(account, "Actor", "@actor@example.org")),
+            rawType = "follow",
+        )
+        val source = ScriptedNotificationSource()
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        repository.activate(NotificationSyncToken(account, 1))
+        val viewModel = NotificationsViewModel(account, source, repository)
+        advanceUntilIdle()
+        source.complete(0, page(notification))
+        advanceUntilIdle()
+
+        viewModel.loadOlder()
+        advanceUntilIdle()
+        viewModel.loadOlder()
+        advanceUntilIdle()
+
+        // The second paging call returns at the reserved slot instead of restarting the page.
+        assertEquals(listOf("refresh", "older"), source.requests)
+        source.complete(1, page(notification))
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.state.value.items.size)
+        assertEquals(false, viewModel.state.value.loadingMore)
+        assertNull(viewModel.state.value.error)
+    }
+
+    private fun page(notification: Notification) = NotificationPage(
+        items = listOf(notification),
+        olderCursor = me.foxtails.palustris.domain.NotificationCursor("older-1"),
+        checkpoint = NotificationCheckpoint(account, NotificationQuery()),
+    )
+
+    private class ScriptedNotificationSource : SocialSource {
+        override val capabilities = ServerCapabilities(timelines = setOf(Timeline.Home))
+        val requests = mutableListOf<String>()
+        private val gates = mutableListOf<CompletableDeferred<NotificationPage>>()
+
+        override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
+
+        override suspend fun notifications(query: NotificationQuery, cursor: me.foxtails.palustris.domain.NotificationCursor?): NotificationPage {
+            requests += "refresh"
+            return gated()
+        }
+
+        override suspend fun fetchOlderNotifications(
+            query: NotificationQuery,
+            checkpoint: NotificationCheckpoint,
+        ): NotificationPage {
+            requests += "older"
+            return gated()
+        }
+
+        override suspend fun fetchNewerNotifications(
+            query: NotificationQuery,
+            checkpoint: NotificationCheckpoint,
+        ): NotificationPage {
+            requests += "newer"
+            return gated()
+        }
+
+        override suspend fun dismissNotification(id: EntityId): Unit = throw SourceError.Unsupported("dismiss")
+
+        private suspend fun gated(): NotificationPage {
+            val gate = CompletableDeferred<NotificationPage>()
+            gates += gate
+            return gate.await()
+        }
+
+        fun complete(index: Int, page: NotificationPage) { gates[index].complete(page) }
+        fun fail(index: Int, error: Exception) { gates[index].completeExceptionally(error) }
+    }
+
     private class GatedNotificationSource(
         private val account: AccountId,
         private val notification: Notification,

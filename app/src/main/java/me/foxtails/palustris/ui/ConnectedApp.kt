@@ -96,7 +96,15 @@ fun ConnectedApp(
         accounts = accountIndex.accounts,
         starting = state.starting,
         activeAccountId = state.account?.id,
-        onRoute = { initialNotificationRoute = it },
+        // The launch is acknowledged only when the connected shell accepts its route.
+        // Without an accepted connected context the launch stays pending and unacknowledged.
+        onRoute = { route ->
+            if (activeContext == null) false
+            else {
+                initialNotificationRoute = route
+                true
+            }
+        },
     )
     val motionScheme = palustrisMotionScheme()
     val topLevelScreen = when {

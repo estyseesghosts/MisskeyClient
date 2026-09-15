@@ -1052,6 +1052,14 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - C-08 committed at a011a06.
 - Unverified: device, live-server, signed release.
 
+260915-010000 Slice C-09 notification request and launch ownership:
+- Added a request epoch to NotificationsViewModel. Refresh and paging capture the query identity before launch, reserve their slots synchronously, and reject stale completions. Paging returns at the reserved slot instead of cancelling the page in flight. A refresh supersedes paging display.
+- NotificationLaunchHost always calls the latest route callback and acknowledges a launch only when the receiving shell accepts its route. ConnectedApp accepts only with an accepted connected context. A missing account routes to the recoverable unavailable state.
+- Added ViewModel cases for stale page failure and paging slot reservation, plus NotificationLaunchHostTest for accepted, unacknowledged, unavailable, and switch-pending launches.
+- Verification passed: NotificationsViewModelTest, NotificationLaunchHostTest, NotificationLaunchRouterTest, NotificationRouteResolverTest, test assembleRelease, and :app:lintDebug when run alone. The full gate hit the known intermittent MediaViewerScreenTest timeout once. Its focused rerun passed, and a full rerun passed.
+- C-09 committed at PENDING.
+- Unverified: device, live-server, signed release.
+
 260915-010000 Slice L-01 Russian and Indonesian locales:
 - Added AppLanguage Russian (ru) and Indonesian (in-ID) with settings labels, values-ru and values-in-rID string files, and locales_config entries.
 - Each new catalog holds a confident navigation and action subset of 14 strings. Uncertain long-form strings stay on English fallback.

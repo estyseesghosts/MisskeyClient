@@ -49,7 +49,10 @@ Focused feature hosts own their model, state, actions, and projection registrati
 surfaces share it, so one origin resolves to the same owner.
 
 `SettingsOverlayHost` in `ui/settings/` owns the settings route, settings models, and settings
-commands. `NotificationLaunchHost` in `ui/notifications/` owns launch delivery.
+commands. `NotificationLaunchHost` in `ui/notifications/` owns launch delivery. It acknowledges
+a launch only when the receiving shell accepts its route. A missing account routes to the
+recoverable unavailable state. The inbox carries a request epoch, so rejected pages change no
+state.
 
 `PalustrisApp` owns navigation, adaptive layout, and surface placement. It accepts narrow feature
 contracts in `ui/shell/`. It also still holds some shell assembly. Completion slice C-12 reduces that

@@ -79,6 +79,12 @@ class NotificationsViewModel @AssistedInject constructor(
     private var acknowledgementJob: Job? = null
     private var stopped = false
     private val query = MutableStateFlow(NotificationQuery())
+    /**
+     * Request identity for visible refresh and paging state. The epoch advances on every
+     * refresh and page request, so two same-query requests with a null or unchanged
+     * continuation stay distinguishable. A stale completion changes no current state.
+     */
+    private var requestEpoch = 0L
 
     init {
         observeJob = viewModelScope.launch {
@@ -107,18 +113,22 @@ class NotificationsViewModel @AssistedInject constructor(
 
     fun refresh(showIndicator: Boolean = true) {
         if (stopped) return
+        // Capture the query identity before launch and reserve the loading slot synchronously.
+        // A queued refresh must not start behind the reserved one.
+        val epoch = ++requestEpoch
+        val selectedQuery = query.value
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             val hasCache = _state.value.items.isNotEmpty()
             _state.value = _state.value.copy(
                 loading = !hasCache,
                 refreshing = showIndicator,
+                loadingMore = false,
                 error = null,
             )
             try {
-                val selectedQuery = query.value
                 val result = syncIntents.refresh(accountId, selectedQuery)
-                if (stopped) return@launch
+                if (epoch != requestEpoch || stopped) return@launch
                 _state.value = _state.value.copy(
                     loading = false,
                     refreshing = false,
@@ -128,7 +138,7 @@ class NotificationsViewModel @AssistedInject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                if (stopped) return@launch
+                if (epoch != requestEpoch || stopped) return@launch
                 _state.value = _state.value.copy(
                     loading = false,
                     refreshing = false,
@@ -141,17 +151,20 @@ class NotificationsViewModel @AssistedInject constructor(
     fun loadOlder() {
         if (stopped) return
         if (_state.value.loadingMore) return
-        olderJob?.cancel()
+        // Reserve the page slot synchronously. A queued paging call returns above instead of
+        // cancelling the page in flight.
+        val epoch = ++requestEpoch
+        val selectedQuery = query.value
+        _state.value = _state.value.copy(loadingMore = true, error = null)
         olderJob = viewModelScope.launch {
-            _state.value = _state.value.copy(loadingMore = true, error = null)
             try {
-                val result = syncIntents.loadOlder(accountId, query.value)
-                if (stopped) return@launch
+                val result = syncIntents.loadOlder(accountId, selectedQuery)
+                if (epoch != requestEpoch || stopped) return@launch
                 _state.value = _state.value.copy(loadingMore = false, syncDelayed = result.delayed)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                if (stopped) return@launch
+                if (epoch != requestEpoch || stopped) return@launch
                 _state.value = _state.value.copy(loadingMore = false, error = sourceErrorMessage(error))
             }
         }
