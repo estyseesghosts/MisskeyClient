@@ -509,7 +509,7 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`5ab3c62` "Move small feature tests off the full shell".
+`765bf79` "Record C-12d4 commit in task state".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
