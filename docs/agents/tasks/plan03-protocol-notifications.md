@@ -102,6 +102,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-G | Make notification write failures explicit through durable acceptance. | Every mutation publishes only after the store accepts the write while the writer is still current. A failed write marks the account Unavailable, publishes nothing, and returns failure. | implemented, test verified. |
 | 03-H | Make legacy import restart-safe. | The Room row wins over the legacy file. The marker is written only after a successful Room save. Transient failures stay unmarked for retry. | implemented, test verified. |
 | 03-I | Persist post visibility and withhold hidden bodies. | Every stored post carries `contentVisibility`, including nested quotes. Missing or unknown values decode Hidden. Android previews and row bodies stay hidden for non-visible posts. | implemented, test verified. |
+| 03-J | Place identity helpers with their owners. | `AccountId.stableFileName` lives in `NotificationStore.kt`. `stableNotificationId` lives in `NotificationPageMerge.kt`. Both algorithms are unchanged. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -264,9 +265,19 @@ bytes and now characterizes legacy decode to Hidden. `NotificationJsonCodecTest`
 `NotificationsScreenTest` pass with the focused notification suites, then `test assembleRelease`
 and `:app:lintDebug`.
 
+03-J verification: the move changes ownership and imports only. `AccountId.stableFileName`
+keeps its SHA-256 input and exact output in `NotificationStore.kt`. `stableNotificationId`
+keeps its hash input and exact output in `NotificationPageMerge.kt`. `Notification.matches`
+stays in `NotificationRepository.kt`. All callers stay in the same package, so no caller
+changes. `NotificationJsonCodecTest`, `NotificationRoomStoreFixtureTest`,
+`AndroidNotificationIdsTest`, `NotificationStateOwnershipTest`, `NotificationRepositoryTest`,
+`NotificationStorageRecoveryTest`, `NotificationWriteFailureTest`, `NotificationLegacyImportTest`,
+`NotificationDeliveryPlannerTest`, the settings and push suites, and `NotificationDatabaseSchemaTest`
+pass, then `test assembleRelease` and `:app:lintDebug`.
+
 ## Current Slice
 
-03-J — Place identity helpers. 03-I is complete.
+03-J is complete. Every Plan 03 chunk is implemented and test verified.
 
 ## Required Verification
 
@@ -294,10 +305,11 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`299712f` "Persist post visibility in notification storage and withhold hidden bodies".
+`5609f3c` "Place notification identity helpers with their storage and delivery owners".
 
-03-F1, 03-F2, 03-F3, 03-F4, 03-G, 03-H, and 03-I are closed. 03-F2 is committed at `15ba26b`.
+03-F1, 03-F2, 03-F3, 03-F4, 03-G, 03-H, 03-I, and 03-J are closed. 03-F2 is committed at `15ba26b`.
 03-F3 is committed at `9dac59b`. 03-F4 is committed at `d3e1323` and test verified. 03-G is
 committed at `136c4ae` and test verified. 03-H is committed at `fc5cb6e` and test verified.
-03-I is committed at `299712f` and test verified. The next slice is 03-J. Commit every green
+03-I is committed at `299712f` and test verified. 03-J is committed at `5609f3c` and test
+verified. Every Plan 03 chunk is implemented and test verified. Commit every green
 slice as soon as its tests pass.

@@ -31,13 +31,16 @@ Read these in order. Treat the repository as the authority.
   `03-F3` is committed at `9dac59b`. Slice `03-F4` is committed at `d3e1323` and test verified.
   Slice `03-G` is committed at `136c4ae` and test verified. Slice `03-H` is committed
   at `fc5cb6e` and test verified. Slice `03-I` is committed at `299712f` and test verified.
-  The last safe commit is `299712f`.
+  Slice `03-J` is committed at `5609f3c` and test verified.
+  The last safe commit is `5609f3c`.
 - The maintainer approved the 03-F reset behavior and the 03-I visibility migration on
   2026-09-15. The accepted policy is development-only discard: do not migrate old notification
   data. Discard unreadable or incompatible local state and require reauthentication when needed.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-J` (place identity helpers). 03-F, 03-G, 03-H, and 03-I are complete.
+- Every Plan 03 chunk is complete: 03-A1, 03-A2, 03-B1, 03-B2, 03-C, 03-D1, 03-D2, 03-D3,
+  03-E, 03-F1 through 03-F4, 03-G, 03-H, 03-I, and 03-J are committed and test verified.
+  No next Plan 03 slice remains.
 - Unrelated documentation and archive changes appeared in the worktree during 03-E. They are
   not part of any committed Plan 03 slice and were left untouched.
 
@@ -112,6 +115,12 @@ Read these in order. Treat the repository as the authority.
   `NotificationRoomStoreFixtureTest`, `NotificationDeliveryPlannerTest`, and
   `NotificationsScreenTest` (new `post_visibility.json` fixture, legacy fallback, preview
   gating, and row suppression), then `test assembleRelease` and `:app:lintDebug`.
+- 03-J identity helper placement. `AccountId.stableFileName` moved to `NotificationStore.kt`
+  with its SHA-256 input and exact output. `stableNotificationId` moved to
+  `NotificationPageMerge.kt` beside the delivery outbox with its hash input and exact output.
+  `Notification.matches` stays in the repository. Verification: the focused notification
+  suites plus `AndroidNotificationIdsTest`, then `test assembleRelease` and
+  `:app:lintDebug`.
 - Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 
 ## Process Rules

@@ -142,6 +142,12 @@ helper. `NotificationRepository.kt` keeps the merge, generation, query-validatio
 delivery-claim behavior. It keeps no JSON conversion helper. Both `FileNotificationStore` and
 `RoomNotificationStore` use the same internal `encode` and `decode` boundary.
 
+`AccountId.stableFileName` lives in `NotificationStore.kt`. Its SHA-256 input is the
+compatibility contract for file names, Room keys, and import markers. `stableNotificationId`
+lives in `NotificationPageMerge.kt` beside the delivery outbox. Its hash input is the
+compatibility contract for outbox tags and replacement. Neither helper belongs in the codec,
+and neither merges with `AndroidNotificationIds` without a separate identity migration.
+
 Every persisted post carries `contentVisibility`, including nested quotes. A missing or
 unknown value decodes to `Hidden`. Old blobs predate the field and cannot prove their
 visibility, so their cached bodies stay withheld until an authenticated refresh replaces
