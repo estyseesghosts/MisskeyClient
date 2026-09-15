@@ -20,16 +20,17 @@ Add missing localized keys to Beeline locale files from mastodon-android and Ari
 
 # Completed
 
-- Slice zh-CN — added 44 keys to values-zh-rCN (142 keys, 24.2 percent). Dropped composer_new_post (toot jargon), settings_colour_style_system (wrong meaning), post_action_remove_bookmark (clashes with file convention). Commit b759a8c was the prior slice; this slice commits next.
+- Slice zh-CN — added 44 keys to values-zh-rCN (142 keys, 24.2 percent). Dropped composer_new_post (toot jargon), settings_colour_style_system (wrong meaning), post_action_remove_bookmark (clashes with file convention). Commit f26358b.
+- Slice zh-TW — added 37 keys to values-zh-rTW (142 keys, 24.2 percent). Dropped notifications_settings_quotes and composer_new_post (toot jargon), settings_colour_style_system (wrong meaning), notification_activity_follow (clashes with file convention). Stripped a newline artifact from the drafts reference. Commits next.
 
 # Current slice
 
-Slice zh-TW: app/src/main/res/values-zh-rTW/strings.xml.
+Slice de-DE: app/src/main/res/values-de/strings.xml.
 
 # Files involved
 
 - app/src/main/res/values/strings.xml (read-only source)
-- app/src/main/res/values-zh-rTW/strings.xml
+- app/src/main/res/values-de/strings.xml
 
 # Verification
 
