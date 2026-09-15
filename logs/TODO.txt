@@ -5,7 +5,7 @@
 - C-02 connected entry lifetime is committed at `ffc9c3f`.
 - C-03 direct-message durable write authority is committed at `bfbd7ed`.
 - C-04 direct-message recovery text ownership is committed at `cb6d024`.
-- C-05 composer editor ownership is implemented and verified. Commit is pending.
+- C-05 composer editor ownership is committed at `bd2d1b6`.
 - Continue with slice C-06, version-aware draft and publish completion.
 - Keep `docs/agents/decomposition-01-02-acceptance-matrix.md` current at each slice boundary.
 - Rebase `docs/decomposition_3/03.md` and `04.md` after the completion work.

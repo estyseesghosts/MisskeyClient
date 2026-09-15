@@ -993,4 +993,5 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added ComposerOwnerTest with 10 cases: reply/quote validation, dirty gating, draft restoration, save success and failure, audience rejection, publish acceptance, and session replacement.
 - Verification passed: ComposerOwnerTest, ReplyComposerTest, NavigationTest, test assembleRelease, and :app:lintDebug when run alone.
 - Process-recreation restoration is source verified only. No instrumented recreation test ran.
+- C-05 committed at bd2d1b6.
 - Unverified: device, live-server, signed release.
