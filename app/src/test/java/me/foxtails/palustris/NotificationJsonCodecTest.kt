@@ -61,7 +61,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class NotificationJsonCodecTest {
     private val misskeyReceiver = AccountId(Connection("https://misskey.example", Protocol.MISSKEY), "receiver")
-    private val mastodonReceiver = AccountId(Connection("https://mastodon.example", Protocol.MASTODON), "receiver")
 
     @Test
     fun completeCurrentStateDecodesEveryTopLevelKey() {
@@ -80,8 +79,8 @@ class NotificationJsonCodecTest {
         assertEquals(NotificationReadStatus.Unread, first.readState.status)
         assertTrue(first.readState.locallySeen)
         val second = state.items[1]
-        assertEquals(mastodonReceiver, second.accountId)
-        assertEquals(Protocol.MASTODON, second.accountId.connection.protocol)
+        assertEquals(misskeyReceiver, second.accountId)
+        assertEquals(Protocol.MISSKEY, second.accountId.connection.protocol)
         assertTrue(second.readState.androidDismissed)
         assertTrue(second.readState.serverAcknowledged)
 
@@ -687,6 +686,21 @@ class NotificationJsonCodecTest {
         directory.mkdirs()
         File(directory, "${misskeyReceiver.stableFileName()}.json")
             .writeText("""{"version":2,"settings":{"quietStart":2000}}""")
+
+        assertEquals(NotificationStoreRead.Corrupt, store.read(misskeyReceiver))
+    }
+
+    @Test
+    fun fileStoreRejectsStateOwnedByAnotherAccount() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FileNotificationStore(context)
+        val directory = File(context.noBackupFilesDir, "notifications")
+        directory.mkdirs()
+        File(directory, "${misskeyReceiver.stableFileName()}.json").writeText(
+            """{"version":2,"items":[{"id":{"connection":"https://misskey.example","value":"n1"},""" +
+                """"accountId":{"origin":"https://misskey.example","protocol":"MISSKEY","localId":"other"},""" +
+                """"activity":{"kind":"mention"},"rawType":"mention"}]}""",
+        )
 
         assertEquals(NotificationStoreRead.Corrupt, store.read(misskeyReceiver))
     }

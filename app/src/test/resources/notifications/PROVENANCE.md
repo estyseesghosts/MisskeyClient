@@ -14,7 +14,7 @@ app file. Do not describe them as verified released-file captures.
 
 | Fixture | Coverage |
 | --- | --- |
-| `complete_current_state.json` | All ten top-level keys. Two receiving protocols. Multiple items. Receiving-account identity. Dismissal IDs. Singular and keyed checkpoints. Deliveries, settings, and push registration. |
+| `complete_current_state.json` | All ten top-level keys. One receiving account with two items. Receiving-account identity. Dismissal IDs. Singular and keyed checkpoints. Deliveries, settings, and push registration. |
 | `legacy_minimal_state.json` | Absent version. Omitted modern fields. Target-only navigation. Legacy reaction `imageUrl`. |
 | `activity_variants.json` | Every current activity discriminant. All four system variants. Unknown activity with a validated server destination. |
 | `navigation_variants.json` | In-app destinations for post, profile, poll, and conversation. A validated server destination. |

@@ -42,8 +42,8 @@
       }
     },
     {
-      "id": { "connection": "https://mastodon.example", "value": "notif-2" },
-      "accountId": { "origin": "https://mastodon.example", "protocol": "MASTODON", "localId": "receiver" },
+      "id": { "connection": "https://misskey.example", "value": "notif-2" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
       "createdAt": 2000,
       "activity": { "kind": "favourite" },
       "actors": [],
@@ -103,7 +103,7 @@
     "selectedDistributor": "org.example.distributor"
   },
   "pushRegistration": {
-    "accountId": { "origin": "https://mastodon.example", "protocol": "MASTODON", "localId": "receiver" },
+    "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
     "generation": 7,
     "sessionRevision": 3,
     "instanceName": "push-instance",

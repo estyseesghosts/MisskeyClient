@@ -122,6 +122,28 @@ class NotificationRoomStoreFixtureTest {
         }
     }
 
+    @Test
+    fun roomStoreRejectsStateOwnedByAnotherAccount() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, NotificationDatabase::class.java).build()
+        try {
+            val accountId = AccountId(Connection("https://misskey.example", Protocol.MISSKEY), "receiver")
+            val foreign = """{"version":2,"items":[{"id":{"connection":"https://misskey.example","value":"n1"},""" +
+                """"accountId":{"origin":"https://misskey.example","protocol":"MISSKEY","localId":"other"},""" +
+                """"activity":{"kind":"mention"},"rawType":"mention"}]}"""
+            runBlocking(Dispatchers.IO) {
+                database.notificationDao().saveState(
+                    NotificationStateEntity(accountId.stableFileName(), foreign, 1L),
+                )
+            }
+            val store = RoomNotificationStore(database, importer(context))
+
+            assertEquals(NotificationStoreRead.Corrupt, store.read(accountId))
+        } finally {
+            runBlocking(Dispatchers.IO) { database.close() }
+        }
+    }
+
     private fun importer(context: Context) =
         LegacyNotificationFileImporter(context, FileNotificationStore(context))
 

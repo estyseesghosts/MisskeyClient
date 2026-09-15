@@ -35,7 +35,12 @@ class FileNotificationStore @javax.inject.Inject constructor(
         val file = fileFor(accountId)
         if (!file.baseFile.exists()) return NotificationStoreRead.Absent
         return try {
-            NotificationStoreRead.Readable(decode(JSONObject(String(file.readFully(), Charsets.UTF_8))))
+            val state = decode(JSONObject(String(file.readFully(), Charsets.UTF_8)))
+            if (state.hasReceivingAccount(accountId)) {
+                NotificationStoreRead.Readable(state)
+            } else {
+                NotificationStoreRead.Corrupt
+            }
         } catch (error: JSONException) {
             NotificationStoreRead.Corrupt
         } catch (error: IllegalArgumentException) {
@@ -74,7 +79,7 @@ class RoomNotificationStore @javax.inject.Inject constructor(
         } catch (error: Exception) {
             return@runBlocking NotificationStoreRead.Unavailable
         }
-        if (row != null) return@runBlocking decodeRow(row.stateJson)
+        if (row != null) return@runBlocking decodeRow(row.stateJson, accountId)
         val imported = try {
             importer.importIfPresent(accountId)
         } catch (error: Exception) {
@@ -101,9 +106,14 @@ class RoomNotificationStore @javax.inject.Inject constructor(
         }
     }
 
-    /** A malformed row is corrupt, not unavailable. The original row stays untouched. */
-    private fun decodeRow(json: String): NotificationStoreRead = try {
-        NotificationStoreRead.Readable(decode(JSONObject(json)))
+    /** A malformed or foreign-owned row is corrupt, not unavailable. The original row stays untouched. */
+    private fun decodeRow(json: String, accountId: AccountId): NotificationStoreRead = try {
+        val state = decode(JSONObject(json))
+        if (state.hasReceivingAccount(accountId)) {
+            NotificationStoreRead.Readable(state)
+        } else {
+            NotificationStoreRead.Corrupt
+        }
     } catch (error: JSONException) {
         NotificationStoreRead.Corrupt
     } catch (error: IllegalArgumentException) {
