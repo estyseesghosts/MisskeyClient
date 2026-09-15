@@ -1005,4 +1005,5 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added three ComposerOwnerTest cases: duplicate publish rejection, obsolete callback after session replacement, and newer edits during publish.
 - Verification passed: ComposerOwnerTest, test assembleRelease, and :app:lintDebug when run alone.
 - Split from C-06. C-06b owns the drafts storage boundary and account-removal coordination.
+- C-06a committed at 84006c1.
 - Unverified: device, live-server, signed release.
