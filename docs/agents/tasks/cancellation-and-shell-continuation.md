@@ -1,4 +1,11 @@
-# Task State: Cancellation Audit And Shell Continuation
+# Historical Task State: Cancellation Audit And Shell Continuation
+
+**Status:** historical. Superseded by
+[Decomposition 01 and 02 completion](decomposition-01-02-completion.md).
+
+This file records the cancellation audit and the Plan 01 continuation. Its "all slices are
+complete and verified" claim is not current. The acceptance matrix lists the remaining exit
+conditions.
 
 **Plans:** `docs/decomposition_3/02.md` slice 02-L, `docs/decomposition_3/01.md`
 skipped items (`FeedHost` extraction, 01-H test construction).

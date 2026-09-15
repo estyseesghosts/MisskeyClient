@@ -1,4 +1,10 @@
-# Task State: State And Lifecycle Repair
+# Historical Task State: State And Lifecycle Repair
+
+**Status:** historical. Superseded by
+[Decomposition 01 and 02 completion](decomposition-01-02-completion.md).
+
+This file records the first Plan 02 pass. Its "all slices complete" claim is not current. The
+acceptance matrix lists the remaining exit conditions.
 
 **Plan:** `docs/decomposition_3/02.md`.
 

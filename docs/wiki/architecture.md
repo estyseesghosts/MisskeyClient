@@ -71,11 +71,19 @@ Keep three identities separate:
 ## Presentation Composition
 
 - [`MainActivity`](../../app/src/main/java/me/foxtails/palustris/MainActivity.kt) is the Android entry point. It dispatches intents, applies the locale, and applies the refresh-rate policy.
-- [`ConnectedApp`](../../app/src/main/java/me/foxtails/palustris/ui/ConnectedApp.kt) collects session state, resolves the registered source, binds the shell contracts, and composes the top-level screens.
+- [`ConnectedApp`](../../app/src/main/java/me/foxtails/palustris/ui/ConnectedApp.kt) collects session and account index, chooses startup, sign-in, or connected presentation, installs theme and content policy, and composes the session host.
+- [`ConnectedSessionHost`](../../app/src/main/java/me/foxtails/palustris/ui/session/ConnectedSessionHost.kt) owns one connected account and session lifetime. It resolves the source, composes the focused feature hosts, and keeps the shared feed, draft, post-action, and projection owners.
 - [`PalustrisApp`](../../app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt) owns navigation, adaptive layout, and destination composition.
 - `ui/shell/` holds narrow feature contracts. [`PostProjectionCoordinator`](../../app/src/main/java/me/foxtails/palustris/ui/shell/PostProjectionCoordinator.kt) is the single fan-out owner for normalized post updates and accepted publications.
 - Feature packages own their screens and ViewModels. See [App Shell Ownership](../agents/app-shell-ownership.md) for the current contract map.
 - Keep account ownership, transport behavior, protocol JSON, and persistent storage outside Compose functions.
+
+### Open Completion Gaps
+
+The connected identity is not yet coherent. `ConnectedSessionHost` combines two session flows and
+falls back to `sourceFactory.create` when the registry has no source. The composer editor state
+still lives in `PalustrisApp`. The acceptance matrix records each open condition. See
+[Decomposition 01 and 02 Acceptance Matrix](../agents/decomposition-01-02-acceptance-matrix.md).
 
 ## Notification And Delivery
 

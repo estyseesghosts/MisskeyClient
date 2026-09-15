@@ -2,7 +2,8 @@
 setlocal
 
 set "PROJECT_ROOT=%~dp0"
-call "%PROJECT_ROOT%gradlew.bat" --no-daemon :app:assembleDebug
+rem Agents require no-daemon and plain console. This prevents a post-build hang.
+call "%PROJECT_ROOT%gradlew.bat" --no-daemon --console=plain :app:assembleDebug <NUL
 if errorlevel 1 (
     echo ERROR: Debug APK build failed.
     exit /b %ERRORLEVEL%

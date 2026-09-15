@@ -684,10 +684,15 @@ Read these items at the start of a session, after compaction, and when you are u
 - Run lint after security-sensitive changes.
 
 - Use the Gradle wrapper for every Gradle command.
-- Use `./gradlew` in Unix shell examples.
-- Use `gradlew.bat` in Windows shell examples.
+- Add `--no-daemon --console=plain` to every agent Gradle command.
+- Use `./gradlew --no-daemon --console=plain` in Unix shell examples.
+- Use `gradlew.bat --no-daemon --console=plain` in Windows shell examples.
+- Do not run bare `gradlew` without `--no-daemon` in agent work.
+- Set `GRADLE_OPTS=-Dorg.gradle.daemon=false` as a safety net for agent environments.
+- Set an explicit timeout for every Gradle tool call.
+- Close standard input for non-interactive Gradle calls.
 
-- Run `./gradlew test assembleRelease` before you declare a coding task complete.
+- Run `./gradlew --no-daemon --console=plain test assembleRelease` before you declare a coding task complete.
 - Run additional required checks for the affected feature.
 - Fix failures caused by the current slice.
 - Do not hide failing tests.

@@ -1,3 +1,11 @@
+# Historical Task State: App Shell Decomposition
+
+**Status:** historical. Superseded by
+[Decomposition 01 and 02 completion](decomposition-01-02-completion.md).
+
+This file records the first Plan 01 pass. Its "all requested items are implemented" claim is not
+current. The acceptance matrix lists the remaining exit conditions.
+
 # Objective
 
 Implement `docs/decomposition_3/01.md`. Give `PalustrisApp` and `ConnectedApp`

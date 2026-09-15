@@ -1,3 +1,7 @@
+# Historical Task State: Reference Localization
+
+**Status:** historical. This task is complete. It is not part of the current completion work.
+
 # Objective
 
 Add missing localized keys to Beeline locale files from mastodon-android and Aria references. No new wording. Only strings files change.
