@@ -1091,6 +1091,6 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Wired the owner into `MainActivity.kt` with one mutex across each decision and side effect. The base context prefers the platform value on Android 13 and later. An applied import recreates only when the base context is stale. A failed import surfaces through repository state without a recreation loop. The Language route already survives recreation through `SettingsRouteSaver`.
 - Added `AppLocaleOwnerTest.kt` with 12 event-sequence cases: first upgrade, startup convergence, pending-import repetition, in-app export, System-default clear, external import, external clearing, stale-read re-assertion, repository-move precedence, and superseding imports.
 - Verification passed: `AppLocaleOwnerTest`, `AppLocaleControllerTest`, `test assembleRelease`, and `:app:lintDebug` when run alone.
-- C-11 committed at PENDING.
+- C-11 committed at 43f8aa0.
 - Unverified: API 29 and API 33+ locale instrumentation, device rendering, live-server, signed release.
 

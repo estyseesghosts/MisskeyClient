@@ -8,7 +8,7 @@ Slices C-12 through C-14 repair the remaining gaps. Slice C-15 removes dead scaf
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (planning). Status refreshed against `PENDING`.
+**Source baseline:** `b629a2c` (planning). Status refreshed against `43f8aa0`.
 
 **Evidence:** source verified. Device and live-server behavior remain unverified. No test ran during
 this documentation pass.

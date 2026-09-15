@@ -68,7 +68,7 @@ repository serialization. Device teardown behavior remains unverified.
 Open gaps:
 - None. Slice C-11 closed the locale event-direction gap. `AppLocaleOwner` applies
   first-upgrade precedence once. Later in-app changes export and later external changes
-  import. Commit `PENDING`. API 29 and API 33+ locale instrumentation stays unverified.
+  import. Commit `43f8aa0`. API 29 and API 33+ locale instrumentation stays unverified.
 
 260915-042000: Slice C-10 closed. Settings commands bind to the validated account set the shell publishes. A command for a removed account reports an unavailable error. A queued command writes nothing after a removal. Failed commands support explicit retry through typed errors and resource strings. Commit `731b74b`.
 
