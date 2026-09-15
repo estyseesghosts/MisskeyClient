@@ -2,7 +2,7 @@
 
 Status: current  
 Owner: Maintainers  
-Last reviewed: 2026-09-14  
+Last reviewed: 2026-09-15  
 Stale when: A stable module boundary or a primary owner changes.
 
 Sources: `AGENTS.md`, current application source, and current tests.
@@ -78,11 +78,11 @@ Keep three identities separate:
 - Feature packages own their screens and ViewModels. See [App Shell Ownership](../agents/app-shell-ownership.md) for the current contract map.
 - Keep account ownership, transport behavior, protocol JSON, and persistent storage outside Compose functions.
 
-### Open Completion Gaps
+### Completion State
 
-The connected identity is not yet coherent. `ConnectedSessionHost` combines two session flows and
-falls back to `sourceFactory.create` when the registry has no source. The composer editor state
-still lives in `PalustrisApp`. The acceptance matrix records each open condition. See
+The shell decomposition is complete. `ConnectedSessionHost` reads one connected
+identity with no unregistered fallback. The composer editor lives in `ui/composer/`,
+not in `PalustrisApp`. The acceptance matrix records each exit condition. See
 [Decomposition 01 and 02 Acceptance Matrix](../agents/decomposition-01-02-acceptance-matrix.md).
 
 ## Notification And Delivery
@@ -106,7 +106,7 @@ still lives in `PalustrisApp`. The acceptance matrix records each open condition
 
 - Protocol contracts: `SocialSourceContractTest`, `MastodonSourceContractTest`, `ProfileSourceContractTest`.
 - Sessions and accounts: `SessionViewModelTest`, `AuthGatewayTest`.
-- Shell boundaries: `ShellCharacterizationTest`, `NavigationTest`, `HomeFeedTest`, `WideNavigationTest`, `PostProjectionCoordinatorTest`.
+- Shell boundaries: `ShellCharacterizationTest`, `NavigationTest`, `HomeFeedTest`, `WideNavigationTest`, `PostProjectionCoordinatorTest`, `ShellBackPolicyTest`, `ShellNavigatorTest`, `ReplyComposerTest`, `ComposerOwnerTest`, `SearchPanelRestorationTest`, `SignInScreenTest`.
 - Notifications: `NotificationRepositoryTest`, `NotificationContractTest`, `NotificationAdapterContractTest`.
 - Persistence: `AppPreferencesRepositoryTest`, `PhotoGridPreferencesRepositoryTest`, `EmojiCacheDatabaseTest`.
 - Device behavior: `Api29StartupInstrumentedTest`, `RoomNotificationStoreInstrumentedTest`.

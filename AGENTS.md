@@ -138,6 +138,21 @@
 - Remove temporary documentation after extracting any still-valid requirement.
 - Include documentation review in the definition of done.
 
+### Documentation Coverage
+
+- Document the codebase as a standing rule, not as a cleanup pass.
+- Write a comment or KDoc for every complicated function. Explain the reason, the
+  invariants, and the non-obvious branches. Do not explain simple functions.
+- Explain every feature area in the human wiki. Cover what it does, its status, its
+  source owner, and its limits.
+- Explain every architecture boundary in the agent folder. Cover the owner, the
+  invariants, the protocol rules, the persistence contract, the affected tests, and
+  the verification limits.
+- Do not add a feature without wiki coverage in the same slice.
+- Do not add an architecture boundary without agent coverage in the same slice.
+- Do not change documented behavior without updating both coverages in the same slice.
+- Confirm documentation coverage in the Completion check before closing a task.
+
 ## Agent Operation
 
 - Work directly on the requested task.
@@ -739,5 +754,8 @@ Read these items at the start of a session, after compaction, and when you are u
 - Confirm that user-facing product text says Beeline.
 - Confirm that the internal codename did not enter user-facing content.
 - Confirm that `docs/agents/handoff.md` names the next slice and the last safe commit.
+- Confirm that complicated new functions have comments or KDoc.
+- Confirm that the wiki explains each touched feature area.
+- Confirm that the agent folder explains each touched architecture boundary.
 - Report remaining risks.
 - Report checks that you could not perform.

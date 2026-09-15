@@ -4,8 +4,8 @@
 
 **Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through
 C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, C-12a through C-12d4, and C-13
-are implemented and test verified. Step 13 and step 14 of the progress report are complete.
-Slices C-13 and C-14 verify and document. Slice C-15 removes dead scaffolding.
+are implemented and test verified. Step 13, step 14, and step 15 of the progress report are complete.
+Slice C-15 removes dead scaffolding.
 
 **Last reviewed:** 2026-09-15.
 
@@ -110,6 +110,7 @@ acceptance matrix records the status.
 | Dead scaffolding | Unused `Legacy*` functions, `MarkdownPostText`, `AppBackHandler`, `BackNavigationState`, `SectionTabs`, and compatibility aliases remain. | C-15 |
 | Shell assembly | Closed by C-12d3. `PalustrisApp.kt` owns navigation and placement. Composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt` in C-12a. Back precedence moved to `ui/navigation/ShellBackPolicy.kt` in C-12b. Preview-only placement moved to `ui/PalustrisAppPreview.kt` in C-12d1. Navigation state and transitions moved to `ui/navigation/ShellNavigator.kt` in C-12d2 and C-12d3. Session-bound guards stay in the shell. | — |
 | Test isolation | Closed by C-12d4. `ReplyComposerTest` composes at feature level through `ComposerFeatureFixtures` since C-12c. `HomeFeedTest` and `SignInScreenTest` compose presenter behavior through `HomeFeatureFixtures` since C-12d4. Scroll clearance, detail navigation, composer, account switching, confirmation, and popup-host assertions stay on `AppShellFixtures.app`. | — |
+| Cancellation | Closed by C-13. Every touched suspending path rethrows `CancellationException`. `PostInteractionMutationOwner.handleFailure` rethrows before its guarded fallback. | — |
 
 ## Removed In The Migration
 

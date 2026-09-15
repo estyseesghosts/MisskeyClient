@@ -12,7 +12,6 @@ This directory holds agent-facing engineering documentation.
 - `AGENTS.md` holds permanent project law.
 - `docs/agents/tasks/<task>.md` holds the current truth of one long task.
 - Git commits hold verified history.
-- `docs/agents/documentation-inventory.md` classifies every maintained document.
 
 ## Rule
 
@@ -60,5 +59,3 @@ Rebuild the TODO list from these items.
 - [Acceptance matrix](decomposition-01-02-acceptance-matrix.md)
 - [App shell ownership](app-shell-ownership.md)
 - [Protocol and session ownership](protocol-and-session-ownership.md)
-- [Documentation inventory](documentation-inventory.md)
-- [Cleanup progress report](cleanup-progress-report.md) (historical)

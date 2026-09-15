@@ -2,7 +2,7 @@
 
 Status: current  
 Owner: Maintainers  
-Last reviewed: 2026-09-14  
+Last reviewed: 2026-09-15  
 Stale when: Product scope, supported server families, platform limits, or feature status changes.
 
 Sources: `README.md`, `AGENTS.md`, `app/build.gradle.kts`, `app/src/main/java/me/foxtails/palustris/ProductIdentity.kt`, and current application source.
@@ -66,4 +66,4 @@ The `README.md` TODO claims are stale for block, mute, and report. Current sourc
 - Compose tests do not prove physical-device rendering.
 - Release assembly does not prove signed publication.
 
-See [Build, Test, and Release](build-test-and-release.md) for the commands and the evidence rules.
+See `AGENTS.md` (Verification section) for the commands and the evidence rules.

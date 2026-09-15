@@ -16,15 +16,14 @@ Read these in order. Treat the repository as the authority.
 
 ## Current Position
 
-- Completion slices C-01 through C-11, C-12a through C-12d4, and C-13 are committed.
+- Completion slices C-01 through C-11, C-12a through C-12d4, C-13, and C-14 are committed.
   `L-01` is committed.
-- The last safe commit is `d97a39e` (C-13 record commit). C-13 is `c9e06c8`.
-- Steps 13 and 14 of the progress report are complete. C-13 fixed a cancellation swallow
-  in `PostInteractionMutationOwner.handleFailure` with a regression test, and recorded an
-  out-of-scope sibling finding in `logs/BUGS.txt`.
-- The next slice is **C-14, final ownership documentation**. The task-state file holds its
-  scope: classify every document and publish the final ownership documentation.
-- `test assembleRelease` and `:app:lintDebug` pass at the C-13 behavior commit.
+- The last safe commit is `PENDING` (C-14 record commit).
+- Plan 01 and Plan 02 exit conditions are met. Every acceptance row is implemented and
+  test verified. Device, live-server, and signed-release behavior stay unverified.
+- The next slice is **C-15, dead-scaffolding cleanup**. It is behavior-neutral and not
+  part of the exit. The symbol list is under Next Cleanup below.
+- `test assembleRelease` and `:app:lintDebug` pass at the C-14 behavior commit.
 
 ## Next Cleanup
 

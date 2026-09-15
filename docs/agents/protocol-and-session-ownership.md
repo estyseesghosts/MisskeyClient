@@ -8,7 +8,7 @@ C-06c closed the draft removal gap.
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (planning). Status refreshed against `53b4340`.
+**Source baseline:** `b629a2c` (planning). Status refreshed against `c9e06c8`.
 
 **Evidence:** source verified. Test files were inspected, not executed in this review.
 Device and live-server behavior remain unverified.

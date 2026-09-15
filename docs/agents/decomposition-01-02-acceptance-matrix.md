@@ -6,7 +6,7 @@
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (assessment). C-01 through C-11 and C-12a through C-12c status refreshed against `56c4cee`.
+**Source baseline:** `b629a2c` (assessment). C-01 through C-11, C-12a through C-12d4, and C-13 status refreshed against `c9e06c8`.
 
 **Stale when:** A listed exit condition changes, or a slice in
 `docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
@@ -111,7 +111,7 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | 02-I | Settings changes cannot overwrite newer fields or reopen under the wrong account or page. | `SettingsViewModel` validity gate and retry, `SettingsRoute` saver | `SettingsViewModelTest.kt`, `SettingsRouteRestorationTest.kt` | Implemented, test verified | — |
 | 02-J | All 17 resource locales are listed and selectable. System default stays separate. | `AppLanguage`, `locales_config.xml`, `LanguageSettingsScreen` | `LocalizationResourceTest.kt`, `LanguageSettingsScreenTest.kt` | Implemented, test verified | — |
 | 02-K | Selecting a language changes actual resources and survives supported restoration without loops. | `AppLocaleOwner`, `MainActivity` | `AppLocaleOwnerTest.kt`, `AppLocaleControllerTest.kt` | Implemented, test verified | — |
-| 02-L | Cancellation stays cancellation. Cleanup stays reliable. Repair tests pass. | cancellation rethrows in touched paths | `PushCancellationTest.kt`, `DraftActionsTest.kt`, `NotificationsViewModelTest.kt` | Partially implemented | C-13 |
+| 02-L | Cancellation stays cancellation. Cleanup stays reliable. Repair tests pass. | cancellation rethrows in touched paths; the mutation refresh rethrows before its guarded fallback | `PushCancellationTest.kt`, `DraftActionsTest.kt`, `NotificationsViewModelTest.kt`, `PostInteractionMutationOwnerTest.kt` | Implemented, test verified | — |
 
 ### Source Notes
 
@@ -151,7 +151,7 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | DM storage | Closed by C-03. `markRead` writes through `commitIfCurrent`. One lock owns activate, revoke, delete, and commit. | C-03 (implemented, test verified) |
 | Locale changes | Closed by C-11. Startup runs first-upgrade precedence once. Later in-app changes export and later external changes import. | C-11 (implemented, test verified) |
 | Home paging | Closed by C-08. The budget resets on filter identity and request epoch changes. Only accepted pages count. | C-08 (implemented, test verified) |
-| Documentation | Plans, task state, and ownership pages contradict each other. | C-14, this pass |
+| Documentation | Closed by C-14. Plans, task state, and ownership pages agree. Stale claims are updated, archived, or deleted. | C-14 (implemented, test verified) |
 
 ## 5. Work Assigned To Later Plans
 
