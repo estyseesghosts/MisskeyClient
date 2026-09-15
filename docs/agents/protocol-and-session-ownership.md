@@ -144,9 +144,11 @@ delivery-claim behavior. It keeps no JSON conversion helper. Both `FileNotificat
 
 `NotificationStore.read` returns `NotificationStoreRead`. The variants are `Absent`,
 `Readable`, `Corrupt`, and `Unavailable`. A corrupt read never carries stored bytes. A
-malformed row is corrupt, not unavailable. A database or disk failure is unavailable. The
-repository still maps every non-readable variant to an empty state. Slice 03-F3 adds the
-recoverable error, the write block, and the retry path.
+malformed row is corrupt, not unavailable. A database or disk failure is unavailable.
+`NotificationRepositoryState.hasReceivingAccount` validates the receiving-account fields
+before a read becomes Readable. Only receiving-account fields participate. Remote actors,
+post authors, and public URLs do not. The repository still maps every non-readable variant to
+an empty state. Slice 03-F3 adds the recoverable error, the write block, and the retry path.
 
 ## Direct-Message Write Authority
 

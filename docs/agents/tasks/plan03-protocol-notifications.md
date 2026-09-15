@@ -95,6 +95,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-D3 | Freeze the remaining fixtures: posts and accounts, interaction counts, unread state, settings, push, checkpoints, malformed structure, and known omissions. | Every remaining 03-D family has a fixed decoder contract, and the encoder-stable families round-trip. | implemented, test verified. |
 | 03-E | Move every recursive encode and decode helper from `NotificationRepository` into `NotificationJsonCodec` and make them private. | No conversion helper remains in the repository. The moved text stays identical apart from ownership and visibility. | implemented, test verified. |
 | 03-F1 | Add a typed store read result that separates absent, readable, corrupt, and unavailable. | Every store read returns one of the four variants. The repository behavior stays unchanged. | implemented, test verified. |
+| 03-F2 | Validate the receiving-account ownership of decoded state. | A foreign notification, group, delivery, checkpoint, push, or dismissal origin is Corrupt. Remote actors and public URLs stay valid. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -188,10 +189,20 @@ the variants to an empty state until 03-F3. `NotificationJsonCodecTest` (43 test
 then `test assembleRelease` and `:app:lintDebug`. `MediaViewerScreenTest` timed out once under
 concurrent build load and passed on rerun.
 
+03-F2 verification: `NotificationRepositoryState.hasReceivingAccount` checks notifications,
+groups, deliveries, singular and keyed checkpoints, push registration, and dismissal origins.
+It compares the connection origin and the local ID. Remote actors, post authors, and public
+URLs do not participate. The file and Room stores return Corrupt for a foreign state and keep
+the original bytes. `complete_current_state.json` is now a single-account state because the
+store is account-scoped. `NotificationStateOwnershipTest` (8 tests), `NotificationJsonCodecTest`,
+and `NotificationRoomStoreFixtureTest` pass, with the related notification suites, then
+`test assembleRelease` and `:app:lintDebug`.
+
 ## Current Slice
 
-03-F2 — Validate the receiving-account ownership of decoded notification state. 03-F3 and the
-combined 03-F4 reset, future-format, and schema-history slice follow.
+03-F3 — Add the recoverable error state. Block writes, delivery, and push for the affected
+account, mark settings unavailable, and add a retry path. The combined 03-F4 reset,
+future-format, and schema-history slice follows.
 
 ## Required Verification
 
@@ -216,6 +227,6 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`f33607e` "Distinguish absent, readable, corrupt, and unavailable notification reads".
+`15ba26b` "Validate notification state ownership by receiving account".
 
-03-F1 is closed. 03-F2 is the current slice.
+03-F1 and 03-F2 are closed. 03-F3 is the current slice.
