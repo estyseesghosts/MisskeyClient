@@ -889,3 +889,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Verified the release resource table holds all 15 locales with distinct values; debug resolution proved by runtime tests.
 - Verification passed: focused suites, full test, assembleRelease, and :app:lintDebug. One MediaViewerScreenTest timeout flaked in a full run and passed in isolation.
 - Connected instrumentation on API 29 and API 33+ remains unverified; no emulator or device is reachable.
+
+260914-202925 Japanese translation from reference applications:
+- Extended values-ja/strings.xml from 24 to 118 entries using exact English matches in mastodon-android values and Aria aria/misskey i18n files.
+- Kept existing entries. Omitted keys without an exact match so English remains fallback. Used neutral words only; no boost, renote, note, or toot terms.
+- Japanese coverage is now 118 of 562 resources (21.0 percent); 118 of 554 strings (21.3 percent). Plurals remain in English.
+- Standalone checks passed: XML parses, keys and placeholders match the default catalog, no banned platform words.
+- Gradle LocalizationResourceTest remains blocked: another process locks app build R.jar. See logs/BUGS.txt. Rerun the focused test when the build directory is free.
