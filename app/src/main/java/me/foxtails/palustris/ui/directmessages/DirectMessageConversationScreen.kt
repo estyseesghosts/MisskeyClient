@@ -22,11 +22,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -53,9 +48,9 @@ fun DirectMessageConversationScreen(
     compactLayout: Boolean = true,
     compactNavigationVisible: Boolean = true,
     onBack: () -> Unit = {},
-    onSend: (String) -> Unit = {},
+    onEditorTextChange: (String) -> Unit = {},
+    onSend: () -> Unit = {},
 ) {
-    var draft by remember(state.selectedConversationId, state.recipient?.id) { mutableStateOf("") }
     val recipient = state.recipient
     val title = state.selectedConversation?.participants
         ?.filterNot { it.id == accountId }
@@ -113,16 +108,16 @@ fun DirectMessageConversationScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
+                value = state.editorText,
+                onValueChange = onEditorTextChange,
                 modifier = Modifier.weight(1f).testTag("direct_message_input"),
                 placeholder = { Text(stringResource(R.string.dm_compose_placeholder)) },
                 minLines = 1,
                 maxLines = 4,
             )
             IconButton(
-                onClick = { onSend(draft); draft = "" },
-                enabled = draft.isNotBlank() && !state.sending && (recipient != null || state.selectedConversation != null),
+                onClick = onSend,
+                enabled = state.editorText.isNotBlank() && !state.sending && (recipient != null || state.selectedConversation != null),
                 modifier = Modifier.size(52.dp).testTag("direct_message_send"),
             ) {
                 if (state.sending) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)

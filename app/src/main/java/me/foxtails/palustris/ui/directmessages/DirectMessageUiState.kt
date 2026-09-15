@@ -17,4 +17,8 @@ data class DirectMessageUiState(
     val loadingMore: Boolean = false,
     val sending: Boolean = false,
     val error: String? = null,
+    /** Composer text for the active editor target. The feature owner, not the screen, holds it. */
+    val editorText: String = "",
+    /** Binds accepted send completion to the text it submitted. A newer edit must survive. */
+    val editorRevision: Long = 0L,
 )

@@ -164,6 +164,8 @@ class DirectMessageViewModel @AssistedInject constructor(
             loadingThread = true,
             sending = false,
             error = null,
+            editorText = "",
+            editorRevision = _state.value.editorRevision + 1,
             conversations = _state.value.conversations.map { item ->
                 if (item.id == id) item.copy(unread = false) else item
             },
@@ -223,6 +225,8 @@ class DirectMessageViewModel @AssistedInject constructor(
             loadingThread = false,
             sending = false,
             error = null,
+            editorText = "",
+            editorRevision = _state.value.editorRevision + 1,
         )
     }
 
@@ -239,10 +243,23 @@ class DirectMessageViewModel @AssistedInject constructor(
             loadingThread = false,
             sending = false,
             error = null,
+            editorText = "",
+            editorRevision = _state.value.editorRevision + 1,
         )
     }
 
-    fun send(text: String) {
+    /**
+     * Records the composer text for the active editor target. Each accepted change advances the
+     * editor revision, so an in-flight send cannot clear newer text.
+     */
+    fun updateEditor(text: String) {
+        if (stopped) return
+        val current = _state.value
+        if (current.editorText == text) return
+        _state.value = current.copy(editorText = text, editorRevision = current.editorRevision + 1)
+    }
+
+    fun send() {
         if (stopped) return
         val repo = repository
         if (repo == null) {
@@ -253,6 +270,8 @@ class DirectMessageViewModel @AssistedInject constructor(
             return
         }
         val current = _state.value
+        val text = current.editorText
+        val editorAtSend = current.editorRevision
         val recipients = current.selectedConversation?.participants
             ?.filterNot { it.id == accountId }
             .orEmpty()
@@ -288,6 +307,8 @@ class DirectMessageViewModel @AssistedInject constructor(
                 )
                 val conversations = (latest.conversations.filterNot { it.id == id } + conversation)
                     .sortedByDescending { it.lastPost.publishedAtEpochMillis }
+                // Clear only the text this send submitted. Text entered during the send stays.
+                val clearEditor = latest.editorRevision == editorAtSend
                 _state.value = latest.copy(
                     conversations = conversations,
                     selectedConversationId = id,
@@ -295,6 +316,8 @@ class DirectMessageViewModel @AssistedInject constructor(
                     recipient = recipients.firstOrNull(),
                     thread = mergeThread(latest.thread, listOf(post)),
                     sending = false,
+                    editorText = if (clearEditor) "" else latest.editorText,
+                    editorRevision = if (clearEditor) latest.editorRevision + 1 else latest.editorRevision,
                 )
             } catch (error: CancellationException) {
                 throw error

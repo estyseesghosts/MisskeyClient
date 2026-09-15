@@ -37,7 +37,8 @@ internal fun AppNotificationsDestinationContent(
     onLoadMoreDirectMessages: () -> Unit,
     onOpenDirectConversation: (DirectConversation) -> Unit,
     onBackDirectConversation: () -> Unit,
-    onSendDirectMessage: (String) -> Unit,
+    onEditorTextChange: (String) -> Unit,
+    onSendDirectMessage: () -> Unit,
     contentWarningRules: ContentWarningRules = LocalContentWarningRules.current,
 ) {
     AnimatedStatePane(
@@ -74,6 +75,7 @@ internal fun AppNotificationsDestinationContent(
                 compactLayout = compactLayout,
                 compactNavigationVisible = compactNavigationVisible,
                 onBack = onBackDirectConversation,
+                onEditorTextChange = onEditorTextChange,
                 onSend = onSendDirectMessage,
             )
         } else {

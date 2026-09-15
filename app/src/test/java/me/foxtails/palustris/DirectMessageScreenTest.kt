@@ -2,6 +2,10 @@ package me.foxtails.palustris
 
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -65,18 +69,21 @@ class DirectMessageScreenTest {
     }
 
     @Test
-    fun conversationComposerSubmitsPrivateMessage() {
-        var sent = ""
+    fun conversationComposerSubmitsOwnedEditorText() {
+        var sent: String? = null
         show {
+            var text by remember { mutableStateOf("") }
             DirectMessageConversationScreen(
                 accountId = owner.id,
                 state = DirectMessageUiState(
                     selectedConversationId = conversation.id,
                     selectedConversation = conversation,
                     thread = listOf(conversation.lastPost),
+                    editorText = text,
                 ),
                 compactLayout = false,
-                onSend = { sent = it },
+                onEditorTextChange = { text = it },
+                onSend = { sent = text },
             )
         }
 

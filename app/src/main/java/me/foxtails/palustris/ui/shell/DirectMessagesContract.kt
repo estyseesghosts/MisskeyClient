@@ -21,7 +21,8 @@ data class DirectMessagesContract(
         fun openConversation(conversation: DirectConversation)
         fun closeConversation()
         fun startConversation(account: Account)
-        fun send(text: String)
+        fun updateEditor(text: String)
+        fun send()
     }
 
     companion object {
@@ -35,5 +36,6 @@ private object DirectMessagesEmptyActions : DirectMessagesContract.Actions {
     override fun openConversation(conversation: DirectConversation) = Unit
     override fun closeConversation() = Unit
     override fun startConversation(account: Account) = Unit
-    override fun send(text: String) = Unit
+    override fun updateEditor(text: String) = Unit
+    override fun send() = Unit
 }

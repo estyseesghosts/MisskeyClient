@@ -220,7 +220,8 @@ class DirectMessageViewModelTest {
             assertNull(model.state.value.selectedConversationId)
             assertTrue(model.state.value.thread.isEmpty())
 
-            model.send("hello bob")
+            model.updateEditor("hello bob")
+            model.send()
             advanceUntilIdle()
             model.startConversation(recipientA)
             advanceUntilIdle()
@@ -230,6 +231,8 @@ class DirectMessageViewModelTest {
             // The stale send for Bob cannot move the current Alice draft.
             assertEquals(recipientA.id, model.state.value.recipient?.id)
             assertTrue(model.state.value.thread.isEmpty())
+            // The Alice editor starts empty. Bob's text stayed with Bob's target.
+            assertEquals("", model.state.value.editorText)
         } finally {
             Dispatchers.resetMain()
         }
@@ -251,10 +254,12 @@ class DirectMessageViewModelTest {
             advanceUntilIdle()
             source.completeThread(0, listOf(post("a-1", recipientA)))
             advanceUntilIdle()
-            model.send("reply a")
+            model.updateEditor("reply a")
+            model.send()
             advanceUntilIdle()
             model.openConversation(conversationB)
             advanceUntilIdle()
+            model.updateEditor("for b")
             source.completeSend(0, post("sent-a", owner))
             advanceUntilIdle()
             source.completeThread(1, listOf(post("b-1", recipientB)))
@@ -262,6 +267,8 @@ class DirectMessageViewModelTest {
 
             assertEquals(conversationB.id, model.state.value.selectedConversationId)
             assertEquals(listOf("b-1"), model.state.value.thread.map { it.id.value })
+            // The accepted send for Alice cannot clear the newer Bob draft.
+            assertEquals("for b", model.state.value.editorText)
             assertNull(model.state.value.error)
         } finally {
             Dispatchers.resetMain()
@@ -358,7 +365,8 @@ class DirectMessageViewModelTest {
 
             model.openConversation(conversation("a", "a-last"))
             advanceUntilIdle()
-            model.send("hello")
+            model.updateEditor("hello")
+            model.send()
             advanceUntilIdle()
 
             assertFalse(model.state.value.loadingThread)
@@ -387,6 +395,94 @@ class DirectMessageViewModelTest {
             advanceUntilIdle()
 
             assertTrue(model.state.value.thread.isEmpty())
+            assertNull(model.state.value.error)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun failedSendPreservesEditorTextForRecovery() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedDirectSource()
+            val model = setup(source, StandardTestDispatcher(testScheduler))
+            advanceUntilIdle()
+            val conversationA = conversation("a", "a-last", recipientA)
+            source.completeInbox(0, Page(listOf(conversationA)))
+            advanceUntilIdle()
+            model.openConversation(conversationA)
+            advanceUntilIdle()
+            source.completeThread(0, listOf(post("a-1", recipientA)))
+            advanceUntilIdle()
+
+            model.updateEditor("unsent text")
+            model.send()
+            advanceUntilIdle()
+            source.failSend(0, java.io.IOException("send failed"))
+            advanceUntilIdle()
+
+            assertEquals("unsent text", model.state.value.editorText)
+            assertFalse(model.state.value.sending)
+            assertTrue(model.state.value.error != null)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun newerTextTypedDuringSendSurvivesAcceptedCompletion() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedDirectSource()
+            val model = setup(source, StandardTestDispatcher(testScheduler))
+            advanceUntilIdle()
+            val conversationA = conversation("a", "a-last", recipientA)
+            source.completeInbox(0, Page(listOf(conversationA)))
+            advanceUntilIdle()
+            model.openConversation(conversationA)
+            advanceUntilIdle()
+            source.completeThread(0, listOf(post("a-1", recipientA)))
+            advanceUntilIdle()
+
+            model.updateEditor("first")
+            model.send()
+            advanceUntilIdle()
+            // The user keeps typing while the send is in flight.
+            model.updateEditor("first and second")
+            source.completeSend(0, post("sent-a", owner))
+            advanceUntilIdle()
+
+            assertEquals("first and second", model.state.value.editorText)
+            assertFalse(model.state.value.sending)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun acceptedSendClearsUnchangedEditorText() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedDirectSource()
+            val model = setup(source, StandardTestDispatcher(testScheduler))
+            advanceUntilIdle()
+            val conversationA = conversation("a", "a-last", recipientA)
+            source.completeInbox(0, Page(listOf(conversationA)))
+            advanceUntilIdle()
+            model.openConversation(conversationA)
+            advanceUntilIdle()
+            source.completeThread(0, listOf(post("a-1", recipientA)))
+            advanceUntilIdle()
+
+            model.updateEditor("only text")
+            model.send()
+            advanceUntilIdle()
+            source.completeSend(0, post("sent-a", owner))
+            advanceUntilIdle()
+
+            assertEquals("", model.state.value.editorText)
+            assertFalse(model.state.value.sending)
             assertNull(model.state.value.error)
         } finally {
             Dispatchers.resetMain()

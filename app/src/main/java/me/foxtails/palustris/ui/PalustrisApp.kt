@@ -954,6 +954,7 @@ fun PalustrisApp(
                                       onLoadMoreDirectMessages = directMessages.actions::loadMore,
                                       onOpenDirectConversation = directMessages.actions::openConversation,
                                       onBackDirectConversation = directMessages.actions::closeConversation,
+                                      onEditorTextChange = directMessages.actions::updateEditor,
                                       onSendDirectMessage = directMessages.actions::send,
                                   )
                  Destination.Profile -> ProfileScreen(

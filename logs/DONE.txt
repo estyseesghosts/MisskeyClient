@@ -972,3 +972,14 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Proposed DirectMessageStoreInstrumentedTest is not written. No device is reachable.
 - C-03 committed at bfbd7ed.
 - Unverified: device, live-server, signed release.
+
+260914-232941 Slice C-04 direct-message recovery text ownership:
+- DirectMessageUiState carries editorText and editorRevision. DirectMessageViewModel owns them and exposes updateEditor.
+- A selection change resets the editor text and advances the revision. New-conversation targets stay isolated.
+- send() reads the owner text. It captures the text and revision before the request. It clears the editor only after accepted success when the revision is unchanged. Newer text typed during the send survives.
+- A failed send keeps the text. Send errors stay visible above a nonempty thread.
+- DirectMessagesContract adds updateEditor(text) and changes send(text) to send(). DirectMessageConversationScreen is stateless. The Send button no longer clears the text.
+- AppNotificationsDestinationContent and PalustrisApp pass onEditorTextChange and the no-argument send.
+- Updated DirectMessageViewModelTest and DirectMessageScreenTest. Added failedSendPreservesEditorTextForRecovery, newerTextTypedDuringSendSurvivesAcceptedCompletion, and acceptedSendClearsUnchangedEditorText.
+- Verification passed: focused direct-message suites, test assembleRelease, and :app:lintDebug when run alone.
+- Unverified: device, live-server, signed release.

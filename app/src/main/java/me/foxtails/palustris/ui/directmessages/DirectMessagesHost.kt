@@ -42,7 +42,8 @@ fun DirectMessagesHost(
             override fun openConversation(conversation: DirectConversation) { model.openConversation(conversation) }
             override fun closeConversation() { model.closeConversation() }
             override fun startConversation(account: Account) { model.startConversation(account) }
-            override fun send(text: String) { model.send(text) }
+            override fun updateEditor(text: String) { model.updateEditor(text) }
+            override fun send() { model.send() }
         }
     }
     return remember(state, actions) { DirectMessagesContract(state, actions) }

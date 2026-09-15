@@ -51,6 +51,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-01 | Step 2 | Make connected identity coherent. Resolve one accepted context. Remove the `sourceFactory.create` fallback. | Every source-backed feature receives values from one accepted connected lifetime. | implemented, test verified. Commit `6b8752b`. |
 | C-02 | Step 3 | Repair ViewModel lifetime and route re-entry. Add an explicit connected-entry store and lifecycle owner. | Retired owners cannot publish. Re-entered features never receive stopped owners. | implemented, test verified. Commit `ffc9c3f`. |
 | C-03 | Step 4 | Complete DM durable write authority. Route `markRead` through `commitIfCurrent`. Keep network outside locks. | A retired session cannot mutate current DM storage. Removed rows stay deleted. | implemented, test verified. Commit `bfbd7ed`. |
+| C-04 | Step 5 | Give DM recovery text a feature owner. Add an editor revision. Clear only on accepted success. | A send failure cannot erase recoverable text. | implemented, test verified. Commit recorded in the next documentation commit. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -68,11 +69,18 @@ lock. The account lifecycle issues the writer generation. A repository captures 
 does not issue one. `markRead` routes its local write through `commitIfCurrent`. Network requests
 stay outside every lock.
 
+C-04 moved the direct-message composer text into `DirectMessageViewModel`. The state now carries
+`editorText` and `editorRevision`. `DirectMessageUiState` owns them. Each editor change and each
+selection change advances the revision. A selection change resets the text. `DirectMessagesContract`
+adds `updateEditor(text)` and changes `send(text)` to `send()`. `DirectMessageConversationScreen` is
+stateless. It reads `state.editorText` and calls `onEditorTextChange`. The Send button no longer
+clears the text. A send captures the text and revision. It clears the editor only after accepted
+success when the revision is unchanged. A failed send keeps the text.
+
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-04 | Step 5 | Give DM recovery text a feature owner. Add an editor revision. Clear only on accepted success. | A send failure cannot erase recoverable text. | pending |
 | C-05 | Step 6 | Establish a composer editor owner. Move editor fields out of `PalustrisApp`. | `PalustrisApp` requests composer transitions. It does not implement editor state. | pending |
 | C-06 | Step 7 | Make draft and publish completion version-aware. Separate the contract from storage. Bind to an account owner. | No late callback clears newer text, starts an obsolete publish, or recreates removed data. | pending |
 | C-07 | Step 8 | Stabilize post-action ownership and projection. Use typed families. Retire the coordinator with its entry. | Every surface receives the accepted action result once. Retired popups have no authority. | pending |
@@ -88,19 +96,23 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 ## Current Slice
 
-**C-04 — Give DM recovery text a feature owner.**
+**C-05 — Establish a composer editor owner.**
 
-Not started. Work from `progressreport.md` section 3 step 5. C-01, C-02, and C-03 are committed.
+Not started. Work from `progressreport.md` section 3 step 6. C-01 through C-04 are committed.
 
-## Files Involved For C-04
+## Files Involved For C-05
 
-- `app/src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessageUiState.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessageViewModel.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessageConversationScreen.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessagesHost.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/shell/DirectMessagesContract.kt`
-- `app/src/test/java/me/foxtails/palustris/DirectMessageViewModelTest.kt`
-- `app/src/test/java/me/foxtails/palustris/DirectMessageScreenTest.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/shell/ComposerContract.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/shell/DraftsContract.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/session/ConnectedSessionHost.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/FeedHost.kt`
+- Proposed `app/src/main/java/me/foxtails/palustris/ui/composer/ComposerEditorState.kt`
+- Proposed `app/src/main/java/me/foxtails/palustris/ui/composer/ComposerOwner.kt`
+- Proposed `app/src/main/java/me/foxtails/palustris/ui/composer/ComposerHost.kt`
+- Existing composer screen and sheet files
+- `app/src/test/java/me/foxtails/palustris/ReplyComposerTest.kt`
+- `app/src/test/java/me/foxtails/palustris/NavigationTest.kt`
 
 ## Required Verification
 
@@ -126,22 +138,27 @@ C-03 verification result: `DirectMessageRepositoryTest`, `DirectMessageViewModel
 `ConnectedSessionContextTest` passed. `test assembleRelease` passed. `:app:lintDebug` passed when
 run alone.
 
-Test these cases for C-03:
+C-04 verification result: `DirectMessageViewModelTest`, `DirectMessageScreenTest`,
+`DirectMessageSourceTest`, and `DirectMessageRepositoryTest` passed. `test assembleRelease` passed.
+`:app:lintDebug` passed when run alone.
 
-- A session replacement revokes the old writer before the new writer activates. Covered by
-  `DirectMessageRepositoryTest.sessionReplacementRevokesTheOldWriter` and
-  `DirectMessageRepositoryTest.oldSessionCannotWriteAfterReplacement`.
-- A send accepted during a thread load survives an older response. Covered by
-  `sendAcceptedDuringThreadLoadSurvivesOlderResponse`.
-- An older inbox response does not replace a newer accepted send. Covered by
-  `olderInboxResponseDoesNotReplaceNewerSend`.
-- Two repositories in one session share the writer authority. Covered by
-  `twoRepositoriesInOneSessionShareWriterAuthority`.
-- `markRead` routes the local write through `commitIfCurrent`. Source verified in
-  `DirectMessageRepository.markRead`. No focused claim of a deleted-row resurrection.
+Test these cases for C-04:
 
-The proposed `DirectMessageStoreInstrumentedTest.kt` is not written. No device is reachable. The
-Room store deletion and late-write behavior stays device unverified.
+- A failed send keeps its text for recovery. Covered by
+  `DirectMessageViewModelTest.failedSendPreservesEditorTextForRecovery`.
+- Text typed during an in-flight send survives accepted completion. Covered by
+  `newerTextTypedDuringSendSurvivesAcceptedCompletion`.
+- An accepted send clears unchanged text. Covered by
+  `acceptedSendClearsUnchangedEditorText`.
+- A selection change resets the editor and isolates new recipients. Covered by
+  `newRecipientDraftsStayIsolated`.
+- An accepted send cannot clear a replacement conversation's newer draft. Covered by
+  `staleSendCannotChangeReplacementConversation`.
+- The screen submits the owner text and clears nothing itself. Covered by
+  `DirectMessageScreenTest.conversationComposerSubmitsOwnedEditorText`.
+
+The proposed `DirectMessageStoreInstrumentedTest.kt` from C-03 is not written. No device is
+reachable. The Room store deletion and late-write behavior stays device unverified.
 
 ## Unresolved Blockers
 
@@ -156,4 +173,4 @@ Room store deletion and late-write behavior stays device unverified.
 `bfbd7ed` "Route direct message writes through the session writer".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
-C-04 is the next slice.
+C-04 is committed before C-05 starts. C-05 is the next slice.

@@ -2,9 +2,9 @@
 
 **Owner:** app-shell and feature-presentation maintainers.
 
-**Status:** current. The shell decomposition is partially migrated. Completion slices C-01, C-02, and
-C-03 are implemented and test verified in the working tree. Other completion slices repair the
-remaining gaps.
+**Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through C-04
+are implemented and test verified in the working tree. Other completion slices repair the remaining
+gaps.
 
 **Last reviewed:** 2026-09-14.
 
@@ -65,7 +65,7 @@ Test code binds test-only recorders in `app/src/test/java/me/foxtails/palustris/
 | `BookmarksContract` | bookmark `SavedPostsViewModel` | Bookmark collection | Refresh, paging, remove, permissions, react |
 | `LikesContract` | like `SavedPostsViewModel` | Like collection | Refresh, paging, toggle, react |
 | `NotificationsContract` | `NotificationsViewModel` | Notification inbox | Refresh, paging, read, dismiss, follow, query |
-| `DirectMessagesContract` | `DirectMessageViewModel` | Inbox, selection, send | Refresh, paging, open, close, start, send |
+| `DirectMessagesContract` | `DirectMessageViewModel` | Inbox, selection, send, composer editor | Refresh, paging, open, close, start, update editor, send |
 | `ProfileContract` | `ProfileViewModel` | Target, categories, relationship, editor | Open, category, paging, follow, react, editor |
 | `ThreadContract` | `PostThreadViewModel` | Selected thread | Activate, deactivate, paging, mutations |
 | `PhotoGridContract` | Photo Grid `FeedViewModel` | Independent Photo Grid feed | Load, select, refresh, paging, hashtag, error |
@@ -112,6 +112,8 @@ Completion slices close these gaps. The acceptance matrix records the status.
 - A feature model retires with its connected entry, not with a composition disposal.
 - The account lifecycle issues the direct-message writer generation. A repository captures it. A
   revoked writer cannot mutate current DM storage. Network requests stay outside the lock.
+- The direct-message composer text stays with the direct-message feature owner. A screen does not
+  hold it and does not clear it on Send.
 - Photo Grid keeps independent feed state and selection from Home.
 - Active-account and selected-account notification settings stay distinct.
 - Every source-backed feature receives values from one accepted connected lifetime.
