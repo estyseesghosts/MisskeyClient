@@ -94,6 +94,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-D2 | Freeze the activity, navigation, read-state, and delivery fixtures. Add the Room fixed-JSON read test. | Every activity discriminant, navigation target, read state, and delivery state is characterized. Room decodes JSON inserted directly. | implemented, test verified. |
 | 03-D3 | Freeze the remaining fixtures: posts and accounts, interaction counts, unread state, settings, push, checkpoints, malformed structure, and known omissions. | Every remaining 03-D family has a fixed decoder contract, and the encoder-stable families round-trip. | implemented, test verified. |
 | 03-E | Move every recursive encode and decode helper from `NotificationRepository` into `NotificationJsonCodec` and make them private. | No conversion helper remains in the repository. The moved text stays identical apart from ownership and visibility. | implemented, test verified. |
+| 03-F1 | Add a typed store read result that separates absent, readable, corrupt, and unavailable. | Every store read returns one of the four variants. The repository behavior stays unchanged. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -176,11 +177,21 @@ the previous repository text apart from `internal` to `private`. Added file-stor
 coverage for the nested unknown server destination. `test assembleRelease` and `:app:lintDebug`
 pass. All frozen fixture expectations are unchanged.
 
+03-F1 verification: `NotificationStoreRead` has the variants Absent, Readable, Corrupt, and
+Unavailable. `NotificationStore.read` returns it. `FileNotificationStore` classifies malformed
+JSON and invalid values as Corrupt and an IO failure as Unavailable. `RoomNotificationStore`
+classifies a malformed row as Corrupt and a DAO or save failure as Unavailable. A corrupt read
+never carries stored bytes. `NotificationRepository` keeps the current behavior and collapses
+the variants to an empty state until 03-F3. `NotificationJsonCodecTest` (43 tests) and
+`NotificationRoomStoreFixtureTest` (4 tests) pass, with `NotificationRepositoryTest`,
+`NotificationSettingsTest`, `PushRegistrationRepositoryTest`, and `NotificationSynchronizerTest`,
+then `test assembleRelease` and `:app:lintDebug`. `MediaViewerScreenTest` timed out once under
+concurrent build load and passed on rerun.
+
 ## Current Slice
 
-03-F — Define Room corruption recovery. The maintainer approved the reset policy on
-2026-09-15. The accepted policy discards old notification data instead of migrating it forward.
-03-G, 03-H, 03-I, and 03-J follow. 03-I is approved to code.
+03-F2 — Validate the receiving-account ownership of decoded notification state. 03-F3 and the
+combined 03-F4 reset, future-format, and schema-history slice follow.
 
 ## Required Verification
 
@@ -205,6 +216,6 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`861e457` "Move notification codec helpers into NotificationJsonCodec".
+`f33607e` "Distinguish absent, readable, corrupt, and unavailable notification reads".
 
-03-D and 03-E are closed. 03-F is the current slice.
+03-F1 is closed. 03-F2 is the current slice.

@@ -27,14 +27,15 @@ Read these in order. Treat the repository as the authority.
   committed at `36eeeb9`. Slice `03-B2` is committed at `1c45afb`. Slice `03-D1` is committed
   at `e40ef87`. Slice `03-A2` is committed at `c6bd9ff`. Slice `03-D2` is committed at
   `0e0d8c4`. Slice `03-D3` is committed at `5d1f8b2`. Slice `03-E` is committed at `861e457`.
-  The last safe commit is `861e457`.
+  Slice `03-F1` is committed at `f33607e`. The last safe commit is `f33607e`.
 - The maintainer approved the 03-F reset behavior and the 03-I visibility migration on
   2026-09-15. The accepted policy is development-only discard: do not migrate old notification
   data. Discard unreadable or incompatible local state and require reauthentication when needed.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-F` (define Room corruption recovery), then `03-G`, `03-H`, `03-I`, and
-  `03-J`. 03-F and 03-I are approved to code.
+- Next slice: `03-F2` (validate receiving-account ownership of decoded state), then `03-F3` and
+  the combined `03-F4`. `03-G`, `03-H`, `03-I`, and `03-J` follow. 03-F and 03-I are approved
+  to code.
 - Unrelated documentation and archive changes appeared in the worktree during 03-E. They are
   not part of any committed Plan 03 slice and were left untouched.
 
@@ -65,6 +66,10 @@ Read these in order. Treat the repository as the authority.
 - 03-E notification codec ownership. Every recursive helper moved to `NotificationJsonCodec`
   and made private. Verification: `NotificationJsonCodecTest` (40 tests) and
   `NotificationRoomStoreFixtureTest` (4 tests), a moved-text identity check, then
+  `test assembleRelease` and `:app:lintDebug`.
+- 03-F1 typed notification store read result. `NotificationStore.read` returns Absent, Readable,
+  Corrupt, or Unavailable. Verification: `NotificationJsonCodecTest` (43 tests),
+  `NotificationRoomStoreFixtureTest` (4 tests), related repository and settings suites, then
   `test assembleRelease` and `:app:lintDebug`.
 - Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 

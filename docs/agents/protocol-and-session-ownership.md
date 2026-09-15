@@ -142,6 +142,12 @@ helper. `NotificationRepository.kt` keeps the merge, generation, query-validatio
 delivery-claim behavior. It keeps no JSON conversion helper. Both `FileNotificationStore` and
 `RoomNotificationStore` use the same internal `encode` and `decode` boundary.
 
+`NotificationStore.read` returns `NotificationStoreRead`. The variants are `Absent`,
+`Readable`, `Corrupt`, and `Unavailable`. A corrupt read never carries stored bytes. A
+malformed row is corrupt, not unavailable. A database or disk failure is unavailable. The
+repository still maps every non-readable variant to an empty state. Slice 03-F3 adds the
+recoverable error, the write block, and the retry path.
+
 ## Direct-Message Write Authority
 
 `data/directmessages/DirectMessageWriteAuthority.kt` owns one writer generation for each account.
