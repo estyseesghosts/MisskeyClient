@@ -19,7 +19,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.AccountIndex
@@ -31,7 +30,6 @@ import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
-import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.PostPreferences
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.AccountManager
@@ -49,7 +47,7 @@ import me.foxtails.palustris.ui.posts.PostActionOwner
 import me.foxtails.palustris.ui.profile.ProfileHost
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.ComposerContract
-import me.foxtails.palustris.ui.shell.DraftsContract
+import me.foxtails.palustris.ui.shell.DraftActions
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.shell.PhotoGridContract
@@ -271,34 +269,13 @@ fun ConnectedSessionHost(
             ?.let(accountManager::updateAccount)
     }
     val draftsContract = remember(draftStore, context, settingsScope) {
-        DraftsContract(
-            actions = object : DraftsContract.Actions {
-                override fun load(accountId: AccountId?, onResult: (List<PostDraft>) -> Unit) {
-                    settingsScope.launch {
-                        val result = runCatching {
-                            draftStore.migrateLegacy(accountId, context.getSharedPreferences("local_draft", android.content.Context.MODE_PRIVATE))
-                            draftStore.list(accountId)
-                        }.getOrElse { emptyList() }
-                        onResult(result)
-                    }
-                }
-
-                override fun save(draft: PostDraft, onResult: (PostDraft) -> Unit, onError: () -> Unit) {
-                    settingsScope.launch {
-                        runCatching { draftStore.save(draft) }
-                            .onSuccess { onResult(draft) }
-                            .onFailure { onError() }
-                    }
-                }
-
-                override fun delete(accountId: AccountId?, draftId: String, onDone: () -> Unit) {
-                    settingsScope.launch {
-                        runCatching { draftStore.delete(accountId, draftId) }
-                        onDone()
-                    }
-                }
+        DraftActions(
+            settingsScope,
+            draftStore,
+            legacyPreferences = {
+                context.getSharedPreferences("local_draft", android.content.Context.MODE_PRIVATE)
             },
-        )
+        ).asContract()
     }
     val postActionOwner = remember(session.accountId, session.sessionRevision, sharedSource, profile) {
         PostActionOwner(

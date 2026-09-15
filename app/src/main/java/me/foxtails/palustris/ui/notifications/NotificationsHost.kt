@@ -34,6 +34,9 @@ fun NotificationsHost(
         key = "notifications-$accountId-$sessionGeneration-$sessionRevision",
         creationCallback = { factory -> factory.create(accountId, source, sessionRevision) },
     )
+    DisposableEffect(model) {
+        onDispose { model.stop() }
+    }
     val sink = remember(model) {
         object : PostProjectionCoordinator.Sink {
             override fun applyExternalPost(updated: OwnedPost) { model.applyExternalPost(updated) }

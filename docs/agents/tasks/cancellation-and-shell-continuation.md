@@ -48,7 +48,7 @@ cleanup stays reliable, teardown is idempotent) and the deferred Plan 01 items
 | Slice | Scope | Exit | Status |
 | --- | --- | --- | --- |
 | 02-L1 | Push and notification-settings cancellation audit | Cancellation rethrows in reconcile, disable (after local cleanup), connector, retry, distributors. New tests pass. | completed |
-| 02-L2 | Draft ownership and notification teardown | `DraftActions` owner with cancellation guards, fixture deduplicated. `NotificationsViewModel.stop()` wired. Stale bug entry corrected. | pending |
+| 02-L2 | Draft ownership and notification teardown | `DraftActions` owner with cancellation guards, fixture deduplicated. `NotificationsViewModel.stop()` wired. Stale bug entry corrected. | completed |
 | 01-FeedHost | Extract feed owner from `ConnectedSessionHost` | `FeedHost` owns model, contracts, sink. Session host keeps source, coordinator, composer assembly. Existing suites pass. | pending |
 | 01-H | Remove production no-arg app construction | `PalustrisApp` and `ConnectedApp` take required arguments. Tests use an explicit test helper. Preview passes explicit contracts. | pending |
 

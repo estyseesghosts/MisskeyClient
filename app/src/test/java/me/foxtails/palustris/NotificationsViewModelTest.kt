@@ -1,5 +1,6 @@
 package me.foxtails.palustris
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -28,6 +29,8 @@ import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.ui.NotificationsViewModel
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -65,6 +68,61 @@ class NotificationsViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.state.value.items.isEmpty())
+    }
+
+    @Test
+    fun stopPreventsLatePublicationAndLaterRequests() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val notification = Notification(
+            id = EntityId(account.connection.origin, "notification"),
+            accountId = account,
+            createdAtEpochMillis = 1,
+            activity = NotificationActivity.Follow,
+            actors = listOf(Account(account, "Actor", "@actor@example.org")),
+            rawType = "follow",
+        )
+        val gate = CompletableDeferred<NotificationPage>()
+        val source = GatedNotificationSource(account, notification, gate)
+        val repository = NotificationRepository(InMemoryNotificationStore())
+        repository.activate(NotificationSyncToken(account, 1))
+        val viewModel = NotificationsViewModel(account, source, repository)
+        advanceUntilIdle()
+
+        viewModel.stop()
+        gate.complete(
+            NotificationPage(
+                items = listOf(notification),
+                checkpoint = NotificationCheckpoint(account, NotificationQuery()),
+            ),
+        )
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.items.isEmpty())
+        assertNull(viewModel.state.value.error)
+
+        viewModel.refresh()
+        viewModel.loadOlder()
+        advanceUntilIdle()
+        assertEquals(1, source.requests)
+        viewModel.stop()
+    }
+
+    private class GatedNotificationSource(
+        private val account: AccountId,
+        private val notification: Notification,
+        private val gate: CompletableDeferred<NotificationPage>,
+    ) : SocialSource {
+        var requests = 0
+        override val capabilities = ServerCapabilities(timelines = setOf(Timeline.Home))
+
+        override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
+
+        override suspend fun notifications(query: NotificationQuery, cursor: me.foxtails.palustris.domain.NotificationCursor?): NotificationPage {
+            requests += 1
+            return gate.await()
+        }
+
+        override suspend fun dismissNotification(id: EntityId): Unit = throw SourceError.Unsupported("dismiss")
     }
 
     private class UnsupportedDismissSource(

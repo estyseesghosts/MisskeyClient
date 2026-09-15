@@ -911,3 +911,10 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - NotificationSettingsViewModel retryRegistration and refreshDistributors rethrow cancellation instead of mapping it to error state.
 - Added PushCancellationTest (5 tests) with a real manager, gate-controlled fakes, and manual WorkManager init for Robolectric.
 - Verification passed: PushCancellationTest plus push, notification settings, ViewModel, and connector suites.
+
+260915-033000 Slice 02-L2 draft ownership and notification teardown:
+- Extracted DraftActions as the single draft callback owner with cancellation rethrows; ConnectedSessionHost uses it and AppShellFixtures.drafts delegates to it.
+- Added NotificationsViewModel.stop with entry and publication guards plus onCleared; NotificationsHost disposes it.
+- Added DraftActionsTest (7 tests) and a stop regression test in NotificationsViewModelTest.
+- Corrected the stale stop claim in logs/BUGS.txt and recorded the stop-free rationale for the settings models.
+- Verification passed: draft, notification, settings suites plus all shell presentation suites.

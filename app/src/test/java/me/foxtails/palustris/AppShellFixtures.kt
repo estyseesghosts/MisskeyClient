@@ -1,10 +1,12 @@
 package me.foxtails.palustris
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.test.core.app.ApplicationProvider
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -19,14 +21,12 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
-import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.auth.InMemoryDraftStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
@@ -35,6 +35,7 @@ import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.ComposerContract
+import me.foxtails.palustris.ui.shell.DraftActions
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.HomeContract
@@ -232,28 +233,14 @@ internal object AppShellFixtures {
     /** Test-only draft persistence backed by an explicit store. */
     fun drafts(store: DraftStore = InMemoryDraftStore()): DraftsContract {
         val scope = CoroutineScope(Dispatchers.Unconfined)
-        return DraftsContract(
-            actions = object : DraftsContract.Actions {
-                override fun load(accountId: AccountId?, onResult: (List<PostDraft>) -> Unit) {
-                    scope.launch { onResult(store.list(accountId)) }
-                }
-
-                override fun save(draft: PostDraft, onResult: (PostDraft) -> Unit, onError: () -> Unit) {
-                    scope.launch {
-                        runCatching { store.save(draft) }
-                            .onSuccess { onResult(draft) }
-                            .onFailure { onError() }
-                    }
-                }
-
-                override fun delete(accountId: AccountId?, draftId: String, onDone: () -> Unit) {
-                    scope.launch {
-                        runCatching { store.delete(accountId, draftId) }
-                        onDone()
-                    }
-                }
+        return DraftActions(
+            scope,
+            store,
+            legacyPreferences = {
+                ApplicationProvider.getApplicationContext<Context>()
+                    .getSharedPreferences("local_draft", Context.MODE_PRIVATE)
             },
-        )
+        ).asContract()
     }
 
     /** Test-only profile presentation with recorder hooks. Editor state is held locally. */

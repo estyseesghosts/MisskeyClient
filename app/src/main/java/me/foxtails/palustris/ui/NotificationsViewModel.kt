@@ -73,13 +73,15 @@ class NotificationsViewModel @AssistedInject constructor(
     private val _state = MutableStateFlow(NotificationsUiState())
     val state = _state.asStateFlow()
     private val actionJobs = ConcurrentHashMap<EntityId, Job>()
+    private var observeJob: Job? = null
     private var refreshJob: Job? = null
     private var olderJob: Job? = null
     private var acknowledgementJob: Job? = null
+    private var stopped = false
     private val query = MutableStateFlow(NotificationQuery())
 
     init {
-        viewModelScope.launch {
+        observeJob = viewModelScope.launch {
             query.collectLatest { selectedQuery ->
                 repository.observeInbox(accountId, selectedQuery).collectLatest { snapshot ->
                     _state.value = _state.value.copy(
@@ -96,6 +98,7 @@ class NotificationsViewModel @AssistedInject constructor(
     }
 
     fun selectQuery(selectedQuery: NotificationQuery) {
+        if (stopped) return
         if (query.value == selectedQuery) return
         query.value = selectedQuery
         _state.value = _state.value.copy(query = selectedQuery, checkpoint = null, error = null)
@@ -103,6 +106,7 @@ class NotificationsViewModel @AssistedInject constructor(
     }
 
     fun refresh(showIndicator: Boolean = true) {
+        if (stopped) return
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             val hasCache = _state.value.items.isNotEmpty()
@@ -114,6 +118,7 @@ class NotificationsViewModel @AssistedInject constructor(
             try {
                 val selectedQuery = query.value
                 val result = syncIntents.refresh(accountId, selectedQuery)
+                if (stopped) return@launch
                 _state.value = _state.value.copy(
                     loading = false,
                     refreshing = false,
@@ -123,6 +128,7 @@ class NotificationsViewModel @AssistedInject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                if (stopped) return@launch
                 _state.value = _state.value.copy(
                     loading = false,
                     refreshing = false,
@@ -133,22 +139,26 @@ class NotificationsViewModel @AssistedInject constructor(
     }
 
     fun loadOlder() {
+        if (stopped) return
         if (_state.value.loadingMore) return
         olderJob?.cancel()
         olderJob = viewModelScope.launch {
             _state.value = _state.value.copy(loadingMore = true, error = null)
             try {
                 val result = syncIntents.loadOlder(accountId, query.value)
+                if (stopped) return@launch
                 _state.value = _state.value.copy(loadingMore = false, syncDelayed = result.delayed)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                if (stopped) return@launch
                 _state.value = _state.value.copy(loadingMore = false, error = sourceErrorMessage(error))
             }
         }
     }
 
     fun markAllRead() {
+        if (stopped) return
         acknowledgementJob?.cancel()
         acknowledgementJob = viewModelScope.launch {
             try {
@@ -162,6 +172,7 @@ class NotificationsViewModel @AssistedInject constructor(
     }
 
     fun markSeen(id: EntityId? = null) {
+        if (stopped) return
         val token = currentToken()
         viewModelScope.launch {
             repository.markLocallySeen(token, id?.let(::setOf) ?: _state.value.items.map { it.id }.toSet())
@@ -232,6 +243,7 @@ class NotificationsViewModel @AssistedInject constructor(
     }
 
     private fun runRowAction(id: EntityId, operation: suspend () -> Unit) {
+        if (stopped) return
         if (actionJobs[id]?.isActive == true) return
         _state.value = _state.value.copy(
             actionStates = _state.value.actionStates + (id to NotificationActionState.Running),
@@ -240,10 +252,12 @@ class NotificationsViewModel @AssistedInject constructor(
         val job = viewModelScope.launch {
             try {
                 operation()
+                if (stopped) return@launch
                 _state.value = _state.value.copy(actionStates = _state.value.actionStates + (id to NotificationActionState.Succeeded))
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                if (stopped) return@launch
                 _state.value = _state.value.copy(
                     actionStates = _state.value.actionStates + (id to NotificationActionState.Failed),
                     actionErrors = _state.value.actionErrors + (id to sourceErrorMessage(error)),
@@ -257,6 +271,23 @@ class NotificationsViewModel @AssistedInject constructor(
 
     private fun currentToken(): NotificationSyncToken = repository.currentToken(accountId)
         ?: error("Notification account is not active")
+
+    /** Releases inbox observation and request jobs. Late completions publish nothing. */
+    fun stop() {
+        if (stopped) return
+        stopped = true
+        observeJob?.cancel()
+        refreshJob?.cancel()
+        olderJob?.cancel()
+        acknowledgementJob?.cancel()
+        actionJobs.values.forEach(Job::cancel)
+        actionJobs.clear()
+    }
+
+    override fun onCleared() {
+        stop()
+        super.onCleared()
+    }
 
     @AssistedFactory
     interface Factory {
