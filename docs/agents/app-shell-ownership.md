@@ -2,8 +2,8 @@
 
 **Owner:** app-shell and feature-presentation maintainers.
 
-**Status:** current. The shell decomposition is partially migrated. Completion slice C-01 is
-implemented and test verified in the working tree. Other completion slices repair the remaining
+**Status:** current. The shell decomposition is partially migrated. Completion slices C-01 and C-02
+are implemented and test verified in the working tree. Other completion slices repair the remaining
 gaps.
 
 **Last reviewed:** 2026-09-14.
@@ -26,6 +26,11 @@ visible account, the durable session revision, the runtime presentation generati
 registered source. `ConnectedSessionHost` in `ui/session/` reads that context. It composes focused
 feature hosts, and keeps the shared feed owner, saved-collection owner, draft owner, post-action
 owner, and projection coordinator. It exposes no token and no `SocialSource` to presentation.
+
+`ui/session/ConnectedEntryStore.kt` owns the terminal teardown callbacks for one connected entry.
+The store is activity-scoped. It survives activity recreation and retires feature models when the
+connected lifetime retires or the owner clears. A composition can leave and return with the same
+connected lifetime without stopping a retained model.
 
 Focused feature hosts own their model, state, actions, and projection registration:
 
@@ -80,7 +85,6 @@ Completion slices close these gaps. The acceptance matrix records the status.
 | --- | --- | --- |
 | Post-action ownership | `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. A profile update can replace popup ownership. | C-07 |
 | Composer editor state | `PalustrisApp.kt` holds editor fields, audience, reply, quote, and draft actions. | C-05, C-06 |
-| Feature teardown | Hosts stop activity-store models on composition disposal. A later lookup can retrieve a stopped model. | C-02 |
 | Projection retirement | `PostProjectionCoordinator` has account and revision checks. It has no explicit retired state or accepted-publication identity. | C-07 |
 | Shell assembly | `PalustrisApp.kt` owns navigation and still holds feature state. | C-12 |
 | Test isolation | Small feature scenarios still construct the full shell. | C-12 |
@@ -105,6 +109,7 @@ Completion slices close these gaps. The acceptance matrix records the status.
   replacement sources.
 - The shell consumes one accepted connected context. It never joins separate session flows.
 - `AccountManager` owns the source factory. The shell does not create a source.
+- A feature model retires with its connected entry, not with a composition disposal.
 - Photo Grid keeps independent feed state and selection from Home.
 - Active-account and selected-account notification settings stay distinct.
 - Every source-backed feature receives values from one accepted connected lifetime.

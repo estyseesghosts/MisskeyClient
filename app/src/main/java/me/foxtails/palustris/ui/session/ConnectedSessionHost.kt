@@ -47,6 +47,7 @@ import me.foxtails.palustris.ui.thread.ThreadHost
 fun ConnectedSessionHost(
     accountManager: AccountManager,
     connectedContext: ConnectedSessionContext,
+    entryStore: ConnectedEntryStore,
     draftStore: DraftStore,
     notificationStreamController: NotificationStreamController,
     accountIndex: AccountIndex,
@@ -102,6 +103,7 @@ fun ConnectedSessionHost(
         sessionRevision = sessionRevision,
         source = sharedSource,
         coordinator = projectionCoordinator,
+        entryStore = entryStore,
     )
     val savedCollections = SavedCollectionsHost(
         accountId = accountId,
@@ -112,6 +114,7 @@ fun ConnectedSessionHost(
         accountManager = accountManager,
         coordinator = projectionCoordinator,
         react = feed.react,
+        entryStore = entryStore,
     )
     val profile = ProfileHost(
         accountId = accountId,
@@ -120,6 +123,7 @@ fun ConnectedSessionHost(
         source = sharedSource,
         accountManager = accountManager,
         coordinator = projectionCoordinator,
+        entryStore = entryStore,
     )
     val thread = ThreadHost(
         accountId = accountId,
@@ -128,6 +132,7 @@ fun ConnectedSessionHost(
         source = sharedSource,
         coordinator = projectionCoordinator,
         lifecycleOwner = lifecycleOwner,
+        entryStore = entryStore,
     )
     val notifications = NotificationsHost(
         accountId = accountId,
@@ -135,11 +140,13 @@ fun ConnectedSessionHost(
         sessionRevision = sessionRevision,
         source = sharedSource,
         coordinator = projectionCoordinator,
+        entryStore = entryStore,
     )
     val directMessages = DirectMessagesHost(
         accountId = accountId,
         sessionGeneration = sessionGeneration,
         source = sharedSource,
+        entryStore = entryStore,
     )
     val notificationSettings = NotificationSettingsHost(
         accountId = accountId,
@@ -149,6 +156,7 @@ fun ConnectedSessionHost(
         accountId = accountId,
         sessionGeneration = sessionGeneration,
         source = sharedSource,
+        entryStore = entryStore,
     )
     LaunchedEffect(profile.state.account, account) {
         profile.state.account

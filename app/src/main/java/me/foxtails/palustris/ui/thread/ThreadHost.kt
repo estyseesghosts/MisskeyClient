@@ -2,6 +2,7 @@ package me.foxtails.palustris.ui.thread
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -14,6 +15,7 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SocialSource
+import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
 import me.foxtails.palustris.ui.shell.ThreadContract
 
@@ -31,13 +33,14 @@ fun ThreadHost(
     source: SocialSource,
     coordinator: PostProjectionCoordinator,
     lifecycleOwner: LifecycleOwner,
+    entryStore: ConnectedEntryStore,
 ): ThreadContract {
     val model = hiltViewModel<PostThreadViewModel, PostThreadViewModel.Factory>(
         key = "thread-$accountId-$sessionGeneration",
         creationCallback = { factory -> factory.create(accountId, source, sessionRevision) },
     )
-    DisposableEffect(sessionGeneration, model) {
-        onDispose { model.stop() }
+    LaunchedEffect(entryStore, sessionGeneration, model) {
+        entryStore.register(sessionGeneration, "thread-$accountId-$sessionGeneration") { model.stop() }
     }
     val sink = remember(model) {
         object : PostProjectionCoordinator.Sink {

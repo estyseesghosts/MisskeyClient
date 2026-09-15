@@ -2,6 +2,7 @@ package me.foxtails.palustris.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -12,6 +13,7 @@ import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SocialSource
+import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
@@ -39,6 +41,7 @@ fun SavedCollectionsHost(
     accountManager: AccountManager,
     coordinator: PostProjectionCoordinator,
     react: (OwnedPost, EmojiChoice) -> Unit,
+    entryStore: ConnectedEntryStore,
 ): SavedCollections {
     val savedPostsModel = hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
         key = "saved-posts-$accountId-$sessionGeneration",
@@ -52,9 +55,11 @@ fun SavedCollectionsHost(
             factory.create(accountId, source, SavedPostsCollection.Likes, sessionRevision)
         },
     )
-    DisposableEffect(sessionGeneration, savedPostsModel, likedPostsModel) {
-        onDispose {
+    LaunchedEffect(entryStore, sessionGeneration, savedPostsModel, likedPostsModel) {
+        entryStore.register(sessionGeneration, "saved-posts-$accountId-$sessionGeneration") {
             savedPostsModel.stop()
+        }
+        entryStore.register(sessionGeneration, "liked-posts-$accountId-$sessionGeneration") {
             likedPostsModel.stop()
         }
     }

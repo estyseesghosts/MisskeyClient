@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.core.net.toUri
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.auth.DraftStore
@@ -45,6 +46,7 @@ import me.foxtails.palustris.ui.motion.palustrisMotionScheme
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.notifications.NotificationLaunchHost
 import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
+import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.session.ConnectedSessionHost
 import me.foxtails.palustris.ui.settings.SettingsOverlayHost
 
@@ -64,6 +66,13 @@ fun ConnectedApp(
     ExternalLinkHandler.cleanTrackingParameters = appPreferences.preferences.cleanTrackingParameters
     val connectedContext by accountManager.connectedContext.collectAsStateWithLifecycle()
     val activeContext = connectedContext?.takeIf { it.accountId == state.account?.id }
+    // The entry store is activity-scoped. It survives recreation and retires feature models only
+    // when the connected lifetime changes.
+    val entryStore = hiltViewModel<ConnectedEntryStore>()
+    LaunchedEffect(activeContext?.presentationGeneration) {
+        val generation = activeContext?.presentationGeneration
+        if (generation == null) entryStore.retireAll() else entryStore.beginEntry(generation)
+    }
     val postPreferences by if (activeContext != null) {
         postPreferencesRepository.observe(activeContext.accountId).collectAsStateWithLifecycle(PostPreferences())
     } else {
@@ -145,6 +154,7 @@ fun ConnectedApp(
                 ConnectedSessionHost(
                     accountManager = accountManager,
                     connectedContext = activeContext!!,
+                    entryStore = entryStore,
                     draftStore = draftStore,
                     notificationStreamController = notificationStreamController,
                     accountIndex = accountIndex,
@@ -164,6 +174,7 @@ fun ConnectedApp(
             activeAccountId = activeContext?.accountId,
             sourceRegistry = sourceRegistry,
             sessionGeneration = activeContext?.presentationGeneration ?: 0L,
+            entryStore = entryStore,
         )
         }
         }

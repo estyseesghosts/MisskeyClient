@@ -2,6 +2,7 @@ package me.foxtails.palustris.ui.profile
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -15,6 +16,7 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.ui.AccountManager
+import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
 import me.foxtails.palustris.ui.shell.ProfileContract
 
@@ -32,13 +34,14 @@ fun ProfileHost(
     source: SocialSource,
     accountManager: AccountManager,
     coordinator: PostProjectionCoordinator,
+    entryStore: ConnectedEntryStore,
 ): ProfileContract {
     val model = hiltViewModel<ProfileViewModel, ProfileViewModel.Factory>(
         key = "profile-$accountId-$sessionGeneration",
         creationCallback = { factory -> factory.create(accountId, source, sessionRevision) },
     )
-    DisposableEffect(sessionGeneration, model) {
-        onDispose { model.stop() }
+    LaunchedEffect(entryStore, sessionGeneration, model) {
+        entryStore.register(sessionGeneration, "profile-$accountId-$sessionGeneration") { model.stop() }
     }
     val sink = remember(model) {
         object : PostProjectionCoordinator.Sink {

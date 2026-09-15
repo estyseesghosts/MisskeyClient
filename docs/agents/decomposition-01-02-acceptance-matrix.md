@@ -11,10 +11,9 @@
 **Stale when:** A listed exit condition changes, or a slice in
 `docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
 
-**Evidence:** source verified for every path in this page. Test files were inspected. The C-01
-slice ran `ConnectedSessionContextTest`, `SessionViewModelTest`, `test assembleRelease`, and
-`:app:lintDebug` on 2026-09-14. Other statuses repeat a pass that `logs/DONE.txt` records, not a
-new run.
+**Evidence:** source verified for every path in this page. Test files were inspected. The C-01 and
+C-02 slices ran their focused tests, `test assembleRelease`, and `:app:lintDebug` on 2026-09-14.
+Other statuses repeat a pass that `logs/DONE.txt` records, not a new run.
 
 ## 1. How To Read This Page
 
@@ -42,7 +41,7 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 | 01-B | One feature action change does not change unrelated contracts. | `ui/shell/*.kt` contracts | contract tests, `AppShellFixtures.kt` | Implemented, source verified | C-12 |
 | 01-C | No storage selection, repository call, or `SocialSource` remains in `PalustrisApp`. | `LocalPostActionOwner`; composer fields still in `PalustrisApp.kt` | `PalustrisApp.kt` 1439 lines | Partially implemented | C-05, C-06 |
 | 01-D | One reviewed path owns fan-out. No duplicate listener, cycle, stale sink, or double increment. | `ui/shell/PostProjectionCoordinator.kt` | `PostProjectionCoordinatorTest.kt` | Partially implemented | C-07 |
-| 01-E | Recomposition does not construct replacement sources. Session replacement cannot invoke old owners. | `ui/session/ConnectedSessionContext.kt`, `ConnectedSessionHost.kt`, `AccountManager.kt` | `ConnectedSessionContextTest.kt`, `SessionViewModelTest.kt` | Partially implemented. The coherent context and the registered source are test verified. Retired-owner teardown stays open. | C-02 |
+| 01-E | Recomposition does not construct replacement sources. Session replacement cannot invoke old owners. | `ui/session/ConnectedSessionContext.kt`, `ui/session/ConnectedEntryStore.kt`, `ConnectedSessionHost.kt`, `AccountManager.kt` | `ConnectedSessionContextTest.kt`, `ConnectedEntryStoreTest.kt`, `SessionViewModelTest.kt` | Implemented, test verified. | — |
 | 01-F | `ConnectedApp` composes root hosts. It does not write settings, assemble actions, or own fan-out. | `ui/ConnectedApp.kt` (156 lines), `SettingsOverlayHost`, `NotificationLaunchHost` | `SettingsViewModelTest.kt`, `NotificationLaunchRouterTest.kt` | Partially implemented | C-09, C-10 |
 | 01-G | `PalustrisApp` owns navigation and placement, not feature implementation. | navigation shell; composer fields remain | `NavigationTest.kt`, `WideNavigationTest.kt` | Partially implemented | C-05, C-12 |
 | 01-H | A new feature action needs no unrelated fixture change. Source, tests, and documentation agree. | `AppShellFixtures.app`; documentation was not reconciled | `AppShellFixtures.kt` | Partially implemented | C-12, C-14 |
@@ -52,6 +51,9 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 - C-01 removed the unregistered fallback. `ConnectedSessionHost` now reads one
   `ConnectedSessionContext`. `AccountManager.connect` publishes that context after source
   registration is ready.
+- C-02 added `ui/session/ConnectedEntryStore.kt`. Feature hosts register their `stop` callback
+  under a stable key. The store is activity-scoped, so it survives recreation. It retires a model
+  on connected-lifetime change and on owner clear, not on composition disposal.
 - `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. An ordinary profile update can replace popup ownership.
 - `PalustrisApp.kt` still holds composer editor fields, audience, reply, quote, and draft action state.
 
@@ -65,7 +67,7 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | 02-B | Late thread or send results cannot move selection or write into another conversation. | `DirectMessageViewModel` selection and send ownership | `DirectMessageViewModelTest.kt` | Partially implemented | C-04 |
 | 02-C | Removed accounts stay deleted. Old sessions cannot write. Accepted sends survive thread refresh. | `DirectMessageWriteAuthority`, `DirectMessageRepository` | `DirectMessageRepositoryTest.kt` | Partially implemented | C-03 |
 | 02-D | Rejected pages leave memory and persistent state unchanged. Synchronization reports rejection. | `NotificationSynchronizer`, `NotificationRepository` caller query | `NotificationSynchronizerTest.kt`, `NotificationRepositoryTest.kt` | Implemented, source verified | C-09 |
-| 02-E | Refresh, removal, retry, and replacement cannot leave stuck or misowned moderation state. | `ModerationViewModel`, removal tokens | `ModerationViewModelTest.kt` | Implemented, test verified | C-02 |
+| 02-E | Refresh, removal, retry, and replacement cannot leave stuck or misowned moderation state. | `ModerationViewModel`, removal tokens, connected entry store | `ModerationViewModelTest.kt` | Implemented, test verified | — |
 | 02-F | One failed action cannot restore unrelated fields or undo another family's result. | `PostInteractionMutationOwner` | `PostInteractionMutationOwnerTest.kt` | Partially implemented | C-07 |
 | 02-G | Refresh cannot revive removed reactions. Stale jobs cannot modify a replacement thread or popup. | `PostThreadViewModel` overlays and projection | `PostThreadViewModelTest.kt`, `PostProjectionTest.kt` | Partially implemented | C-07 |
 | 02-H | Home reaches older visible content without unbounded requests or hidden continuation. | `HomeFeed.kt`, `HomePagingDemand.kt` | `HomePagingDemandTest.kt`, `HomeFeedTest.kt` | Partially implemented | C-08 |

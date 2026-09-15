@@ -949,3 +949,14 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Verification passed: focused suites, full test assembleRelease, and :app:lintDebug.
 - C-01 has no commit. The user must authorize the commit.
 - Unverified: device, live-server, signed release.
+
+260915-053000 Slice C-02 connected entry lifetime:
+- Added ui/session/ConnectedEntryStore.kt. The activity-scoped store retires feature models on connected-lifetime change and on owner clear, not on composition disposal.
+- ConnectedApp calls beginEntry for the accepted generation and retireAll when the context clears. ConnectedSessionHost passes the store to the feature hosts.
+- Feature hosts register their stop callback under a stable key and no longer stop on composition disposal. A recreation returns the retained model.
+- Moderation and notification-settings owners register with the connected entry. NotificationSettingsViewModel.stop releases its account observers.
+- Added ConnectedEntryStoreTest (6 tests): same-lifetime retention, lifetime change, idempotent retire, key replacement, retired-generation registration, owner clear.
+- Verification passed: focused suites, test assembleRelease, and :app:lintDebug when run alone.
+- A combined test assembleRelease :app:lintDebug run hit an AGP lint race on the release Hilt component source. Run the two commands separately.
+- C-02 has no commit. The user must authorize the commit.
+- Unverified: device, live-server, signed release.

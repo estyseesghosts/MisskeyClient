@@ -2,6 +2,7 @@ package me.foxtails.palustris.ui.notifications
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -13,6 +14,7 @@ import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.ui.NotificationsViewModel
+import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
 
@@ -29,13 +31,17 @@ fun NotificationsHost(
     sessionRevision: Long,
     source: SocialSource,
     coordinator: PostProjectionCoordinator,
+    entryStore: ConnectedEntryStore,
 ): NotificationsContract {
     val model = hiltViewModel<NotificationsViewModel, NotificationsViewModel.Factory>(
         key = "notifications-$accountId-$sessionGeneration-$sessionRevision",
         creationCallback = { factory -> factory.create(accountId, source, sessionRevision) },
     )
-    DisposableEffect(model) {
-        onDispose { model.stop() }
+    LaunchedEffect(entryStore, sessionGeneration, sessionRevision, model) {
+        entryStore.register(
+            sessionGeneration,
+            "notifications-$accountId-$sessionGeneration-$sessionRevision",
+        ) { model.stop() }
     }
     val sink = remember(model) {
         object : PostProjectionCoordinator.Sink {

@@ -9,6 +9,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -75,9 +76,11 @@ class NotificationSettingsViewModel @AssistedInject constructor(
     val state = _state.asStateFlow()
     private val saveMutex = Mutex()
     private var saveRequest = 0L
+    private var settingsObservation: Job? = null
+    private var repositoryObservation: Job? = null
 
     init {
-        viewModelScope.launch {
+        settingsObservation = viewModelScope.launch {
             settingsRepository.observe(accountId).collectLatest { settings ->
                 _state.value = _state.value.copy(
                     settings = settings,
@@ -85,7 +88,7 @@ class NotificationSettingsViewModel @AssistedInject constructor(
                 )
             }
         }
-        viewModelScope.launch {
+        repositoryObservation = viewModelScope.launch {
             repository.observe(accountId).collectLatest { snapshot ->
                 val registration = snapshot.pushRegistration
                 _state.value = _state.value.copy(
@@ -97,6 +100,14 @@ class NotificationSettingsViewModel @AssistedInject constructor(
             }
         }
         refreshDistributors()
+    }
+
+    /** Releases the long-lived account observers when this owner retires. */
+    fun stop() {
+        settingsObservation?.cancel()
+        repositoryObservation?.cancel()
+        settingsObservation = null
+        repositoryObservation = null
     }
 
     fun setAlertsEnabled(enabled: Boolean) = save(_state.value.settings.copy(alertsEnabled = enabled))

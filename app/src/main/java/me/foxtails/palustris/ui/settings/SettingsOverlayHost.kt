@@ -1,7 +1,6 @@
 package me.foxtails.palustris.ui.settings
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +16,7 @@ import me.foxtails.palustris.domain.ModerationListKind
 import me.foxtails.palustris.domain.PostPreferences
 import me.foxtails.palustris.ui.notifications.NotificationSettingsUiState
 import me.foxtails.palustris.ui.notifications.NotificationSettingsViewModel
+import me.foxtails.palustris.ui.session.ConnectedEntryStore
 
 /**
  * Owns the settings overlay lifetime: route selection, settings models, and settings commands.
@@ -34,6 +34,7 @@ fun SettingsOverlayHost(
     activeAccountId: AccountId?,
     sourceRegistry: AccountSourceRegistry,
     sessionGeneration: Long,
+    entryStore: ConnectedEntryStore,
 ) {
     if (!visible) return
     val settingsModel = hiltViewModel<SettingsViewModel>()
@@ -62,6 +63,16 @@ fun SettingsOverlayHost(
             creationCallback = { factory -> factory.create(accountId) },
         )
     }
+    // Notification settings are owned by the connected entry, not by application settings. The
+    // model retires with the connected entry so its account observers are released.
+    LaunchedEffect(entryStore, notificationModel, notificationAccountId, sessionGeneration) {
+        val model = notificationModel ?: return@LaunchedEffect
+        val accountId = notificationAccountId ?: return@LaunchedEffect
+        entryStore.register(
+            sessionGeneration,
+            "settings-notification-settings-$accountId-$sessionGeneration",
+        ) { model.stop() }
+    }
     val moderationRoute = route as? SettingsRoute.Moderation
     val moderationModel = moderationRoute?.let { target ->
         sourceRegistry.sourceFor(target.accountId)?.let { source ->
@@ -73,8 +84,15 @@ fun SettingsOverlayHost(
             )
         }
     }
-    DisposableEffect(moderationModel) {
-        onDispose { moderationModel?.stop() }
+    // Moderation is bound to the connected entry, not to one composition. A composition can
+    // leave and return with the same route. The model retires only with the connected entry.
+    LaunchedEffect(entryStore, moderationModel, moderationRoute, sessionGeneration) {
+        val model = moderationModel ?: return@LaunchedEffect
+        val target = moderationRoute ?: return@LaunchedEffect
+        entryStore.register(
+            sessionGeneration,
+            "moderation-${target.accountId}-${target.kind}-$sessionGeneration",
+        ) { model.stop() }
     }
     val notificationState by if (notificationModel != null) notificationModel.state.collectAsStateWithLifecycle()
     else remember { mutableStateOf(NotificationSettingsUiState()) }

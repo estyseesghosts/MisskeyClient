@@ -2,6 +2,7 @@ package me.foxtails.palustris.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -14,6 +15,7 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.shell.PhotoGridContract
@@ -53,6 +55,7 @@ fun FeedHost(
     sessionRevision: Long,
     source: SocialSource,
     coordinator: PostProjectionCoordinator,
+    entryStore: ConnectedEntryStore,
 ): Feed {
     val feedModel = hiltViewModel<FeedViewModel, FeedViewModel.Factory>(
         key = "feed-$accountId-$sessionGeneration",
@@ -60,8 +63,9 @@ fun FeedHost(
             factory.create(accountId, source, sessionRevision)
         },
     )
-    DisposableEffect(sessionGeneration, feedModel) {
-        onDispose { feedModel.stop() }
+    val modelKey = "feed-$accountId-$sessionGeneration"
+    LaunchedEffect(entryStore, sessionGeneration, feedModel) {
+        entryStore.register(sessionGeneration, modelKey) { feedModel.stop() }
     }
     val feed by feedModel.feed.collectAsStateWithLifecycle()
     val homeActions = remember(feedModel) {

@@ -53,7 +53,6 @@
 260915-033000: Correction to 260914-122320: ModerationViewModel.stop() exists since 8dd093e. NotificationsViewModel gains stop() in slice 02-L2 with host disposal wiring. NotificationSettingsViewModel and SettingsViewModel stay stop-free by construction: saves are request-epoch plus token gated with cancellation rethrows, and commands are target-explicit through repository serialization.
 
 260914-235900: Plan 01 and Plan 02 completion gaps. The old task files claim completion. `docs/decomposition_3/progressreport.md` disproves that claim. Track the remaining work in `docs/agents/tasks/decomposition-01-02-completion.md`. Track the status in `docs/agents/decomposition-01-02-acceptance-matrix.md`. Open gaps, source verified at `b629a2c`:
-- Feature teardown is incomplete. Hosts terminally stop activity-store models from composition disposal. A later lookup can retrieve a stopped model. Owner: slice C-02.
 - `DirectMessageRepository.markRead` (`DirectMessageRepository.kt:97-103`) uses a separate authority check and store write. It does not use `commitIfCurrent`. Owner: slice C-03.
 - `DirectMessageConversationScreen.kt:124` clears the draft at once on Send. A failed send loses recoverable text. Owner: slice C-04.
 - Composer editor state remains in `PalustrisApp.kt`. Draft and publish completion is not version-aware. Owner: slices C-05 and C-06.
