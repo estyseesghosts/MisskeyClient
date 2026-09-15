@@ -39,7 +39,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.ui.platform.LocalContext
-import android.widget.Toast
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -91,6 +90,7 @@ import me.foxtails.palustris.ui.navigation.edgeSwipeDismiss
 import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.composer.ComposerOwnerContext
+import me.foxtails.palustris.ui.composer.ComposerOverlayHost
 import me.foxtails.palustris.ui.composer.rememberComposerOwner
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
@@ -180,13 +180,10 @@ fun PalustrisApp(
         LocalPostRepostConfirmationOwner provides repostConfirmationOwner,
     ) {
     val context = LocalContext.current
-    val replySentMessage = stringResource(R.string.reply_sent)
-    val quoteSentMessage = stringResource(R.string.quote_sent)
     val onReact = postInteractions.actions::favorite
     val onReshare = postInteractions.actions::repost
     val onBookmark = postInteractions.actions::bookmark
     val onReaction = postInteractions.actions::react
-    val postPreferences = composer.postPreferences
     val availableActions = postInteractions.availableActions
     val quoteEnabled = postInteractions.quoteEnabled
     var destination by rememberSaveable { mutableStateOf(Destination.Home) }
@@ -1101,50 +1098,16 @@ fun PalustrisApp(
            onSignOut = { signOutDialog = true },
        )
 
-    if (overlay == Overlay.Composer) ComposerSheet(
+    if (overlay == Overlay.Composer) ComposerOverlayHost(
+        owner = composerOwner,
+        contract = composer,
+        account = account,
         onDismiss = ::closeComposer,
-        onSaveDraft = { composerOwner.save { overlayKey = null } },
-        saveEnabled = composerOwner.editor.text.isNotBlank() || composerOwner.isReply,
-        closing = composerOwner.closing,
-    ) {
-        ComposeScreen(
-            text = composerOwner.editor.text,
-            onTextChange = composerOwner::setText,
-            warning = composerOwner.editor.warning,
-            onWarningChange = composerOwner::setWarning,
-            warningEnabled = composerOwner.editor.warningEnabled,
-            onWarningEnabled = composerOwner::setWarningEnabled,
-            account = account,
-            audience = composerOwner.editor.audience,
-            availableAudiences = composer.availableAudiences,
-            onAudienceChange = composerOwner::setAudience,
-            canPublish = composerOwner.canPublish,
-            publishing = composer.publishing || composerOwner.submitting,
-            error = composer.error ?: composerOwner.editor.error,
-            quoteTarget = composerOwner.quoteTarget,
-            isReply = composerOwner.isReply,
-            onRemoveQuote = composerOwner::removeTargets,
-            onRequestEmoji = { field -> emojiPickerTarget = EmojiPickerTarget.Composer(field) },
-            pendingEmojiInsertion = pendingEmojiInsertion,
-            onEmojiInsertionApplied = { pendingEmojiInsertion = null },
-            onCleanTrackingParameters = {
-                composerOwner.setText(
-                    me.foxtails.palustris.domain.TrackingParameterCleaner.cleanText(composerOwner.editor.text),
-                )
-            },
-            onPublish = {
-                composerOwner.publish { replySent, quoteSent ->
-                    val message = when {
-                        replySent -> replySentMessage
-                        quoteSent -> quoteSentMessage
-                        else -> null
-                    }
-                    message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
-                    overlayKey = null
-                }
-            },
-        )
-    }
+        onClose = { overlayKey = null },
+        onRequestEmoji = { field -> emojiPickerTarget = EmojiPickerTarget.Composer(field) },
+        pendingEmojiInsertion = pendingEmojiInsertion,
+        onEmojiInsertionApplied = { pendingEmojiInsertion = null },
+    )
 
     if (overlay == Overlay.EditProfile && account != null) me.foxtails.palustris.ui.profile.EditProfileSheet(
         account = account,

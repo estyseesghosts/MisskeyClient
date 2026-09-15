@@ -1094,3 +1094,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - C-11 committed at 43f8aa0.
 - Unverified: API 29 and API 33+ locale instrumentation, device rendering, live-server, signed release.
 
+260915-053000 Slice C-12a composer overlay assembly:
+- Added `ui/composer/ComposerOverlayHost.kt`. The shell keeps composer overlay placement with open, guarded close, and emoji-picker target requests. The feature owns the save control, editor bindings, publish with its confirmation message, and tracking cleanup beside `ComposerOwner`.
+- Owner lifetime and the saveable editor snapshot are unchanged. No behavior changed. Removed the dead `postPreferences` local from `PalustrisApp`.
+- Feature-action review trace: a composer presentation change touches `ui/composer/`, `ui/ComposerScreen.kt`, or `ui/ComposerSheet.kt`. It needs no shell contract change and no fixture change.
+- Verification passed: `ComposerOwnerTest`, `ReplyComposerTest`, `NavigationTest`, `test assembleRelease`, and `:app:lintDebug` when run alone.
+- C-12a committed at PENDING.
+- Unverified: device rendering, live-server, signed release.
+

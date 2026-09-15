@@ -3,12 +3,13 @@
 **Owner:** app-shell and feature-presentation maintainers.
 
 **Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through
-C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, and C-11 are implemented and test verified.
-Slices C-12 through C-14 repair the remaining gaps. Slice C-15 removes dead scaffolding.
+C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, and C-12a are implemented and test
+verified. Slice C-12b repairs the remaining assembly and isolation gaps. Slices C-13 and C-14
+verify and document. Slice C-15 removes dead scaffolding.
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (planning). Status refreshed against `43f8aa0`.
+**Source baseline:** `b629a2c` (planning). Status refreshed against `PENDING`.
 
 **Evidence:** source verified. Device and live-server behavior remain unverified. No test ran during
 this documentation pass.
@@ -64,6 +65,9 @@ warning, audience, the dirty snapshot, the drafts list, reply and quote restorat
 flow. It publishes `ComposerNavigation` requests. `PalustrisApp` applies a request by placing the
 composer overlay. The shell keeps overlay placement and back precedence. The editor state uses a
 saveable snapshot. A session replacement clears restored reply and quote targets.
+`ui/composer/ComposerOverlayHost.kt` owns the composer sheet assembly beside the owner: the save
+control, the editor bindings, publish with its confirmation message, and tracking cleanup. The
+shell keeps the placement condition with open, guarded close, and emoji-picker target requests.
 
 Test code binds test-only recorders in `app/src/test/java/me/foxtails/palustris/AppShellFixtures.kt`.
 
@@ -103,8 +107,8 @@ acceptance matrix records the status.
 | Home paging demand | Closed by C-08. `HomePagingDemand` tracks filter identity and the request epoch beside the row count. Only accepted pages consume the budget. | — |
 | Notification launch | Closed by C-09. `NotificationLaunchHost` acknowledges a launch only when the receiving shell accepts its route. Rejected pages change no state. | — |
 | Dead scaffolding | Unused `Legacy*` functions, `MarkdownPostText`, `AppBackHandler`, `BackNavigationState`, `SectionTabs`, and compatibility aliases remain. | C-15 |
-| Shell assembly | `PalustrisApp.kt` owns navigation and still holds some shell assembly. | C-12 |
-| Test isolation | Small feature scenarios still construct the full shell. | C-12 |
+| Shell assembly | `PalustrisApp.kt` owns navigation and still holds shell assembly. Composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt` in C-12a. | C-12b |
+| Test isolation | Small feature scenarios still construct the full shell. | C-12b |
 
 ## Removed In The Migration
 
