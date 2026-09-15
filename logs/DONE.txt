@@ -929,3 +929,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added AppShellFixtures.app as the explicit test-only assembly; all 45 test call sites use it.
 - The @Preview passes explicit contracts and nulls.
 - Verification passed: navigation, sign-in, Search restoration, wide navigation, Home, reply composer, and shell characterization suites.
+
+260915-043000 Push cancellation test driver fix:
+- Added test-only androidx.work:work-testing:2.11.2 (matches the used work-runtime-ktx 2.11.2; maintained by Google, Apache-2.0, test scope only).
+- PushCancellationTest uses WorkManagerTestInitHelper instead of a real WorkManager, whose background tracker crashed under Robolectric and poisoned later tests.

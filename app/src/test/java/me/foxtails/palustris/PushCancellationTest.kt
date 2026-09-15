@@ -2,9 +2,7 @@ package me.foxtails.palustris
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import androidx.work.Configuration
-import androidx.work.WorkManager
-import androidx.work.impl.utils.SynchronousExecutor
+import androidx.work.testing.WorkManagerTestInitHelper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -86,11 +84,11 @@ class PushCancellationTest {
 
     @Before
     fun initializeWorkManager() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        // Synchronous test driver. A real WorkManager database tracker crashes
+        // under Robolectric and poisons later tests with uncaught exceptions.
         runCatching {
-            WorkManager.initialize(
-                context,
-                Configuration.Builder().setExecutor(SynchronousExecutor()).build(),
+            WorkManagerTestInitHelper.initializeTestWorkManager(
+                ApplicationProvider.getApplicationContext(),
             )
         }
     }

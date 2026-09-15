@@ -106,6 +106,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling:1.9.5")
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.work:work-testing:2.11.2")
     testImplementation("androidx.compose.ui:ui-test-junit4:1.9.5")
     testImplementation("androidx.test:core:1.7.0")
     androidTestImplementation(libs.androidx.junit)
