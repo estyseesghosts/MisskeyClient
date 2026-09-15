@@ -35,8 +35,8 @@ availability, and cancellation.
 | 02-I Settings commands and routes | completed | `9679fce` |
 | 02-J Locale catalog | completed | |
 | 02-K Locale lifecycle | completed | |
-| 02-L Cancellation and integration | pending | |
-| 01 skipped items | pending | |
+| 02-L Cancellation and integration | completed | `d5ce911`, `30a4587`, `7695886` |
+| 01 skipped items | completed | `3e40d92`, `bffe418` |
 
 ## Verification
 
@@ -93,15 +93,13 @@ Checked on 2026-09-14 after `7f03284`.
 | Delete account-scoped drafts on removal | Done in `69467c1` | Closed. |
 | DM ViewModel teardown | Done in `e12fbd3` (`DirectMessageViewModel.stop()`) | Closed. |
 | Moderation ViewModel teardown | Done in `8dd093e` (`ModerationViewModel.stop()`) | Closed. |
-| Notification ViewModel teardown | `NotificationsViewModel` still has no `stop()` | Defer to 02-L. |
-| Settings ViewModel teardown | `SettingsViewModel` still has no `stop()` | Defer to 02-I and 02-L. |
+| Notification ViewModel teardown | `NotificationsViewModel` still has no `stop()` | Done in 02-L2 (`NotificationsViewModel.stop()` with host disposal) | Closed. |
+| Settings ViewModel teardown | `SettingsViewModel` still has no `stop()` | No `stop()` by construction: app-scoped, target-explicit commands through repository serialization; rationale in 02-L2 and `logs/BUGS.txt` | Closed. |
 | Extract `SavedCollectionsHost` | Done in `977bf03` | Closed. |
-| Extract `FeedHost` | Not present | Unblocked after `aa19bc4`; extract as a Plan 01 continuation. |
-| Remove production no-argument app construction used by tests | Still present | Defer to 01-H after 02 stops adding suites. |
+| Extract `FeedHost` | Not present | Done in `3e40d92` (`ui/FeedHost.kt`; session host keeps source, coordinator, composer assembly) | Closed. |
+| Remove production no-argument app construction used by tests | Still present | Done in `bffe418` (`AppShellFixtures.app` test helper; `PalustrisApp` and `ConnectedApp` take required arguments) | Closed. |
 
-Conclusion: the remaining skipped items are not ready. Finish 02-J through 02-L first,
-then continue the Plan 01 `FeedHost` extraction and 01-H test construction. No skipped item
-is an active defect.
+Conclusion: all skipped items are closed. 02-L is complete and verified.
 
 Slice 02-I is complete and verified.
 
@@ -154,6 +152,24 @@ Slice 02-K is complete and verified.
 - The Language route round-trips through the 02-I saver, so locale-triggered
   recreation restores the Language page.
 
-Slice 02-L remains pending. Connected instrumentation (API 29 and API 33+
-activity recreation, `LocaleManager` clearing after a regional selection) is
-unverified: no emulator or device is reachable from this shell.
+Slice 02-L is complete and verified.
+
+- Cancellation rethrows in push reconcile, push disable (after local cleanup),
+  the push connector, notification-settings retry and distributor loading, and
+  the draft callbacks. Ordinary failures keep their mapped states.
+- `NotificationsViewModel.stop()` cancels observation and request jobs, guards
+  entry and publication, and runs on host disposal and clearance.
+- `logs/BUGS.txt` corrects the stale stop claim and records why the settings
+  models stay stop-free.
+- Detail: `docs/agents/tasks/cancellation-and-shell-continuation.md`.
+
+Plan 01 continuation is complete and verified.
+
+- `ui/FeedHost.kt` owns the feed model, Home, Search, and Photo Grid contracts,
+  post-interaction actions, composer inputs, publish, and the projection sink.
+- `AppShellFixtures.app` is the explicit test-only assembly. `PalustrisApp` and
+  `ConnectedApp` take required arguments. The preview passes explicit contracts.
+
+Full gate passed: `test assembleRelease` (800+ unit tests) and `:app:lintDebug`.
+Connected instrumentation, live-server, physical-device, and signed-release
+checks remain unverified in this shell.

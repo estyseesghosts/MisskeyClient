@@ -933,3 +933,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 260915-043000 Push cancellation test driver fix:
 - Added test-only androidx.work:work-testing:2.11.2 (matches the used work-runtime-ktx 2.11.2; maintained by Google, Apache-2.0, test scope only).
 - PushCancellationTest uses WorkManagerTestInitHelper instead of a real WorkManager, whose background tracker crashed under Robolectric and poisoned later tests.
+
+260915-044500 Cancellation audit and shell continuation complete:
+- Closed slice 02-L (commits d5ce911, 30a4587, 7695886) and the Plan 01 skipped items (commits 3e40d92, bffe418).
+- Detail record: docs/agents/tasks/cancellation-and-shell-continuation.md.
+- Final verification passed: full test assembleRelease and :app:lintDebug.
+- Unverified: connected instrumentation (no emulator or device), live-server, physical-device, signed release.

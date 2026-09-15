@@ -62,3 +62,16 @@ worktree; rerun Gradle on file-lock failures and never stage foreign changes.
 ## Last safe commit
 
 `b759a8c` "Extend Japanese strings from reference applications".
+
+`d5ce911` "Keep push cancellation as cancellation".
+
+`30a4587` "Own draft callbacks and notification teardown".
+
+`3e40d92` "Extract feed presentation host".
+
+`bffe418` "Assemble shell tests through explicit fixtures".
+
+`7695886` "Drive push cancellation tests with work-testing".
+
+All slices are complete and verified. The full gate passed after the final
+commit: `gradlew.bat test assembleRelease` and `gradlew.bat :app:lintDebug`.
