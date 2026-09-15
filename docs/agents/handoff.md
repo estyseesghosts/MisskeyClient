@@ -24,8 +24,8 @@ Read these in order. Treat the repository as the authority.
 - Gate slices P-01 through P-07 are committed.
 - Plan 03 is rebased at `b715430` and recorded in `docs/decomposition_3/03.md`. Slice `03-C`
   is committed at `3603ef3`. Slice `03-A1` is committed at `44b3483`. Slice `03-B1` is
-  committed at `36eeeb9`. Slice `03-B2` is committed in this slice. The last safe commit is
-  `36eeeb9` before the `03-B2` commit.
+  committed at `36eeeb9`. Slice `03-B2` is committed at `1c45afb`. The last safe commit is
+  `1c45afb`.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
 - Next slice: `03-D` (freeze compatibility fixtures), then the remaining Plan 03 chunks.

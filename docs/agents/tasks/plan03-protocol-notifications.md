@@ -144,4 +144,4 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`36eeeb9` "Preserve Mastodon reaction support after resource failures".
+`1c45afb` "Guard capability persistence by session revision and back off failed probes".
