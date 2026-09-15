@@ -153,6 +153,9 @@ class SavedPostsViewModel @AssistedInject constructor(
     fun stop() {
         if (stopped) return
         stopped = true
+        // Advance the epoch so a late page cannot publish after teardown,
+        // mirroring FeedViewModel.stop.
+        collectionEpoch += 1
         refreshJob?.cancel()
         pageJob?.cancel()
         interactionMutations.stop()
@@ -201,6 +204,9 @@ class SavedPostsViewModel @AssistedInject constructor(
                 SavedPostsCollection.Likes -> source.likedPosts(cursor)
             }
             if (epoch != collectionEpoch || stopped) return
+            // A paged request must still own the current continuation. A newer page
+            // that advanced the cursor first makes this page stale in the same epoch.
+            if (!replace && _state.value.nextCursor != cursor) return
             val returnedIds = page.items.mapTo(mutableSetOf()) { it.id }
             val rows = page.items.map { post ->
                 OwnedPost(

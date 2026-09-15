@@ -209,6 +209,11 @@ class FeedViewModel @AssistedInject constructor(
                 if (epoch != feedEpoch || stopped) return@launch
                 val current = _feed.value
                 if (current.timeline != state.timeline) return@launch
+                // The input cursor must still own the current continuation. A newer page
+                // that advanced the cursor first makes this page stale, even in the
+                // same epoch. Overlapping same-epoch pages cannot normally occur: the
+                // synchronous loadingMore reservation above serializes page acquisition.
+                if (current.nextCursor != cursor) return@launch
                 val newPosts = page.items.map(::applyFavouritePreference)
                 // Merge the accepted page into current rows. Overlapping rows keep current fields.
                 val mergedOwned = mergeAcceptedPage(current.ownedPosts, newPosts)

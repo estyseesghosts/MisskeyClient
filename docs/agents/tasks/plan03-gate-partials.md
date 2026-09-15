@@ -46,7 +46,8 @@ Close the partial gaps from the 01/02 review. Keep completed extractions. Leave 
 | --- | --- | --- | --- |
 | P-01 | Remove duplicate `ownedPosts` input. Make `state.ownedPosts` authoritative. | Home rows come from the Home contract only. | implemented, test verified. Commit `0fbc7c4`. |
 | P-02 | Narrow popup contract. Leaves use `PostPopupPresentation`. | Generic leaves never receive the service-backed owner, source, or scope. | implemented, test verified. Commit `108ca3a`. |
-| P-03 | Make thread external apply non-emitting. | Externally applied projections never re-emit. No reliance on the coordinator re-entrancy guard. | implemented, test verified. |
+| P-03 | Make thread external apply non-emitting. | Externally applied projections never re-emit. No reliance on the coordinator re-entrancy guard. | implemented, test verified. Commit `3b65104`. |
+| P-04 | Bind paging to the exact input cursor. Bump the collection epoch on stop. | A stale same-epoch page cannot merge or rewind the cursor. A stopped collection cannot publish. | implemented, test verified. |
 
 P-01 verification: `HomeFeedTest` and `NavigationTest` pass. The `SearchScreen` `onReply` observer at `HomeFeedTest.kt:774` is a leaf callback test, not a shell seam. `PalustrisApp` carries no `onReply` parameter.
 
@@ -54,9 +55,11 @@ P-02 verification: `PostActionOwnerTest` and `PostProjectionCoordinatorTest` pas
 
 P-03 verification: `PostThreadViewModelTest` (with new `externalProjectionDoesNotEmitToTheUpdateListener`), `PostProjectionCoordinatorTest`, and `PostProjectionTest` pass. Feed `updateExternalPost` was already non-emitting.
 
+P-04 verification: `FeedViewModelRequestTest`, `SavedPostsViewModelTest`, and `FeedViewModelReactionTest` pass. Same-epoch page overlap stays serialized by the synchronous `loadingMore` reservation, so no extra operation token is required. The cursor check is defense in depth.
+
 ## Current Slice
 
-P-04 — Harden feed request ownership and SavedPosts stop epoch.
+P-05 — Harden mutation family revisions and thread reconcile guards.
 
 ## Files Involved For P-01
 
