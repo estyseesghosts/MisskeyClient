@@ -3,13 +3,13 @@
 **Owner:** app-shell and feature-presentation maintainers.
 
 **Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through
-C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, and C-12a through C-12d4 are implemented
-and test verified. Step 13 of the progress report is complete.
+C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, C-12a through C-12d4, and C-13
+are implemented and test verified. Step 13 and step 14 of the progress report are complete.
 Slices C-13 and C-14 verify and document. Slice C-15 removes dead scaffolding.
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (planning). Status refreshed against `3f0c704`.
+**Source baseline:** `b629a2c` (planning). Status refreshed against `c9e06c8`.
 
 **Evidence:** source verified. Device and live-server behavior remain unverified. No test ran during
 this documentation pass.

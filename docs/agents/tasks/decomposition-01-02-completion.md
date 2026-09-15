@@ -230,7 +230,7 @@ dead bookmark recorder left with the migrated assertion. All 37 plus 13 tests pa
 | C-12d2 | Step 13, part 4b | Move shell navigation state into `ui/navigation/ShellNavigator.kt` with a tested `Saver`. Timeline clamp, Home sync, visibility reassert, launch route, and account reset run in the host. | Shell functions delegate to navigator properties. | implemented, test verified. Commit `3f0c704`. |
 | C-12d3 | Step 13, part 4c | Move guarded navigation transitions into the navigator behind event callbacks. Keep safe navigation separate from session-bound entities. | Transition functions live in `ui/navigation/`. Session-bound guards stay in the shell. | implemented, test verified. Commit `1331ec3`. |
 | C-12d4 | Step 13, part 4d | Move the remaining small feature tests off the full shell. | Feature-local harnesses cover the moved tests. | implemented, test verified. Commit `5ab3c62`. |
-| C-13 | Step 14 | Run cancellation and integration verification. Review every touched suspending path. | Cancellation remains cancellation. All required tests pass. | pending |
+| C-13 | Step 14 | Run cancellation and integration verification. Review every touched suspending path. | Cancellation remains cancellation. All required tests pass. | implemented, test verified. Commit `c9e06c8`. |
 | C-14 | Step 15 | Publish the final ownership documentation. Classify every document. | Maintained documentation matches source. | pending |
 | C-15 | Cleanup (no report step) | Remove dead scaffolding left by earlier extraction waves. | No caller remains. Focused Compose suites, `test assembleRelease`, and `:app:lintDebug` pass. | pending |
 
@@ -243,11 +243,19 @@ behavior change.
 
 ## Current Slice
 
-**C-13 — Cancellation and integration verification.**
+**C-14 — Publish the final ownership documentation.**
 
-C-12d4 finished test isolation. Step 13 of `progressreport.md` section 3 is complete:
-`PalustrisApp` owns navigation and placement, and feature changes stay local. The next
-slice reviews every touched suspending path and runs the integration verification.
+C-13 reviewed every suspending path the completion slices touched. All touched paths
+rethrow `CancellationException`; the review found one real swallow in
+`PostInteractionMutationOwner.handleFailure` (C-07): the bounded server refresh wrapped
+the suspend `source.post` call in `runCatching`, so a `stop()` during the refresh ran
+the guarded rollback and reported failure after cancellation. The fix rethrows
+cancellation before the guarded fallback, with a `cancelledRefreshNeverReportsFailure`
+regression test that fails without the fix and passes with it. The same review found
+the same `runCatching`-around-suspend shape in `EmojiCatalogViewModel.loadIfNeeded`;
+that file sits outside the completion slices, so the finding is recorded in
+`logs/BUGS.txt` instead of fixed here. The next slice classifies every document and
+publishes the final ownership documentation.
 
 ## Files Involved For C-12
 
@@ -509,11 +517,11 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`765bf79` "Record C-12d4 commit in task state".
+`c9e06c8` "Keep cancellation cancellation in the mutation refresh".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
 C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is committed at `0027b60`.
 C-08 is committed at `a011a06`. C-09 is committed at `c6ab9b1`. C-10 is committed at `731b74b`.
 C-11 is committed at `43f8aa0`. C-12a is committed at `9b10905`. C-12b is committed at `0dec102`.
-C-12c is committed at `56c4cee`. C-12d1 is committed at `624678f`. C-12d2 is committed at `3f0c704`. C-12d3 is committed at `1331ec3`. C-12d4 is committed at `5ab3c62`. C-13 is the next slice.
+C-12c is committed at `56c4cee`. C-12d1 is committed at `624678f`. C-12d2 is committed at `3f0c704`. C-12d3 is committed at `1331ec3`. C-12d4 is committed at `5ab3c62`. C-13 is committed at `c9e06c8`. C-14 is the next slice.

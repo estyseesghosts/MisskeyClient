@@ -16,14 +16,15 @@ Read these in order. Treat the repository as the authority.
 
 ## Current Position
 
-- Completion slices C-01 through C-11 and C-12a through C-12d4 are committed. `L-01` is committed.
-- The last safe commit is `765bf79` (C-12d4 record commit). C-12d4 is `5ab3c62`.
-- Step 13 of the progress report is complete: `PalustrisApp` owns navigation and placement,
-  and feature changes stay local.
-- The next slice is **C-13, cancellation and integration verification**. The task-state file
-  holds its scope: review every touched suspending path and run the integration verification.
-- `test assembleRelease` and `:app:lintDebug` pass at the C-12d4 behavior commit. One full-gate
-  attempt failed without a captured identity; two full runs after it pass with zero failures.
+- Completion slices C-01 through C-11, C-12a through C-12d4, and C-13 are committed.
+  `L-01` is committed.
+- The last safe commit is `c9e06c8` (C-13 behavior commit; record follows).
+- Steps 13 and 14 of the progress report are complete. C-13 fixed a cancellation swallow
+  in `PostInteractionMutationOwner.handleFailure` with a regression test, and recorded an
+  out-of-scope sibling finding in `logs/BUGS.txt`.
+- The next slice is **C-14, final ownership documentation**. The task-state file holds its
+  scope: classify every document and publish the final ownership documentation.
+- `test assembleRelease` and `:app:lintDebug` pass at the C-13 behavior commit.
 
 ## Next Cleanup
 
