@@ -1030,3 +1030,15 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - C-06c committed at 4454bae.
 - Unverified: device, live-server, signed release.
 
+260915-010000 Slice C-07 post-action ownership and projection:
+- Added PostActionFamily and OperationToken to PostInteractionExecutionAuthority. Family slots are typed. Acquisition returns the owning token or null when busy. Only that token releases the slot. A busy family rejects its second caller without waiting.
+- PostInteractionMutationOwner, ProfileViewModel, and PostThreadViewModel use the token API.
+- PostProjectionCoordinator retires with its connected entry, rejects forwards and registrations after retirement, and rejects repeated deliveries of one accepted publication by its created-post identity with a bounded set of 32.
+- PostActionOwner retires with its connected entry and rejects later opens, mutations, and reports.
+- ConnectedSessionHost builds the popup owner from the stable connected identity, reads the profile refresh callback without recreating the owner, and registers both retirements with the entry store.
+- Added PostInteractionExecutionAuthorityTest, PostActionOwnerTest, and coordinator duplicate and retirement cases.
+- Verification passed: PostInteractionExecutionAuthorityTest, PostProjectionCoordinatorTest, PostActionOwnerTest, PostInteractionMutationOwnerTest, PostThreadViewModelTest, ProfileScreenTest, test assembleRelease, and :app:lintDebug when run alone.
+- The narrow popup interface extraction stays deferred to C-12.
+- C-07 committed at PENDING.
+- Unverified: device, live-server, signed release.
+

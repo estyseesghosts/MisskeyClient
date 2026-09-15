@@ -3,7 +3,7 @@
 **Owner:** app-shell and feature-presentation maintainers.
 
 **Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through C-05,
-C-06a, C-06b, and C-06c are implemented and test verified in the working tree. Other completion slices repair
+C-06a, C-06b, C-06c, and C-07 are implemented and test verified in the working tree. Other completion slices repair
 the remaining gaps.
 
 **Last reviewed:** 2026-09-15.
@@ -80,8 +80,9 @@ Test code binds test-only recorders in `app/src/test/java/me/foxtails/palustris/
 
 `ui/shell/PostProjectionCoordinator` is the single fan-out owner for normalized post updates and
 accepted publications. It validates account and durable revision, excludes the origin sink, and
-suppresses nested forwarding. `PostProjectionCoordinatorTest` covers origin exclusion, nested
-suppression, foreign accounts, old revisions, and publications.
+suppresses nested forwarding. It retires with its connected entry and rejects repeated publication
+deliveries by created-post identity. `PostProjectionCoordinatorTest` covers origin exclusion, nested
+suppression, foreign accounts, old revisions, publications, duplicate rejection, and retirement.
 
 ## Known Gaps
 
@@ -89,11 +90,11 @@ Completion slices close these gaps. The acceptance matrix records the status.
 
 | Gap | Source evidence | Completion slice |
 | --- | --- | --- |
-| Post-action ownership | `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. A profile update can replace popup ownership. | C-07 |
+| Post-action ownership | Closed by C-07. The popup owner is built from the stable connected identity and reads the latest refresh callback without recreation. | — |
 | Composer completion | Closed by C-06a. `ComposerOwner.publish` reserves the submission and rejects obsolete save callbacks. | — |
 | Draft storage boundary | Closed by C-06b. `data/auth/DraftActions.kt` owns storage and binds to one account. `ui/shell/DraftsContract.kt` carries no storage type. | — |
 | Draft removal coordination | Closed by C-06c. `AccountManager.removeAccount` revokes draft writers and deletes rows in one serialized boundary. A revoked `DraftActions` writer writes nothing and reports no success. | — |
-| Projection retirement | `PostProjectionCoordinator` has account and revision checks. It has no explicit retired state or accepted-publication identity. | C-07 |
+| Projection retirement | Closed by C-07. The coordinator retires with its connected entry and rejects repeated publication deliveries by created-post identity. | — |
 | Shell assembly | `PalustrisApp.kt` owns navigation and still holds some shell assembly. | C-12 |
 | Test isolation | Small feature scenarios still construct the full shell. | C-12 |
 
@@ -126,6 +127,10 @@ Completion slices close these gaps. The acceptance matrix records the status.
   hold it and does not clear it on Send.
 - The composer editor stays with the composer feature owner. The shell requests transitions and
   places the overlay. It does not hold editor fields.
+- Post-action family slots are typed with operation tokens. Only the owning token releases a
+  slot. A busy family rejects its second caller without waiting.
+- The popup owner and the projection coordinator retire with the connected entry. A retired
+  popup has no authority. A retired coordinator delivers nothing.
 - Photo Grid keeps independent feed state and selection from Home.
 - Active-account and selected-account notification settings stay distinct.
 - Every source-backed feature receives values from one accepted connected lifetime.

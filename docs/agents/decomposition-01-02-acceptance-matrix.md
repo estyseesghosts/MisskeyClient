@@ -12,7 +12,7 @@
 `docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
 
 **Evidence:** source verified for every path in this page. Test files were inspected. The C-01, C-02,
-C-03, C-04, C-05, C-06a, C-06b, and C-06c slices ran their focused tests, `test assembleRelease`, and
+C-03, C-04, C-05, C-06a, C-06b, C-06c, and C-07 slices ran their focused tests, `test assembleRelease`, and
 `:app:lintDebug` on 2026-09-14 and 2026-09-15. Other statuses repeat a pass that `logs/DONE.txt` records, not a new
 run.
 
@@ -41,7 +41,7 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 | 01-A | Tests protect the behavior being moved. Plan 02 failures stay separate. | `AppShellFixtures.kt`, `ShellCharacterizationTest.kt` | those tests | Implemented, test verified | — |
 | 01-B | One feature action change does not change unrelated contracts. | `ui/shell/*.kt` contracts | contract tests, `AppShellFixtures.kt` | Implemented, source verified | C-12 |
 | 01-C | No storage selection, repository call, or `SocialSource` remains in `PalustrisApp`. | `LocalPostActionOwner`; composer fields moved to `ui/composer/ComposerOwner.kt` | `ComposerOwnerTest.kt`, `ReplyComposerTest.kt` | Implemented, test verified | — |
-| 01-D | One reviewed path owns fan-out. No duplicate listener, cycle, stale sink, or double increment. | `ui/shell/PostProjectionCoordinator.kt` | `PostProjectionCoordinatorTest.kt` | Partially implemented | C-07 |
+| 01-D | One reviewed path owns fan-out. No duplicate listener, cycle, stale sink, or double increment. | `ui/shell/PostProjectionCoordinator.kt` | `PostProjectionCoordinatorTest.kt` | Implemented, test verified | — |
 | 01-E | Recomposition does not construct replacement sources. Session replacement cannot invoke old owners. | `ui/session/ConnectedSessionContext.kt`, `ui/session/ConnectedEntryStore.kt`, `ConnectedSessionHost.kt`, `AccountManager.kt` | `ConnectedSessionContextTest.kt`, `ConnectedEntryStoreTest.kt`, `SessionViewModelTest.kt` | Implemented, test verified. | — |
 | 01-F | `ConnectedApp` composes root hosts. It does not write settings, assemble actions, or own fan-out. | `ui/ConnectedApp.kt` (156 lines), `SettingsOverlayHost`, `NotificationLaunchHost` | `SettingsViewModelTest.kt`, `NotificationLaunchRouterTest.kt` | Partially implemented | C-09, C-10 |
 | 01-G | `PalustrisApp` owns navigation and placement, not feature implementation. | navigation shell; composer editor moved to `ui/composer/` | `NavigationTest.kt`, `WideNavigationTest.kt` | Partially implemented | C-12 |
@@ -71,7 +71,11 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
   connect, carries it through `updateAccount`, and revokes writers before deleting rows on removal.
   `DraftActions` routes save and delete through `commitIfCurrent`. A revoked writer writes nothing
   and reports no success.
-- `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. An ordinary profile update can replace popup ownership.
+- C-07 built the popup owner from the stable connected identity and reads the profile refresh
+  callback without recreating the owner. The coordinator and the popup owner retire with the
+  connected entry. Repeated publication deliveries are rejected by created-post identity.
+  Family slots are typed with operation tokens. The narrow popup interface extraction stays
+  deferred to C-12.
 
 ## 3. Plan 02 Exit Conditions
 
@@ -84,8 +88,8 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | 02-C | Removed accounts stay deleted. Old sessions cannot write. Accepted sends survive thread refresh. | `DirectMessageWriteAuthority`, `DirectMessageRepository` | `DirectMessageRepositoryTest.kt` | Implemented, test verified | — |
 | 02-D | Rejected pages leave memory and persistent state unchanged. Synchronization reports rejection. | `NotificationSynchronizer`, `NotificationRepository` caller query | `NotificationSynchronizerTest.kt`, `NotificationRepositoryTest.kt` | Implemented, source verified | C-09 |
 | 02-E | Refresh, removal, retry, and replacement cannot leave stuck or misowned moderation state. | `ModerationViewModel`, removal tokens, connected entry store | `ModerationViewModelTest.kt` | Implemented, test verified | — |
-| 02-F | One failed action cannot restore unrelated fields or undo another family's result. | `PostInteractionMutationOwner` | `PostInteractionMutationOwnerTest.kt` | Partially implemented | C-07 |
-| 02-G | Refresh cannot revive removed reactions. Stale jobs cannot modify a replacement thread or popup. | `PostThreadViewModel` overlays and projection | `PostThreadViewModelTest.kt`, `PostProjectionTest.kt` | Partially implemented | C-07 |
+| 02-F | One failed action cannot restore unrelated fields or undo another family's result. | `PostInteractionMutationOwner`, `PostActionFamily` | `PostInteractionMutationOwnerTest.kt`, `PostInteractionExecutionAuthorityTest.kt` | Implemented, test verified | — |
+| 02-G | Refresh cannot revive removed reactions. Stale jobs cannot modify a replacement thread or popup. | `PostThreadViewModel` overlays and projection, retired `PostActionOwner` | `PostThreadViewModelTest.kt`, `PostProjectionTest.kt`, `PostActionOwnerTest.kt` | Implemented, test verified | — |
 | 02-H | Home reaches older visible content without unbounded requests or hidden continuation. | `HomeFeed.kt`, `HomePagingDemand.kt` | `HomePagingDemandTest.kt`, `HomeFeedTest.kt` | Partially implemented | C-08 |
 | 02-I | Settings changes cannot overwrite newer fields or reopen under the wrong account or page. | `SettingsViewModel`, `SettingsRoute` saver | `SettingsViewModelTest.kt`, `SettingsRouteRestorationTest.kt` | Partially implemented | C-10 |
 | 02-J | All 15 resource locales are listed and selectable. System default stays separate. | `AppLanguage`, `locales_config.xml`, `LanguageSettingsScreen` | `LocalizationResourceTest.kt`, `LanguageSettingsScreenTest.kt` | Implemented, test verified | — |

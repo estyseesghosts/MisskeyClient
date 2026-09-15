@@ -35,6 +35,7 @@ import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.domain.mergeInto
 import me.foxtails.palustris.ui.requiresSignIn
 import me.foxtails.palustris.ui.sourceErrorMessage
+import me.foxtails.palustris.ui.posts.PostActionFamily
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 
 @HiltViewModel(assistedFactory = ProfileViewModel.Factory::class)
@@ -222,12 +223,12 @@ class ProfileViewModel @AssistedInject constructor(
         val postId = ownedPost.post.id
         val actionTargetId = ownedPost.effectiveTargetId()
         val family = if (source.capabilities.primaryFavourite.mode == me.foxtails.palustris.domain.PrimaryFavouriteMode.Reaction) {
-            "favorite-reaction"
+            PostActionFamily.FavoriteReaction
         } else {
-            "reaction"
+            PostActionFamily.Reaction
         }
         if (reactionJobs[actionTargetId]?.isActive == true) return
-        if (!executionAuthority.acquire(accountId, sessionRevision, family, actionTargetId)) return
+        val token = executionAuthority.acquire(accountId, sessionRevision, family, actionTargetId) ?: return
         val before = ownedPost.post
         val targetGeneration = generation
         val selected = before.selectedReactions.any { it.submissionValue == choice.submissionValue } ||
@@ -263,7 +264,7 @@ class ProfileViewModel @AssistedInject constructor(
                 if (!stopped && generation == targetGeneration) updateOwnedPost(postId) { before }
             } finally {
                 if (reactionJobs[actionTargetId] === currentCoroutineContext()[Job]) reactionJobs.remove(actionTargetId)
-                executionAuthority.release(accountId, sessionRevision, family, actionTargetId)
+                executionAuthority.release(token)
             }
         }
         reactionJobs[actionTargetId] = job

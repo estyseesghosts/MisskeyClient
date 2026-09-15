@@ -112,6 +112,43 @@ class PostProjectionCoordinatorTest {
     }
 
     @Test
+    fun duplicatePublicationIsDeliveredOnce() {
+        val coordinator = PostProjectionCoordinator(owner, 7L)
+        val feed = RecordingSink("feed")
+        val saved = RecordingSink("saved")
+        coordinator.register(feed)
+        coordinator.register(saved)
+        val created = owned("created")
+        val request = CreatePostRequest("hello")
+
+        coordinator.forwardPublishedPost(feed, request, created)
+        coordinator.forwardPublishedPost(feed, request, created)
+
+        assertEquals(1, saved.published)
+        assertEquals(1, saved.replies)
+        assertEquals(1, saved.quotes)
+    }
+
+    @Test
+    fun retiredCoordinatorDeliversNothingAndAcceptsNoSinks() {
+        val coordinator = PostProjectionCoordinator(owner, 7L)
+        val saved = RecordingSink("saved")
+        coordinator.register(saved)
+        coordinator.retire()
+
+        coordinator.forwardExternalPost(saved, owned("post"))
+        coordinator.forwardPublishedPost(saved, CreatePostRequest("hello"), owned("created"))
+
+        val late = RecordingSink("late")
+        coordinator.register(late)
+        coordinator.forwardExternalPost(late, owned("post"))
+
+        assertTrue(saved.external.isEmpty())
+        assertEquals(0, saved.published)
+        assertTrue(late.external.isEmpty())
+    }
+
+    @Test
     fun publicationReachesEverySinkExceptTheOrigin() {
         val coordinator = PostProjectionCoordinator(owner, 7L)
         val feed = RecordingSink("feed")

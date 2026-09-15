@@ -4,8 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -97,8 +99,15 @@ fun ConnectedSessionHost(
     val accountSwitcher = remember(accountIndex.accounts, accountSwitcherActions) {
         AccountSwitcher(accounts = accountIndex.accounts, actions = accountSwitcherActions)
     }
-    val projectionCoordinator = remember(accountId, sessionGeneration) {
+    // The coordinator is bound to the durable session revision. It retires with the connected
+    // entry, so a replaced lifetime cannot publish through the old fan-out.
+    val projectionCoordinator = remember(accountId, sessionRevision) {
         PostProjectionCoordinator(accountId, sessionRevision)
+    }
+    LaunchedEffect(entryStore, sessionGeneration, projectionCoordinator) {
+        entryStore.register(sessionGeneration, "projection-$accountId-$sessionGeneration") {
+            projectionCoordinator.retire()
+        }
     }
     val feed = FeedHost(
         accountId = accountId,
@@ -177,14 +186,24 @@ fun ConnectedSessionHost(
             draftWriteAuthority,
         ).asDraftsContract()
     }
-    val postActionOwner = remember(accountId, sessionRevision, sharedSource, profile) {
+    // The popup owner is built from the stable connected identity only. An ordinary profile
+    // update cannot replace popup ownership. The refresh callback always reads the latest
+    // profile actions without recreating the owner. The owner retires with the connected entry,
+    // so a retired popup has no authority.
+    val latestProfileActions by rememberUpdatedState(profile.actions)
+    val postActionOwner = remember(accountId, sessionRevision, sharedSource) {
         PostActionOwner(
             accountId = accountId,
             sessionRevision = sessionRevision,
             source = sharedSource,
             scope = settingsScope,
-            onRelationshipChanged = { profile.actions.refresh() },
+            onRelationshipChanged = { latestProfileActions.refresh() },
         )
+    }
+    LaunchedEffect(entryStore, sessionGeneration, postActionOwner) {
+        entryStore.register(sessionGeneration, "post-actions-$accountId-$sessionGeneration") {
+            postActionOwner.retire()
+        }
     }
     val composerActions = remember(feed.publish) {
         object : ComposerContract.Actions {

@@ -165,7 +165,7 @@ class PostInteractionMutationOwner(
         val family = actionFamily(action, options)
         val key = ActionKey(family, target)
         if (jobs[key]?.isActive == true) return
-        if (!executionAuthority.acquire(accountId, sessionRevision, family, target)) return
+        val token = executionAuthority.acquire(accountId, sessionRevision, family, target) ?: return
         val before = ownedPost.post
         val optimisticPost = optimistic(before)
         updatePost(ownedPost, target) { optimistic(it) }
@@ -182,7 +182,7 @@ class PostInteractionMutationOwner(
                 handleFailure(action, ownedPost, target, before, optimisticPost, options, partialRisk, error)
             } finally {
                 if (jobs[key] === currentCoroutineContext()[Job]) jobs.remove(key)
-                executionAuthority.release(accountId, sessionRevision, family, target)
+                executionAuthority.release(token)
             }
         }
         jobs[key] = job
@@ -390,13 +390,15 @@ class PostInteractionMutationOwner(
     private fun <T> restored(current: T, before: T, optimistic: T): T =
         if (current == optimistic) before else current
 
-    private fun actionFamily(action: PostAction, options: ActionOptions): String = when (action) {
-        PostAction.Favorite -> if (options.reactionFavourite) "favorite-reaction" else "favorite"
-        PostAction.React -> if (options.reactionFavourite) "favorite-reaction" else "reaction"
-        else -> action.name
+    private fun actionFamily(action: PostAction, options: ActionOptions): PostActionFamily = when (action) {
+        PostAction.Favorite -> if (options.reactionFavourite) PostActionFamily.FavoriteReaction else PostActionFamily.Favorite
+        PostAction.React -> if (options.reactionFavourite) PostActionFamily.FavoriteReaction else PostActionFamily.Reaction
+        PostAction.Reshare -> PostActionFamily.Reshare
+        PostAction.Bookmark -> PostActionFamily.Bookmark
+        PostAction.Reply -> PostActionFamily.Reply
     }
 
-    private data class ActionKey(val family: String, val target: me.foxtails.palustris.domain.EntityId)
+    private data class ActionKey(val family: PostActionFamily, val target: me.foxtails.palustris.domain.EntityId)
 }
 
 private fun Int?.adjustedBy(delta: Int): Int? = this?.let {

@@ -44,7 +44,13 @@ data class PostReportState(
 
 internal val LocalPostActionOwner = staticCompositionLocalOf<PostActionOwner?> { null }
 
-/** Owns one post-action popup and its account-scoped relationship requests. */
+/**
+ * Owns one post-action popup and its account-scoped relationship requests.
+ *
+ * The owner is bound to one connected account and durable session revision. The host retires
+ * it with the connected entry. A retired owner dismisses its popup and rejects later opens,
+ * mutations, and reports, so a retired popup has no authority.
+ */
 class PostActionOwner(
     private val accountId: AccountId,
     private val sessionRevision: Long,
@@ -61,8 +67,20 @@ class PostActionOwner(
 
     private var requestGeneration = 0L
     private var requestJob: Job? = null
+    private var retired = false
+
+    /**
+     * Retires the popup with its connected entry. The popup dismisses and later opens,
+     * mutations, and reports are rejected. Retirement is terminal for this owner. The host
+     * creates a new owner for the next connected lifetime.
+     */
+    fun retire() {
+        retired = true
+        dismiss()
+    }
 
     fun open(ownedPost: OwnedPost, anchorBounds: Rect) {
+        if (retired) return
         if (ownedPost.fetchedBy != accountId || ownedPost.sessionRevision != sessionRevision) return
         requestJob?.cancel()
         requestGeneration += 1
@@ -114,6 +132,7 @@ class PostActionOwner(
     }
 
     fun mutate(mutation: RelationshipMutation) {
+        if (retired) return
         val currentTarget = target ?: return
         relationship.relationship ?: return
         if (relationship.loading || relationship.mutation != null || currentTarget.author.id == accountId) return
@@ -146,6 +165,7 @@ class PostActionOwner(
     }
 
     fun submitReport(comment: String) {
+        if (retired) return
         val currentTarget = target ?: return
         val reportSource = source ?: return
         if (report.submitting || report.submitted || currentTarget.author.id == accountId) return

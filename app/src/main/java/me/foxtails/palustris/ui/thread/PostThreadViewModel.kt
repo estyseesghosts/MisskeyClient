@@ -38,6 +38,7 @@ import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
 import me.foxtails.palustris.domain.normalizeFavouriteEmoji
 import me.foxtails.palustris.domain.adjustedBy
+import me.foxtails.palustris.ui.posts.PostActionFamily
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 
 @HiltViewModel(assistedFactory = PostThreadViewModel.Factory::class)
@@ -428,7 +429,7 @@ class PostThreadViewModel @AssistedInject constructor(
         val key = ActionKey(target, family)
         if (actionJobs[key]?.isActive == true) return
         val before = posts[ownedPost.post.id] ?: return
-        if (!executionAuthority.acquire(accountId, sessionRevision, family, target)) return
+        val token = executionAuthority.acquire(accountId, sessionRevision, family, target) ?: return
         val launchKey = activeKey
         val previousOverlay = overlays[target]
         val favoriteOwnsReaction = action == PostAction.Favorite &&
@@ -464,7 +465,7 @@ class PostThreadViewModel @AssistedInject constructor(
                     actionJobs.remove(key)
                     _state.value = _state.value.copy(pendingActions = _state.value.pendingActions - key.toString())
                 }
-                executionAuthority.release(accountId, sessionRevision, family, target)
+                executionAuthority.release(token)
             }
         }
         actionJobs[key] = job
@@ -563,7 +564,7 @@ class PostThreadViewModel @AssistedInject constructor(
         super.onCleared()
     }
 
-    private data class ActionKey(val target: me.foxtails.palustris.domain.EntityId, val family: String)
+    private data class ActionKey(val target: me.foxtails.palustris.domain.EntityId, val family: PostActionFamily)
 
     /**
      * One accepted mutation snapshot per action family. A null family field means that
@@ -651,10 +652,12 @@ class PostThreadViewModel @AssistedInject constructor(
         val reactionCount: Int?,
     )
 
-    private fun actionFamily(action: PostAction): String = when (action) {
-        PostAction.Favorite -> if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) "favorite-reaction" else "favorite"
-        PostAction.React -> if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) "favorite-reaction" else "reaction"
-        else -> action.name
+    private fun actionFamily(action: PostAction): PostActionFamily = when (action) {
+        PostAction.Favorite -> if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) PostActionFamily.FavoriteReaction else PostActionFamily.Favorite
+        PostAction.React -> if (source.capabilities.primaryFavourite.mode == PrimaryFavouriteMode.Reaction) PostActionFamily.FavoriteReaction else PostActionFamily.Reaction
+        PostAction.Reshare -> PostActionFamily.Reshare
+        PostAction.Bookmark -> PostActionFamily.Bookmark
+        PostAction.Reply -> PostActionFamily.Reply
     }
 
     private fun MutationOverlay?.orEmpty(): MutationOverlay = this ?: MutationOverlay()

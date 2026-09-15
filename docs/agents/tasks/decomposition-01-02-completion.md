@@ -56,6 +56,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-06a | Step 7, part 1 | Make publish completion version-aware. Reserve the submission before the async save. Reject obsolete save callbacks. Clear and delete only the submitted version. | No late save clears newer text or starts an obsolete publish. | implemented, test verified. Commit `84006c1`. |
 | C-06b | Step 7, part 2 | Move the draft storage owner into the data layer. Bind draft operations to the account. Add load request identity. Report load and delete failures. | The presentation contract carries no storage. Draft failures are reported. | implemented, test verified. Commit `c1288da`. |
 | C-06c | Step 7, part 3 | Coordinate account removal with pending draft writes. | A remove cannot leave recreated draft data. | implemented, test verified. Commit `4454bae`. |
+| C-07 | Step 8 | Stabilize post-action ownership and projection. Use typed families. Retire the coordinator with its entry. | Every surface receives the accepted action result once. Retired popups have no authority. | implemented, test verified. Commit `PENDING`. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -110,11 +111,20 @@ revokes writers and deletes rows in one serialized boundary. `DraftActions` rout
 through `commitIfCurrent`. A revoked writer writes nothing and reports no success. `ConnectedSessionHost`
 builds the draft owner from `connectedContext.draftGeneration` and the injected authority.
 
+C-07 added `PostActionFamily` and `OperationToken` to `PostInteractionExecutionAuthority`. Family
+slots are typed. Acquisition returns the owning token or null when busy. Only that token releases
+the slot. `PostInteractionMutationOwner`, `ProfileViewModel`, and `PostThreadViewModel` use the
+token API. `PostProjectionCoordinator` retires with its connected entry, rejects forwards and
+registrations after retirement, and rejects repeated deliveries of one accepted publication by its
+created-post identity. `PostActionOwner` retires with its connected entry and rejects later opens,
+mutations, and reports. `ConnectedSessionHost` builds the popup owner from the stable connected
+identity, reads the profile refresh callback without recreating the owner, and registers both
+retirements with the entry store. The narrow popup interface extraction stays deferred to C-12.
+
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-07 | Step 8 | Stabilize post-action ownership and projection. Use typed families. Retire the coordinator with its entry. | Every surface receives the accepted action result once. Retired popups have no authority. | pending |
 | C-08 | Step 9 | Complete Home paging demand. Include filter identity and the request epoch. Count accepted pages. | Home reaches older visible content without unbounded automatic requests. | pending |
 | C-09 | Step 10 | Finish notification request and launch ownership. Add request identity. Return explicit launch acceptance. | Rejected pages change no state. An undelivered launch is not acknowledged. | pending |
 | C-10 | Step 11 | Complete settings validity and recovery. Bind commands to lifecycle-valid targets. Add recovery. | A settings command cannot change another account or restore deleted state. | pending |
@@ -127,17 +137,18 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 ## Current Slice
 
-**C-07 — Stabilize post-action ownership and projection.**
+**C-08 — Complete Home paging demand.**
 
-Not started. Work from `progressreport.md` section 3 step 8. C-01 through C-06c are committed.
+Not started. Work from `progressreport.md` section 3 step 9. C-01 through C-07 are committed.
 
-## Files Involved For C-07
+## Files Involved For C-08
 
-- `app/src/main/java/me/foxtails/palustris/ui/posts/PostActionOwner.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/posts/PostInteractionMutationOwner.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/session/ConnectedSessionHost.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/shell/PostProjectionCoordinator.kt`
-- Post-action and projection tests
+- `app/src/main/java/me/foxtails/palustris/ui/HomeFeed.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/HomePagingDemand.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/FeedViewModel.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/FeedHost.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/shell/HomeContract.kt`
+- `HomePagingDemandTest.kt`, `HomeFeedTest.kt`, `FeedViewModelRequestTest.kt`
 
 ## Required Verification
 
@@ -246,6 +257,27 @@ Test these cases for C-06c:
 
 No device test ran. Live-server and signed-release behavior stay unverified.
 
+C-07 verification result: `PostInteractionExecutionAuthorityTest`, `PostProjectionCoordinatorTest`,
+`PostActionOwnerTest`, `PostInteractionMutationOwnerTest`, `PostThreadViewModelTest`, and
+`ProfileScreenTest` passed. `test assembleRelease` passed. `:app:lintDebug` passed when run alone.
+
+Test these cases for C-07:
+
+- A busy family slot rejects the second caller. Covered by
+  `PostInteractionExecutionAuthorityTest.busyFamilyRejectsTheSecondCaller`.
+- Other families proceed while one family is owned. Covered by `otherFamiliesProceedWhileOneFamilyIsOwned`.
+- Release frees the slot, a foreign release keeps it, and a repeated release is a no-op. Covered by
+  `releaseFreesTheSlotForTheNextCaller`, `foreignReleaseKeepsTheOwnedSlot`, and `repeatedReleaseIsANoOp`.
+- A repeated publication delivery reaches sinks once. Covered by
+  `PostProjectionCoordinatorTest.duplicatePublicationIsDeliveredOnce`.
+- A retired coordinator delivers nothing and accepts no sinks. Covered by
+  `retiredCoordinatorDeliversNothingAndAcceptsNoSinks`.
+- Retirement dismisses the open popup and rejects later opens, mutations, and reports. Covered by
+  `PostActionOwnerTest.retireDismissesTheOpenPopup`, `retiredOwnerRejectsOpen`, and
+  `retiredOwnerRejectsMutationsAndReports`.
+
+No device test ran. Live-server and signed-release behavior stay unverified.
+
 ## Unresolved Blockers
 
 - No emulator or device is reachable in the agent shell. Connected instrumentation stays unverified.
@@ -256,8 +288,9 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`4454bae` "Coordinate account removal with pending draft writes".
+`PENDING` "Stabilize post-action ownership and projection".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
-C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is the next slice.
+C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is committed at `PENDING`.
+C-08 is the next slice.
