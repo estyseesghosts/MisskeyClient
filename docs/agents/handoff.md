@@ -16,20 +16,20 @@ Read these in order. Treat the repository as the authority.
 
 ## Current Position
 
-- Completion slices C-01 through C-11, C-12a through C-12d4, C-13, and C-14 are committed.
-  `L-01` is committed.
-- The last safe commit is `dab573d` (C-14 record commit). C-14 is `8eada6d`.
+- Completion slices C-01 through C-11, C-12a through C-12d4, C-13, C-14, and C-15 are
+  committed. `L-01` is committed.
+- The last safe commit is `b2b143c` (C-15 behavior commit; record follows).
 - Plan 01 and Plan 02 exit conditions are met. Every acceptance row is implemented and
   test verified. Device, live-server, and signed-release behavior stay unverified.
-- The next slice is **C-15, dead-scaffolding cleanup**. It is behavior-neutral and not
-  part of the exit. The symbol list is under Next Cleanup below.
-- `test assembleRelease` and `:app:lintDebug` pass at the C-14 behavior commit.
+- No next slice. The dead scaffolding is removed. The remaining open item is the
+  `EmojiCatalogViewModel` cancellation finding in `logs/BUGS.txt`, owned by a future
+  slice outside Plan 01/02.
+- `test assembleRelease` and `:app:lintDebug` pass at the C-15 behavior commit.
 
 ## Next Cleanup
 
-Recorded as slice C-15 in the task-state file. Remove the dead scaffolding that earlier extraction
-waves left behind. Do not combine it with a behavior change. Every symbol must have no caller before
-deletion.
+Done. C-15 removed the dead scaffolding listed here with no behavior change. This
+section stays as the removal record.
 
 - `ui/profile/ProfileScreen.kt`: `LegacyLargeProfilePresentation`, `LegacyProfileHeader`.
 - `ui/media/MediaViewerScreen.kt`: `LegacyMediaTransitionImage`, `LegacyMediaTransitionImageCanvas`.

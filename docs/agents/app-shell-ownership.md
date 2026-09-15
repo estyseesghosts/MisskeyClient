@@ -2,10 +2,10 @@
 
 **Owner:** app-shell and feature-presentation maintainers.
 
-**Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through
-C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, C-12a through C-12d4, and C-13
-are implemented and test verified. Step 13, step 14, and step 15 of the progress report are complete.
-Slice C-15 removes dead scaffolding.
+**Status:** current. The shell decomposition is complete. Completion slices C-01 through
+C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, C-12a through C-12d4, C-13,
+C-14, and C-15 are implemented and test verified. Steps 13, 14, and 15 of the progress
+report are complete. No dead scaffolding remains.
 
 **Last reviewed:** 2026-09-15.
 
@@ -107,7 +107,7 @@ acceptance matrix records the status.
 | Projection retirement | Closed by C-07. The coordinator retires with its connected entry and rejects repeated publication deliveries by created-post identity. | — |
 | Home paging demand | Closed by C-08. `HomePagingDemand` tracks filter identity and the request epoch beside the row count. Only accepted pages consume the budget. | — |
 | Notification launch | Closed by C-09. `NotificationLaunchHost` acknowledges a launch only when the receiving shell accepts its route. Rejected pages change no state. | — |
-| Dead scaffolding | Unused `Legacy*` functions, `MarkdownPostText`, `AppBackHandler`, `BackNavigationState`, `SectionTabs`, and compatibility aliases remain. | C-15 |
+| Dead scaffolding | Closed by C-15. No caller remained for any removed symbol. `FeedViewModel` and `AccountManager` use the `data.notifications` names directly. | — |
 | Shell assembly | Closed by C-12d3. `PalustrisApp.kt` owns navigation and placement. Composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt` in C-12a. Back precedence moved to `ui/navigation/ShellBackPolicy.kt` in C-12b. Preview-only placement moved to `ui/PalustrisAppPreview.kt` in C-12d1. Navigation state and transitions moved to `ui/navigation/ShellNavigator.kt` in C-12d2 and C-12d3. Session-bound guards stay in the shell. | — |
 | Test isolation | Closed by C-12d4. `ReplyComposerTest` composes at feature level through `ComposerFeatureFixtures` since C-12c. `HomeFeedTest` and `SignInScreenTest` compose presenter behavior through `HomeFeatureFixtures` since C-12d4. Scroll clearance, detail navigation, composer, account switching, confirmation, and popup-host assertions stay on `AppShellFixtures.app`. | — |
 | Cancellation | Closed by C-13. Every touched suspending path rethrows `CancellationException`. `PostInteractionMutationOwner.handleFailure` rethrows before its guarded fallback. | — |
@@ -124,19 +124,15 @@ acceptance matrix records the status.
 - The unregistered `sourceFactory.create(session)` fallback in `ConnectedSessionHost`.
 - The separate `activeSession` and `session` inputs to the connected shell.
 
-## Pending Removal
+## Removed Cleanup (C-15)
 
-Earlier extraction waves left dead scaffolding. Completion slice C-15 removes it. Each symbol has no
-caller at `53b4340`. Verify that again before deletion.
-
-| Symbol | Location | Replacement |
-| --- | --- | --- |
-| `LegacyLargeProfilePresentation`, `LegacyProfileHeader` | `ui/profile/ProfileScreen.kt` | `ProfileLargePresentation.kt`, `ProfileHeader.kt` |
-| `LegacyMediaTransitionImage`, `LegacyMediaTransitionImageCanvas` | `ui/media/MediaViewerScreen.kt` | the media transition layer |
-| `MarkdownPostText` | `ui/MarkdownText.kt` | `InlineEmojiText` |
-| `AppBackHandler`, `BackNavigationState` | `ui/navigation/` | the root back policy |
-| `SectionTabs` | `ui/Components.kt` | inline tab rows |
-| `AccountSyncCoordinator` aliases | `ui/AccountSyncCoordinator.kt` | `data.notifications` names |
+C-15 removed the dead scaffolding with no caller: `LegacyLargeProfilePresentation` and
+`LegacyProfileHeader` (replaced by `ProfileLargePresentation.kt` and `ProfileHeader.kt`),
+`LegacyMediaTransitionImage` and `LegacyMediaTransitionImageCanvas` (replaced by the media
+transition layer), `MarkdownPostText` (replaced by `InlineEmojiText`), `AppBackHandler` and
+`BackNavigationState` (replaced by the root back policy), `SectionTabs` (replaced by inline
+tab rows), and the `AccountSyncCoordinator` aliases (replaced by the `data.notifications`
+names in `FeedViewModel`, `AccountManager`, and the feed tests).
 
 ## Invariants
 
