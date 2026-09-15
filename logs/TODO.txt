@@ -11,7 +11,7 @@
 - C-06c draft removal coordination is committed at `4454bae`.
 - C-07 post-action ownership and projection is committed at `0027b60`.
 - L-01 Russian and Indonesian locales are committed at `4b3aa4d`.
-- C-08 Home paging demand is committed at `PENDING`.
+- C-08 Home paging demand is committed at `a011a06`.
 - Continue with slice C-09, notification request and launch ownership.
 - Keep `docs/agents/decomposition-01-02-acceptance-matrix.md` current at each slice boundary.
 - Rebase `docs/decomposition_3/03.md` and `04.md` after the completion work.
