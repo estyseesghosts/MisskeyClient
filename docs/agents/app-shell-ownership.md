@@ -3,8 +3,8 @@
 **Owner:** app-shell and feature-presentation maintainers.
 
 **Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through C-05
-are implemented and test verified in the working tree. Other completion slices repair the remaining
-gaps.
+and C-06a are implemented and test verified in the working tree. Other completion slices repair the
+remaining gaps.
 
 **Last reviewed:** 2026-09-14.
 
@@ -90,7 +90,8 @@ Completion slices close these gaps. The acceptance matrix records the status.
 | Gap | Source evidence | Completion slice |
 | --- | --- | --- |
 | Post-action ownership | `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. A profile update can replace popup ownership. | C-07 |
-| Composer completion | `ComposerOwner` saves and publishes without comparing the submitted editor version. A late save can publish an obsolete version. | C-06 |
+| Composer completion | Closed by C-06a. `ComposerOwner.publish` reserves the submission and rejects obsolete save callbacks. | — |
+| Draft storage boundary | `DraftActions` lives in `ui/shell/DraftsContract.kt` and mixes storage, migration, and callbacks. Account removal does not coordinate pending draft writes. | C-06b |
 | Projection retirement | `PostProjectionCoordinator` has account and revision checks. It has no explicit retired state or accepted-publication identity. | C-07 |
 | Shell assembly | `PalustrisApp.kt` owns navigation and still holds some shell assembly. | C-12 |
 | Test isolation | Small feature scenarios still construct the full shell. | C-12 |

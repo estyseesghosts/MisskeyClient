@@ -28,6 +28,7 @@ fun rememberComposerOwner(
     val owner = remember { ComposerOwner(editorState) }
     owner.context = context
     owner.draftsContract = draftsContract
+    owner.sessionRevision = sessionRevision
     LaunchedEffect(context.account?.id, draftsContract) { owner.refreshDrafts() }
     LaunchedEffect(context.account?.id) { owner.resetTargets() }
     LaunchedEffect(sessionGeneration, sessionRevision) { owner.resetTargets() }

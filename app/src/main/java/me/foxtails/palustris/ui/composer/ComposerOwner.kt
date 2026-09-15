@@ -69,6 +69,14 @@ class ComposerOwner internal constructor(
     private var savedReplyTo by mutableStateOf<String?>(null)
     private var target by mutableStateOf<OwnedPost?>(null)
 
+    /** Advances on each editor change. An obsolete save callback cannot act on a newer version. */
+    private var editorRevision = 0L
+    /** Durable session revision captured from the host. */
+    internal var sessionRevision = 0L
+    private var submission: ComposerSubmission? = null
+
+    val submitting: Boolean get() = submission != null
+
     val editor: ComposerEditorState get() = editorState.value
     val quoteTarget: OwnedPost? get() = target
     val isReply: Boolean get() = replyTo != null
@@ -84,14 +92,15 @@ class ComposerOwner internal constructor(
         get() = context.contract.canPublish &&
             (editor.draftId == null || drafts.firstOrNull { it.id == editor.draftId }?.accountId == context.account?.id)
 
-    fun setText(text: String) { editorState.value = editor.copy(text = text) }
-    fun setWarning(text: String) { editorState.value = editor.copy(warning = text) }
-    fun setWarningEnabled(enabled: Boolean) { editorState.value = editor.copy(warningEnabled = enabled) }
-    fun setAudience(audience: Audience) { editorState.value = editor.copy(audience = audience) }
+    fun setText(text: String) { mutateEditor { it.copy(text = text) } }
+    fun setWarning(text: String) { mutateEditor { it.copy(warning = text) } }
+    fun setWarningEnabled(enabled: Boolean) { mutateEditor { it.copy(warningEnabled = enabled) } }
+    fun setAudience(audience: Audience) { mutateEditor { it.copy(audience = audience) } }
     fun removeTargets() {
         target = null
         quoteOf = null
         replyTo = null
+        editorRevision += 1
     }
 
     fun consumeNavigation() { navigation = null }
@@ -111,6 +120,7 @@ class ComposerOwner internal constructor(
         replyTo = null
         savedQuoteOf = null
         savedReplyTo = null
+        submission = null
     }
 
     fun requestNew() {
@@ -126,7 +136,7 @@ class ComposerOwner internal constructor(
                 ServerCapabilities(audiences = context.contract.availableAudiences),
             )
         }.getOrDefault(context.contract.postPreferences.defaultAudience)
-        editorState.value = editor.copy(audience = audience, savedAudience = audience)
+        mutateEditor { it.copy(audience = audience, savedAudience = audience) }
         navigation = ComposerNavigation.New
     }
 
@@ -136,7 +146,7 @@ class ComposerOwner internal constructor(
         if (context.anyOverlayOpen || hasChanges) return
         val audience = replyAudience(post)
         resetForTarget()
-        editorState.value = editor.copy(audience = audience, savedAudience = audience, error = null)
+        mutateEditor { it.copy(audience = audience, savedAudience = audience, error = null) }
         target = post
         replyTo = post.post.actionTargetId ?: post.post.id
         navigation = ComposerNavigation.Reply(post)
@@ -148,7 +158,7 @@ class ComposerOwner internal constructor(
         if (context.anyOverlayOpen || hasChanges) return
         val audience = replyAudience(post)
         resetForTarget()
-        editorState.value = editor.copy(audience = audience, savedAudience = audience, error = null)
+        mutateEditor { it.copy(audience = audience, savedAudience = audience, error = null) }
         target = post
         quoteOf = post.post.id
         navigation = ComposerNavigation.Quote(post)
@@ -156,16 +166,18 @@ class ComposerOwner internal constructor(
 
     fun requestDraft(item: PostDraft) {
         resetForTarget()
-        editorState.value = ComposerEditorState(
-            draftId = item.id,
-            text = item.text,
-            savedText = item.text,
-            warning = item.contentWarning.orEmpty(),
-            savedWarning = item.contentWarning.orEmpty(),
-            warningEnabled = !item.contentWarning.isNullOrBlank(),
-            audience = item.audience,
-            savedAudience = item.audience,
-        )
+        mutateEditor {
+            ComposerEditorState(
+                draftId = item.id,
+                text = item.text,
+                savedText = item.text,
+                warning = item.contentWarning.orEmpty(),
+                savedWarning = item.contentWarning.orEmpty(),
+                warningEnabled = !item.contentWarning.isNullOrBlank(),
+                audience = item.audience,
+                savedAudience = item.audience,
+            )
+        }
         val account = context.account
         quoteOf = item.quoteOf?.takeIf { it.connection == account?.id?.connection?.origin }
         replyTo = item.replyTo?.takeIf { it.connection == account?.id?.connection?.origin }
@@ -182,19 +194,24 @@ class ComposerOwner internal constructor(
             onSaved()
             return
         }
+        val submittedRevision = editorRevision
+        val submittedAccountId = context.account?.id
         closing = true
         draftsContract.actions.save(
             draftValue(),
             onResult = { item ->
-                editorState.value = editor.copy(
-                    draftId = item.id,
-                    savedText = item.text,
-                    savedWarning = item.contentWarning.orEmpty(),
-                    savedAudience = item.audience,
-                    error = null,
-                )
-                savedQuoteOf = item.quoteOf?.value
-                savedReplyTo = item.replyTo?.value
+                // A save that finishes after a newer edit must not reset the newer baseline.
+                if (editorRevision == submittedRevision && context.account?.id == submittedAccountId) {
+                    editorState.value = editor.copy(
+                        draftId = item.id,
+                        savedText = item.text,
+                        savedWarning = item.contentWarning.orEmpty(),
+                        savedAudience = item.audience,
+                        error = null,
+                    )
+                    savedQuoteOf = item.quoteOf?.value
+                    savedReplyTo = item.replyTo?.value
+                }
                 refreshDrafts()
                 closing = false
                 onSaved()
@@ -207,11 +224,13 @@ class ComposerOwner internal constructor(
     }
 
     /**
-     * Saves the draft baseline, then publishes. Successes clear the editor. A saved-draft failure
-     * keeps the editor open for retry. A rejected audience surfaces a validation error.
+     * Saves the submitted draft, then publishes it. A submission reserves its identity before the
+     * asynchronous save starts. An obsolete save callback cannot publish. Success clears and
+     * deletes only the submitted version.
      */
     fun publish(onSent: (replySent: Boolean, quoteSent: Boolean) -> Unit) {
         val account = context.account ?: return
+        if (submission != null) return
         val submittedText = editor.text
         val submittedWarning = editor.warning.takeIf { editor.warningEnabled && it.isNotBlank() }
         val submittedQuote = quoteOf?.takeIf { it.connection == account.id.connection.origin }
@@ -231,37 +250,58 @@ class ComposerOwner internal constructor(
             editorState.value = editor.copy(error = "This audience is not available on this server.")
             return
         }
-        val publishingAccountId = account.id
+        val request = CreatePostRequest(
+            submittedText,
+            audience = submittedAudience,
+            contentWarning = submittedWarning,
+            replyTo = submittedReply,
+            quoteOf = submittedQuote,
+        )
+        val reserved = ComposerSubmission(
+            revision = editorRevision,
+            draftId = editor.draftId,
+            accountId = account.id,
+            sessionRevision = sessionRevision,
+        )
+        submission = reserved
         draftsContract.actions.save(
             draftValue(),
             onResult = { saved ->
+                val current = submission
+                // Reject an obsolete save callback before it triggers publication.
+                if (current == null ||
+                    context.account?.id != current.accountId ||
+                    sessionRevision != current.sessionRevision
+                ) {
+                    submission = null
+                    return@save
+                }
                 editorState.value = editor.copy(
                     draftId = saved.id,
                     savedText = saved.text,
                     savedWarning = saved.contentWarning.orEmpty(),
                 )
-                context.contract.actions.publish(
-                    CreatePostRequest(
-                        submittedText,
-                        audience = submittedAudience,
-                        contentWarning = submittedWarning,
-                        replyTo = submittedReply,
-                        quoteOf = submittedQuote,
-                    ),
-                ) {
-                    draftsContract.actions.delete(publishingAccountId, saved.id) { refreshDrafts() }
+                context.contract.actions.publish(request) {
+                    draftsContract.actions.delete(current.accountId, saved.id) { refreshDrafts() }
                     onSent(submittedReply != null, submittedQuote != null)
-                    clearAfterPublish()
+                    clearAfterPublish(current)
                 }
             },
             onError = {
+                submission = null
                 editorState.value = editor.copy(error = "Draft could not be saved. Keep the composer open and try again.")
             },
         )
     }
 
+    private fun mutateEditor(transform: (ComposerEditorState) -> ComposerEditorState) {
+        editorRevision += 1
+        editorState.value = transform(editorState.value)
+    }
+
     private fun resetForTarget() {
-        editorState.value = ComposerEditorState()
+        submission = null
+        mutateEditor { ComposerEditorState() }
         target = null
         quoteOf = null
         replyTo = null
@@ -269,13 +309,17 @@ class ComposerOwner internal constructor(
         savedReplyTo = null
     }
 
-    private fun clearAfterPublish() {
-        editorState.value = ComposerEditorState()
-        target = null
-        quoteOf = null
-        replyTo = null
-        savedQuoteOf = null
-        savedReplyTo = null
+    private fun clearAfterPublish(submitted: ComposerSubmission) {
+        // Clear only the submitted editor version. Newer edits typed during publication stay.
+        if (editorRevision == submitted.revision && context.account?.id == submitted.accountId) {
+            mutateEditor { ComposerEditorState() }
+            target = null
+            quoteOf = null
+            replyTo = null
+            savedQuoteOf = null
+            savedReplyTo = null
+        }
+        submission = null
     }
 
     private fun replyAudience(post: OwnedPost): Audience = runCatching {
@@ -330,3 +374,11 @@ class ComposerOwner internal constructor(
         )
     }
 }
+
+/** The editor identity reserved for one publish. A newer submission supersedes it. */
+private data class ComposerSubmission(
+    val revision: Long,
+    val draftId: String?,
+    val accountId: AccountId,
+    val sessionRevision: Long,
+)

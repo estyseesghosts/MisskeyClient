@@ -60,6 +60,22 @@ class ComposerOwnerTest {
         }
     }
 
+    private class DeferredDrafts : DraftsContract.Actions {
+        val saved = mutableListOf<PostDraft>()
+        val deleted = mutableListOf<String>()
+        var pendingSave: (() -> Unit)? = null
+
+        override fun load(accountId: AccountId?, onResult: (List<PostDraft>) -> Unit) = onResult(emptyList())
+        override fun save(draft: PostDraft, onResult: (PostDraft) -> Unit, onError: () -> Unit) {
+            saved += draft
+            pendingSave = { onResult(draft) }
+        }
+        override fun delete(accountId: AccountId?, draftId: String, onDone: () -> Unit) {
+            deleted += draftId
+            onDone()
+        }
+    }
+
     private class RecordingComposer : ComposerContract.Actions {
         val published = mutableListOf<CreatePostRequest>()
         var acceptedPost: OwnedPost? = null
@@ -84,7 +100,7 @@ class ComposerOwnerTest {
 
     private fun owner(
         composer: RecordingComposer = RecordingComposer(),
-        drafts: RecordingDrafts = RecordingDrafts(),
+        drafts: DraftsContract.Actions = RecordingDrafts(),
         canReply: Boolean = true,
         canQuote: Boolean = true,
         composerOpen: Boolean = false,
@@ -235,5 +251,48 @@ class ComposerOwnerTest {
         assertNull(owner.quoteTarget)
         assertFalse(owner.isReply)
         assertNull(owner.navigation)
+    }
+
+    @Test
+    fun duplicatePublishIsRejectedWhileASaveIsPending() {
+        val drafts = DeferredDrafts()
+        val composer = RecordingComposer()
+        val owner = owner(composer = composer, drafts = drafts)
+        owner.setText("body")
+        owner.publish { _, _ -> }
+        owner.publish { _, _ -> }
+
+        assertEquals(1, drafts.saved.size)
+        assertTrue(owner.submitting)
+        assertTrue(composer.published.isEmpty())
+    }
+
+    @Test
+    fun obsoleteSaveCallbackCannotPublishAfterSessionReplacement() {
+        val drafts = DeferredDrafts()
+        val composer = RecordingComposer().apply { acceptedPost = OwnedPost(accountId, post("sent")) }
+        val owner = owner(composer = composer, drafts = drafts)
+        owner.setText("body")
+        owner.publish { _, _ -> }
+        owner.sessionRevision = 7L
+        drafts.pendingSave?.invoke()
+
+        assertTrue(composer.published.isEmpty())
+        assertFalse(owner.submitting)
+    }
+
+    @Test
+    fun newerEditsDuringPublishSurviveAcceptance() {
+        val drafts = DeferredDrafts()
+        val composer = RecordingComposer().apply { acceptedPost = OwnedPost(accountId, post("sent")) }
+        val owner = owner(composer = composer, drafts = drafts)
+        owner.setText("first")
+        owner.publish { _, _ -> }
+        owner.setText("first and second")
+        drafts.pendingSave?.invoke()
+
+        assertEquals("first", composer.published.single().text)
+        assertEquals("first and second", owner.editor.text)
+        assertFalse(owner.submitting)
     }
 }

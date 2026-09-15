@@ -995,3 +995,14 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Process-recreation restoration is source verified only. No instrumented recreation test ran.
 - C-05 committed at bd2d1b6.
 - Unverified: device, live-server, signed release.
+
+260915-001850 Slice C-06a version-aware composer publish:
+- ComposerOwner now tracks an editor revision and a reserved submission. Each editor mutation advances the revision.
+- publish() captures the request, account, draft identity, revision, and session revision, then reserves the submission before the asynchronous save starts.
+- A second publish is rejected while a submission is reserved. The publish control disables through composerOwner.submitting.
+- An obsolete save callback cannot trigger publication. Success clears and deletes only the submitted version. Newer edits during publication survive.
+- The explicit Save Draft flow applies its baseline only when the editor revision and account are unchanged.
+- Added three ComposerOwnerTest cases: duplicate publish rejection, obsolete callback after session replacement, and newer edits during publish.
+- Verification passed: ComposerOwnerTest, test assembleRelease, and :app:lintDebug when run alone.
+- Split from C-06. C-06b owns the drafts storage boundary and account-removal coordination.
+- Unverified: device, live-server, signed release.

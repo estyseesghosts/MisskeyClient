@@ -12,8 +12,9 @@
 `docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
 
 **Evidence:** source verified for every path in this page. Test files were inspected. The C-01, C-02,
-C-03, C-04, and C-05 slices ran their focused tests, `test assembleRelease`, and `:app:lintDebug` on
-2026-09-14. Other statuses repeat a pass that `logs/DONE.txt` records, not a new run.
+C-03, C-04, C-05, and C-06a slices ran their focused tests, `test assembleRelease`, and
+`:app:lintDebug` on 2026-09-14. Other statuses repeat a pass that `logs/DONE.txt` records, not a new
+run.
 
 ## 1. How To Read This Page
 
@@ -57,8 +58,12 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 - C-05 added `ui/composer/ComposerEditorState.kt`, `ui/composer/ComposerOwner.kt`, and
   `ui/composer/ComposerHost.kt`. The owner holds editor fields, the dirty snapshot, the drafts list,
   reply and quote restoration, and the publish flow. It publishes `ComposerNavigation` requests. The
-  shell places the overlay and keeps back precedence. C-06 still owns version-aware draft and publish
-  completion.
+  shell places the overlay and keeps back precedence.
+- C-06a added an editor revision and a reserved submission to `ComposerOwner`. `publish` captures the
+  request, account, draft identity, revision, and session revision before the asynchronous save. A
+  second publish is rejected while a submission is pending. An obsolete save callback cannot publish.
+  Success clears and deletes only the submitted version. C-06b still owns the drafts storage boundary
+  and account-removal coordination.
 - `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. An ordinary profile update can replace popup ownership.
 
 ## 3. Plan 02 Exit Conditions
@@ -102,8 +107,8 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | Connected identity | Closed by C-01. `AccountManager.connect` publishes one `ConnectedSessionContext`. | C-01 (implemented, test verified) |
 | Source ownership | Closed by C-01. `ConnectedSessionHost` reads the context source. The fallback is removed. | C-01 (implemented, test verified) |
 | ViewModel lifetime | Closed by C-02. Feature hosts retire models through `ConnectedEntryStore`. | C-02 (implemented, test verified) |
-| Composer | Closed by C-05. The composer editor lives in `ui/composer/`. C-06 still owns version-aware completion. | C-05 (implemented, test verified), C-06 |
-| Draft callbacks | `ComposerOwner` saves and publishes without comparing the submitted editor version. | C-06 |
+| Composer | Closed by C-05 and C-06a. The editor lives in `ui/composer/` and publish is version-aware. C-06b owns the drafts storage boundary. | C-05, C-06a (implemented, test verified), C-06b |
+| Draft callbacks | Closed by C-06a. `ComposerOwner.publish` reserves the submission and rejects obsolete save callbacks. C-06b reports draft load and delete failures. | C-06a (implemented, test verified), C-06b |
 | DM text | Closed by C-04. `DirectMessageViewModel` owns the composer text and revision. A failed send keeps the text. | C-04 (implemented, test verified) |
 | DM storage | Closed by C-03. `markRead` writes through `commitIfCurrent`. One lock owns activate, revoke, delete, and commit. | C-03 (implemented, test verified) |
 | Locale changes | `reconcilePlatformSelection` always imports a differing platform locale. | C-11 |

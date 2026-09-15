@@ -53,6 +53,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-03 | Step 4 | Complete DM durable write authority. Route `markRead` through `commitIfCurrent`. Keep network outside locks. | A retired session cannot mutate current DM storage. Removed rows stay deleted. | implemented, test verified. Commit `bfbd7ed`. |
 | C-04 | Step 5 | Give DM recovery text a feature owner. Add an editor revision. Clear only on accepted success. | A send failure cannot erase recoverable text. | implemented, test verified. Commit `cb6d024`. |
 | C-05 | Step 6 | Establish a composer editor owner. Move editor fields out of `PalustrisApp`. | `PalustrisApp` requests composer transitions. It does not implement editor state. | implemented, test verified. Commit `bd2d1b6`. |
+| C-06a | Step 7, part 1 | Make publish completion version-aware. Reserve the submission before the async save. Reject obsolete save callbacks. Clear and delete only the submitted version. | No late save clears newer text or starts an obsolete publish. | implemented, test verified. Commit recorded in the next documentation commit. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -86,11 +87,18 @@ composer overlay. `PalustrisApp` no longer holds editor fields. It renders the e
 and keeps overlay placement and back precedence. The editor state uses a saveable snapshot. A session
 replacement clears restored reply and quote targets.
 
+C-06a gave `ComposerOwner` an editor revision and a reserved submission. Each editor mutation
+advances the revision. `publish` captures the request, account, draft identity, revision, and
+session revision, then reserves the submission before the asynchronous draft save starts. A second
+publish is rejected while a submission is reserved. An obsolete save callback cannot publish. A
+successful publish clears and deletes only the submitted version. The publish control disables while
+a submission is in flight. C-06b still owns the drafts storage boundary.
+
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-06 | Step 7 | Make draft and publish completion version-aware. Separate the contract from storage. Bind to an account owner. | No late callback clears newer text, starts an obsolete publish, or recreates removed data. | pending |
+| C-06b | Step 7, part 2 | Separate the drafts presentation contract from storage. Move legacy preferences into data-layer construction. Bind operations to an account owner. Add draft-load request identity. Report load and delete failures. Coordinate account removal with pending writes. | No late callback recreates removed draft data. Draft failures are visible. | pending |
 | C-07 | Step 8 | Stabilize post-action ownership and projection. Use typed families. Retire the coordinator with its entry. | Every surface receives the accepted action result once. Retired popups have no authority. | pending |
 | C-08 | Step 9 | Complete Home paging demand. Include filter identity and the request epoch. Count accepted pages. | Home reaches older visible content without unbounded automatic requests. | pending |
 | C-09 | Step 10 | Finish notification request and launch ownership. Add request identity. Return explicit launch acceptance. | Rejected pages change no state. An undelivered launch is not acknowledged. | pending |
@@ -104,21 +112,20 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 ## Current Slice
 
-**C-06 — Make draft and publish completion version-aware.**
+**C-06b — Separate the drafts contract from storage and coordinate account removal.**
 
-Not started. Work from `progressreport.md` section 3 step 7. C-01 through C-05 are committed.
+Not started. Work from `progressreport.md` section 3 step 7. C-01 through C-06a are committed.
 
-## Files Involved For C-06
+## Files Involved For C-06b
 
-- `app/src/main/java/me/foxtails/palustris/ui/composer/ComposerOwner.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/shell/DraftsContract.kt`
 - `app/src/main/java/me/foxtails/palustris/data/auth/DraftStore.kt`
 - Production draft construction in `di/`
+- `app/src/main/java/me/foxtails/palustris/ui/session/ConnectedSessionHost.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/AccountManager.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/FeedHost.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/composer/ComposerOwner.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
 - `app/src/test/java/me/foxtails/palustris/DraftActionsTest.kt`
-- Proposed composer publication tests
 
 ## Required Verification
 
@@ -171,6 +178,18 @@ Test these cases for C-05:
 - The composed reply flow still opens the composer. Covered by
   `ReplyComposerTest.replyOpensComposerForTheEffectiveActionTarget`.
 
+C-06a verification result: `ComposerOwnerTest` passed with 13 cases. `test assembleRelease` passed.
+`:app:lintDebug` passed when run alone.
+
+Test these cases for C-06a:
+
+- A second publish is rejected while a save is pending. Covered by
+  `ComposerOwnerTest.duplicatePublishIsRejectedWhileASaveIsPending`.
+- An obsolete save callback cannot publish after a session replacement. Covered by
+  `obsoleteSaveCallbackCannotPublishAfterSessionReplacement`.
+- Newer edits typed during publication survive acceptance. Covered by
+  `newerEditsDuringPublishSurviveAcceptance`.
+
 Process-recreation restoration of the saveable editor snapshot is source verified only. No
 instrumented recreation test ran.
 
@@ -190,4 +209,5 @@ reachable. The Room store deletion and late-write behavior stays device unverifi
 `bd2d1b6` "Give the composer editor a feature owner".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
-C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06 is the next slice.
+C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed before C-06b
+starts. C-06b is the next slice.

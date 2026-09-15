@@ -1119,7 +1119,7 @@ fun PalustrisApp(
             availableAudiences = composer.availableAudiences,
             onAudienceChange = composerOwner::setAudience,
             canPublish = composerOwner.canPublish,
-            publishing = composer.publishing,
+            publishing = composer.publishing || composerOwner.submitting,
             error = composer.error ?: composerOwner.editor.error,
             quoteTarget = composerOwner.quoteTarget,
             isReply = composerOwner.isReply,
