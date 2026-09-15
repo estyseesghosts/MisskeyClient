@@ -1,0 +1,124 @@
+{
+  "version": 2,
+  "items": [
+    {
+      "id": { "connection": "https://misskey.example", "value": "notif-1" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "createdAt": 1000,
+      "activity": { "kind": "mention" },
+      "actors": [
+        {
+          "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-1" },
+          "displayName": "Actor One",
+          "handle": "@actor1@misskey.example",
+          "avatarUrl": "https://misskey.example/avatar.png",
+          "biography": "Bio",
+          "profileFields": [ { "name": "Site", "value": "https://actor.example" } ],
+          "bannerUrl": "https://misskey.example/banner.png",
+          "followersCount": 5,
+          "followingCount": 6,
+          "postsCount": 7,
+          "locked": false,
+          "bot": false,
+          "emoji": {}
+        }
+      ],
+      "target": { "kind": "post", "id": { "connection": "https://misskey.example", "value": "post-1" } },
+      "destination": {
+        "kind": "in_app",
+        "target": { "kind": "post", "id": { "connection": "https://misskey.example", "value": "post-1" } }
+      },
+      "readStatus": "Unread",
+      "locallySeen": true,
+      "serverAcknowledged": false,
+      "androidPresented": true,
+      "androidDismissed": false,
+      "rawType": "mention",
+      "group": {
+        "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+        "value": "group-1",
+        "actors": [],
+        "totalCount": 3
+      }
+    },
+    {
+      "id": { "connection": "https://mastodon.example", "value": "notif-2" },
+      "accountId": { "origin": "https://mastodon.example", "protocol": "MASTODON", "localId": "receiver" },
+      "createdAt": 2000,
+      "activity": { "kind": "favourite" },
+      "actors": [],
+      "readStatus": "Read",
+      "locallySeen": false,
+      "serverAcknowledged": true,
+      "androidPresented": false,
+      "androidDismissed": true,
+      "rawType": "favourite"
+    }
+  ],
+  "unread": { "kind": "at_least", "count": 2 },
+  "checkpoint": {
+    "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+    "capturedAt": 4000,
+    "query": { "categories": [ "Mentions" ], "limit": 30, "grouped": false },
+    "newest": "cursor-newest",
+    "oldest": "cursor-oldest",
+    "newerContinuation": "cursor-newer",
+    "olderContinuation": "cursor-older",
+    "completeness": "Complete",
+    "baselineEstablished": true
+  },
+  "lastSyncedAt": 5000,
+  "dismissedIds": [ { "connection": "https://misskey.example", "value": "dismissed-1" } ],
+  "checkpoints": {
+    "Social|50|true": {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "capturedAt": 4500,
+      "query": { "categories": [ "Social" ], "limit": 50, "grouped": true },
+      "newest": "keyed-newest",
+      "completeness": "Incomplete",
+      "baselineEstablished": false
+    }
+  },
+  "deliveries": [
+    {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "notificationId": { "connection": "https://misskey.example", "value": "notif-1" },
+      "state": "Presented",
+      "androidTag": "tag-1",
+      "androidId": 42,
+      "attemptCount": 3,
+      "lastAttemptAt": 3500,
+      "lastErrorCategory": "network",
+      "claimId": "claim-1",
+      "claimExpiresAt": 3600
+    }
+  ],
+  "settings": {
+    "alertsEnabled": true,
+    "categories": [ "Mentions", "Replies" ],
+    "showPreviews": false,
+    "quietStart": 1320,
+    "quietEnd": 420,
+    "periodicFallbackEnabled": true,
+    "selectedDistributor": "org.example.distributor"
+  },
+  "pushRegistration": {
+    "accountId": { "origin": "https://mastodon.example", "protocol": "MASTODON", "localId": "receiver" },
+    "generation": 7,
+    "sessionRevision": 3,
+    "instanceName": "push-instance",
+    "distributorPackage": "org.example.distributor",
+    "endpoint": "https://push.example/endpoint",
+    "serverEndpoint": "https://push.example/server-endpoint",
+    "serverRemoteId": "remote-1",
+    "confirmedEndpointGeneration": 2,
+    "state": "Connected",
+    "endpointGeneration": 2,
+    "retryCount": 1,
+    "lastErrorCategory": "network",
+    "lastErrorDetail": "timeout",
+    "failureStage": "ServerSubscription",
+    "failureReason": "Network",
+    "nextRetryAt": 9000
+  }
+}

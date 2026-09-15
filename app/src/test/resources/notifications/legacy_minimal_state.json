@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "id": { "connection": "https://misskey.example", "value": "legacy-1" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "createdAt": 10,
+      "activity": {
+        "kind": "reaction",
+        "identity": ":blobcat:",
+        "fallback": "blobcat",
+        "imageUrl": "https://misskey.example/blobcat.png"
+      },
+      "actors": [
+        {
+          "id": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "actor-2" },
+          "displayName": "Actor Two",
+          "handle": "@actor2@misskey.example"
+        }
+      ],
+      "target": { "kind": "post", "id": { "connection": "https://misskey.example", "value": "post-9" } },
+      "readStatus": "Unread",
+      "rawType": "reaction"
+    }
+  ]
+}

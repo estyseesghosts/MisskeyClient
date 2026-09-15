@@ -127,6 +127,12 @@ capability evidence instead of re-probing. A successful probe clears the window.
 
 Account identity in storage is the connection origin plus the local ID. The protocol is metadata.
 
+The notification stored format is frozen by `NotificationJsonCodecTest` and the literal
+fixtures in `app/src/test/resources/notifications/`. Fixture provenance is recorded in
+`app/src/test/resources/notifications/PROVENANCE.md`. The fixtures are synthetic
+characterization fixtures, not captured released files. Do not generate the expected
+fixture content with the encoder under test.
+
 ## Direct-Message Write Authority
 
 `data/directmessages/DirectMessageWriteAuthority.kt` owns one writer generation for each account.

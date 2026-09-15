@@ -52,8 +52,12 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
   failed metadata probe backs off for 30 seconds.
 - 03-C: still required, reduced scope. `MisskeySource.post` (`:102`) and `delete` (`:549`)
   omit `validatePostId`. Repost undo (`:442`) and quote creation (`:350`) already validate.
-- 03-D: not implemented. No `NotificationJsonCodecTest` or `app/src/test/resources/notifications/`.
-- 03-E: still required. Recursive codecs remain in `NotificationRepository.kt:529-1107`.
+- 03-D: partially closed by 03-D1. `NotificationJsonCodecTest` and
+  `app/src/test/resources/notifications/` now exist. The state-envelope fixtures and the
+  file-store contract are frozen. Remaining: the activity, navigation, post, count, unread,
+  settings, delivery, push, checkpoint, malformed, and known-omission families, plus the
+  Room fixed-JSON test. Tracked as 03-D2 and later.
+- 03-E: still required. Recursive codecs remain in `NotificationRepository.kt:529-1117`.
   `NotificationJsonCodec.kt` holds only state-level `encode`/`decode`.
 - 03-H: still required. `LegacyNotificationFileImporter` writes the marker before returning
   state and before Room saves (`LegacyNotificationFileImporter.kt:22-25`).
@@ -79,6 +83,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-A1 | Remove the sentinel reaction probe. Treat the recognized advertisement as the evidence. Bound the instance read and add a v1 fallback on v2 absence. | No capability request contains a sentinel status. Missing advertisement never proves support. | implemented, test verified. |
 | 03-B1 | Preserve runtime capability evidence. Remove the bare-404 downgrade, publish capabilities reactively, reuse the metadata owner at login, and invalidate sentinel-era snapshots. | A resource failure keeps advertised support. Reaction controls read an observable capability value. | implemented, test verified. |
 | 03-B2 | Publish refreshed capabilities under a session-revision guard and bound refresh retries. | A stale source cannot overwrite a replaced session. A failed probe does not re-probe on every request. | implemented, test verified. |
+| 03-D1 | Freeze the notification state-envelope codec. Add `NotificationJsonCodecTest` and literal fixtures for the complete and legacy minimal states. Add file-store fixed-JSON tests. | The state envelope round-trips. Legacy defaults, legacy target-only navigation, and the legacy reaction `imageUrl` are characterized. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -115,11 +120,24 @@ publishes a successful refresh through `onCapabilitiesUpdated` and backs off 30 
 failed probe. New tests `refreshedCapabilitiesReachTheCapabilityCallback`,
 `metadataFailureBoundsCapabilityRetries`, and `capabilityUpdateRequiresTheCurrentSessionRevision`.
 
+03-D1 verification: `NotificationJsonCodecTest` passes with ten tests. The fixtures are
+`app/src/test/resources/notifications/complete_current_state.json` and
+`legacy_minimal_state.json`. Provenance is `app/src/test/resources/notifications/PROVENANCE.md`.
+The decoder assertions use independent expected domain values. The encoder contract compares
+`encode(decode(fixture))` to the literal fixture by JSON structure, not by serialized string.
+The file-store tests write the fixed JSON to disk and read it through `FileNotificationStore`,
+and write a state and compare the stored file to the fixture. `test assembleRelease` and
+`:app:lintDebug` pass.
+
 ## Current Slice
 
-Closed. No active slice. The next Plan 03 chunk is 03-D (freeze compatibility fixtures). 03-A2
-(NodeInfo discovery when instance metadata lacks the advertisement) and 03-E through 03-J stay
-open. 03-F and 03-I need maintainer approval before coding.
+03-D2 — Freeze the activity, navigation, read-state, and delivery fixtures, and add the Room
+fixed-JSON test.
+
+Remaining 03-D families: activity variants, navigation, posts and accounts, interaction
+counts, unread state, settings, delivery, push, checkpoints, malformed structure, and known
+omissions. 03-A2 (NodeInfo discovery) stays open. 03-F and 03-I need maintainer approval
+before coding.
 
 ## Required Verification
 
@@ -144,4 +162,4 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`1c45afb` "Guard capability persistence by session revision and back off failed probes".
+`27a4b41` "Record 03-B2 commit in task state and handoff".
