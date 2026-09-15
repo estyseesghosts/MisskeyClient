@@ -4,7 +4,7 @@
 - C-01 connected identity is committed at `6b8752b`.
 - C-02 connected entry lifetime is committed at `ffc9c3f`.
 - C-03 direct-message durable write authority is committed at `bfbd7ed`.
-- C-04 direct-message recovery text ownership is implemented and verified. Commit is pending.
+- C-04 direct-message recovery text ownership is committed at `cb6d024`.
 - Continue with slice C-05, composer editor ownership.
 - Keep `docs/agents/decomposition-01-02-acceptance-matrix.md` current at each slice boundary.
 - Rebase `docs/decomposition_3/03.md` and `04.md` after the completion work.
