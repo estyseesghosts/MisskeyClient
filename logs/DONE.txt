@@ -1066,7 +1066,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - SettingsOverlayHost publishes the restored index as the validity set and delays notification and moderation model construction until the target validates. The settings error card gains a retry action.
 - Added validity, queued-removal, retry, and dismiss-keeps-retry cases. New settings strings ship with Russian and Indonesian translations.
 - Verification passed: SettingsViewModelTest, SettingsRouteRestorationTest, SettingsDisplayTest, ModerationViewModelTest, LocalizationResourceTest, test assembleRelease, and :app:lintDebug when run alone. The full gate failed once with test-JVM Main-dispatcher pollution in NotificationsViewModelTest, which this slice does not touch. A full rerun passed with no source change.
-- C-10 committed at PENDING.
+- C-10 committed at 731b74b.
 - Unverified: device, live-server, signed release.
 
 260915-010000 Slice L-01 Russian and Indonesian locales:
