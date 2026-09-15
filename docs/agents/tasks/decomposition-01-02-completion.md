@@ -50,7 +50,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | --- | --- | --- | --- | --- |
 | C-01 | Step 2 | Make connected identity coherent. Resolve one accepted context. Remove the `sourceFactory.create` fallback. | Every source-backed feature receives values from one accepted connected lifetime. | implemented, test verified. Commit `6b8752b`. |
 | C-02 | Step 3 | Repair ViewModel lifetime and route re-entry. Add an explicit connected-entry store and lifecycle owner. | Retired owners cannot publish. Re-entered features never receive stopped owners. | implemented, test verified. Commit `ffc9c3f`. |
-| C-03 | Step 4 | Complete DM durable write authority. Route `markRead` through `commitIfCurrent`. Keep network outside locks. | A retired session cannot mutate current DM storage. Removed rows stay deleted. | implemented, test verified. Commit recorded in the next documentation commit. |
+| C-03 | Step 4 | Complete DM durable write authority. Route `markRead` through `commitIfCurrent`. Keep network outside locks. | A retired session cannot mutate current DM storage. Removed rows stay deleted. | implemented, test verified. Commit `bfbd7ed`. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -153,7 +153,7 @@ Room store deletion and late-write behavior stays device unverified.
 
 ## Last Safe Commit
 
-`ffc9c3f` "Retire feature models with the connected entry".
+`bfbd7ed` "Route direct message writes through the session writer".
 
-C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed before C-04
-starts. C-04 is the next slice.
+C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
+C-04 is the next slice.

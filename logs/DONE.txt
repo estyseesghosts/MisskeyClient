@@ -970,4 +970,5 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Updated DirectMessageRepositoryTest, DirectMessageSourceTest, and DirectMessageViewModelTest.
 - Verification passed: focused direct-message suites, test assembleRelease, and :app:lintDebug when run alone.
 - Proposed DirectMessageStoreInstrumentedTest is not written. No device is reachable.
+- C-03 committed at bfbd7ed.
 - Unverified: device, live-server, signed release.
