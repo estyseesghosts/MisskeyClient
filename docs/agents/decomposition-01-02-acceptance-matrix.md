@@ -14,7 +14,7 @@
 **Evidence:** source verified for every path in this page. Test files were inspected. The C-01, C-02,
 C-03, C-04, C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, C-12a through C-12c,
 and L-01 slices ran their focused tests, `test assembleRelease`, and `:app:lintDebug` on
-2026-09-14 and 2026-09-15. Other statuses repeat a pass that `logs/DONE.txt` records, not a
+2026-09-14 and 2026-09-15. Other statuses repeat a pass that the slice commit records, not a
 new run.
 
 ## 1. How To Read This Page
@@ -23,7 +23,7 @@ Use one of these statuses.
 
 | Status | Meaning |
 | --- | --- |
-| Implemented, test verified | Source implements the exit condition. A named test covers it. `logs/DONE.txt` records a pass. |
+| Implemented, test verified | Source implements the exit condition. A named test covers it. The slice commit records a pass. |
 | Implemented, source verified | Source implements the exit condition. A test file exists or the behavior is clear. No focused run covers the full condition. |
 | Partially implemented | Source implements part of the exit condition. A named completion slice owns the rest. |
 | Not implemented | Source does not implement the exit condition. |

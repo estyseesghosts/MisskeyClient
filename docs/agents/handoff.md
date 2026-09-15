@@ -11,13 +11,13 @@ Read these in order. Treat the repository as the authority.
 2. `docs/agents/tasks/decomposition-01-02-completion.md`.
 3. `docs/agents/decomposition-01-02-acceptance-matrix.md`.
 4. `docs/agents/app-shell-ownership.md` and `docs/agents/protocol-and-session-ownership.md`.
-5. `logs/TODO.txt`, `logs/DONE.txt`, and `logs/BUGS.txt`.
+5. `logs/BUGS.txt`.
 6. `git status` and recent commits.
 
 ## Current Position
 
 - Completion slices C-01 through C-11 and C-12a through C-12d1 are committed. `L-01` is committed.
-- The last safe commit is `de09a28` (C-12d1 record commit). C-12d1 is `624678f`.
+- The last safe commit is `748a88f` (retire DONE/TODO logs). C-12d1 is `624678f`.
 - The next slice is **C-12d2, navigation state holder**. The task-state file holds its scope:
   move navigation state and guarded navigation functions into `ui/navigation/` with a
   unidirectional event contract, and keep safe navigation separate from session-bound

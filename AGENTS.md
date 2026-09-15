@@ -656,10 +656,9 @@ Read these items at the start of a session, after compaction, and when you are u
 - Rewrite the task-state file at each slice boundary.
 - Do not leave completed slices in the task-state file.
 
-- Append completed results to `logs/DONE.txt`.
-- Keep each result concise.
-- Record the related verification.
-- Record the related commit when useful.
+- Record completed results in the slice commit.
+- Record the related verification in the commit message when useful.
+- Do not maintain `logs/DONE.txt` or `logs/TODO.txt`. They are retired.
 
 - Record failures in `logs/BUGS.txt`.
 - Record unresolved concerns in `logs/BUGS.txt`.
@@ -721,7 +720,7 @@ Read these items at the start of a session, after compaction, and when you are u
 - Check maintenance status before you add a dependency.
 - Check Android version support before you add a dependency.
 - Check license compatibility before you add a dependency.
-- Record the reason for each new dependency in `logs/DONE.txt`.
+- Record the reason for each new dependency in the slice commit message.
 - Keep dependency scope as narrow as possible.
 - Do not add AppCompat.
 - Do not add Material 2.
