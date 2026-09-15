@@ -47,7 +47,7 @@ class ReplyComposerTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(
                         FeedState(

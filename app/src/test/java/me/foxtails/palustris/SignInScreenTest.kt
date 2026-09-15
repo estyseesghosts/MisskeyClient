@@ -47,7 +47,7 @@ class SignInScreenTest {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "a"), "A person", "@person@example.org")
         val post = Post(EntityId("https://example.org", "p"), account, "Text hidden by a content warning", System.currentTimeMillis(), Audience.Public, contentWarning = "Spoilers")
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
+            AppShellFixtures.app(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
         } }
         compose.onNodeWithText("Spoilers").assertIsDisplayed()
         compose.onNodeWithText(post.text).assertDoesNotExist()
@@ -69,7 +69,7 @@ class SignInScreenTest {
             attachments = listOf(Attachment("https://example.org/photo.jpg", "image/jpeg", "A photo", sensitive = true)),
         )
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
+            AppShellFixtures.app(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
         } }
 
         compose.onNodeWithText("Show sensitive media").assertIsDisplayed()
@@ -83,7 +83,7 @@ class SignInScreenTest {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
         var complete: ((OwnedPost) -> Unit)? = null
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(
+            AppShellFixtures.app(
                 account = account,
                 home = AppShellFixtures.home(FeedState(canPublish = true)),
                 draftsContract = AppShellFixtures.drafts(),
@@ -113,7 +113,7 @@ class SignInScreenTest {
     @Test fun publishingIsDisabledUntilCapabilityAllowsIt() {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(account = account, home = AppShellFixtures.home(FeedState()))
+            AppShellFixtures.app(account = account, home = AppShellFixtures.home(FeedState()))
         } }
 
         compose.onNodeWithContentDescription("Compose post").performClick()
@@ -128,7 +128,7 @@ class SignInScreenTest {
         var favoritedPost: OwnedPost? = null
         var resharedPost: OwnedPost? = null
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(
+            AppShellFixtures.app(
                 account = fetchingAccount,
                 home = AppShellFixtures.home(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.Favorite, PostAction.Reshare))),
                 postInteractions = AppShellFixtures.interactions(
@@ -152,7 +152,7 @@ class SignInScreenTest {
         val ownedPost = OwnedPost(account.id, post)
         var bookmarked = false
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(
+            AppShellFixtures.app(
                 account = account,
                 home = AppShellFixtures.home(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost))),
                 postInteractions = AppShellFixtures.interactions(
@@ -196,7 +196,7 @@ class SignInScreenTest {
         val currentFeed = mutableStateOf(firstFeed)
         var actionPost: OwnedPost? = null
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(
+            AppShellFixtures.app(
                 account = currentAccount.value,
                 home = AppShellFixtures.home(currentFeed.value),
                 postInteractions = AppShellFixtures.interactions(currentFeed.value, onRepost = { actionPost = it }),
@@ -232,7 +232,7 @@ class SignInScreenTest {
         var addRequested = false
         var switchedTo: AccountId? = null
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(
+            AppShellFixtures.app(
                 account = current,
                 accountSwitcher = AppShellFixtures.switcher(
                     accounts = listOf(AccountRef(current.id, current.handle, null, current.displayName), AccountRef(other.id, other.handle, null, other.displayName)),
@@ -260,7 +260,7 @@ class SignInScreenTest {
         val ownedPost = OwnedPost(account.id, post)
          var chosenReaction: String? = null
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(
+            AppShellFixtures.app(
                 account = account,
                 home = AppShellFixtures.home(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React))),
                 postInteractions = AppShellFixtures.interactions(
@@ -307,7 +307,7 @@ class SignInScreenTest {
         val post = Post(EntityId("https://example.org", "post"), account, "Post", System.currentTimeMillis(), Audience.Public)
         val ownedPost = OwnedPost(account.id, post)
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(
+            AppShellFixtures.app(
                 account = account,
                 home = AppShellFixtures.home(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React))),
                 postInteractions = AppShellFixtures.interactions(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost), actions = setOf(PostAction.React))),

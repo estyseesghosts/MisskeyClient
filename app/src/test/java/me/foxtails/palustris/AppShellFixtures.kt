@@ -29,12 +29,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import me.foxtails.palustris.ui.FeedState
 import me.foxtails.palustris.ui.NotificationsUiState
+import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
+import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.ComposerContract
+import me.foxtails.palustris.ui.shell.DirectMessagesContract
 import me.foxtails.palustris.ui.shell.DraftActions
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.DraftsContract
@@ -43,6 +46,8 @@ import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.SavedPostsUiState
 import me.foxtails.palustris.ui.shell.NotificationsContract
+import me.foxtails.palustris.ui.shell.NotificationSettingsContract
+import me.foxtails.palustris.ui.shell.PhotoGridContract
 import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.ProfileContract
 import me.foxtails.palustris.ui.shell.SearchContract
@@ -241,6 +246,52 @@ internal object AppShellFixtures {
                     .getSharedPreferences("local_draft", Context.MODE_PRIVATE)
             },
         ).asContract()
+    }
+
+    /** Test-only app assembly with explicit construction. Production offers no defaults. */
+    @Composable
+    fun app(
+        account: Account? = null,
+        sessionGeneration: Long = 0L,
+        sessionRevision: Long = 0L,
+        home: HomeContract? = null,
+        photoGrid: PhotoGridContract = PhotoGridContract.Empty,
+        profile: ProfileContract = ProfileContract.Empty,
+        accountSwitcher: AccountSwitcher = AccountSwitcher.Empty,
+        composer: ComposerContract = ComposerContract.Empty,
+        search: SearchContract = SearchContract.Empty,
+        postInteractions: PostInteractions = PostInteractions.Empty,
+        thread: ThreadContract = ThreadContract.Empty,
+        draftsContract: DraftsContract = DraftsContract.Empty,
+        emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
+        bookmarks: BookmarksContract = BookmarksContract.Empty,
+        likes: LikesContract = LikesContract.Empty,
+        notifications: NotificationsContract = NotificationsContract.Empty,
+        directMessages: DirectMessagesContract = DirectMessagesContract.Empty,
+        initialNotificationRoute: AppRoute? = null,
+        notificationSettings: NotificationSettingsContract = NotificationSettingsContract.Empty,
+    ) {
+        PalustrisApp(
+            account = account,
+            sessionGeneration = sessionGeneration,
+            sessionRevision = sessionRevision,
+            home = home,
+            photoGrid = photoGrid,
+            profile = profile,
+            accountSwitcher = accountSwitcher,
+            composer = composer,
+            search = search,
+            postInteractions = postInteractions,
+            thread = thread,
+            draftsContract = draftsContract,
+            emojiPresentation = emojiPresentation,
+            bookmarks = bookmarks,
+            likes = likes,
+            notifications = notifications,
+            directMessages = directMessages,
+            initialNotificationRoute = initialNotificationRoute,
+            notificationSettings = notificationSettings,
+        )
     }
 
     /** Test-only profile presentation with recorder hooks. Editor state is held locally. */

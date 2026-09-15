@@ -32,9 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.DraftStore
-import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
 import me.foxtails.palustris.data.notifications.NotificationStreamController
-import me.foxtails.palustris.data.preferences.InMemoryAppPreferencesRepository
 import me.foxtails.palustris.domain.AppPreferencesRepository
 import me.foxtails.palustris.domain.AppPreferencesState
 import me.foxtails.palustris.domain.PostPreferences
@@ -54,9 +52,9 @@ fun ConnectedApp(
     sourceRegistry: AccountSourceRegistry,
     draftStore: DraftStore,
     notificationLaunchRouter: NotificationLaunchRouter,
-    notificationStreamController: NotificationStreamController = NoOpNotificationStreamController(),
-    appPreferencesRepository: AppPreferencesRepository = InMemoryAppPreferencesRepository(),
-    postPreferencesRepository: PostPreferencesRepository = me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository(),
+    notificationStreamController: NotificationStreamController,
+    appPreferencesRepository: AppPreferencesRepository,
+    postPreferencesRepository: PostPreferencesRepository,
 ) {
     val state by accountManager.session.collectAsStateWithLifecycle()
     val accountIndex by accountManager.accountIndex.collectAsStateWithLifecycle()

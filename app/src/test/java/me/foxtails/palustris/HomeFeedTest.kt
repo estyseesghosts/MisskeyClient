@@ -62,7 +62,7 @@ private fun show(
     ) {
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(feedState),
                     search = AppShellFixtures.search(feedState),
@@ -155,7 +155,7 @@ private fun show(
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(feed),
                     search = AppShellFixtures.search(feed),
@@ -274,7 +274,7 @@ private fun show(
         val profileState = mutableStateOf(ProfileUiState())
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(FeedState(posts = listOf(Post(postId("profile"), author, "A visible post", 0, Audience.Public)))),
                     profile = AppShellFixtures.profile(
@@ -607,7 +607,7 @@ private fun show(
         val thread = ThreadTreeBuilder.build(ownedPost, descendants = listOf(OwnedPost(account.id, reply)))
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(FeedState(posts = listOf(post))),
                     thread = AppShellFixtures.thread(
@@ -644,7 +644,7 @@ private fun show(
         val thread = ThreadTreeBuilder.build(ownedPost, descendants = listOf(OwnedPost(account.id, reply)))
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(
                         FeedState(
@@ -831,7 +831,7 @@ private fun show(
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(feed),
                     search = AppShellFixtures.search(feed, onSearch = { searched = it }),
@@ -858,7 +858,7 @@ private fun show(
         val hashtags = (1..8).map { "#tag$it" }
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(
                         FeedState(
@@ -895,7 +895,7 @@ private fun show(
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(feed),
                     postInteractions = AppShellFixtures.interactions(feed, onReact = { _, choice -> selected = choice.submissionValue }),
@@ -928,7 +928,7 @@ private fun show(
         var selected: String? = null
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(
                         FeedState(
@@ -971,7 +971,7 @@ private fun show(
         var selected: String? = null
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(
                         FeedState(

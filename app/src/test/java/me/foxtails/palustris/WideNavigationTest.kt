@@ -51,7 +51,7 @@ class WideNavigationTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     @Before fun showShell() {
-        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp() } }
+        compose.activity.runOnUiThread { compose.activity.setContent { AppShellFixtures.app() } }
     }
 
     @After fun clearDraft() {
@@ -116,7 +116,7 @@ class WideNavigationTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(FeedState(posts = listOf(post))),
                     thread = AppShellFixtures.thread(

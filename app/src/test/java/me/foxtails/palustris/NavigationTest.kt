@@ -57,7 +57,7 @@ import kotlin.math.floor
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class NavigationTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
-    @Before fun previewShell() { compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp() } } }
+    @Before fun previewShell() { compose.activity.runOnUiThread { compose.activity.setContent { AppShellFixtures.app() } } }
 
     private val captureScreenshots = System.getProperty("beeline.captureScreenshots") == "true"
 
@@ -264,7 +264,7 @@ class NavigationTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
+                AppShellFixtures.app(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
             }
         }
         compose.waitForIdle()
@@ -363,7 +363,7 @@ class NavigationTest {
         val final = fixturePost("home-final", account, "Home final fixture")
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(
                         FeedState(
@@ -404,7 +404,7 @@ class NavigationTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(feed),
                     search = AppShellFixtures.search(feed),
@@ -438,7 +438,7 @@ class NavigationTest {
         }
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     notifications = AppShellFixtures.notifications(NotificationsUiState(items = notifications)),
                 )
@@ -475,7 +475,7 @@ class NavigationTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(account = account, profile = AppShellFixtures.profile(profileState))
+                AppShellFixtures.app(account = account, profile = AppShellFixtures.profile(profileState))
             }
         }
         compose.waitForIdle()
@@ -536,7 +536,7 @@ class NavigationTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = alice,
                     home = AppShellFixtures.home(FeedState(posts = listOf(post))),
                     profile = AppShellFixtures.profile(
@@ -594,7 +594,7 @@ class NavigationTest {
         val account = fixtureAccount("profile-actions")
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     profile = AppShellFixtures.profile(
                         ProfileUiState(
@@ -623,7 +623,7 @@ class NavigationTest {
         val account = fixtureAccount("profile-editor")
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     profile = AppShellFixtures.profile(
                         ProfileUiState(
@@ -651,7 +651,7 @@ class NavigationTest {
     @Test fun notificationSettingsUsesPullUpSheetAndBackClosesIt() {
         val account = fixtureAccount("notification-settings")
         compose.activity.runOnUiThread {
-            compose.activity.setContent { PalustrisApp(account = account) }
+            compose.activity.setContent { AppShellFixtures.app(account = account) }
         }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Notifications").performClick()
@@ -734,7 +734,7 @@ class NavigationTest {
         }
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(account = account, home = AppShellFixtures.home(FeedState(posts = posts)))
+                AppShellFixtures.app(account = account, home = AppShellFixtures.home(FeedState(posts = posts)))
             }
         }
         compose.waitForIdle()
@@ -767,14 +767,14 @@ class NavigationTest {
     @Test fun draftsSurviveActivityRecreationAndCanBeDeleted() {
         val account = fixtureAccount("draft-owner")
         val drafts = AppShellFixtures.drafts()
-        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account, draftsContract = drafts) } }
+        compose.activity.runOnUiThread { compose.activity.setContent { AppShellFixtures.app(account = account, draftsContract = drafts) } }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithContentDescription("Post text").performTextInput("A draft stored only on this device.")
         screenshot("compose")
         compose.onNodeWithText("Save draft").performClick()
         compose.activityRule.scenario.recreate()
-        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account, draftsContract = drafts) } }
+        compose.activity.runOnUiThread { compose.activity.setContent { AppShellFixtures.app(account = account, draftsContract = drafts) } }
         compose.onNodeWithContentDescription("Profile").performClick()
         compose.onNodeWithTag("profile_drafts_chip").performClick()
         compose.onNodeWithText("A draft stored only on this device.").assertIsDisplayed()
@@ -788,7 +788,7 @@ class NavigationTest {
 
     @Test fun closingComposerAutosavesUnsavedText() {
         val account = fixtureAccount("autosave-owner")
-        compose.activity.runOnUiThread { compose.activity.setContent { PalustrisApp(account = account, draftsContract = AppShellFixtures.drafts()) } }
+        compose.activity.runOnUiThread { compose.activity.setContent { AppShellFixtures.app(account = account, draftsContract = AppShellFixtures.drafts()) } }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithContentDescription("Post text").performTextInput("Unsaved")
@@ -837,7 +837,7 @@ class NavigationTest {
         val taggedPost = fixturePost("tagged-navigation", fixtureAccount(), "Body #photos #travel")
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(home = AppShellFixtures.home(FeedState(posts = listOf(taggedPost))))
+                AppShellFixtures.app(home = AppShellFixtures.home(FeedState(posts = listOf(taggedPost))))
             }
         }
         compose.waitForIdle()
@@ -855,7 +855,7 @@ class NavigationTest {
         val accountPost = fixturePost("account-navigation", fixtureAccount(), "Body @target@fixture.example")
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(home = AppShellFixtures.home(FeedState(posts = listOf(accountPost))))
+                AppShellFixtures.app(home = AppShellFixtures.home(FeedState(posts = listOf(accountPost))))
             }
         }
         compose.waitForIdle()
@@ -881,7 +881,7 @@ class NavigationTest {
             relationshipSupported = true,
         )
         compose.activity.runOnUiThread {
-            compose.activity.setContent { PalustrisApp(account = old, profile = AppShellFixtures.profile(state)) }
+            compose.activity.setContent { AppShellFixtures.app(account = old, profile = AppShellFixtures.profile(state)) }
         }
         compose.waitForIdle()
 
@@ -909,7 +909,7 @@ class NavigationTest {
         )
         var switchedTo: AccountId? = null
         compose.activity.runOnUiThread { compose.activity.setContent {
-            PalustrisApp(
+            AppShellFixtures.app(
                 account = current,
                 accountSwitcher = AppShellFixtures.switcher(
                     accounts = listOf(

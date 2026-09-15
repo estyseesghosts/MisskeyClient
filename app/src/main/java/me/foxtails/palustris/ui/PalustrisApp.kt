@@ -158,25 +158,25 @@ private const val NOTIFICATION_SETTINGS_OVERLAY_KEY = "NotificationSettings"
 
 @Composable
 fun PalustrisApp(
-    account: Account? = null,
-    sessionGeneration: Long = 0L,
-    sessionRevision: Long = 0L,
-     home: HomeContract? = null,
-    photoGrid: PhotoGridContract = PhotoGridContract.Empty,
-    profile: ProfileContract = ProfileContract.Empty,
-    accountSwitcher: AccountSwitcher = AccountSwitcher.Empty,
-    composer: ComposerContract = ComposerContract.Empty,
-    search: SearchContract = SearchContract.Empty,
-    postInteractions: PostInteractions = PostInteractions.Empty,
-    thread: ThreadContract = ThreadContract.Empty,
-    draftsContract: DraftsContract = DraftsContract.Empty,
-    emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
-    bookmarks: BookmarksContract = BookmarksContract.Empty,
-    likes: LikesContract = LikesContract.Empty,
-    notifications: NotificationsContract = NotificationsContract.Empty,
-    directMessages: DirectMessagesContract = DirectMessagesContract.Empty,
-    initialNotificationRoute: AppRoute? = null,
-    notificationSettings: NotificationSettingsContract = NotificationSettingsContract.Empty,
+    account: Account?,
+    sessionGeneration: Long,
+    sessionRevision: Long,
+    home: HomeContract?,
+    photoGrid: PhotoGridContract,
+    profile: ProfileContract,
+    accountSwitcher: AccountSwitcher,
+    composer: ComposerContract,
+    search: SearchContract,
+    postInteractions: PostInteractions,
+    thread: ThreadContract,
+    draftsContract: DraftsContract,
+    emojiPresentation: EmojiPresentation,
+    bookmarks: BookmarksContract,
+    likes: LikesContract,
+    notifications: NotificationsContract,
+    directMessages: DirectMessagesContract,
+    initialNotificationRoute: AppRoute?,
+    notificationSettings: NotificationSettingsContract,
 ) {
     val mediaTransitionRegistry = remember { MediaTransitionRegistry() }
     val repostConfirmationOwner = remember(account?.id, sessionGeneration, sessionRevision) { PostRepostConfirmationOwner() }
@@ -1414,4 +1414,26 @@ fun PalustrisApp(
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp,dpi=420")
 @Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun AppPreview() { PalustrisApp() }
+private fun AppPreview() {
+    PalustrisApp(
+        account = null,
+        sessionGeneration = 0L,
+        sessionRevision = 0L,
+        home = null,
+        photoGrid = PhotoGridContract.Empty,
+        profile = ProfileContract.Empty,
+        accountSwitcher = AccountSwitcher.Empty,
+        composer = ComposerContract.Empty,
+        search = SearchContract.Empty,
+        postInteractions = PostInteractions.Empty,
+        thread = ThreadContract.Empty,
+        draftsContract = DraftsContract.Empty,
+        emojiPresentation = EmojiPresentation.Empty,
+        bookmarks = BookmarksContract.Empty,
+        likes = LikesContract.Empty,
+        notifications = NotificationsContract.Empty,
+        directMessages = DirectMessagesContract.Empty,
+        initialNotificationRoute = null,
+        notificationSettings = NotificationSettingsContract.Empty,
+    )
+}

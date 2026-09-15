@@ -48,7 +48,7 @@ class ShellCharacterizationTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(feed),
                     postInteractions = AppShellFixtures.interactions(feed),
@@ -85,7 +85,7 @@ class ShellCharacterizationTest {
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                PalustrisApp(
+                AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(feed),
                     postInteractions = AppShellFixtures.interactions(feed),

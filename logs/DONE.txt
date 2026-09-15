@@ -923,3 +923,9 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Moved the feed model, Home, Search, and Photo Grid contracts, post-interaction actions, composer inputs, publish path, and projection sink from ConnectedSessionHost into ui/FeedHost.
 - The session host keeps source resolution, the projection coordinator, drafts, the post-action owner, and composer assembly from the narrow Feed bundle.
 - Verification passed: Home, Search restoration, Photo Grid, navigation, wide navigation, and feed request/reaction suites.
+
+260915-040000 Slice 01-H test construction:
+- Removed all default arguments from PalustrisApp and the unused defaults from ConnectedApp.
+- Added AppShellFixtures.app as the explicit test-only assembly; all 45 test call sites use it.
+- The @Preview passes explicit contracts and nulls.
+- Verification passed: navigation, sign-in, Search restoration, wide navigation, Home, reply composer, and shell characterization suites.

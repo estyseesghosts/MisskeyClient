@@ -22,7 +22,7 @@ class SearchPanelRestorationTest {
     @Test
     fun restoredPhotoGridModeRestoresItsNavigationIcon() {
         val restorationTester = StateRestorationTester(compose)
-        restorationTester.setContent { PalustrisApp() }
+        restorationTester.setContent { AppShellFixtures.app() }
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onNodeWithContentDescription("Photo grid").performClick()
 
