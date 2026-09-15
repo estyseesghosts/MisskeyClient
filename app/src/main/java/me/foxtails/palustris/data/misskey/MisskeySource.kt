@@ -100,6 +100,7 @@ class MisskeySource(
     }
 
     override suspend fun post(id: EntityId): Post = request {
+        validatePostId(id, "post")
         val response = api.post(origin, "notes/show", JSONObject().put("i", token).put("noteId", id.value))
         MisskeyMapper.post(JSONObject(response.body), origin)
     }
@@ -355,7 +356,8 @@ class MisskeySource(
         post.contentWarning?.let { body.put("cw", it) }
         post.replyTo?.let { body.put("replyId", it.value) }
         post.quoteOf?.let {
-            if (it.connection != origin) throw SourceError.Unsupported("create.quote-origin")
+            // The shared validator rejects a foreign origin and a blank value together.
+            validatePostId(it, "create.quote-origin")
             body.put("renoteId", it.value)
         }
         post.poll?.let { poll ->
@@ -547,6 +549,7 @@ class MisskeySource(
     }
 
     override suspend fun delete(id: EntityId) = request {
+        validatePostId(id, "delete")
         api.post(origin, "notes/delete", JSONObject().put("i", token).put("noteId", id.value))
         Unit
     }

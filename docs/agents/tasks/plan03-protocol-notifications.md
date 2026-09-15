@@ -76,13 +76,20 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | Slice | Scope | Exit | Status |
 | --- | --- | --- | --- |
 | R-01 | Rebase `docs/decomposition_3/03.md` against the completed boundaries. | Every rebase requirement is applied. Stale paths and commands are corrected. | implemented, source verified. |
+| 03-C | Close Misskey entity boundaries. Validate `post`, `delete`, and quote identities before network access. | Invalid or foreign identities reach no network request. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
 
+03-C verification: `MisskeyIntegrationTest` and `CrossCuttingTest` pass. Added
+`misskeyPostAndDeleteRejectForeignOriginsBeforeNetwork`,
+`misskeyPostAndDeleteRejectBlankValuesBeforeNetwork`, and
+`misskeyCreateRejectsForeignAndBlankQuoteBeforeNetwork`. `post` and `delete` now call
+`validatePostId`. Quote creation uses the same validator. Repost undo already validated.
+
 ## Current Slice
 
-03-C — Close Misskey entity boundaries for post and delete.
+03-A — Replace the Mastodon sentinel reaction probe.
 
 ## Required Verification
 

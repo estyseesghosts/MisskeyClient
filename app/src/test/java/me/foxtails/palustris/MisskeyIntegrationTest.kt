@@ -562,6 +562,45 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         }
     }
 
+    @Test fun misskeyPostAndDeleteRejectForeignOriginsBeforeNetwork() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val source = MisskeySource(origin, "test-token", MisskeyApi())
+            val foreign = EntityId("https://foreign.example", "note-1")
+
+            assertThrows(SourceError.ForeignOrigin::class.java) { runBlocking { source.post(foreign) } }
+            assertThrows(SourceError.ForeignOrigin::class.java) { runBlocking { source.delete(foreign) } }
+            assertEquals(0, server.requestCount)
+        }
+    }
+
+    @Test fun misskeyPostAndDeleteRejectBlankValuesBeforeNetwork() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val source = MisskeySource(origin, "test-token", MisskeyApi())
+            val blank = EntityId(origin, "   ")
+
+            assertThrows(SourceError.Unsupported::class.java) { runBlocking { source.post(blank) } }
+            assertThrows(SourceError.Unsupported::class.java) { runBlocking { source.delete(blank) } }
+            assertEquals(0, server.requestCount)
+        }
+    }
+
+    @Test fun misskeyCreateRejectsForeignAndBlankQuoteBeforeNetwork() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val source = MisskeySource(origin, "test-token", MisskeyApi(), initialCapabilities = ServerCapabilities(canPublish = true))
+
+            assertThrows(SourceError.ForeignOrigin::class.java) {
+                runBlocking { source.create(CreatePostRequest("text", quoteOf = EntityId("https://foreign.example", "quote"))) }
+            }
+            assertThrows(SourceError.Unsupported::class.java) {
+                runBlocking { source.create(CreatePostRequest("text", quoteOf = EntityId(origin, ""))) }
+            }
+            assertEquals(0, server.requestCount)
+        }
+    }
+
     @Test fun homeFeedUsesOuterRenoteCursorAndMapsSensitiveMediaAndQuotes() = runBlocking {
         MockWebServer().use { server ->
             val renote = """{"id":"outer-id","createdAt":"2026-09-06T11:00:00Z","user":$user,"text":null,"renote":${note("original-id")}}"""
