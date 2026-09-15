@@ -12,7 +12,7 @@
 `docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
 
 **Evidence:** source verified for every path in this page. Test files were inspected. The C-01, C-02,
-C-03, and C-04 slices ran their focused tests, `test assembleRelease`, and `:app:lintDebug` on
+C-03, C-04, and C-05 slices ran their focused tests, `test assembleRelease`, and `:app:lintDebug` on
 2026-09-14. Other statuses repeat a pass that `logs/DONE.txt` records, not a new run.
 
 ## 1. How To Read This Page
@@ -39,11 +39,11 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 | --- | --- | --- | --- | --- | --- |
 | 01-A | Tests protect the behavior being moved. Plan 02 failures stay separate. | `AppShellFixtures.kt`, `ShellCharacterizationTest.kt` | those tests | Implemented, test verified | — |
 | 01-B | One feature action change does not change unrelated contracts. | `ui/shell/*.kt` contracts | contract tests, `AppShellFixtures.kt` | Implemented, source verified | C-12 |
-| 01-C | No storage selection, repository call, or `SocialSource` remains in `PalustrisApp`. | `LocalPostActionOwner`; composer fields still in `PalustrisApp.kt` | `PalustrisApp.kt` 1439 lines | Partially implemented | C-05, C-06 |
+| 01-C | No storage selection, repository call, or `SocialSource` remains in `PalustrisApp`. | `LocalPostActionOwner`; composer fields moved to `ui/composer/ComposerOwner.kt` | `ComposerOwnerTest.kt`, `ReplyComposerTest.kt` | Implemented, test verified | — |
 | 01-D | One reviewed path owns fan-out. No duplicate listener, cycle, stale sink, or double increment. | `ui/shell/PostProjectionCoordinator.kt` | `PostProjectionCoordinatorTest.kt` | Partially implemented | C-07 |
 | 01-E | Recomposition does not construct replacement sources. Session replacement cannot invoke old owners. | `ui/session/ConnectedSessionContext.kt`, `ui/session/ConnectedEntryStore.kt`, `ConnectedSessionHost.kt`, `AccountManager.kt` | `ConnectedSessionContextTest.kt`, `ConnectedEntryStoreTest.kt`, `SessionViewModelTest.kt` | Implemented, test verified. | — |
 | 01-F | `ConnectedApp` composes root hosts. It does not write settings, assemble actions, or own fan-out. | `ui/ConnectedApp.kt` (156 lines), `SettingsOverlayHost`, `NotificationLaunchHost` | `SettingsViewModelTest.kt`, `NotificationLaunchRouterTest.kt` | Partially implemented | C-09, C-10 |
-| 01-G | `PalustrisApp` owns navigation and placement, not feature implementation. | navigation shell; composer fields remain | `NavigationTest.kt`, `WideNavigationTest.kt` | Partially implemented | C-05, C-12 |
+| 01-G | `PalustrisApp` owns navigation and placement, not feature implementation. | navigation shell; composer editor moved to `ui/composer/` | `NavigationTest.kt`, `WideNavigationTest.kt` | Partially implemented | C-12 |
 | 01-H | A new feature action needs no unrelated fixture change. Source, tests, and documentation agree. | `AppShellFixtures.app`; documentation was not reconciled | `AppShellFixtures.kt` | Partially implemented | C-12, C-14 |
 
 ### Source Notes
@@ -54,8 +54,12 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 - C-02 added `ui/session/ConnectedEntryStore.kt`. Feature hosts register their `stop` callback
   under a stable key. The store is activity-scoped, so it survives recreation. It retires a model
   on connected-lifetime change and on owner clear, not on composition disposal.
+- C-05 added `ui/composer/ComposerEditorState.kt`, `ui/composer/ComposerOwner.kt`, and
+  `ui/composer/ComposerHost.kt`. The owner holds editor fields, the dirty snapshot, the drafts list,
+  reply and quote restoration, and the publish flow. It publishes `ComposerNavigation` requests. The
+  shell places the overlay and keeps back precedence. C-06 still owns version-aware draft and publish
+  completion.
 - `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. An ordinary profile update can replace popup ownership.
-- `PalustrisApp.kt` still holds composer editor fields, audience, reply, quote, and draft action state.
 
 ## 3. Plan 02 Exit Conditions
 
@@ -97,9 +101,9 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | --- | --- | --- |
 | Connected identity | Closed by C-01. `AccountManager.connect` publishes one `ConnectedSessionContext`. | C-01 (implemented, test verified) |
 | Source ownership | Closed by C-01. `ConnectedSessionHost` reads the context source. The fallback is removed. | C-01 (implemented, test verified) |
-| ViewModel lifetime | Feature hosts stop activity-store models on composition disposal. | C-02 |
-| Composer | `PalustrisApp.kt` clears editor state without an editor-version check. | C-05, C-06 |
-| Draft callbacks | `DraftActions` has no request or session publication guard. | C-06 |
+| ViewModel lifetime | Closed by C-02. Feature hosts retire models through `ConnectedEntryStore`. | C-02 (implemented, test verified) |
+| Composer | Closed by C-05. The composer editor lives in `ui/composer/`. C-06 still owns version-aware completion. | C-05 (implemented, test verified), C-06 |
+| Draft callbacks | `ComposerOwner` saves and publishes without comparing the submitted editor version. | C-06 |
 | DM text | Closed by C-04. `DirectMessageViewModel` owns the composer text and revision. A failed send keeps the text. | C-04 (implemented, test verified) |
 | DM storage | Closed by C-03. `markRead` writes through `commitIfCurrent`. One lock owns activate, revoke, delete, and commit. | C-03 (implemented, test verified) |
 | Locale changes | `reconcilePlatformSelection` always imports a differing platform locale. | C-11 |

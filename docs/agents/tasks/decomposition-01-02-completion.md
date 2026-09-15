@@ -52,6 +52,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-02 | Step 3 | Repair ViewModel lifetime and route re-entry. Add an explicit connected-entry store and lifecycle owner. | Retired owners cannot publish. Re-entered features never receive stopped owners. | implemented, test verified. Commit `ffc9c3f`. |
 | C-03 | Step 4 | Complete DM durable write authority. Route `markRead` through `commitIfCurrent`. Keep network outside locks. | A retired session cannot mutate current DM storage. Removed rows stay deleted. | implemented, test verified. Commit `bfbd7ed`. |
 | C-04 | Step 5 | Give DM recovery text a feature owner. Add an editor revision. Clear only on accepted success. | A send failure cannot erase recoverable text. | implemented, test verified. Commit `cb6d024`. |
+| C-05 | Step 6 | Establish a composer editor owner. Move editor fields out of `PalustrisApp`. | `PalustrisApp` requests composer transitions. It does not implement editor state. | implemented, test verified. Commit recorded in the next documentation commit. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -77,11 +78,18 @@ stateless. It reads `state.editorText` and calls `onEditorTextChange`. The Send 
 clears the text. A send captures the text and revision. It clears the editor only after accepted
 success when the revision is unchanged. A failed send keeps the text.
 
+C-05 added `ui/composer/ComposerEditorState.kt`, `ui/composer/ComposerOwner.kt`, and
+`ui/composer/ComposerHost.kt`. The owner holds text, warning, audience, draft identity, the dirty
+snapshot, the drafts list, reply and quote restoration, draft value construction, save, delete, and
+publish. It publishes `ComposerNavigation` requests. The shell applies a request by placing the
+composer overlay. `PalustrisApp` no longer holds editor fields. It renders the editor from the owner
+and keeps overlay placement and back precedence. The editor state uses a saveable snapshot. A session
+replacement clears restored reply and quote targets.
+
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-05 | Step 6 | Establish a composer editor owner. Move editor fields out of `PalustrisApp`. | `PalustrisApp` requests composer transitions. It does not implement editor state. | pending |
 | C-06 | Step 7 | Make draft and publish completion version-aware. Separate the contract from storage. Bind to an account owner. | No late callback clears newer text, starts an obsolete publish, or recreates removed data. | pending |
 | C-07 | Step 8 | Stabilize post-action ownership and projection. Use typed families. Retire the coordinator with its entry. | Every surface receives the accepted action result once. Retired popups have no authority. | pending |
 | C-08 | Step 9 | Complete Home paging demand. Include filter identity and the request epoch. Count accepted pages. | Home reaches older visible content without unbounded automatic requests. | pending |
@@ -96,23 +104,21 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 ## Current Slice
 
-**C-05 — Establish a composer editor owner.**
+**C-06 — Make draft and publish completion version-aware.**
 
-Not started. Work from `progressreport.md` section 3 step 6. C-01 through C-04 are committed.
+Not started. Work from `progressreport.md` section 3 step 7. C-01 through C-05 are committed.
 
-## Files Involved For C-05
+## Files Involved For C-06
 
-- `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/shell/ComposerContract.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/composer/ComposerOwner.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/shell/DraftsContract.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/session/ConnectedSessionHost.kt`
+- `app/src/main/java/me/foxtails/palustris/data/auth/DraftStore.kt`
+- Production draft construction in `di/`
+- `app/src/main/java/me/foxtails/palustris/ui/AccountManager.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/FeedHost.kt`
-- Proposed `app/src/main/java/me/foxtails/palustris/ui/composer/ComposerEditorState.kt`
-- Proposed `app/src/main/java/me/foxtails/palustris/ui/composer/ComposerOwner.kt`
-- Proposed `app/src/main/java/me/foxtails/palustris/ui/composer/ComposerHost.kt`
-- Existing composer screen and sheet files
-- `app/src/test/java/me/foxtails/palustris/ReplyComposerTest.kt`
-- `app/src/test/java/me/foxtails/palustris/NavigationTest.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
+- `app/src/test/java/me/foxtails/palustris/DraftActionsTest.kt`
+- Proposed composer publication tests
 
 ## Required Verification
 
@@ -142,20 +148,31 @@ C-04 verification result: `DirectMessageViewModelTest`, `DirectMessageScreenTest
 `DirectMessageSourceTest`, and `DirectMessageRepositoryTest` passed. `test assembleRelease` passed.
 `:app:lintDebug` passed when run alone.
 
-Test these cases for C-04:
+C-05 verification result: `ComposerOwnerTest`, `ReplyComposerTest`, and `NavigationTest` passed.
+`test assembleRelease` passed. `:app:lintDebug` passed when run alone.
 
-- A failed send keeps its text for recovery. Covered by
-  `DirectMessageViewModelTest.failedSendPreservesEditorTextForRecovery`.
-- Text typed during an in-flight send survives accepted completion. Covered by
-  `newerTextTypedDuringSendSurvivesAcceptedCompletion`.
-- An accepted send clears unchanged text. Covered by
-  `acceptedSendClearsUnchangedEditorText`.
-- A selection change resets the editor and isolates new recipients. Covered by
-  `newRecipientDraftsStayIsolated`.
-- An accepted send cannot clear a replacement conversation's newer draft. Covered by
-  `staleSendCannotChangeReplacementConversation`.
-- The screen submits the owner text and clears nothing itself. Covered by
-  `DirectMessageScreenTest.conversationComposerSubmitsOwnedEditorText`.
+Test these cases for C-05:
+
+- Reply opens for the effective action target and records the reply target. Covered by
+  `ComposerOwnerTest.replyOpensForTheEffectiveActionTarget`.
+- A foreign-account post cannot open a reply. Covered by `replyRejectsAForeignAccountPost`.
+- A dirty editor blocks a reply request. Covered by `replyRejectsWhileTheEditorIsDirty`.
+- Quote records the quote target. Covered by `quoteSetsTheQuoteTarget`.
+- Draft restoration sets text, warning, and audience without dirty changes. Covered by
+  `draftRestoresTextWarningAndAudienceWithoutDirtyChanges`.
+- Save clears the dirty baseline only after success. Covered by
+  `saveClearsTheDirtyBaselineOnlyAfterSuccess`.
+- A failed save keeps the text for recovery. Covered by `failedSaveKeepsTheTextForRecovery`.
+- An unavailable audience is rejected before publish. Covered by
+  `publishRejectsAnUnavailableAudienceWithoutPublishing`.
+- Publish saves, then publishes, then clears on acceptance. Covered by
+  `publishSavesThenPublishesAndClearsOnAcceptance`.
+- A session replacement clears restored targets. Covered by `sessionReplacementClearsRestoredTargets`.
+- The composed reply flow still opens the composer. Covered by
+  `ReplyComposerTest.replyOpensComposerForTheEffectiveActionTarget`.
+
+Process-recreation restoration of the saveable editor snapshot is source verified only. No
+instrumented recreation test ran.
 
 The proposed `DirectMessageStoreInstrumentedTest.kt` from C-03 is not written. No device is
 reachable. The Room store deletion and late-write behavior stays device unverified.
@@ -173,4 +190,4 @@ reachable. The Room store deletion and late-write behavior stays device unverifi
 `cb6d024` "Own direct message editor text in the feature".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
-C-04 is committed at `cb6d024`. C-05 is the next slice.
+C-04 is committed at `cb6d024`. C-05 is committed before C-06 starts. C-06 is the next slice.

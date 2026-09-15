@@ -984,3 +984,13 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Verification passed: focused direct-message suites, test assembleRelease, and :app:lintDebug when run alone.
 - C-04 committed at cb6d024.
 - Unverified: device, live-server, signed release.
+
+260914-235439 Slice C-05 composer editor ownership:
+- Added ui/composer/ComposerEditorState.kt with a saveable editor snapshot. Added ui/composer/ComposerOwner.kt. Added ui/composer/ComposerHost.kt with rememberComposerOwner.
+- The owner holds text, warning, audience, draft identity, the dirty baseline, the drafts list, reply and quote restoration, draft value, save, delete, and publish. It publishes ComposerNavigation requests.
+- PalustrisApp keeps overlay placement and back precedence. It renders the editor from the owner and no longer holds editor fields. A navigation effect opens the composer overlay.
+- A session replacement clears restored reply and quote targets. The editor snapshot uses a Saver for process recreation.
+- Added ComposerOwnerTest with 10 cases: reply/quote validation, dirty gating, draft restoration, save success and failure, audience rejection, publish acceptance, and session replacement.
+- Verification passed: ComposerOwnerTest, ReplyComposerTest, NavigationTest, test assembleRelease, and :app:lintDebug when run alone.
+- Process-recreation restoration is source verified only. No instrumented recreation test ran.
+- Unverified: device, live-server, signed release.

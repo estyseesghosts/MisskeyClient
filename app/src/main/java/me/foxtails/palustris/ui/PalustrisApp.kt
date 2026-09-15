@@ -58,26 +58,17 @@ import kotlinx.coroutines.launch
 import me.foxtails.palustris.R
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.domain.Account
-import me.foxtails.palustris.domain.AccountId
-import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.CapabilityStatus
-import me.foxtails.palustris.domain.ServerCapabilities
-import me.foxtails.palustris.domain.Connection
-import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.EmojiChoice
-import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
-import me.foxtails.palustris.domain.PostDraft
-import me.foxtails.palustris.domain.PostDraftQuotePreview
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.Timeline
-import java.util.UUID
 import me.foxtails.palustris.ui.emoji.ComposerField
 import me.foxtails.palustris.ui.emoji.EmojiPickerHost
 import me.foxtails.palustris.ui.emoji.EmojiPickerTarget
@@ -99,6 +90,8 @@ import me.foxtails.palustris.ui.navigation.NavigationModeObserver
 import me.foxtails.palustris.ui.navigation.edgeSwipeDismiss
 import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
+import me.foxtails.palustris.ui.composer.ComposerOwnerContext
+import me.foxtails.palustris.ui.composer.rememberComposerOwner
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.ComposerContract
@@ -210,21 +203,6 @@ fun PalustrisApp(
     val searchPanel = SearchPanel.valueOf(searchPanelName)
     val notificationsPanel = NotificationsPanel.valueOf(notificationsPanelName)
     val screenStates = rememberSaveableStateHolder()
-    var drafts by remember { mutableStateOf<List<PostDraft>>(emptyList()) }
-    var draftId by rememberSaveable { mutableStateOf<String?>(null) }
-    var draft by rememberSaveable { mutableStateOf("") }
-    var savedDraft by rememberSaveable { mutableStateOf("") }
-    var warning by rememberSaveable { mutableStateOf("") }
-    var savedWarning by rememberSaveable { mutableStateOf("") }
-    var warningEnabled by rememberSaveable { mutableStateOf(false) }
-    var composerAudience by rememberSaveable { mutableStateOf(Audience.Public) }
-    var savedAudience by rememberSaveable { mutableStateOf(Audience.Public) }
-    var draftError by rememberSaveable { mutableStateOf<String?>(null) }
-    var savedQuoteOf by remember { mutableStateOf<String?>(null) }
-    var composerReplyTo by remember { mutableStateOf<EntityId?>(null) }
-    var savedReplyTo by remember { mutableStateOf<String?>(null) }
-    var composerQuoteOf by remember { mutableStateOf<EntityId?>(null) }
-    var composerTarget by remember { mutableStateOf<OwnedPost?>(null) }
     var viewedProfile by remember { mutableStateOf<Account?>(null) }
     var profileDialog by rememberSaveable { mutableStateOf(false) }
     var signOutDialog by remember { mutableStateOf(false) }
@@ -243,7 +221,6 @@ fun PalustrisApp(
     var pendingEmojiInsertion by remember { mutableStateOf<Pair<EmojiChoice, ComposerField>?>(null) }
     var navigationVisible by rememberSaveable { mutableStateOf(true) }
     var notificationRoute by remember { mutableStateOf<AppRoute?>(initialNotificationRoute) }
-    var closing by remember { mutableStateOf(false) }
     val motionScheme = LocalPalustrisMotionScheme.current
     val overlay = when (overlayKey) {
         COMPOSER_OVERLAY_KEY -> Overlay.Composer
@@ -259,11 +236,27 @@ fun PalustrisApp(
     val savedKind = bookmarks.state?.kind
     val savedTitle = savedCollectionTitle(savedKind)
     val notificationAccountIdentity = account?.id?.let { "${it.connection.origin}\u0000${it.localId}" } ?: "preview"
-    val hasDraftChanges = draft != savedDraft ||
-        (if (warningEnabled) warning else "") != savedWarning ||
-        composerQuoteOf?.value != savedQuoteOf ||
-        composerReplyTo?.value != savedReplyTo ||
-        composerAudience != savedAudience
+    val composerOwner = rememberComposerOwner(
+        context = ComposerOwnerContext(
+            account = account,
+            contract = composer,
+            canReply = PostAction.Reply in availableActions,
+            canQuote = quoteEnabled,
+            composerOpen = overlay == Overlay.Composer,
+            overlayOpen = overlay != null && overlay != Overlay.Composer,
+        ),
+        draftsContract = draftsContract,
+        sessionGeneration = sessionGeneration,
+        sessionRevision = sessionRevision,
+    )
+    val hasDraftChanges = composerOwner.hasChanges
+
+    LaunchedEffect(composerOwner.navigation) {
+        if (composerOwner.navigation != null) {
+            overlayKey = COMPOSER_OVERLAY_KEY
+            composerOwner.consumeNavigation()
+        }
+    }
 
     fun clearPostActionBubble() {
         postActionBubbleTarget = null
@@ -276,11 +269,6 @@ fun PalustrisApp(
         singlePostOrigin = LargePostOrigin.Other
     }
 
-    fun reloadDrafts() {
-        draftsContract.actions.load(account?.id) { result -> drafts = result }
-    }
-
-    LaunchedEffect(account?.id, draftsContract) { reloadDrafts() }
     LaunchedEffect(availableTimelines) { if (timeline !in availableTimelines) timeline = Timeline.Home }
     LaunchedEffect(home?.state?.selectedTimeline, account?.id) { home?.state?.selectedTimeline?.let { timeline = it } }
     LaunchedEffect(destination, page, overlayKey) { navigationVisible = true }
@@ -288,11 +276,6 @@ fun PalustrisApp(
         mediaTransitionRegistry.endActive()
         viewedProfile = null
         page = null
-        composerTarget = null
-        composerQuoteOf = null
-        savedQuoteOf = null
-        composerReplyTo = null
-        savedReplyTo = null
         mediaRequest = null
         clearSelectedPost()
         searchQuery = ""
@@ -350,166 +333,24 @@ fun PalustrisApp(
         }
     }
 
-    fun draftTarget(item: PostDraft): OwnedPost? {
-        val owner = account ?: return null
-        val targetId = item.quoteOf ?: return null
-        val preview = item.quotePreview ?: return null
-        if (item.accountId != owner.id || targetId.connection != owner.id.connection.origin) return null
-        val author = Account(
-            id = AccountId(Connection(targetId.connection, owner.id.connection.protocol), "draft-quote-author"),
-            displayName = preview.authorDisplayName.ifBlank { preview.authorHandle.ifBlank { "Quoted post" } },
-            handle = preview.authorHandle.ifBlank { "Quoted post" },
-        )
-        return OwnedPost(
-            owner.id,
-            Post(
-                id = targetId,
-                author = author,
-                text = preview.text,
-                publishedAtEpochMillis = 0L,
-                audience = Audience.Public,
-                url = preview.url,
-            ),
-        )
-    }
-
-    fun loadDraft(item: PostDraft) {
+    val handleReply: (OwnedPost) -> Unit = { target ->
         clearPostActionBubble()
-        draftId = item.id
-        draft = item.text
-        savedDraft = item.text
-        warning = item.contentWarning.orEmpty()
-        savedWarning = item.contentWarning.orEmpty()
-        warningEnabled = !item.contentWarning.isNullOrBlank()
-        composerAudience = item.audience
-        savedAudience = item.audience
-        composerQuoteOf = item.quoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
-        composerReplyTo = item.replyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
-        composerTarget = draftTarget(item)
-        savedQuoteOf = composerQuoteOf?.value
-        savedReplyTo = composerReplyTo?.value
-        draftError = null
-        overlayKey = COMPOSER_OVERLAY_KEY
+        composerOwner.requestReply(target)
+    }
+    val handleQuote: (OwnedPost) -> Unit = { target ->
+        clearPostActionBubble()
+        composerOwner.requestQuote(target)
     }
 
     fun openComposer() {
-        if (overlay == Overlay.Composer) return
         clearPostActionBubble()
-        val first = drafts.firstOrNull()
-        if (draft.isBlank() && savedDraft.isBlank() && first != null) {
-            loadDraft(first)
-        } else {
-            composerAudience = runCatching {
-                me.foxtails.palustris.domain.PostingVisibilityPolicy.forNewPost(
-                    postPreferences,
-                    ServerCapabilities(audiences = composer.availableAudiences),
-                )
-            }.getOrDefault(postPreferences.defaultAudience)
-            savedAudience = composerAudience
-            overlayKey = COMPOSER_OVERLAY_KEY
-        }
+        composerOwner.requestNew()
     }
 
-    fun openQuote(target: OwnedPost) {
-        val owner = account ?: return
-        if (target.fetchedBy != owner.id || !quoteEnabled) return
-        if (overlay != null || hasDraftChanges) return
-        clearPostActionBubble()
-        draftId = null
-        draft = ""
-        savedDraft = ""
-        warning = ""
-        savedWarning = ""
-        warningEnabled = false
-        composerAudience = runCatching {
-            me.foxtails.palustris.domain.PostingVisibilityPolicy.forReply(
-                postPreferences,
-                ServerCapabilities(audiences = composer.availableAudiences),
-                context = target.post.audience,
-            )
-        }.getOrDefault(target.post.audience)
-        savedAudience = composerAudience
-        composerTarget = target
-        composerQuoteOf = target.post.id
-        composerReplyTo = null
-        savedQuoteOf = null
-        savedReplyTo = null
-        draftError = null
-        overlayKey = COMPOSER_OVERLAY_KEY
+    fun closeComposer() {
+        if (composer.publishing || composerOwner.closing) return
+        if (hasDraftChanges) composerOwner.save { overlayKey = null } else overlayKey = null
     }
-
-    fun openReply(target: OwnedPost) {
-        val owner = account ?: return
-        if (target.fetchedBy != owner.id || PostAction.Reply !in availableActions) return
-        if (overlay != null || hasDraftChanges) return
-        clearPostActionBubble()
-        draftId = null
-        draft = ""
-        savedDraft = ""
-        warning = ""
-        savedWarning = ""
-        warningEnabled = false
-        composerAudience = runCatching {
-            me.foxtails.palustris.domain.PostingVisibilityPolicy.forReply(
-                postPreferences,
-                ServerCapabilities(audiences = composer.availableAudiences),
-                context = target.post.audience,
-            )
-        }.getOrDefault(target.post.audience)
-        savedAudience = composerAudience
-        composerTarget = target
-        composerQuoteOf = null
-        composerReplyTo = target.post.actionTargetId ?: target.post.id
-        savedQuoteOf = null
-        savedReplyTo = null
-        draftError = null
-        overlayKey = COMPOSER_OVERLAY_KEY
-    }
-
-    val handleReply: (OwnedPost) -> Unit = { target -> openReply(target) }
-
-    fun draftValue() = PostDraft(
-        id = draftId ?: UUID.randomUUID().toString(),
-        accountId = account?.id,
-        text = draft,
-        audience = composerAudience,
-        contentWarning = warning.takeIf { warningEnabled && it.isNotBlank() },
-        quoteOf = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin },
-        replyTo = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin },
-        quotePreview = composerTarget?.let { target ->
-            PostDraftQuotePreview(
-                authorDisplayName = target.post.author.displayName,
-                authorHandle = target.post.author.handle,
-                text = target.post.text,
-                url = target.post.url,
-            )
-        },
-    )
-
-    fun saveCurrentDraft(onSaved: () -> Unit = {}) {
-        if (draft.isBlank() && warning.isBlank() && composerQuoteOf == null && composerReplyTo == null) { onSaved(); return }
-        closing = true
-        draftsContract.actions.save(
-            draftValue(),
-            onResult = { item ->
-                draftId = item.id
-                savedDraft = item.text
-                savedWarning = item.contentWarning.orEmpty()
-                savedQuoteOf = item.quoteOf?.value
-                savedReplyTo = item.replyTo?.value
-                savedAudience = item.audience
-                draftError = null
-                reloadDrafts()
-                closing = false
-                onSaved()
-            },
-            onError = {
-                draftError = "Draft could not be saved. Keep editing and try again."
-                closing = false
-            },
-        )
-    }
-    fun closeComposer() { if (composer.publishing || closing) return; if (hasDraftChanges) saveCurrentDraft { overlayKey = null } else overlayKey = null }
     fun discardProfileEditor() {
         overlayKey = null
         profile.actions.closeEditor()
@@ -782,7 +623,7 @@ fun PalustrisApp(
                                  onReshare = onReshare,
                                  onBookmark = onBookmark,
                                  onReaction = onReaction,
-                                 onQuote = ::openQuote,
+                                 onQuote = handleQuote,
                                  quoteEnabled = quoteEnabled,
                                   onOpenReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onReaction) },
                                   sessionRevision = sessionRevision,
@@ -793,9 +634,9 @@ fun PalustrisApp(
                                  page = page,
                                  savedPostsState = bookmarks.state,
                                  likedPostsState = likes.state,
-                                 drafts = drafts,
-                                 onLoadDraft = ::loadDraft,
-                                 onDeleteDraft = { item -> draftsContract.actions.delete(account?.id, item.id) { reloadDrafts() } },
+                                 drafts = composerOwner.drafts,
+                                 onLoadDraft = { item -> clearPostActionBubble(); composerOwner.requestDraft(item) },
+                                 onDeleteDraft = { item -> composerOwner.deleteDraft(item) },
                                  onRefreshSavedPosts = bookmarks.actions::refresh,
                                  onLoadMoreSavedPosts = bookmarks.actions::loadMore,
                                  onUnsaveSavedPost = bookmarks.actions::remove,
@@ -839,7 +680,7 @@ fun PalustrisApp(
                                           onReaction = onReaction,
                                            onOpenReactionBubble = { ownedPost, bounds -> openReactionBubble(ownedPost, bounds, onReaction) },
                                            onOpenReactionPicker = ::expandReactionPicker,
-                                          onQuote = ::openQuote,
+                                          onQuote = handleQuote,
                                           onOpenProfile = ::openProfile,
                                           onSearchHashtag = ::openHashtagSearch,
                                           onOpenHashtagBubble = ::openHashtagBubble,
@@ -891,7 +732,7 @@ fun PalustrisApp(
                                                 },
                                                 onOpenReactionPicker = ::expandReactionPicker,
                                                quoteEnabled = quoteEnabled,
-                                               onQuote = ::openQuote,
+                                               onQuote = handleQuote,
                                                onSearchHashtag = ::openHashtagSearch,
                                                onOpenHashtagBubble = ::openHashtagBubble,
                                                onLoadMoreSearch = search.actions::loadMore,
@@ -1007,7 +848,7 @@ fun PalustrisApp(
                       onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
                       onOpenUsername = ::openAccountSearch,
                       quoteEnabled = quoteEnabled,
-                      onQuote = ::openQuote,
+                      onQuote = handleQuote,
                   )
                                }
                           }
@@ -1059,7 +900,7 @@ fun PalustrisApp(
                                  onThreadRefresh = thread.actions::refresh,
                                  onThreadContinue = thread.actions::continueAcquisition,
                                  quoteEnabled = quoteEnabled,
-                                 onQuote = ::openQuote,
+                                 onQuote = handleQuote,
                                  modifier = paneModifier,
                              )
                          },
@@ -1262,76 +1103,44 @@ fun PalustrisApp(
 
     if (overlay == Overlay.Composer) ComposerSheet(
         onDismiss = ::closeComposer,
-        onSaveDraft = { saveCurrentDraft { overlayKey = null } },
-        saveEnabled = draft.isNotBlank() || composerReplyTo != null,
-        closing = closing,
+        onSaveDraft = { composerOwner.save { overlayKey = null } },
+        saveEnabled = composerOwner.editor.text.isNotBlank() || composerOwner.isReply,
+        closing = composerOwner.closing,
     ) {
         ComposeScreen(
-            text = draft,
-            onTextChange = { draft = it },
-            warning = warning,
-            onWarningChange = { warning = it },
-            warningEnabled = warningEnabled,
-            onWarningEnabled = { warningEnabled = it },
+            text = composerOwner.editor.text,
+            onTextChange = composerOwner::setText,
+            warning = composerOwner.editor.warning,
+            onWarningChange = composerOwner::setWarning,
+            warningEnabled = composerOwner.editor.warningEnabled,
+            onWarningEnabled = composerOwner::setWarningEnabled,
             account = account,
-            audience = composerAudience,
+            audience = composerOwner.editor.audience,
             availableAudiences = composer.availableAudiences,
-            onAudienceChange = { composerAudience = it },
-            canPublish = composer.canPublish && (draftId == null || drafts.firstOrNull { it.id == draftId }?.accountId == account?.id),
+            onAudienceChange = composerOwner::setAudience,
+            canPublish = composerOwner.canPublish,
             publishing = composer.publishing,
-            error = composer.error ?: draftError,
-            quoteTarget = composerTarget,
-            isReply = composerReplyTo != null,
-            onRemoveQuote = { composerTarget = null; composerQuoteOf = null; composerReplyTo = null },
+            error = composer.error ?: composerOwner.editor.error,
+            quoteTarget = composerOwner.quoteTarget,
+            isReply = composerOwner.isReply,
+            onRemoveQuote = composerOwner::removeTargets,
             onRequestEmoji = { field -> emojiPickerTarget = EmojiPickerTarget.Composer(field) },
             pendingEmojiInsertion = pendingEmojiInsertion,
             onEmojiInsertionApplied = { pendingEmojiInsertion = null },
-            onCleanTrackingParameters = { draft = me.foxtails.palustris.domain.TrackingParameterCleaner.cleanText(draft) },
+            onCleanTrackingParameters = {
+                composerOwner.setText(
+                    me.foxtails.palustris.domain.TrackingParameterCleaner.cleanText(composerOwner.editor.text),
+                )
+            },
             onPublish = {
-                val submittedText = draft
-                val submittedWarning = warning.takeIf { warningEnabled && it.isNotBlank() }
-                val submittedQuote = composerQuoteOf?.takeIf { quote -> quote.connection == account?.id?.connection?.origin }
-                val submittedReply = composerReplyTo?.takeIf { reply -> reply.connection == account?.id?.connection?.origin }
-                val knownAudiences = composer.availableAudiences
-                val submittedAudience = if (knownAudiences.isEmpty()) composerAudience else runCatching {
-                    me.foxtails.palustris.domain.PostingVisibilityPolicy.validateExplicit(composerAudience, ServerCapabilities(audiences = knownAudiences))
-                }.getOrNull()
-                if (submittedAudience == null) {
-                    draftError = "This audience is not available on this server."
-                } else {
-                    val publishingAccountId = account?.id
-                    draftsContract.actions.save(
-                        draftValue(),
-                        onResult = { saved ->
-                            draftId = saved.id
-                            savedDraft = saved.text
-                            savedWarning = saved.contentWarning.orEmpty()
-                             composer.actions.publish(CreatePostRequest(submittedText, audience = submittedAudience, contentWarning = submittedWarning, replyTo = submittedReply, quoteOf = submittedQuote)) {
-                                 draftsContract.actions.delete(publishingAccountId, saved.id) { reloadDrafts() }
-                                 val message = when {
-                                     submittedReply != null -> replySentMessage
-                                     submittedQuote != null -> quoteSentMessage
-                                     else -> null
-                                 }
-                                 message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
-                                 draft = ""
-                                savedDraft = ""
-                                warning = ""
-                                savedWarning = ""
-                                warningEnabled = false
-                                draftId = null
-                                savedQuoteOf = null
-                                savedReplyTo = null
-                                composerAudience = Audience.Public
-                                savedAudience = Audience.Public
-                                composerReplyTo = null
-                                composerQuoteOf = null
-                                composerTarget = null
-                                overlayKey = null
-                            }
-                        },
-                        onError = { draftError = "Draft could not be saved. Keep the composer open and try again." },
-                    )
+                composerOwner.publish { replySent, quoteSent ->
+                    val message = when {
+                        replySent -> replySentMessage
+                        quoteSent -> quoteSentMessage
+                        else -> null
+                    }
+                    message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                    overlayKey = null
                 }
             },
         )

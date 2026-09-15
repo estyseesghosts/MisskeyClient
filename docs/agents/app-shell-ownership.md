@@ -2,7 +2,7 @@
 
 **Owner:** app-shell and feature-presentation maintainers.
 
-**Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through C-04
+**Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through C-05
 are implemented and test verified in the working tree. Other completion slices repair the remaining
 gaps.
 
@@ -52,8 +52,14 @@ surfaces share it, so one origin resolves to the same owner.
 commands. `NotificationLaunchHost` in `ui/notifications/` owns launch delivery.
 
 `PalustrisApp` owns navigation, adaptive layout, and surface placement. It accepts narrow feature
-contracts in `ui/shell/`. It also still holds composer editor state, audience, reply, quote, and
-draft action state. Completion slice C-05 moves that state to a composer owner.
+contracts in `ui/shell/`. It also still holds some shell assembly. Completion slice C-12 reduces that
+assembly.
+
+`ui/composer/ComposerOwner.kt` owns the composer editor for one connected account. It holds text,
+warning, audience, the dirty snapshot, the drafts list, reply and quote restoration, and the publish
+flow. It publishes `ComposerNavigation` requests. `PalustrisApp` applies a request by placing the
+composer overlay. The shell keeps overlay placement and back precedence. The editor state uses a
+saveable snapshot. A session replacement clears restored reply and quote targets.
 
 Test code binds test-only recorders in `app/src/test/java/me/foxtails/palustris/AppShellFixtures.kt`.
 
@@ -69,7 +75,7 @@ Test code binds test-only recorders in `app/src/test/java/me/foxtails/palustris/
 | `ProfileContract` | `ProfileViewModel` | Target, categories, relationship, editor | Open, category, paging, follow, react, editor |
 | `ThreadContract` | `PostThreadViewModel` | Selected thread | Activate, deactivate, paging, mutations |
 | `PhotoGridContract` | Photo Grid `FeedViewModel` | Independent Photo Grid feed | Load, select, refresh, paging, hashtag, error |
-| `ComposerContract` | composer owner (proposed) | Fields, audience, reply, quote | Publish |
+| `ComposerContract` | `ui/composer/ComposerOwner.kt` | Editor fields, dirty snapshot, drafts, reply, quote | Update editor, save, delete draft, publish |
 | `DraftsContract` | account draft store | Saved drafts for the active account | Load, save, delete |
 
 `ui/shell/PostProjectionCoordinator` is the single fan-out owner for normalized post updates and
@@ -84,9 +90,9 @@ Completion slices close these gaps. The acceptance matrix records the status.
 | Gap | Source evidence | Completion slice |
 | --- | --- | --- |
 | Post-action ownership | `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. A profile update can replace popup ownership. | C-07 |
-| Composer editor state | `PalustrisApp.kt` holds editor fields, audience, reply, quote, and draft actions. | C-05, C-06 |
+| Composer completion | `ComposerOwner` saves and publishes without comparing the submitted editor version. A late save can publish an obsolete version. | C-06 |
 | Projection retirement | `PostProjectionCoordinator` has account and revision checks. It has no explicit retired state or accepted-publication identity. | C-07 |
-| Shell assembly | `PalustrisApp.kt` owns navigation and still holds feature state. | C-12 |
+| Shell assembly | `PalustrisApp.kt` owns navigation and still holds some shell assembly. | C-12 |
 | Test isolation | Small feature scenarios still construct the full shell. | C-12 |
 
 ## Removed In The Migration
@@ -114,6 +120,8 @@ Completion slices close these gaps. The acceptance matrix records the status.
   revoked writer cannot mutate current DM storage. Network requests stay outside the lock.
 - The direct-message composer text stays with the direct-message feature owner. A screen does not
   hold it and does not clear it on Send.
+- The composer editor stays with the composer feature owner. The shell requests transitions and
+  places the overlay. It does not hold editor fields.
 - Photo Grid keeps independent feed state and selection from Home.
 - Active-account and selected-account notification settings stay distinct.
 - Every source-backed feature receives values from one accepted connected lifetime.
