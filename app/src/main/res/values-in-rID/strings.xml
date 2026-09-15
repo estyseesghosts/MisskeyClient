@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_home">Beranda</string>
+    <string name="nav_search">Pencarian</string>
+    <string name="nav_notifications">Notifikasi</string>
+    <string name="nav_profile">Profil</string>
+    <string name="nav_photo_grid">Foto</string>
+    <string name="nav_direct_messages">Pesan pribadi</string>
+    <string name="nav_switch_account">Ganti akun</string>
+    <string name="nav_compose">Tulis postingan</string>
+    <string name="action_cancel">Batal</string>
+    <string name="action_submit">Kirim</string>
+    <string name="common_refresh">Muat ulang</string>
+    <string name="settings_title">Pengaturan</string>
+    <string name="language_system_default">Bahasa sistem</string>
+    <string name="language_system_default_description">Ikuti bahasa perangkat</string>
+</resources>

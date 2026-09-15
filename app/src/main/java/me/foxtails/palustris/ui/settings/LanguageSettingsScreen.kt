@@ -63,4 +63,6 @@ private fun AppLanguage.label(): String = when (this) {
     AppLanguage.Chinese -> "中文"
     AppLanguage.ChineseMainland -> "简体中文（中国大陆）"
     AppLanguage.ChineseTaiwan -> "繁體中文（臺灣）"
+    AppLanguage.Russian -> "Русский"
+    AppLanguage.Indonesian -> "Bahasa Indonesia"
 }

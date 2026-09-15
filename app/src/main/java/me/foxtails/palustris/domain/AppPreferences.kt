@@ -74,6 +74,8 @@ enum class AppLanguage(val tag: String?) {
     Chinese("zh"),
     ChineseMainland("zh-CN"),
     ChineseTaiwan("zh-TW"),
+    Russian("ru"),
+    Indonesian("in-ID"),
     ;
 
     companion object {

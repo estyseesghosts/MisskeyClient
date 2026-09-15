@@ -83,7 +83,7 @@ class LocalizationResourceTest {
             configTags,
         )
         assertEquals(AppLanguage.SystemDefault.tag, null)
-        assertEquals("System default is a policy choice, not an XML locale", 15, configTags.size)
+        assertEquals("System default is a policy choice, not an XML locale", 17, configTags.size)
     }
 
     @Test
@@ -186,6 +186,8 @@ class LocalizationResourceTest {
         "values-zh" -> "zh"
         "values-zh-rCN" -> "zh-CN"
         "values-zh-rTW" -> "zh-TW"
+        "values-ru" -> "ru"
+        "values-in-rID" -> "in-ID"
         else -> null
     }
 

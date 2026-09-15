@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_home">Главная</string>
+    <string name="nav_search">Поиск</string>
+    <string name="nav_notifications">Уведомления</string>
+    <string name="nav_profile">Профиль</string>
+    <string name="nav_photo_grid">Фотографии</string>
+    <string name="nav_direct_messages">Личные сообщения</string>
+    <string name="nav_switch_account">Сменить аккаунт</string>
+    <string name="nav_compose">Написать пост</string>
+    <string name="action_cancel">Отмена</string>
+    <string name="action_submit">Отправить</string>
+    <string name="common_refresh">Обновить</string>
+    <string name="settings_title">Настройки</string>
+    <string name="language_system_default">Системный язык</string>
+    <string name="language_system_default_description">Использовать язык устройства</string>
+</resources>

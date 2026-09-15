@@ -72,6 +72,8 @@ class AppLocaleControllerTest {
             "zh" to AppLanguage.Chinese,
             "zh-CN" to AppLanguage.ChineseMainland,
             "zh-TW" to AppLanguage.ChineseTaiwan,
+            "ru" to AppLanguage.Russian,
+            "in-ID" to AppLanguage.Indonesian,
         )
         tags.forEach { (tag, language) ->
             assertEquals(tag, language.tag)
@@ -184,6 +186,8 @@ class AppLocaleControllerTest {
             "values-zh" to "zh",
             "values-zh-rCN" to "zh-CN",
             "values-zh-rTW" to "zh-TW",
+            "values-ru" to "ru",
+            "values-in-rID" to "in-ID",
         )
         AppLanguage.entries.filter { it.tag != null }.forEach { language ->
             val localized = AppLocaleController.localizedContext(context, language)

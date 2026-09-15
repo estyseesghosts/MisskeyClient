@@ -284,7 +284,8 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 - Live-server behavior stays unverified.
 - Signed-release behavior stays unverified.
 - The Android 15 system-bar instrumentation failure remains in `logs/BUGS.txt`.
-- `ru-RU` and `in-ID` localization stays blocked without code changes.
+- `ru-RU` and `in-ID` localization is unblocked by slice L-01. Russian and Indonesian are
+  selectable with confident navigation subsets. Full catalog translation stays open.
 
 ## Last Safe Commit
 

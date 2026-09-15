@@ -1042,3 +1042,12 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - C-07 committed at 0027b60.
 - Unverified: device, live-server, signed release.
 
+260915-010000 Slice L-01 Russian and Indonesian locales:
+- Added AppLanguage Russian (ru) and Indonesian (in-ID) with settings labels, values-ru and values-in-rID string files, and locales_config entries.
+- Each new catalog holds a confident navigation and action subset of 14 strings. Uncertain long-form strings stay on English fallback.
+- Updated the LocalizationResourceTest directory mapping and count, the AppLocaleControllerTest tag and resolution mappings, and the LanguageSettingsScreenTest label list.
+- Verification passed: LocalizationResourceTest, AppLocaleControllerTest, LanguageSettingsScreenTest, test assembleRelease, and :app:lintDebug when run alone.
+- Resolves the ru-RU and in-ID block in logs/BUGS.txt. Full catalog translation stays open.
+- L-01 committed at PENDING.
+- Unverified: device rendering, live-server, signed release.
+
