@@ -52,7 +52,15 @@ class EmojiCatalogViewModel @AssistedInject constructor(
     fun loadIfNeeded() {
         if (stopped || loadJob?.isActive == true || _state.value.unsupported) return
         loadJob = viewModelScope.launch {
-            val cached = runCatching { repository.read(accountId) }.getOrNull()
+            // Cancellation stays cancellation: a stopped load must not fall through
+            // to a refresh after its cached read is cancelled.
+            val cached = try {
+                repository.read(accountId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
             if (cached != null) publishSnapshot(cached, refreshed = false)
             if (cached != null && isFresh(cached)) return@launch
             refreshInternal(cached != null)

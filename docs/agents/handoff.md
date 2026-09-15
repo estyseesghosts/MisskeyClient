@@ -21,9 +21,9 @@ Read these in order. Treat the repository as the authority.
 - The last safe commit is `f6c1725` (C-15 record commit). C-15 is `b2b143c`.
 - Plan 01 and Plan 02 exit conditions are met. Every acceptance row is implemented and
   test verified. Device, live-server, and signed-release behavior stay unverified.
-- No next slice. The dead scaffolding is removed. The remaining open item is the
-  `EmojiCatalogViewModel` cancellation finding in `logs/BUGS.txt`, owned by a future
-  slice outside Plan 01/02.
+- No next slice. The dead scaffolding is removed. The `EmojiCatalogViewModel`
+  cancellation finding is resolved: `loadIfNeeded` rethrows before its fallback,
+  with a regression test. See `logs/BUGS.txt`.
 - `test assembleRelease` and `:app:lintDebug` pass at the C-15 behavior commit.
 
 ## Next Cleanup
