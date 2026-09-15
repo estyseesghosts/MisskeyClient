@@ -175,7 +175,7 @@ These items are not part of the 01/02 completion. Plan 03 or Plan 04 owns each o
 | Mastodon runtime downgrade on bare 404 | Plan 03, chunk 03-B |
 | Misskey foreign-origin entity validation | Plan 03, chunk 03-C (implemented, test verified) |
 | Notification codec extraction and fixtures | Plan 03, chunks 03-D, 03-E |
-| Notification corruption recovery and schema policy | Plan 03, chunks 03-F, 03-G, 03-H |
+| Notification corruption recovery and schema policy | Plan 03, chunks 03-F, 03-G, 03-H. Chunk 03-F is implemented and test verified (including future-format refusal, account-local reset, and Room schema history). Chunks 03-G and 03-H remain. |
 | Notification visibility persistence | Plan 03, chunk 03-I |
 | External-link ownership | Plan 04, chunk 04-A |
 | Unicode default data extraction | Plan 04, chunk 04-B |

@@ -28,14 +28,15 @@ Read these in order. Treat the repository as the authority.
   at `e40ef87`. Slice `03-A2` is committed at `c6bd9ff`. Slice `03-D2` is committed at
   `0e0d8c4`. Slice `03-D3` is committed at `5d1f8b2`. Slice `03-E` is committed at `861e457`.
   Slice `03-F1` is committed at `f33607e`. Slice `03-F2` is committed at `15ba26b`. Slice
-  `03-F3` is committed at `9dac59b` and test verified. The last safe commit is `9dac59b`.
+  `03-F3` is committed at `9dac59b`. Slice `03-F4` is committed at `d3e1323` and test verified.
+  The last safe commit is `d3e1323`.
 - The maintainer approved the 03-F reset behavior and the 03-I visibility migration on
   2026-09-15. The accepted policy is development-only discard: do not migrate old notification
   data. Discard unreadable or incompatible local state and require reauthentication when needed.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-F4` (combined reset, future-format, and schema-history). `03-G`, `03-H`,
-  `03-I`, and `03-J` follow. 03-F and 03-I are approved to code.
+- Next slice: `03-G` (make write failures explicit). `03-H`, `03-I`, and `03-J` follow. 03-F is
+  complete. 03-I is approved to code.
 - Unrelated documentation and archive changes appeared in the worktree during 03-E. They are
   not part of any committed Plan 03 slice and were left untouched.
 
@@ -81,6 +82,15 @@ Read these in order. Treat the repository as the authority.
   writes. The inbox and settings surfaces show the failure and an explicit retry. Verification:
   `NotificationStorageRecoveryTest` (5 tests), the focused notification suites, then
   `test assembleRelease` and `:app:lintDebug`.
+- 03-F4 future-format refusal, account-local reset, and Room schema history.
+  `NotificationStoreRead` and `NotificationStorageHealth` add `Unsupported`. Both stores keep a
+  newer-format payload untouched and block writes. `NotificationRepository.reset` advances the
+  account generation and writes an empty readable state so the legacy importer does not reimport.
+  The settings surface adds a confirmed reset action. `NotificationDatabase` exports schema history
+  to `app/schemas`. Verification: `NotificationDatabaseSchemaTest` (4 tests),
+  `NotificationSettingsStorageResetTest` (2 tests), `NotificationJsonCodecTest` (46 tests),
+  `NotificationRoomStoreFixtureTest` (7 tests), `NotificationStorageRecoveryTest` (9 tests), the
+  related notification suites, then `test assembleRelease` and `:app:lintDebug`.
 - Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 
 ## Process Rules

@@ -143,23 +143,37 @@ delivery-claim behavior. It keeps no JSON conversion helper. Both `FileNotificat
 `RoomNotificationStore` use the same internal `encode` and `decode` boundary.
 
 `NotificationStore.read` returns `NotificationStoreRead`. The variants are `Absent`,
-`Readable`, `Corrupt`, and `Unavailable`. A corrupt read never carries stored bytes. A
-malformed row is corrupt, not unavailable. A database or disk failure is unavailable.
+`Readable`, `Corrupt`, `Unsupported`, and `Unavailable`. A corrupt read never carries stored
+bytes. A malformed row is corrupt, not unavailable. A database or disk failure is unavailable.
+A version above `CURRENT_NOTIFICATION_STATE_VERSION` is unsupported, not corrupt.
 `NotificationRepositoryState.hasReceivingAccount` validates the receiving-account fields
 before a read becomes Readable. Only receiving-account fields participate. Remote actors,
 post authors, and public URLs do not.
 
 `NotificationRepository.observeStorageHealth` publishes one `NotificationStorageHealth` value
-for each account. The variants are `Healthy`, `Recoverable`, and `Unavailable`. Health stays
-outside the stored version-2 payload. A non-healthy account blocks page ingestion, baseline
-replacement, local mutations, delivery claims and finishing, settings writes, and push
+for each account. The variants are `Healthy`, `Recoverable`, `Unsupported`, and `Unavailable`.
+Health stays outside the stored version-2 payload. A non-healthy account blocks page ingestion,
+baseline replacement, local mutations, delivery claims and finishing, settings writes, and push
 registration writes. `pendingDeliveries` and `pushRegistration` return nothing for a blocked
 account. `NotificationRepository.retry` re-reads storage. It replaces the empty in-memory state
 only after a readable load and leaves the original bytes untouched on another failure. A healthy
-account returns immediately, so a normal refresh never replaces committed state. The inbox
-surfaces the failure through `NotificationsUiState.storageUnavailable`, and the settings
-presentation surfaces it through `NotificationSettingsUiState.storageUnavailable` so it never
-shows unconfirmed defaults. Slice 03-F4 adds reset, future-format refusal, and schema history.
+account returns immediately, so a normal refresh never replaces committed state. A retry cannot
+clear an unsupported future format, because the format stays newer. The inbox surfaces the
+failure through `NotificationsUiState.storageUnavailable`, and the settings presentation
+surfaces it through `NotificationSettingsUiState.storageUnavailable` so it never shows
+unconfirmed defaults.
+
+`NotificationRepository.reset` is the approved destructive recovery. It advances the account
+generation first, writes an empty readable state, clears the in-memory state, and sets health
+`Healthy`. Writing the empty state prevents legacy reimport, clears stored settings, dismissals,
+and delivery history, and lets the next page run as a baseline without alerts. Only
+notification-local state changes. Authentication secrets and other accounts are untouched. The
+approved policy is development-only discard: do not migrate old notification data.
+
+`NotificationDatabase` exports its schema to `app/schemas`. Reproducible schema history exists
+before any future migration. The registered `1` to `2` migration stays defensive because no
+version-1 Room schema was ever released. Do not build a version-1 schema from the current
+annotations.
 
 ## Direct-Message Write Authority
 

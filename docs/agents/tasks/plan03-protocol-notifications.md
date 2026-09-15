@@ -98,6 +98,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-F1 | Add a typed store read result that separates absent, readable, corrupt, and unavailable. | Every store read returns one of the four variants. The repository behavior stays unchanged. | implemented, test verified. |
 | 03-F2 | Validate the receiving-account ownership of decoded state. | A foreign notification, group, delivery, checkpoint, push, or dismissal origin is Corrupt. Remote actors and public URLs stay valid. | implemented, test verified. |
 | 03-F3 | Add the recoverable storage health, the write, delivery, and push block, the unavailable settings state, and the retry path. | A blocked account keeps its original bytes and blocks every mutation. A retry recovers only after a readable load. Healthy accounts continue normally. | implemented, test verified. |
+| 03-F4 | Refuse newer stored formats, add the approved account-local reset, and record Room schema history. | A newer-format payload stays untouched and blocks writes. Reset revokes the old generation, clears only notification-local state, and prevents legacy reimport. The exported schema is committed and guarded by a test. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -215,9 +216,21 @@ focused notification suites, then `test assembleRelease` and `:app:lintDebug`. `
 and `:app:lintDebug` pass. `MediaViewerScreenTest` failed once under concurrent build load and
 passed on rerun, matching the 03-F1 note.
 
+03-F4 verification: `NotificationStoreRead` adds the `Unsupported` variant and
+`NotificationStorageHealth` adds the `Unsupported` variant. `CURRENT_NOTIFICATION_STATE_VERSION` is
+`2`, and `JSONObject.isFutureNotificationStateVersion` refuses a version above the current one.
+Both stores keep the original bytes for a future version. `NotificationRepository.reset` advances the
+account generation, writes an empty readable state, clears the in-memory state, and sets health
+`Healthy`. The settings surface adds a confirmed reset action behind `notifications_storage_reset`.
+`NotificationDatabase` exports its schema to `app/schemas`. `NotificationJsonCodecTest`,
+`NotificationRoomStoreFixtureTest`, `NotificationStorageRecoveryTest`,
+`NotificationDatabaseSchemaTest`, and `NotificationSettingsStorageResetTest` pass with the related
+notification suites, then `test assembleRelease` and `:app:lintDebug`. The `1` to `2` Room migration
+stays defensive because no version-1 schema was ever released.
+
 ## Current Slice
 
-03-F4 — The combined reset, future-format refusal, and schema-history slice. 03-F3 is complete.
+03-G — Make write failures explicit. 03-F4 is complete.
 
 ## Required Verification
 
@@ -242,8 +255,8 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`9dac59b` "Block notification writes for corrupt or unavailable storage".
+`d3e1323` "Refuse newer notification formats, add reset, and export Room schema".
 
-03-F1, 03-F2, and 03-F3 are closed. 03-F2 is committed at `15ba26b`. 03-F3 is committed at
-`9dac59b` and test verified. The next slice is 03-F4. Commit every green slice as soon as its
-tests pass.
+03-F1, 03-F2, 03-F3, and 03-F4 are closed. 03-F2 is committed at `15ba26b`. 03-F3 is committed
+at `9dac59b`. 03-F4 is committed at `d3e1323` and test verified. The next slice is 03-G. Commit
+every green slice as soon as its tests pass.
