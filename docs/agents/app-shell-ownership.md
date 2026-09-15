@@ -64,6 +64,10 @@ edge-swipe conditions through the policy. Completion slice C-12c reduces the rem
 post-action bubble, the emoji picker target, the media and profile-image requests, and the dialog
 flags. Slice S1a. The shell reads the holder and keeps navigation, placement, and session-bound
 validation. Only the profile dialog flag survives process recreation.
+`ui/shell/ShellDestinationContent.kt` renders the destination scaffold with its animated
+branches: notification detail, local pages, Home, search with Photo Grid, notifications, and
+profile. Slice S1b. It owns no state. Saveable holders and scroll states stay with the shell
+and pass through unchanged.
 
 `ui/composer/ComposerOwner.kt` owns the composer editor for one connected account. It holds text,
 warning, audience, the dirty snapshot, the drafts list, reply and quote restoration, and the publish

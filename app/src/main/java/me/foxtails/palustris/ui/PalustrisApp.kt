@@ -39,7 +39,6 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -51,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
-import me.foxtails.palustris.R
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.CapabilityStatus
@@ -67,12 +65,10 @@ import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.emoji.EmojiPickerHost
 import me.foxtails.palustris.ui.emoji.EmojiPickerTarget
 import me.foxtails.palustris.ui.navigation.AppRoute
-import me.foxtails.palustris.ui.notifications.NotificationRouteResolver
 import me.foxtails.palustris.ui.notifications.NotificationSettingsScreen
 import me.foxtails.palustris.ui.notifications.NotificationSettingsSheet
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.ui.profile.ProfileCategory
-import me.foxtails.palustris.ui.profile.ProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.profile.editableProfilePatch
 import me.foxtails.palustris.ui.media.MediaViewerScreen
@@ -103,22 +99,18 @@ import me.foxtails.palustris.ui.shell.PhotoGridContract
 import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.ProfileContract
 import me.foxtails.palustris.ui.shell.SearchContract
+import me.foxtails.palustris.ui.shell.ShellDestinationContent
 import me.foxtails.palustris.ui.shell.ThreadContract
 import me.foxtails.palustris.ui.shell.rememberShellOverlayPresenter
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
-import me.foxtails.palustris.ui.motion.AnimatedStatePane
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
-import me.foxtails.palustris.ui.motion.SpringAnimatedContent
 import me.foxtails.palustris.ui.motion.compactFloatingEnter
 import me.foxtails.palustris.ui.motion.compactFloatingExit
 import me.foxtails.palustris.ui.motion.rememberSelectedColor
 import me.foxtails.palustris.ui.motion.rememberSelectedScale
 import me.foxtails.palustris.ui.motion.springPress
-import me.foxtails.palustris.ui.large.LargeBottomDockClearance
-import me.foxtails.palustris.ui.large.LargeBottomDock
 import me.foxtails.palustris.ui.large.LargeScreenShell
-import me.foxtails.palustris.ui.large.LargeTimelineDockContent
 import me.foxtails.palustris.ui.large.largeLayoutMode
 import me.foxtails.palustris.ui.large.LargeLayoutMode
 import me.foxtails.palustris.ui.thread.PostThreadUiState
@@ -389,288 +381,6 @@ fun PalustrisApp(
             ),
         ) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                @Composable
-                fun destinationScaffold(paneModifier: Modifier) {
-                Scaffold(
-                    modifier = paneModifier.fillMaxSize(),
-                    // Compact page bodies receive top/horizontal system insets only.
-                    // Content must measure through the floating assembly; scrollables
-                    // add end clearance inside their scroll range instead.
-                    contentWindowInsets = when {
-                        navigator.page == null && navigator.notificationRoute == null && navigator.destination == Destination.Profile ->
-                            WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
-                        !largePresentation && navigator.page == null && navigator.notificationRoute == null ->
-                            WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-                        else -> ScaffoldDefaults.contentWindowInsets
-                    },
-                    topBar = {
-                    AppDestinationTopBar(
-                        page = navigator.page,
-                        notificationRoute = navigator.notificationRoute,
-                        savedTitle = savedTitle,
-                        onBack = { overlay.clearPostActionBubble(); if (navigator.page != null) navigator.page = null else navigator.notificationRoute = null },
-                    )
-                }                    ) { padding ->
-                    Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
-                        SpringAnimatedContent(
-                            stateKey = navigator.destination,
-                            direction = navigator.destinationTransitionDirection,
-                            modifier = Modifier.fillMaxSize(),
-                        ) { animatedDestination ->
-                        screenStates.SaveableStateProvider(animatedDestination.name) {
-                        AnimatedStatePane(
-                            stateKey = navigator.notificationRoute ?: navigator.page?.name ?: "${animatedDestination.name}:content",
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
-                        if (navigator.notificationRoute != null) {
-                            AppNotificationDetailContent(
-                                route = navigator.notificationRoute!!,
-                                items = notifications.state.items,
-                                onSearchHashtag = navigator::openHashtagSearch,
-                                onOpenHashtagBubble = overlay::openHashtagBubble,
-                                 onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Notification) },
-                                 onOpenTarget = (navigator.notificationRoute as? AppRoute.Profile)?.let { route ->
-                                      { openNotificationTarget(route) }
-                                  },
-                                 availableActions = availableActions,
-                                 onReact = onReact,
-                                 onReply = handleReply,
-                                 onReshare = onReshare,
-                                 onBookmark = onBookmark,
-                                 onReaction = onReaction,
-                                 onQuote = handleQuote,
-                                 quoteEnabled = quoteEnabled,
-                                  onOpenReactionBubble = { post, bounds -> overlay.openReactionBubble(post, bounds, onReaction) },
-                                  sessionRevision = sessionRevision,
-                                 largeLayout = largePresentation,
-                             )
-                          } else if (navigator.page != null) {
-                              AppLocalPageContent(
-                                  page = navigator.page,
-                                 savedPostsState = bookmarks.state,
-                                 likedPostsState = likes.state,
-                                 drafts = composerOwner.drafts,
-                                 onLoadDraft = { item -> overlay.clearPostActionBubble(); composerOwner.requestDraft(item) },
-                                 onDeleteDraft = { item -> composerOwner.deleteDraft(item) },
-                                 onRefreshSavedPosts = bookmarks.actions::refresh,
-                                 onLoadMoreSavedPosts = bookmarks.actions::loadMore,
-                                 onUnsaveSavedPost = bookmarks.actions::remove,
-                                 onRefreshLikedPosts = likes.actions::refresh,
-                                 onLoadMoreLikedPosts = likes.actions::loadMore,
-                                 onUnsaveLikedPost = likes.actions::toggle,
-                                 onUpgradeSavedPermissions = bookmarks.actions::upgradePermissions,
-                                 onReact = onReact,
-                                 onReply = handleReply,
-                                 onReshare = onReshare,
-                                 onBookmark = onBookmark,
-                                 onSavedPostReaction = bookmarks.actions::react,
-                                 onLikedPostReaction = likes.actions::react,
-                                  onOpenSavedReactionBubble = { post, bounds -> overlay.openReactionBubble(post, bounds, bookmarks.actions::react) },
-                                  onOpenLikedReactionBubble = { post, bounds -> overlay.openReactionBubble(post, bounds, likes.actions::react) },
-                                  onOpenReactionPicker = overlay::expandReactionPicker,
-                                 onOpenMedia = overlay::openMedia,
-                                 onOpenPost = ::openSinglePost,
-                                 onOpenProfile = navigator::openProfile,
-                                 onSearchHashtag = navigator::openHashtagSearch,
-                                 onOpenHashtagBubble = overlay::openHashtagBubble,
-                                 onOpenUsername = navigator::openAccountSearch,
-                                 availableActions = availableActions,
-                                 largeLayout = largePresentation,
-                             )
-                         } else when (animatedDestination) {
-                                   Destination.Home -> if (home != null) HomeFeed(
-                                           state = home.state,
-                                           compactLayout = !largePresentation,
-                                           onRefresh = { home.actions.refresh(navigator.timeline) },
-                                           onLoadMore = { home.actions.loadMore(navigator.timeline) },
-                                           onSignIn = accountSwitcher.actions::signOut,
-                                           availableActions = availableActions,
-                                           quoteEnabled = quoteEnabled,
-                                           onScrollDirectionChanged = { if (navigator.destination == Destination.Home && animatedDestination == Destination.Home) navigator.navigationVisible = it },
-                                          onReact = onReact,
-                                          onReply = handleReply,
-                                          onReshare = onReshare,
-                                          onBookmark = onBookmark,
-                                          onReaction = onReaction,
-                                           onOpenReactionBubble = { ownedPost, bounds -> overlay.openReactionBubble(ownedPost, bounds, onReaction) },
-                                           onOpenReactionPicker = overlay::expandReactionPicker,
-                                          onQuote = handleQuote,
-                                          onOpenProfile = navigator::openProfile,
-                                          onSearchHashtag = navigator::openHashtagSearch,
-                                          onOpenHashtagBubble = overlay::openHashtagBubble,
-                                          onOpenMedia = overlay::openMedia,
-                                          onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Home) },
-                                          onOpenUsername = navigator::openAccountSearch,
-                                          listState = homeListState,
-                                          topContentPadding = if (largePresentation) 16.dp else null,
-                                          bottomContentClearance = if (largePresentation) LargeBottomDockClearance else null,
-                                          refreshIndicatorTopPadding = if (largePresentation) 16.dp else null,
-                                           bottomDock = if (largePresentation) ({
-                                         LargeTimelineDockContent(availableTimelines, navigator.timeline) { item ->
-                                             val changed = item != navigator.timeline
-                                             if (changed) navigator.clearSelectedPost()
-                                             navigator.timeline = item
-                                             if (changed) home.actions.refresh(item)
-                                       }
-                                     }) else null,
-                                      ) else Box(Modifier.fillMaxSize()) {
-                                        EmptyState(AppIcons.Home, stringResource(R.string.feed_timeline_empty_title), stringResource(R.string.feed_timeline_empty_subtitle, stringResource(timelineLabelRes(navigator.timeline))))
-                                       if (largePresentation) {
-                                           LargeBottomDock(modifier = Modifier.align(Alignment.BottomStart), content = {
-                                                LargeTimelineDockContent(availableTimelines, navigator.timeline) { item ->
-                                                    val changed = item != navigator.timeline
-                                                    if (changed) navigator.clearSelectedPost()
-                                                    navigator.timeline = item
-                                                    if (changed && home != null) home.actions.refresh(item)
-                                               }
-                                           })
-                                       }
-                                   }
-                                   Destination.Search -> AnimatedStatePane(
-                                       stateKey = navigator.searchPanel,
-                                       modifier = Modifier.fillMaxSize(),
-                                    ) { panel ->
-                                       when (panel) {
-                                            SearchPanel.Search -> SearchScreen(
-                                               accountSearch = search.state,
-                                               onSearchAccounts = search.actions::search,
-                                               onAccountClick = navigator::openProfile,
-                                               availableActions = availableActions,
-                                               onReact = onReact,
-                                               onReply = handleReply,
-                                               onReshare = onReshare,
-                                               onBookmark = onBookmark,
-                                               onReaction = onReaction,
-                                                onOpenReactionBubble = { ownedPost, bounds ->
-                                                    overlay.openReactionBubble(ownedPost, bounds, onReaction)
-                                                },
-                                                onOpenReactionPicker = overlay::expandReactionPicker,
-                                               quoteEnabled = quoteEnabled,
-                                               onQuote = handleQuote,
-                                               onSearchHashtag = navigator::openHashtagSearch,
-                                               onOpenHashtagBubble = overlay::openHashtagBubble,
-                                               onLoadMoreSearch = search.actions::loadMore,
-                                               initialQuery = navigator.searchPrefill,
-                                               sharedQuery = navigator.searchQuery,
-                                               sharedTab = navigator.searchCategory,
-                                               onSharedQueryChange = { navigator.searchQuery = it },
-                                               onSharedTabChange = { navigator.searchCategory = it },
-                                               listState = searchListState.takeIf { largePresentation },
-                                               largeLayout = largePresentation,
-                                               compactLayout = !largePresentation,
-                                               compactNavigationVisible = !largePresentation,
-                                                mediaOwner = account?.id,
-                                                sessionRevision = sessionRevision,
-                                               onOpenMedia = overlay::openMedia,
-                                                onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
-                                               onOpenUsername = navigator::openAccountSearch,
-                                           )
-                                             SearchPanel.PhotoGrid -> PhotoGridScreen(
-                                                state = photoGrid.state,
-                                                onRefresh = photoGrid.actions::refresh,
-                                                onLoadMore = photoGrid.actions::loadMore,
-                                                onSelectFeed = photoGrid.actions::selectFeed,
-                                                onAddHashtag = photoGrid.actions::addHashtag,
-                                                onClearPreferenceError = photoGrid.actions::clearPreferenceError,
-                                                 onOpenPost = { post -> openSinglePost(post, LargePostOrigin.PhotoGrid) },
-                                               compactLayout = !largePresentation,
-                                                 compactNavigationVisible = !largePresentation,
-                                                 gridState = photoGridScrollState,
-                                            )
-                                       }
-                                   }
-                                   Destination.Notifications -> AppNotificationsDestinationContent(
-                                       panel = navigator.notificationsPanel,
-                                       account = account,
-                                       compactLayout = !largePresentation,
-                                       compactNavigationVisible = navigator.navigationVisible,
-                                      notificationAccountIdentity = notificationAccountIdentity,
-                                      notificationState = notifications.state,
-                                      onRefreshNotifications = notifications.actions::refresh,
-                                      onLoadMoreNotifications = notifications.actions::loadMore,
-                                      onMarkNotificationSeen = notifications.actions::markSeen,
-                                      onDismissNotification = notifications.actions::dismiss,
-                                      onFollowRequest = notifications.actions::respondToFollowRequest,
-                                       onOpenNotification = { notification ->
-                                           overlay.clearPostActionBubble()
-                                           if (largePresentation) navigator.clearSelectedPost()
-                                           navigator.notificationRoute = NotificationRouteResolver.resolve(notification)
-                                       },
-                                      onSelectQuery = notifications.actions::selectQuery,
-                                      onMarkAllRead = notifications.actions::markAllRead,
-                                       onOpenSettings = {
-                                           if (account != null) {
-                                               overlay.clearPostActionBubble()
-                                               navigator.openNotificationSettingsOverlay()
-                                           }
-                                       },
-                                      directMessageState = directMessages.state,
-                                      onRefreshDirectMessages = directMessages.actions::refresh,
-                                      onLoadMoreDirectMessages = directMessages.actions::loadMore,
-                                      onOpenDirectConversation = directMessages.actions::openConversation,
-                                      onBackDirectConversation = directMessages.actions::closeConversation,
-                                      onEditorTextChange = directMessages.actions::updateEditor,
-                                      onSendDirectMessage = directMessages.actions::send,
-                                  )
-                  Destination.Profile -> ProfileScreen(
-                      account = displayedProfile,
-                      profileState = profile.state,
-                      compactLayout = !largePresentation,
-                      largeLayout = largePresentation,
-                      largeShowSummary = navigator.singlePost == null,
-                      listState = profileListState,
-                      compactNavigationVisible = navigator.navigationVisible,
-                     authenticatedAccountId = account?.id,
-                     onProfileShown = profile.actions::open,
-                     onCategorySelected = { category ->
-                         if (largePresentation) navigator.clearSelectedPost()
-                         profile.actions.selectCategory(category)
-                     },
-                     onRefresh = profile.actions::refresh,
-                     onLoadMore = profile.actions::loadMore,
-                     onFollow = profile.actions::follow,
-                     onUnfollow = profile.actions::unfollow,
-                     onMessage = navigator::openDirectMessage,
-                      onOpenProfileImage = { url -> overlay.openProfileImage(url, navigator.viewedProfile?.id ?: account?.id) },
-                     onEditProfile = ::openProfileEditor,
-                      onOpenDrafts = {
-                          if (largePresentation) navigator.clearSelectedPost()
-                          if (account != null && displayedProfile?.id == account.id) navigator.page = LocalPage.Drafts
-                      },
-                      onOpenBookmarks = {
-                          if (largePresentation) navigator.clearSelectedPost()
-                          if (account != null && displayedProfile?.id == account.id) navigator.page = LocalPage.SavedPosts
-                      },
-                      onOpenLikes = {
-                          if (largePresentation) navigator.clearSelectedPost()
-                          if (account != null && displayedProfile?.id == account.id) navigator.page = LocalPage.Likes
-                      },
-                     onOpenProfile = navigator::openProfile,
-                     onSearchHashtag = navigator::openHashtagSearch,
-                     onOpenHashtagBubble = overlay::openHashtagBubble,
-                     availableActions = availableActions,
-                     onReact = onReact,
-                     onReply = handleReply,
-                     onReshare = onReshare,
-                     onBookmark = onBookmark,
-                     onReaction = profile.actions::react,
-                      onOpenReactionBubble = { ownedPost, bounds ->
-                          overlay.openReactionBubble(ownedPost, bounds, profile.actions::react)
-                      },
-                      onOpenReactionPicker = overlay::expandReactionPicker,
-                     onOpenMedia = overlay::openMedia,
-                      onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
-                      onOpenUsername = navigator::openAccountSearch,
-                      quoteEnabled = quoteEnabled,
-                      onQuote = handleQuote,
-                  )
-                               }
-                          }
-                          }
-                      }
-                  }
-                 }
-                }
                 if (largePresentation) {
                     LargeScreenShell(
                         windowWidth = windowWidth,
@@ -682,7 +392,48 @@ fun PalustrisApp(
                         onTargetSelected = navigator::selectLargeTarget,
                         onOpenAccounts = { overlay.clearPostActionBubble(); navigator.sheet = "Accounts" },
                         onCompose = ::openComposer,
-                        primaryContent = { paneModifier -> destinationScaffold(paneModifier) },
+                        primaryContent = { paneModifier ->
+                            ShellDestinationContent(
+                                paneModifier = paneModifier,
+                                navigator = navigator,
+                                overlay = overlay,
+                                screenStates = screenStates,
+                                homeListState = homeListState,
+                                searchListState = searchListState,
+                                photoGridScrollState = photoGridScrollState,
+                                profileListState = profileListState,
+                                largePresentation = largePresentation,
+                                account = account,
+                                displayedProfile = displayedProfile,
+                                savedTitle = savedTitle,
+                                notificationAccountIdentity = notificationAccountIdentity,
+                                availableTimelines = availableTimelines,
+                                availableActions = availableActions,
+                                quoteEnabled = quoteEnabled,
+                                sessionRevision = sessionRevision,
+                                home = home,
+                                photoGrid = photoGrid,
+                                profile = profile,
+                                search = search,
+                                bookmarks = bookmarks,
+                                likes = likes,
+                                notifications = notifications,
+                                directMessages = directMessages,
+                                accountSwitcher = accountSwitcher,
+                                drafts = composerOwner.drafts,
+                                onLoadDraft = { item -> overlay.clearPostActionBubble(); composerOwner.requestDraft(item) },
+                                onDeleteDraft = { item -> composerOwner.deleteDraft(item) },
+                                onReact = onReact,
+                                onReply = handleReply,
+                                onReshare = onReshare,
+                                onBookmark = onBookmark,
+                                onReaction = onReaction,
+                                onQuote = handleQuote,
+                                onOpenPost = ::openSinglePost,
+                                onOpenNotificationTarget = ::openNotificationTarget,
+                                onEditProfile = ::openProfileEditor,
+                            )
+                        },
                          detailContent = { paneModifier ->
                              val threadEnabled = selectedThreadState != null && navigator.singlePostOrigin.supportsComments()
                              val detail = detailActionsFor(
@@ -720,7 +471,46 @@ fun PalustrisApp(
                          },
                     )
                 } else {
-                    destinationScaffold(Modifier.fillMaxSize())
+                    ShellDestinationContent(
+                        paneModifier = Modifier.fillMaxSize(),
+                        navigator = navigator,
+                        overlay = overlay,
+                        screenStates = screenStates,
+                        homeListState = homeListState,
+                        searchListState = searchListState,
+                        photoGridScrollState = photoGridScrollState,
+                        profileListState = profileListState,
+                        largePresentation = largePresentation,
+                        account = account,
+                        displayedProfile = displayedProfile,
+                        savedTitle = savedTitle,
+                        notificationAccountIdentity = notificationAccountIdentity,
+                        availableTimelines = availableTimelines,
+                        availableActions = availableActions,
+                        quoteEnabled = quoteEnabled,
+                        sessionRevision = sessionRevision,
+                        home = home,
+                        photoGrid = photoGrid,
+                        profile = profile,
+                        search = search,
+                        bookmarks = bookmarks,
+                        likes = likes,
+                        notifications = notifications,
+                        directMessages = directMessages,
+                        accountSwitcher = accountSwitcher,
+                        drafts = composerOwner.drafts,
+                        onLoadDraft = { item -> overlay.clearPostActionBubble(); composerOwner.requestDraft(item) },
+                        onDeleteDraft = { item -> composerOwner.deleteDraft(item) },
+                        onReact = onReact,
+                        onReply = handleReply,
+                        onReshare = onReshare,
+                        onBookmark = onBookmark,
+                        onReaction = onReaction,
+                        onQuote = handleQuote,
+                        onOpenPost = ::openSinglePost,
+                        onOpenNotificationTarget = ::openNotificationTarget,
+                        onEditProfile = ::openProfileEditor,
+                    )
                 }
                  if (!largePresentation && navigator.page == null && !modalOverlayOpen) {
                      androidx.compose.animation.AnimatedVisibility(
