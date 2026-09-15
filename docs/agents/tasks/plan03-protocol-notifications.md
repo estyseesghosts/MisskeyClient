@@ -100,6 +100,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-F3 | Add the recoverable storage health, the write, delivery, and push block, the unavailable settings state, and the retry path. | A blocked account keeps its original bytes and blocks every mutation. A retry recovers only after a readable load. Healthy accounts continue normally. | implemented, test verified. |
 | 03-F4 | Refuse newer stored formats, add the approved account-local reset, and record Room schema history. | A newer-format payload stays untouched and blocks writes. Reset revokes the old generation, clears only notification-local state, and prevents legacy reimport. The exported schema is committed and guarded by a test. | implemented, test verified. |
 | 03-G | Make notification write failures explicit through durable acceptance. | Every mutation publishes only after the store accepts the write while the writer is still current. A failed write marks the account Unavailable, publishes nothing, and returns failure. | implemented, test verified. |
+| 03-H | Make legacy import restart-safe. | The Room row wins over the legacy file. The marker is written only after a successful Room save. Transient failures stay unmarked for retry. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -240,9 +241,19 @@ first and treats row deletion as best effort. `NotificationsViewModelTest` injec
 dispatcher into the repository. `NotificationWriteFailureTest` (8 tests) passes with the focused
 notification suites, then `test assembleRelease` and `:app:lintDebug`.
 
+03-H verification: `LegacyNotificationFileImporter` separates reading from marking. `RoomNotificationStore.read`
+checks the Room row first, then the marker, then the legacy file. A readable legacy state is saved
+to Room before the marker is written. A failed save, a corrupt file, a future format, or a transient
+failure stays unmarked. A missing marker never reimports over a saved Room row. `delete` removes
+the legacy file and marks the account so a removed account cannot resurrect old state. Cancellation
+propagates without marking health. `NotificationLegacyImportTest` (11 tests) passes with the focused
+notification suites, then `test assembleRelease` and `:app:lintDebug`. `:app:assembleDebugAndroidTest`
+still fails in the pre-existing `Api29StartupInstrumentedTest` (missing constructor arguments);
+`RoomNotificationStoreInstrumentedTest` itself compiles after the typed-read repair.
+
 ## Current Slice
 
-03-H — Make legacy import restart-safe. 03-G is complete.
+03-I — Repair visibility separately. 03-H is complete.
 
 ## Required Verification
 
@@ -270,9 +281,9 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`136c4ae` "Publish notification mutations only after durable store writes".
+`fc5cb6e` "Make legacy notification import restart-safe".
 
-03-F1, 03-F2, 03-F3, 03-F4, and 03-G are closed. 03-F2 is committed at `15ba26b`. 03-F3 is
+03-F1, 03-F2, 03-F3, 03-F4, 03-G, and 03-H are closed. 03-F2 is committed at `15ba26b`. 03-F3 is
 committed at `9dac59b`. 03-F4 is committed at `d3e1323` and test verified. 03-G is committed
-at `136c4ae` and test verified. The next slice is 03-H. Commit every green slice as soon as
-its tests pass.
+at `136c4ae` and test verified. 03-H is committed at `fc5cb6e` and test verified. The next slice
+is 03-I. Commit every green slice as soon as its tests pass.

@@ -29,15 +29,16 @@ Read these in order. Treat the repository as the authority.
   `0e0d8c4`. Slice `03-D3` is committed at `5d1f8b2`. Slice `03-E` is committed at `861e457`.
   Slice `03-F1` is committed at `f33607e`. Slice `03-F2` is committed at `15ba26b`. Slice
   `03-F3` is committed at `9dac59b`. Slice `03-F4` is committed at `d3e1323` and test verified.
-  Slice `03-G` is committed at `136c4ae` and test verified.
-  The last safe commit is `136c4ae`.
+  Slice `03-G` is committed at `136c4ae` and test verified. Slice `03-H` is committed
+  at `fc5cb6e` and test verified.
+  The last safe commit is `fc5cb6e`.
 - The maintainer approved the 03-F reset behavior and the 03-I visibility migration on
   2026-09-15. The accepted policy is development-only discard: do not migrate old notification
   data. Discard unreadable or incompatible local state and require reauthentication when needed.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-H` (make legacy import restart-safe). `03-I` and `03-J` follow. 03-F and
-  03-G are complete. 03-I is approved to code.
+- Next slice: `03-I` (repair visibility separately). `03-J` follows. 03-F, 03-G, and
+  03-H are complete. 03-I is approved to code.
 - Unrelated documentation and archive changes appeared in the worktree during 03-E. They are
   not part of any committed Plan 03 slice and were left untouched.
 
@@ -98,6 +99,14 @@ Read these in order. Treat the repository as the authority.
   failure. Per-account serialization, explicit claim/dismiss/acknowledge/push/remove failure
   paths, and best-effort row deletion. Verification: `NotificationWriteFailureTest` (8 tests),
   the focused notification suites, then `test assembleRelease` and `:app:lintDebug`.
+- 03-H restart-safe legacy import. The Room row is authoritative over the legacy file. A
+  readable legacy state is saved to Room before the marker is written. Corrupt, future-format,
+  and transient failures stay unmarked for retry. Deletion seals the legacy file so a removed
+  account cannot resurrect old state. Cancellation propagates. Verification:
+  `NotificationLegacyImportTest` (11 tests), the focused notification suites, then
+  `test assembleRelease` and `:app:lintDebug`. `:app:assembleDebugAndroidTest` still fails in
+  the pre-existing `Api29StartupInstrumentedTest`; the repaired
+  `RoomNotificationStoreInstrumentedTest` compiles.
 - Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 
 ## Process Rules
