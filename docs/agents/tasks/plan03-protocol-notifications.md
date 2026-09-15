@@ -30,7 +30,8 @@ without changing installed data.
 - Preserve version 2, keys, enum strings, defaults, omission behavior, and catch boundaries.
 - Do not change a stored format without a migration in the same slice.
 - Use Beeline in user-facing text. Keep the codename out of user-facing content.
-- Do not commit without separate authorization.
+- Commit after every verified slice. A slice commit is required as soon as its tests are green.
+  Do not commit a slice whose tests are not green. Do not leave a green slice uncommitted.
 
 ## Accepted Decisions
 
@@ -96,6 +97,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-E | Move every recursive encode and decode helper from `NotificationRepository` into `NotificationJsonCodec` and make them private. | No conversion helper remains in the repository. The moved text stays identical apart from ownership and visibility. | implemented, test verified. |
 | 03-F1 | Add a typed store read result that separates absent, readable, corrupt, and unavailable. | Every store read returns one of the four variants. The repository behavior stays unchanged. | implemented, test verified. |
 | 03-F2 | Validate the receiving-account ownership of decoded state. | A foreign notification, group, delivery, checkpoint, push, or dismissal origin is Corrupt. Remote actors and public URLs stay valid. | implemented, test verified. |
+| 03-F3 | Add the recoverable storage health, the write, delivery, and push block, the unavailable settings state, and the retry path. | A blocked account keeps its original bytes and blocks every mutation. A retry recovers only after a readable load. Healthy accounts continue normally. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -198,11 +200,24 @@ store is account-scoped. `NotificationStateOwnershipTest` (8 tests), `Notificati
 and `NotificationRoomStoreFixtureTest` pass, with the related notification suites, then
 `test assembleRelease` and `:app:lintDebug`.
 
+03-F3 verification: `NotificationStorageHealth` has the variants `Healthy`, `Recoverable`, and
+`Unavailable`, and it stays outside the stored version-2 payload. `NotificationRepository`
+publishes it through `observeStorageHealth` and recovers through `retry`. Page ingestion, the
+baseline, local mutations, delivery claims and finishing, settings writes, and push registration
+writes all require healthy storage. `pendingDeliveries` and `pushRegistration` return nothing for
+a blocked account. `retry` returns immediately for a healthy account, replaces the in-memory state
+only after a readable load, and leaves the original bytes untouched on another failure.
+`NotificationsViewModel` surfaces `storageUnavailable` and uses the existing refresh action as the
+retry path. `NotificationSettingsViewModel` surfaces `storageUnavailable`, blocks a save, and
+exposes `retryStorage` through the contract and both settings hosts. `strings.xml` adds
+`notifications_storage_unavailable`. `NotificationStorageRecoveryTest` (5 tests) passes, with the
+focused notification suites, then `test assembleRelease` and `:app:lintDebug`. `assembleRelease`
+and `:app:lintDebug` pass. `MediaViewerScreenTest` failed once under concurrent build load and
+passed on rerun, matching the 03-F1 note.
+
 ## Current Slice
 
-03-F3 — Add the recoverable error state. Block writes, delivery, and push for the affected
-account, mark settings unavailable, and add a retry path. The combined 03-F4 reset,
-future-format, and schema-history slice follows.
+03-F4 — The combined reset, future-format refusal, and schema-history slice. 03-F3 is complete.
 
 ## Required Verification
 
@@ -227,6 +242,8 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`15ba26b` "Validate notification state ownership by receiving account".
+`9dac59b` "Block notification writes for corrupt or unavailable storage".
 
-03-F1 and 03-F2 are closed. 03-F3 is the current slice.
+03-F1, 03-F2, and 03-F3 are closed. 03-F2 is committed at `15ba26b`. 03-F3 is committed at
+`9dac59b` and test verified. The next slice is 03-F4. Commit every green slice as soon as its
+tests pass.

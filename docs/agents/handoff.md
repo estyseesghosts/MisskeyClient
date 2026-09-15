@@ -27,15 +27,15 @@ Read these in order. Treat the repository as the authority.
   committed at `36eeeb9`. Slice `03-B2` is committed at `1c45afb`. Slice `03-D1` is committed
   at `e40ef87`. Slice `03-A2` is committed at `c6bd9ff`. Slice `03-D2` is committed at
   `0e0d8c4`. Slice `03-D3` is committed at `5d1f8b2`. Slice `03-E` is committed at `861e457`.
-  Slice `03-F1` is committed at `f33607e`. Slice `03-F2` is committed at `15ba26b`. The last
-  safe commit is `15ba26b`.
+  Slice `03-F1` is committed at `f33607e`. Slice `03-F2` is committed at `15ba26b`. Slice
+  `03-F3` is committed at `9dac59b` and test verified. The last safe commit is `9dac59b`.
 - The maintainer approved the 03-F reset behavior and the 03-I visibility migration on
   2026-09-15. The accepted policy is development-only discard: do not migrate old notification
   data. Discard unreadable or incompatible local state and require reauthentication when needed.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-F3` (recoverable error state, write block, retry), then the combined `03-F4`.
-  `03-G`, `03-H`, `03-I`, and `03-J` follow. 03-F and 03-I are approved to code.
+- Next slice: `03-F4` (combined reset, future-format, and schema-history). `03-G`, `03-H`,
+  `03-I`, and `03-J` follow. 03-F and 03-I are approved to code.
 - Unrelated documentation and archive changes appeared in the worktree during 03-E. They are
   not part of any committed Plan 03 slice and were left untouched.
 
@@ -75,11 +75,19 @@ Read these in order. Treat the repository as the authority.
   checkpoint, push, or dismissal origin is Corrupt. Verification: `NotificationStateOwnershipTest`
   (8 tests), `NotificationJsonCodecTest`, `NotificationRoomStoreFixtureTest`, then
   `test assembleRelease` and `:app:lintDebug`.
+- 03-F3 recoverable storage health. `NotificationStorageHealth` separates `Healthy`, `Recoverable`,
+  and `Unavailable` outside the stored payload. A non-healthy account blocks page ingestion, the
+  baseline, local mutations, delivery claims and finishing, settings writes, and push registration
+  writes. The inbox and settings surfaces show the failure and an explicit retry. Verification:
+  `NotificationStorageRecoveryTest` (5 tests), the focused notification suites, then
+  `test assembleRelease` and `:app:lintDebug`.
 - Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 
 ## Process Rules
 
-- One slice, one behavior, one commit. Then a record commit.
+- One slice, one behavior, one commit. Then a record commit. Committing each verified slice is
+  required, not optional. The slice commit happens as soon as its tests are green. Do not commit a
+  slice whose tests are not green, and do not leave a green slice uncommitted.
 - Rewrite this handoff after each completed slice, per `AGENTS.md`.
 - Keep the acceptance matrix and the ownership pages current in the same slice.
 - Stage only files that belong to the slice. Preserve unrelated worktree changes.

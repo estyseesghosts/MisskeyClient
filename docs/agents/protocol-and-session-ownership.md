@@ -147,8 +147,19 @@ delivery-claim behavior. It keeps no JSON conversion helper. Both `FileNotificat
 malformed row is corrupt, not unavailable. A database or disk failure is unavailable.
 `NotificationRepositoryState.hasReceivingAccount` validates the receiving-account fields
 before a read becomes Readable. Only receiving-account fields participate. Remote actors,
-post authors, and public URLs do not. The repository still maps every non-readable variant to
-an empty state. Slice 03-F3 adds the recoverable error, the write block, and the retry path.
+post authors, and public URLs do not.
+
+`NotificationRepository.observeStorageHealth` publishes one `NotificationStorageHealth` value
+for each account. The variants are `Healthy`, `Recoverable`, and `Unavailable`. Health stays
+outside the stored version-2 payload. A non-healthy account blocks page ingestion, baseline
+replacement, local mutations, delivery claims and finishing, settings writes, and push
+registration writes. `pendingDeliveries` and `pushRegistration` return nothing for a blocked
+account. `NotificationRepository.retry` re-reads storage. It replaces the empty in-memory state
+only after a readable load and leaves the original bytes untouched on another failure. A healthy
+account returns immediately, so a normal refresh never replaces committed state. The inbox
+surfaces the failure through `NotificationsUiState.storageUnavailable`, and the settings
+presentation surfaces it through `NotificationSettingsUiState.storageUnavailable` so it never
+shows unconfirmed defaults. Slice 03-F4 adds reset, future-format refusal, and schema history.
 
 ## Direct-Message Write Authority
 
@@ -190,6 +201,8 @@ The stale claim in older ownership and bug records is removed.
 - `SessionViewModelTest`, `ConnectedSessionContextTest`, `AuthGatewayTest`
 - `DirectMessageRepositoryTest`, `DirectMessageViewModelTest`
 - `NotificationRepositoryTest`, `NotificationAdapterContractTest`, `NotificationSynchronizerTest`
+- `NotificationStorageRecoveryTest` covers the recoverable health, the write block, the healthy
+  second account, the retry reload, and the healthy-retry no-op.
 - `PushRegistrationRepositoryTest`, `PushCancellationTest`
 - `AccountSourceRegistry` behavior is exercised through the notification and session tests.
 
