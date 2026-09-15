@@ -80,3 +80,5 @@ Open gaps:
 - R5-R6 (notification JSON and checkpoint validation) map to completion slice C-09 and Plan 03.
 - P1-P6 (retention, schema, bounds, rendering, lifecycle, localization) map to Plan 03 and Plan 04.
 The account-removal draft gap is closed. `AccountManager.removeAccount` revokes the draft writer and deletes rows in one serialized boundary at `AccountManager.kt:330-331`.
+
+260915-073000: C-13 cancellation review (out-of-scope finding, not fixed in this slice). ui/emoji/EmojiCatalogViewModel.kt:55 wraps the suspend repository.read(accountId) in runCatching, which swallows CancellationException: a cancelled loadIfNeeded continues into refreshInternal instead of staying cancelled. Owner: a future slice outside Plan 01/02 (file untouched by the completion slices).

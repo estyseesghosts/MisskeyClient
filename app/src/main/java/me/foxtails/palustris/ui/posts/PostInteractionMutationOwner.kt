@@ -202,7 +202,15 @@ class PostInteractionMutationOwner(
         // Local rollback is then not proof of server state, so reconcile one bounded
         // refresh instead. Any refresh failure falls back to a guarded rollback.
         if (partialRisk) {
-            val fresh = runCatching { source.post(target) }.getOrNull()?.takeIf { it.id == target }
+            // Cancellation stays cancellation: a stopped or replaced session must not
+            // reconcile or report after its refresh is cancelled.
+            val fresh = try {
+                source.post(target)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }?.takeIf { it.id == target }
             if (fresh != null) {
                 updatePost(ownedPost, target) { current -> reconcileFromServer(action, current, fresh, options) }
                 onFailure(error)

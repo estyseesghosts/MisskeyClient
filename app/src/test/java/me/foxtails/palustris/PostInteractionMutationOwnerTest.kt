@@ -84,6 +84,8 @@ class PostInteractionMutationOwnerTest {
         val reactedCalls = mutableListOf<Pair<EntityId, EmojiChoice>>()
         val removedCalls = mutableListOf<Pair<EntityId, EmojiChoice>>()
         var postResult: Post? = null
+        var gatePostRefresh = false
+        private val postPending = ArrayDeque<CompletableDeferred<Post>>()
         private val favouritePending = ArrayDeque<CompletableDeferred<PostActionResult>>()
         private val savedPending = ArrayDeque<CompletableDeferred<PostActionResult>>()
         private val resharedPending = ArrayDeque<CompletableDeferred<PostActionResult>>()
@@ -128,8 +130,14 @@ class PostInteractionMutationOwnerTest {
             return withContext(NonCancellable) { gate.await() }
         }
 
-        override suspend fun post(id: EntityId): Post =
-            postResult ?: throw UnsupportedOperationException("no refreshed post")
+        override suspend fun post(id: EntityId): Post {
+            val configured = postResult
+            if (configured != null) return configured
+            if (!gatePostRefresh) throw UnsupportedOperationException("no refreshed post")
+            val gate = CompletableDeferred<Post>()
+            postPending += gate
+            return gate.await()
+        }
 
         fun completeFavourite(index: Int, result: PostActionResult) { favouritePending[index].complete(result) }
         fun failFavourite(index: Int, error: Exception) { favouritePending[index].completeExceptionally(error) }
@@ -379,6 +387,34 @@ class PostInteractionMutationOwnerTest {
         assertTrue(store.get("post").selectedReactions.isEmpty())
         assertTrue(store.get("post").reactions.isEmpty())
         assertEquals(1, store.failures.size)
+    }
+
+    @Test
+    fun cancelledRefreshNeverReportsFailure() = runTest {
+        val source = GatedMutationSource()
+        val store = RowStore()
+        store.seed(post(
+            myReaction = ":a:",
+            selectedReactions = listOf(EmojiChoice(":a:", ":a:", null)),
+            reactions = listOf(Reaction(":a:", 3, selected = true)),
+        ))
+        // Gate the bounded refresh so it stays in flight until the stop below cancels it.
+        source.gatePostRefresh = true
+        val mutations = owner(source, store, scope = this)
+
+        mutations.react(store.owned("post"), EmojiChoice(":b:", ":b:", null))
+        advanceUntilIdle()
+        source.completeRemove(0)
+        advanceUntilIdle()
+        source.failReact(0, java.io.IOException("add failed"))
+        advanceUntilIdle()
+        // The bounded refresh is in flight. Stopping cancels it. Cancellation stays
+        // cancellation: no rollback update and no failure report follow.
+        mutations.stop()
+        advanceUntilIdle()
+
+        assertTrue(store.failures.isEmpty())
+        assertEquals(listOf(":b:"), store.get("post").selectedReactions.map { it.submissionValue })
     }
 
     @Test
