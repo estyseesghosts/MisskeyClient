@@ -958,5 +958,5 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Added ConnectedEntryStoreTest (6 tests): same-lifetime retention, lifetime change, idempotent retire, key replacement, retired-generation registration, owner clear.
 - Verification passed: focused suites, test assembleRelease, and :app:lintDebug when run alone.
 - A combined test assembleRelease :app:lintDebug run hit an AGP lint race on the release Hilt component source. Run the two commands separately.
-- C-02 has no commit. The user must authorize the commit.
+- C-02 committed at ffc9c3f.
 - Unverified: device, live-server, signed release.

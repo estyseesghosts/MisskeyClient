@@ -2,7 +2,7 @@
 
 - Complete `docs/agents/tasks/decomposition-01-02-completion.md`.
 - C-01 connected identity is committed at `6b8752b`.
-- C-02 connected entry lifetime is implemented and test verified. Commit it when the user authorizes.
+- C-02 connected entry lifetime is committed at `ffc9c3f`.
 - Continue with slice C-03, direct-message durable write authority.
 - Keep `docs/agents/decomposition-01-02-acceptance-matrix.md` current at each slice boundary.
 - Rebase `docs/decomposition_3/03.md` and `04.md` after the completion work.

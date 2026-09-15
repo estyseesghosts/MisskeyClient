@@ -49,7 +49,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
 | C-01 | Step 2 | Make connected identity coherent. Resolve one accepted context. Remove the `sourceFactory.create` fallback. | Every source-backed feature receives values from one accepted connected lifetime. | implemented, test verified. Commit `6b8752b`. |
-| C-02 | Step 3 | Repair ViewModel lifetime and route re-entry. Add an explicit connected-entry store and lifecycle owner. | Retired owners cannot publish. Re-entered features never receive stopped owners. | implemented, test verified in the working tree. No commit yet. |
+| C-02 | Step 3 | Repair ViewModel lifetime and route re-entry. Add an explicit connected-entry store and lifecycle owner. | Retired owners cannot publish. Re-entered features never receive stopped owners. | implemented, test verified. Commit `ffc9c3f`. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -82,10 +82,7 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 **C-03 — Complete DM durable write authority.**
 
-Not started. Work from `progressreport.md` section 3 step 4. Commit C-02 first.
-
-C-02 files have no commit. Do not start C-03 while C-02 is uncommitted unless the user
-authorizes it.
+Not started. Work from `progressreport.md` section 3 step 4. C-01 and C-02 are committed.
 
 ## Files Involved For C-03
 
@@ -140,7 +137,6 @@ Test these cases for C-02:
 
 ## Last Safe Commit
 
-`6b8752b` "Publish one accepted connected session context".
+`ffc9c3f` "Retire feature models with the connected entry".
 
-C-01 is committed at `6b8752b`. C-02 is implemented and test verified in the working tree.
-C-02 has no commit yet.
+C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is the next slice.
