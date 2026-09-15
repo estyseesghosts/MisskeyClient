@@ -1057,7 +1057,7 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - NotificationLaunchHost always calls the latest route callback and acknowledges a launch only when the receiving shell accepts its route. ConnectedApp accepts only with an accepted connected context. A missing account routes to the recoverable unavailable state.
 - Added ViewModel cases for stale page failure and paging slot reservation, plus NotificationLaunchHostTest for accepted, unacknowledged, unavailable, and switch-pending launches.
 - Verification passed: NotificationsViewModelTest, NotificationLaunchHostTest, NotificationLaunchRouterTest, NotificationRouteResolverTest, test assembleRelease, and :app:lintDebug when run alone. The full gate hit the known intermittent MediaViewerScreenTest timeout once. Its focused rerun passed, and a full rerun passed.
-- C-09 committed at PENDING.
+- C-09 committed at c6ab9b1.
 - Unverified: device, live-server, signed release.
 
 260915-010000 Slice L-01 Russian and Indonesian locales:
