@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "items": [],
+  "unread": { "kind": "unknown" },
+  "lastSyncedAt": 0,
+  "dismissedIds": [],
+  "checkpoints": {},
+  "deliveries": [
+    {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "notificationId": { "connection": "https://misskey.example", "value": "d-duplicate" },
+      "state": "Pending",
+      "androidTag": "tag-first",
+      "androidId": 1,
+      "attemptCount": 0,
+      "lastAttemptAt": 0,
+      "claimExpiresAt": 0
+    },
+    {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "notificationId": { "connection": "https://misskey.example", "value": "d-duplicate" },
+      "state": "Presented",
+      "androidTag": "tag-last",
+      "androidId": 2,
+      "attemptCount": 1,
+      "lastAttemptAt": 100,
+      "claimExpiresAt": 0
+    }
+  ],
+  "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "periodicFallbackEnabled": false }
+}

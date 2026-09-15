@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "items": [
+    {
+      "id": { "connection": "https://misskey.example", "value": "m-unsafe" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "createdAt": 1,
+      "activity": { "kind": "mention" },
+      "actors": [],
+      "target": { "kind": "post", "id": { "connection": "https://misskey.example", "value": "post-1" } },
+      "destination": { "kind": "server", "url": "http://insecure.example/notice/1" },
+      "readStatus": "Unread",
+      "locallySeen": false,
+      "serverAcknowledged": false,
+      "androidPresented": false,
+      "androidDismissed": false,
+      "rawType": "mention"
+    },
+    {
+      "id": { "connection": "https://misskey.example", "value": "m-invalid" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "createdAt": 2,
+      "activity": { "kind": "mention" },
+      "actors": [],
+      "destination": { "kind": "server", "url": "https://" },
+      "readStatus": "Unread",
+      "locallySeen": false,
+      "serverAcknowledged": false,
+      "androidPresented": false,
+      "androidDismissed": false,
+      "rawType": "mention"
+    }
+  ],
+  "unread": { "kind": "unknown" },
+  "lastSyncedAt": 0,
+  "dismissedIds": [],
+  "checkpoints": {},
+  "deliveries": [],
+  "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "periodicFallbackEnabled": false }
+}

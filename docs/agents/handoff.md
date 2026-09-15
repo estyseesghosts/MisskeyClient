@@ -25,12 +25,13 @@ Read these in order. Treat the repository as the authority.
 - Plan 03 is rebased at `b715430` and recorded in `docs/decomposition_3/03.md`. Slice `03-C`
   is committed at `3603ef3`. Slice `03-A1` is committed at `44b3483`. Slice `03-B1` is
   committed at `36eeeb9`. Slice `03-B2` is committed at `1c45afb`. Slice `03-D1` is committed
-  at `e40ef87`. Slice `03-A2` is committed at `c6bd9ff`. The last safe commit is `c6bd9ff`.
+  at `e40ef87`. Slice `03-A2` is committed at `c6bd9ff`. Slice `03-D2` is committed in this
+  slice. The last safe commit is `6dd5ff3` before the `03-D2` commit.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-D2` (activity, navigation, read-state, delivery fixtures, and the Room
-  fixed-JSON test), then the remaining Plan 03 chunks. 03-F and 03-I need maintainer approval
-  before coding.
+- Next slice: `03-D3` (posts, interaction counts, unread state, settings, push, checkpoints,
+  malformed, and known-omission fixtures), then the remaining Plan 03 chunks. 03-F and 03-I
+  need maintainer approval before coding.
 
 ## Completed Plan 03 Slices
 
@@ -48,6 +49,9 @@ Read these in order. Treat the repository as the authority.
   `NotificationJsonCodecTest`, then `test assembleRelease` and `:app:lintDebug`.
 - 03-A2 NodeInfo discovery fallback. Verification: `MastodonNodeInfoDiscoveryTest`,
   `MastodonCapabilityProbeTest`, `MastodonIntegrationTest`, `MisskeyIntegrationTest`, then
+  `test assembleRelease` and `:app:lintDebug`.
+- 03-D2 activity, navigation, read-state, and delivery fixtures plus the Room fixed-JSON test.
+  Verification: `NotificationJsonCodecTest`, `NotificationRoomStoreFixtureTest`, then
   `test assembleRelease` and `:app:lintDebug`.
 - Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 

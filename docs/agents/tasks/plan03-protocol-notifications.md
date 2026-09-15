@@ -53,11 +53,10 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
   failed metadata probe backs off for 30 seconds.
 - 03-C: still required, reduced scope. `MisskeySource.post` (`:102`) and `delete` (`:549`)
   omit `validatePostId`. Repost undo (`:442`) and quote creation (`:350`) already validate.
-- 03-D: partially closed by 03-D1. `NotificationJsonCodecTest` and
-  `app/src/test/resources/notifications/` now exist. The state-envelope fixtures and the
-  file-store contract are frozen. Remaining: the activity, navigation, post, count, unread,
-  settings, delivery, push, checkpoint, malformed, and known-omission families, plus the
-  Room fixed-JSON test. Tracked as 03-D2 and later.
+- 03-D: partially closed by 03-D1 and 03-D2. The state envelope, file-store contract, Room
+  fixed-JSON read, activity variants, navigation, read states, and delivery records are frozen.
+  Remaining: posts and accounts, interaction counts, unread state, settings, push, checkpoints,
+  malformed structure, and known omissions. Tracked as 03-D3.
 - 03-E: still required. Recursive codecs remain in `NotificationRepository.kt:529-1117`.
   `NotificationJsonCodec.kt` holds only state-level `encode`/`decode`.
 - 03-H: still required. `LegacyNotificationFileImporter` writes the marker before returning
@@ -86,6 +85,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-B2 | Publish refreshed capabilities under a session-revision guard and bound refresh retries. | A stale source cannot overwrite a replaced session. A failed probe does not re-probe on every request. | implemented, test verified. |
 | 03-D1 | Freeze the notification state-envelope codec. Add `NotificationJsonCodecTest` and literal fixtures for the complete and legacy minimal states. Add file-store fixed-JSON tests. | The state envelope round-trips. Legacy defaults, legacy target-only navigation, and the legacy reaction `imageUrl` are characterized. | implemented, test verified. |
 | 03-A2 | Add NodeInfo discovery when instance metadata omits the reaction advertisement. Validate discovery URLs, keep the request credential-free, disable redirects, bound reads, and fetch one document. | A server that advertises reactions only in NodeInfo gets React. A foreign, credentialed, or fragmented URL triggers no request. All discovery failures stay Unknown. | implemented, test verified. |
+| 03-D2 | Freeze the activity, navigation, read-state, and delivery fixtures. Add the Room fixed-JSON read test. | Every activity discriminant, navigation target, read state, and delivery state is characterized. Room decodes JSON inserted directly. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -140,10 +140,17 @@ failures and the 256 KiB read bound keep reactions Unknown without throwing. `Ma
 uses `probeCapabilities`, so login applies the same evidence rules. `MisskeyApi.getUrl` uses
 `ProductIdentity.userAgent` instead of the stale `Palustris/0.1` value.
 
+03-D2 verification: `NotificationJsonCodecTest` passes with twenty tests including the activity,
+navigation, read-state, and delivery variants. `NotificationRoomStoreFixtureTest` passes with two
+tests. The Room read test inserts the fixed JSON directly into the `notification_state` row, then
+reads it through `RoomNotificationStore`. The Room write test round-trips the decoded state.
+`decode` collapses duplicate delivery IDs to the last record, and a malformed server destination
+falls back to the target or drops. `test assembleRelease` and `:app:lintDebug` pass.
+
 ## Current Slice
 
-03-D2 — Freeze the activity, navigation, read-state, and delivery fixtures, and add the Room
-fixed-JSON test.
+03-D3 — Freeze the posts, interaction-count, unread-state, settings, push, checkpoint, malformed,
+and known-omission fixtures.
 
 Remaining 03-D families: posts and accounts, interaction counts, unread state, settings, push,
 checkpoints, malformed structure, and known omissions. 03-F and 03-I need maintainer approval
@@ -172,4 +179,4 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`c6bd9ff` "Discover Mastodon reaction support through NodeInfo when metadata lacks it".
+`6dd5ff3` "Record 03-A2 commit in task state and handoff".

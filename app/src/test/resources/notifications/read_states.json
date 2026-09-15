@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "items": [
+    {
+      "id": { "connection": "https://misskey.example", "value": "r-read" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "createdAt": 1,
+      "activity": { "kind": "mention" },
+      "actors": [],
+      "readStatus": "Read",
+      "locallySeen": true,
+      "serverAcknowledged": true,
+      "androidPresented": true,
+      "androidDismissed": true,
+      "rawType": "mention"
+    },
+    {
+      "id": { "connection": "https://misskey.example", "value": "r-unread" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "createdAt": 2,
+      "activity": { "kind": "mention" },
+      "actors": [],
+      "readStatus": "Unread",
+      "locallySeen": false,
+      "serverAcknowledged": false,
+      "androidPresented": false,
+      "androidDismissed": false,
+      "rawType": "mention"
+    },
+    {
+      "id": { "connection": "https://misskey.example", "value": "r-unknown" },
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "createdAt": 3,
+      "activity": { "kind": "mention" },
+      "actors": [],
+      "readStatus": "Unknown",
+      "locallySeen": true,
+      "serverAcknowledged": false,
+      "androidPresented": true,
+      "androidDismissed": false,
+      "rawType": "mention"
+    }
+  ],
+  "unread": { "kind": "exact", "count": 1 },
+  "lastSyncedAt": 0,
+  "dismissedIds": [],
+  "checkpoints": {},
+  "deliveries": [],
+  "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "periodicFallbackEnabled": false }
+}

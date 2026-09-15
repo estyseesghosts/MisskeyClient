@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "items": [],
+  "unread": { "kind": "unknown" },
+  "lastSyncedAt": 0,
+  "dismissedIds": [],
+  "checkpoints": {},
+  "deliveries": [
+    {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "notificationId": { "connection": "https://misskey.example", "value": "d-pending" },
+      "state": "Pending",
+      "androidTag": "tag-pending",
+      "androidId": 1,
+      "attemptCount": 0,
+      "lastAttemptAt": 0,
+      "claimExpiresAt": 0
+    },
+    {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "notificationId": { "connection": "https://misskey.example", "value": "d-posting" },
+      "state": "Posting",
+      "androidTag": "tag-posting",
+      "androidId": 2,
+      "attemptCount": 1,
+      "lastAttemptAt": 100,
+      "claimId": "claim-1",
+      "claimExpiresAt": 200
+    },
+    {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "notificationId": { "connection": "https://misskey.example", "value": "d-presented" },
+      "state": "Presented",
+      "androidTag": "tag-presented",
+      "androidId": 3,
+      "attemptCount": 2,
+      "lastAttemptAt": 300,
+      "claimExpiresAt": 0
+    },
+    {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "notificationId": { "connection": "https://misskey.example", "value": "d-suppressed" },
+      "state": "Suppressed",
+      "androidTag": "tag-suppressed",
+      "androidId": 4,
+      "attemptCount": 3,
+      "lastAttemptAt": 400,
+      "claimExpiresAt": 0
+    },
+    {
+      "accountId": { "origin": "https://misskey.example", "protocol": "MISSKEY", "localId": "receiver" },
+      "notificationId": { "connection": "https://misskey.example", "value": "d-failed" },
+      "state": "Failed",
+      "androidTag": "tag-failed",
+      "androidId": 5,
+      "attemptCount": 4,
+      "lastAttemptAt": 500,
+      "lastErrorCategory": "network",
+      "claimId": "claim-2",
+      "claimExpiresAt": 600
+    }
+  ],
+  "settings": { "alertsEnabled": false, "categories": [ "All" ], "showPreviews": false, "periodicFallbackEnabled": false }
+}
