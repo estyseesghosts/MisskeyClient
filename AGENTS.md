@@ -220,6 +220,16 @@ Read these items at the start of a session, after compaction, and when you are u
 - Treat TODO lists as execution aids, not as the durable record.
 - Stop implementation and reconstruct state when context is incomplete.
 
+### Handoff
+
+- Rewrite `docs/agents/handoff.md` after each completed slice.
+- Keep it as the continuation pointer for the next session or agent.
+- Name the durable task-state file. Do not duplicate it.
+- Record where to start, the current position, the next slice, and known blockers.
+- Record the last safe commit.
+- Keep the handoff consistent with the task-state file, the task logs, and Git.
+- Do not describe planned behavior as implemented behavior.
+
 ## Implementation Slices
 
 - Divide coding work into small coherent slices.
@@ -729,5 +739,6 @@ Read these items at the start of a session, after compaction, and when you are u
 - Confirm that existing files did not gain unrelated responsibilities.
 - Confirm that user-facing product text says Beeline.
 - Confirm that the internal codename did not enter user-facing content.
+- Confirm that `docs/agents/handoff.md` names the next slice and the last safe commit.
 - Report remaining risks.
 - Report checks that you could not perform.
