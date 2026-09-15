@@ -1078,3 +1078,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - L-01 committed at 4b3aa4d.
 - Unverified: device rendering, live-server, signed release.
 
+260915-043000 Documentation reconciliation and dead-scaffolding record:
+- Removed the stale C-03 "open gap" claims from protocol-and-session-ownership. `markRead` routes through `commitIfCurrent`, and the draft writer is revoked before deletion.
+- Added C-08, C-09, and C-10 to app-shell-ownership. Marked 01-F implemented in the acceptance matrix. Refreshed both pages and the matrix to baseline `53b4340`.
+- Pruned resolved and contradictory ViewModel-teardown entries from logs/BUGS.txt. Corrected the draft-removal line reference to `AccountManager.kt:330-331`. Recorded the C-10 resolution.
+- Recorded slice C-15 (remove dead scaffolding) in the completion task state, app-shell-ownership, the handoff, and logs/TODO.txt.
+- Dead symbols confirmed to have no caller at `53b4340`: `LegacyLargeProfilePresentation`, `LegacyProfileHeader`, `LegacyMediaTransitionImage`, `LegacyMediaTransitionImageCanvas`, `MarkdownPostText`, `AppBackHandler`, `BackNavigationState`, `SectionTabs`, and the `AccountSyncCoordinator` aliases.
+- Verification: `:app:compileDebugKotlin` passes at `53b4340`. No test or device check ran for this documentation pass.
+

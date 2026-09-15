@@ -2,13 +2,13 @@
 
 **Owner:** app-shell and feature-presentation maintainers.
 
-**Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through C-05,
-C-06a, C-06b, C-06c, and C-07 are implemented and test verified in the working tree. Other completion slices repair
-the remaining gaps.
+**Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through
+C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, and C-10 are implemented and test verified. Slices
+C-11 through C-14 repair the remaining gaps. Slice C-15 removes dead scaffolding.
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c`.
+**Source baseline:** `b629a2c` (planning). Status refreshed against `53b4340`.
 
 **Evidence:** source verified. Device and live-server behavior remain unverified. No test ran during
 this documentation pass.
@@ -90,7 +90,8 @@ suppression, foreign accounts, old revisions, publications, duplicate rejection,
 
 ## Known Gaps
 
-Completion slices close these gaps. The acceptance matrix records the status.
+This table records each gap and its state. A row that names a completion slice is still open. The
+acceptance matrix records the status.
 
 | Gap | Source evidence | Completion slice |
 | --- | --- | --- |
@@ -99,6 +100,9 @@ Completion slices close these gaps. The acceptance matrix records the status.
 | Draft storage boundary | Closed by C-06b. `data/auth/DraftActions.kt` owns storage and binds to one account. `ui/shell/DraftsContract.kt` carries no storage type. | — |
 | Draft removal coordination | Closed by C-06c. `AccountManager.removeAccount` revokes draft writers and deletes rows in one serialized boundary. A revoked `DraftActions` writer writes nothing and reports no success. | — |
 | Projection retirement | Closed by C-07. The coordinator retires with its connected entry and rejects repeated publication deliveries by created-post identity. | — |
+| Home paging demand | Closed by C-08. `HomePagingDemand` tracks filter identity and the request epoch beside the row count. Only accepted pages consume the budget. | — |
+| Notification launch | Closed by C-09. `NotificationLaunchHost` acknowledges a launch only when the receiving shell accepts its route. Rejected pages change no state. | — |
+| Dead scaffolding | Unused `Legacy*` functions, `MarkdownPostText`, `AppBackHandler`, `BackNavigationState`, `SectionTabs`, and compatibility aliases remain. | C-15 |
 | Shell assembly | `PalustrisApp.kt` owns navigation and still holds some shell assembly. | C-12 |
 | Test isolation | Small feature scenarios still construct the full shell. | C-12 |
 
@@ -113,6 +117,20 @@ Completion slices close these gaps. The acceptance matrix records the status.
   `AppPhotoGridDestinationContent`, and `AppProfileDestinationContent`.
 - The unregistered `sourceFactory.create(session)` fallback in `ConnectedSessionHost`.
 - The separate `activeSession` and `session` inputs to the connected shell.
+
+## Pending Removal
+
+Earlier extraction waves left dead scaffolding. Completion slice C-15 removes it. Each symbol has no
+caller at `53b4340`. Verify that again before deletion.
+
+| Symbol | Location | Replacement |
+| --- | --- | --- |
+| `LegacyLargeProfilePresentation`, `LegacyProfileHeader` | `ui/profile/ProfileScreen.kt` | `ProfileLargePresentation.kt`, `ProfileHeader.kt` |
+| `LegacyMediaTransitionImage`, `LegacyMediaTransitionImageCanvas` | `ui/media/MediaViewerScreen.kt` | the media transition layer |
+| `MarkdownPostText` | `ui/MarkdownText.kt` | `InlineEmojiText` |
+| `AppBackHandler`, `BackNavigationState` | `ui/navigation/` | the root back policy |
+| `SectionTabs` | `ui/Components.kt` | inline tab rows |
+| `AccountSyncCoordinator` aliases | `ui/AccountSyncCoordinator.kt` | `data.notifications` names |
 
 ## Invariants
 

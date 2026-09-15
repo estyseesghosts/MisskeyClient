@@ -156,8 +156,14 @@ gains a retry action.
 | C-12 | Step 13 | Reduce shell assembly and finish test isolation. Extract a navigation state holder where shared. | `PalustrisApp` owns navigation and placement. Feature changes stay local. | pending |
 | C-13 | Step 14 | Run cancellation and integration verification. Review every touched suspending path. | Cancellation remains cancellation. All required tests pass. | pending |
 | C-14 | Step 15 | Publish the final ownership documentation. Classify every document. | Maintained documentation matches source. | pending |
+| C-15 | Cleanup (no report step) | Remove dead scaffolding left by earlier extraction waves. | No caller remains. Focused Compose suites, `test assembleRelease`, and `:app:lintDebug` pass. | pending |
 
 Split a slice when it spans independent behavior. Keep one verification method for each slice.
+
+C-15 is a behavior-neutral cleanup. It is not part of the Plan 01 or Plan 02 exit conditions. It
+removes dead scaffolding that earlier extraction waves left behind. The symbol list and the
+replacement for each symbol are in `docs/agents/app-shell-ownership.md`. Do not combine it with a
+behavior change.
 
 ## Current Slice
 

@@ -2,12 +2,13 @@
 
 **Owner:** Protocol, session, and persistence maintainers.
 
-**Status:** current. Source verified. Completion slice C-01 closed the connected-identity gap and
-is test verified in the working tree.
+**Status:** current. Source verified. Completion slices C-01, C-03, and C-06c are implemented and
+test verified. C-01 closed the connected-identity gap. C-03 closed the direct-message write gap.
+C-06c closed the draft removal gap.
 
-**Last reviewed:** 2026-09-14.
+**Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c`.
+**Source baseline:** `b629a2c` (planning). Status refreshed against `53b4340`.
 
 **Evidence:** source verified. Test files were inspected, not executed in this review.
 Device and live-server behavior remain unverified.
@@ -107,15 +108,17 @@ Account identity in storage is the connection origin plus the local ID. The prot
 - `invalidateAndDelete` revokes writers and deletes rows in one serialized boundary.
 
 `AccountManager.removeAccount` calls `invalidateAndDelete` before it deletes the store rows
-(`AccountManager.kt:317`). It also calls `draftStore.deleteAll` (`AccountManager.kt:320`).
+(`AccountManager.kt:326`). It revokes the draft writer and calls `deleteAll` in one serialized
+boundary (`AccountManager.kt:330-331`).
 
-**Open gap:** `DirectMessageRepository.markRead` uses a separate `isCurrent` check and then a
-store write (`DirectMessageRepository.kt:97-103`). It does not use `commitIfCurrent`. A removal can
-interleave between the check and the write. Completion slice C-03 closes this race.
+C-03 closed the direct-message gap. `DirectMessageRepository.markRead` routes its local write
+through `commitIfCurrent` (commit `bfbd7ed`). Activation, revocation, deletion, and accepted writes
+share one per-account boundary under `DirectMessageWriteAuthority`.
 
-**Open gap:** `DirectMessageWriteAuthority.invalidate` changes the generation outside the commit
-mutex. The class documents this as intentional. Completion slice C-03 must confirm that activation,
-retirement, deletion, and accepted writes share one account boundary.
+C-06c closed the draft gap. `DraftWriteAuthority` mirrors the direct-message authority.
+`DraftActions` captures the writer generation and routes save and delete through `commitIfCurrent`.
+A revoked writer writes nothing. Removal revokes the draft writer before it deletes rows
+(commit `4454bae`).
 
 ## Account Removal Coverage
 
@@ -124,8 +127,9 @@ post preferences, removes Photo Grid preferences, revokes direct-message writers
 direct-message store, deletes drafts, removes the emoji catalog and picker preferences, deletes
 the session, and updates the account index.
 
-The account-removal draft gap from an earlier review is closed. `draftStore.deleteAll(accountId)`
-runs at `AccountManager.kt:320`. The stale claim in older ownership and bug records is removed.
+The account-removal draft gap from an earlier review is closed. `AccountManager.removeAccount`
+revokes the draft writer and deletes rows in one serialized boundary (`AccountManager.kt:330-331`).
+The stale claim in older ownership and bug records is removed.
 
 ## Affected Tests
 
@@ -142,4 +146,7 @@ runs at `AccountManager.kt:320`. The stale claim in older ownership and bug reco
   unverified.
 - Completion slice C-01 added `ConnectedSessionContextTest`. It passed with the focused run and the
   full `test assembleRelease` gate.
-- Completion slice C-03 adds a Room-backed removal and late-write test.
+- Completion slice C-03 added the direct-message write-authority tests. C-06c added the draft
+  removal and late-write tests.
+- A Room-backed removal and late-write instrumentation test is not written. Device behavior stays
+  unverified.

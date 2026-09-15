@@ -4,17 +4,17 @@
 
 **Owner:** app-shell and feature-state maintainers.
 
-**Last reviewed:** 2026-09-14.
+**Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c`.
+**Source baseline:** `b629a2c` (assessment). C-01 through C-10 status refreshed against `53b4340`.
 
 **Stale when:** A listed exit condition changes, or a slice in
 `docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
 
 **Evidence:** source verified for every path in this page. Test files were inspected. The C-01, C-02,
-C-03, C-04, C-05, C-06a, C-06b, C-06c, and C-07 slices ran their focused tests, `test assembleRelease`, and
-`:app:lintDebug` on 2026-09-14 and 2026-09-15. Other statuses repeat a pass that `logs/DONE.txt` records, not a new
-run.
+C-03, C-04, C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, and L-01 slices ran their focused
+tests, `test assembleRelease`, and `:app:lintDebug` on 2026-09-14 and 2026-09-15. Other statuses
+repeat a pass that `logs/DONE.txt` records, not a new run.
 
 ## 1. How To Read This Page
 
@@ -43,7 +43,7 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 | 01-C | No storage selection, repository call, or `SocialSource` remains in `PalustrisApp`. | `LocalPostActionOwner`; composer fields moved to `ui/composer/ComposerOwner.kt` | `ComposerOwnerTest.kt`, `ReplyComposerTest.kt` | Implemented, test verified | — |
 | 01-D | One reviewed path owns fan-out. No duplicate listener, cycle, stale sink, or double increment. | `ui/shell/PostProjectionCoordinator.kt` | `PostProjectionCoordinatorTest.kt` | Implemented, test verified | — |
 | 01-E | Recomposition does not construct replacement sources. Session replacement cannot invoke old owners. | `ui/session/ConnectedSessionContext.kt`, `ui/session/ConnectedEntryStore.kt`, `ConnectedSessionHost.kt`, `AccountManager.kt` | `ConnectedSessionContextTest.kt`, `ConnectedEntryStoreTest.kt`, `SessionViewModelTest.kt` | Implemented, test verified. | — |
-| 01-F | `ConnectedApp` composes root hosts. It does not write settings, assemble actions, or own fan-out. | `ui/ConnectedApp.kt` (156 lines), `SettingsOverlayHost`, `NotificationLaunchHost` | `SettingsViewModelTest.kt`, `NotificationLaunchRouterTest.kt`, `NotificationLaunchHostTest.kt` | Partially implemented | C-10 |
+| 01-F | `ConnectedApp` composes root hosts. It does not write settings, assemble actions, or own fan-out. | `ui/ConnectedApp.kt` (root composition only), `SettingsOverlayHost`, `NotificationLaunchHost` | `SettingsViewModelTest.kt`, `NotificationLaunchRouterTest.kt`, `NotificationLaunchHostTest.kt` | Implemented, test verified | — |
 | 01-G | `PalustrisApp` owns navigation and placement, not feature implementation. | navigation shell; composer editor moved to `ui/composer/` | `NavigationTest.kt`, `WideNavigationTest.kt` | Partially implemented | C-12 |
 | 01-H | A new feature action needs no unrelated fixture change. Source, tests, and documentation agree. | `AppShellFixtures.app`; documentation was not reconciled | `AppShellFixtures.kt` | Partially implemented | C-12, C-14 |
 
@@ -76,6 +76,11 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
   connected entry. Repeated publication deliveries are rejected by created-post identity.
   Family slots are typed with operation tokens. The narrow popup interface extraction stays
   deferred to C-12.
+- C-10 bound post commands to the validated account set the shell publishes. A command for a
+  removed account reports an unavailable error at call time. A queued command writes nothing after
+  a removal. Failed commands support explicit retry. Command errors are typed, and the shell
+  resolves the user-visible message from resources. Account settings models wait for the restored
+  account index.
 
 ## 3. Plan 02 Exit Conditions
 

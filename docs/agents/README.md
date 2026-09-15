@@ -2,7 +2,7 @@
 
 Status: current  
 Owner: Maintainers  
-Last reviewed: 2026-09-14  
+Last reviewed: 2026-09-15  
 Stale when: The state-recovery process changes.
 
 This directory holds agent-facing engineering documentation.

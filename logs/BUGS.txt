@@ -46,24 +46,35 @@
 260913-200500: The final local gate passed with `test assembleRelease` and `lint`.
 260913-202500: Connected instrumentation ran on the installed candidate: 10 tests ran, 9 passed, and only `SystemBarAppearanceInstrumentedTest.navigationBarModeUsesBlackViewerAndRestoresThemeAppearance` failed with expected black (`-16777216`) versus observed transparent (`0`). `Api29StartupInstrumentedTest` passed.
 
-260914-122320: NotificationsViewModel, NotificationSettingsViewModel, and ModerationViewModel expose no stop(). The session host cannot release them explicitly on session replacement. They rely on session-generation ViewModel keys. DirectMessageViewModel gained explicit teardown in Slice 02-B. Remaining teardown belongs to docs/decomposition_3/02.md. Source verified.
+260915-040000: ViewModel teardown is resolved. FeedViewModel, SavedPostsViewModel,
+NotificationsViewModel, DirectMessageViewModel, PostThreadViewModel, ProfileViewModel,
+ModerationViewModel, NotificationSettingsViewModel, and EmojiCatalogViewModel expose stop(). Each
+feature host registers its model with the activity-scoped ConnectedEntryStore. SettingsViewModel
+stays stop-free by construction: app and post commands are target-explicit and run through
+repository serialization. Device teardown behavior remains unverified.
 
+260914-235900: Plan 01 and Plan 02 completion gaps. The old task files claimed completion.
+`docs/decomposition_3/progressreport.md` disproved that claim. Track the remaining work in
+`docs/agents/tasks/decomposition-01-02-completion.md`. Track the status in
+`docs/agents/decomposition-01-02-acceptance-matrix.md`.
 
-260915-033000: Correction to 260914-122320: ModerationViewModel.stop() exists since 8dd093e. NotificationsViewModel gains stop() in slice 02-L2 with host disposal wiring. NotificationSettingsViewModel and SettingsViewModel stay stop-free by construction: saves are request-epoch plus token gated with cancellation rethrows, and commands are target-explicit through repository serialization.
-
-260914-235900: Plan 01 and Plan 02 completion gaps. The old task files claim completion. `docs/decomposition_3/progressreport.md` disproves that claim. Track the remaining work in `docs/agents/tasks/decomposition-01-02-completion.md`. Track the status in `docs/agents/decomposition-01-02-acceptance-matrix.md`. Open gaps, source verified at `b629a2c`:
-- `DirectMessageRepository.markRead` (`DirectMessageRepository.kt:97-103`) uses a separate authority check and store write. It does not use `commitIfCurrent`. Owner: slice C-03.
-- `DirectMessageConversationScreen.kt:124` clears the draft at once on Send. A failed send loses recoverable text. Owner: slice C-04.
-- Composer editor state remains in `PalustrisApp.kt`. Draft and publish completion is not version-aware. Owner: slices C-05 and C-06.
-- `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. The projection coordinator has no retired state or accepted-publication identity. Owner: slice C-07.
-- `HomeFeed.kt:116-121` keys paging demand on row count. Filter identity is absent. Owner: slice C-08.
-- `NotificationLaunchHost` clears a pending launch after a `Unit` callback. That callback cannot confirm acceptance. Owner: slice C-09.
-- Settings commands and routes still need account-target validity and recovery. Owner: slice C-10.
+260915-040100: Resolution update to 260914-235900. These gaps are closed and committed:
+- `DirectMessageRepository.markRead` routes its local write through `commitIfCurrent`. Owner C-03. Commit `bfbd7ed`.
+- The direct-message editor keeps recoverable text in `DirectMessageViewModel`. Owner C-04. Commit `cb6d024`.
+- The composer editor lives in `ui/composer/ComposerOwner.kt`. Publish is version-aware. Owner C-05, C-06a, C-06b, C-06c. Commits `bd2d1b6`, `84006c1`, `c1288da`, `4454bae`.
+- `PostActionOwner` is built from the stable connected identity. The projection coordinator retires with its connected entry. Owner C-07. Commit `0027b60`.
+- `HomePagingDemand` tracks filter identity and the request epoch beside the row count. Owner C-08. Commit `a011a06`.
+- `NotificationLaunchHost` acknowledges a launch only when the receiving shell accepts it. Owner C-09. Commit `c6ab9b1`.
+Open gaps:
 - `AppLocaleController.reconcilePlatformSelection` imports a differing platform locale on every call. It cannot tell startup reconciliation from a later command. Owner: slice C-11.
 
-260914-235901: Correction to 260913-030503. The decomposition review findings now have owners:
+260915-042000: Slice C-10 closed. Settings commands bind to the validated account set the shell publishes. A command for a removed account reports an unavailable error. A queued command writes nothing after a removal. Failed commands support explicit retry through typed errors and resource strings. Commit `731b74b`.
+
+260915-042100: Dead scaffolding remains from earlier extraction waves. No caller exists for these symbols: `LegacyLargeProfilePresentation` and `LegacyProfileHeader` (`ui/profile/ProfileScreen.kt`), `LegacyMediaTransitionImage` and `LegacyMediaTransitionImageCanvas` (`ui/media/MediaViewerScreen.kt`), `MarkdownPostText` (`ui/MarkdownText.kt`), `AppBackHandler` and `BackNavigationState` (`ui/navigation/`), and `SectionTabs` (`ui/Components.kt`). `ui/AccountSyncCoordinator.kt` is a compatibility alias shim. Owner: slice C-15.
+
+260915-042200: Correction to 260913-030503. The decomposition review findings have owners:
 - R1-R4 and R9-R11 (settings, preferences, moderation, reactions, Home paging) map to completion slices C-07 through C-11.
 - R12 (build metadata identity) is closed by the Beeline identity work.
 - R5-R6 (notification JSON and checkpoint validation) map to completion slice C-09 and Plan 03.
 - P1-P6 (retention, schema, bounds, rendering, lifecycle, localization) map to Plan 03 and Plan 04.
-The account-removal draft gap is closed. `AccountManager.removeAccount` calls `draftStore.deleteAll` at `AccountManager.kt:320`.
+The account-removal draft gap is closed. `AccountManager.removeAccount` revokes the draft writer and deletes rows in one serialized boundary at `AccountManager.kt:330-331`.
