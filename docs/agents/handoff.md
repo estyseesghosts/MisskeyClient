@@ -17,7 +17,7 @@ Read these in order. Treat the repository as the authority.
 ## Current Position
 
 - Completion slices C-01 through C-11 and C-12a through C-12d3 are committed. `L-01` is committed.
-- The last safe commit is `1331ec3` (C-12d3 behavior commit; record follows).
+- The last safe commit is `b995922` (C-12d3 record commit). C-12d3 is `1331ec3`.
 - The next slice is **C-12d4, test isolation**. The task-state file holds its scope: move
   `HomeFeedTest` and `SignInScreenTest` off the full shell into feature-local harnesses
   like `ComposerFeatureFixtures`, or document why they need shell assembly.
