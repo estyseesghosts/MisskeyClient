@@ -9,7 +9,7 @@
 - C-06a version-aware composer publish is committed at `84006c1`.
 - C-06b drafts storage boundary is committed at `c1288da`.
 - C-06c draft removal coordination is committed at `4454bae`.
-- C-07 post-action ownership and projection is committed at `PENDING`.
+- C-07 post-action ownership and projection is committed at `0027b60`.
 - Continue with slice C-08, Home paging demand.
 - Keep `docs/agents/decomposition-01-02-acceptance-matrix.md` current at each slice boundary.
 - Rebase `docs/decomposition_3/03.md` and `04.md` after the completion work.
