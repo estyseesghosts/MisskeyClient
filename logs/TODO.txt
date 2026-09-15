@@ -17,7 +17,7 @@
 - C-11 locale event direction is committed at `43f8aa0`.
 - C-12a composer overlay assembly is committed at `9b10905`.
 - C-12b shell back-navigation policy is committed at `0dec102`.
-- C-12c feature-level reply composition is committed at `PENDING`.
+- C-12c feature-level reply composition is committed at `56c4cee`.
 - Continue with slice C-12d, remaining shell assembly and test isolation.
 - Remove dead scaffolding in slice C-15. See `docs/agents/handoff.md`.
 - Keep `docs/agents/decomposition-01-02-acceptance-matrix.md` current at each slice boundary.
