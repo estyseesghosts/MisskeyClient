@@ -182,12 +182,23 @@ the Home feed presenter with the composer feature owner and overlay host, withou
 shell. Reply and quote transitions resolve through the owner. `ReplyComposerTest` moved to
 the harness with no assertion change and passed on the first run. `HomeFeedTest` and
 `SignInScreenTest` still construct the full shell; their scroll-clearance, capability-gated,
-and account-switching assertions need shell assembly, so they stay for slice C-12d3.
+and account-switching assertions need shell assembly, so they stay for slice C-12d4.
 
 C-12d1 moved the private preview-only `AppPreview` out of `PalustrisApp.kt` into
 `ui/PalustrisAppPreview.kt`. The preview still composes the full shell with the empty
 contracts. No production behavior changed. `PalustrisApp.kt` now keeps navigation and
 placement only.
+
+C-12d2 added `ui/navigation/ShellNavigator.kt`. The holder owns destination, direction,
+timeline, page, sheet, overlay key, search and notification panels with their shared
+fields, navigation visibility, viewed profile, selected post, and notification route.
+A `listSaver` persists the saved fields; transient selection stays out. The
+`rememberShellNavigator` host clamps the timeline, follows the Home selection, reasserts
+navigation visibility, applies the launch route, and clears account-scoped selection on
+account change. `PalustrisApp` keeps its transition functions and session-bound guards;
+they delegate to navigator properties. `ShellNavigatorTest` covers overlay mapping,
+selection clear, timeline clamp and sync, account reset scope, launch routes, and a
+`Saver` round trip. The full-shell suites pass unchanged.
 
 ## Remaining Slices
 
@@ -197,8 +208,9 @@ placement only.
 | C-12b | Step 13, part 2 | Extract the shell back-navigation policy into `ui/navigation/`. | Back precedence is a pure tested policy. The shell keeps state and guarded dismissal. | implemented, test verified. Commit `0dec102`. |
 | C-12c | Step 13, part 3 | Compose the reply flow at feature level. Move `ReplyComposerTest` off the full shell. | The composer harness proves feature presenters compose without the shell. | implemented, test verified. Commit `56c4cee`. |
 | C-12d1 | Step 13, part 4a | Move preview-only placement beside previews. | `PalustrisApp.kt` keeps navigation and placement only. | implemented, test verified. Commit `624678f`. |
-| C-12d2 | Step 13, part 4b | Extract a navigation state holder where shared. Keep safe navigation separate from session-bound entities. | Navigation state lives in `ui/navigation/` behind a unidirectional event contract. | pending |
-| C-12d3 | Step 13, part 4c | Move the remaining small feature tests off the full shell. | Feature-local harnesses cover the moved tests. | pending |
+| C-12d2 | Step 13, part 4b | Move shell navigation state into `ui/navigation/ShellNavigator.kt` with a tested `Saver`. Timeline clamp, Home sync, visibility reassert, launch route, and account reset run in the host. | Shell functions delegate to navigator properties. | implemented, test verified. Commit `3f0c704`. |
+| C-12d3 | Step 13, part 4c | Move guarded navigation transitions into the navigator behind event callbacks. Keep safe navigation separate from session-bound entities. | Transition functions live in `ui/navigation/`. Session-bound guards stay in the shell. | pending |
+| C-12d4 | Step 13, part 4d | Move the remaining small feature tests off the full shell. | Feature-local harnesses cover the moved tests. | pending |
 | C-13 | Step 14 | Run cancellation and integration verification. Review every touched suspending path. | Cancellation remains cancellation. All required tests pass. | pending |
 | C-14 | Step 15 | Publish the final ownership documentation. Classify every document. | Maintained documentation matches source. | pending |
 | C-15 | Cleanup (no report step) | Remove dead scaffolding left by earlier extraction waves. | No caller remains. Focused Compose suites, `test assembleRelease`, and `:app:lintDebug` pass. | pending |
@@ -212,12 +224,15 @@ behavior change.
 
 ## Current Slice
 
-**C-12d2 — Extract a navigation state holder where shared.**
+**C-12d3 — Move guarded navigation transitions into the navigator.**
 
-C-12d1 moved preview-only placement beside previews. The remainder of
-`progressreport.md` section 3 step 13 stays here: extract a navigation state
-holder where shared, keep safe navigation separate from session-bound entities, and
-move the remaining small feature tests off the full shell (C-12d3).
+C-12d2 moved navigation state into `ShellNavigator` with a tested `Saver`. The remainder
+of `progressreport.md` section 3 step 13 stays here: move the guarded transition
+functions (`selectDestination`, `openProfile`, `selectLargeTarget`, `openDirectMessage`,
+hashtag and account search openers, overlay coordination) into `ui/navigation/` behind
+event callbacks for popup clearing, search execution, and conversation start. Keep
+session-bound guards (`openMedia`, `openReactionBubble`, guarded closes) in the shell.
+C-12d4 then moves the remaining small feature tests off the full shell.
 
 ## Files Involved For C-12
 
@@ -479,11 +494,11 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`de09a28` "Record C-12d1 commit in task state".
+`3f0c704` "Move shell navigation state into the navigator".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
 C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is committed at `0027b60`.
 C-08 is committed at `a011a06`. C-09 is committed at `c6ab9b1`. C-10 is committed at `731b74b`.
 C-11 is committed at `43f8aa0`. C-12a is committed at `9b10905`. C-12b is committed at `0dec102`.
-C-12c is committed at `56c4cee`. C-12d1 is committed at `624678f`. C-12d2 is the next slice.
+C-12c is committed at `56c4cee`. C-12d1 is committed at `624678f`. C-12d2 is committed at `3f0c704`. C-12d3 is the next slice.

@@ -16,13 +16,13 @@ Read these in order. Treat the repository as the authority.
 
 ## Current Position
 
-- Completion slices C-01 through C-11 and C-12a through C-12d1 are committed. `L-01` is committed.
-- The last safe commit is `748a88f` (retire DONE/TODO logs). C-12d1 is `624678f`.
-- The next slice is **C-12d2, navigation state holder**. The task-state file holds its scope:
-  move navigation state and guarded navigation functions into `ui/navigation/` with a
-  unidirectional event contract, and keep safe navigation separate from session-bound
-  entities. C-12d3 then moves the remaining small feature tests off the full shell.
-- `test assembleRelease` and `:app:lintDebug` pass at the C-12d1 behavior commit.
+- Completion slices C-01 through C-11 and C-12a through C-12d2 are committed. `L-01` is committed.
+- The last safe commit is `3f0c704` (C-12d2 behavior commit; record follows).
+- The next slice is **C-12d3, navigation transitions**. The task-state file holds its scope:
+  move the guarded transition functions into `ui/navigation/` behind event callbacks for
+  popup clearing, search execution, and conversation start, and keep session-bound guards
+  in the shell. C-12d4 then moves the remaining small feature tests off the full shell.
+- `test assembleRelease` and `:app:lintDebug` pass at the C-12d2 behavior commit.
 
 ## Next Cleanup
 
