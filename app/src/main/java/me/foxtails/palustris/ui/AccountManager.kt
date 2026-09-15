@@ -386,6 +386,7 @@ class AccountManager @Inject constructor(
                             presentationGeneration = current.presentationGeneration,
                             source = current.source,
                             registryToken = current.registryToken,
+                            directMessageGeneration = current.directMessageGeneration,
                         )
                     }
             } catch (e: Exception) {
@@ -394,10 +395,10 @@ class AccountManager @Inject constructor(
         }
     }
 
-    private fun connect(value: Session, account: Account, registration: RegisteredSource) {
-        // Revoke old writers before new writers activate. New keyed models issue a
-        // fresh generation when they start, so stale sessions cannot write afterwards.
-        directMessageWriteAuthority.invalidate(value.accountId)
+    private suspend fun connect(value: Session, account: Account, registration: RegisteredSource) {
+        // The account lifecycle issues the writer generation. The session replacement revokes old
+        // writers before the new generation activates. Stale sessions cannot write afterwards.
+        val directMessageGeneration = directMessageWriteAuthority.activate(value.accountId)
         sessionGeneration += 1L
         activeSessionValue = value
         // Publish one accepted context. The shell never joins a separate account emission
@@ -408,6 +409,7 @@ class AccountManager @Inject constructor(
             presentationGeneration = sessionGeneration,
             source = registration.source,
             registryToken = registration.token,
+            directMessageGeneration = directMessageGeneration,
         )
         _session.value = SessionUi(
             starting = false,

@@ -32,12 +32,15 @@ import me.foxtails.palustris.ui.sourceErrorMessage
 class DirectMessageViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted source: SocialSource,
+    @Assisted private val writeGeneration: Long,
     store: DirectMessageStore,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val writeAuthority: DirectMessageWriteAuthority = DirectMessageWriteAuthority(),
 ) : ViewModel() {
     private val directSource = source as? DirectMessageSource
-    private val repository = directSource?.let { DirectMessageRepository(accountId, it, store, ioDispatcher, writeAuthority) }
+    private val repository = directSource?.let {
+        DirectMessageRepository(accountId, it, store, writeGeneration, ioDispatcher, writeAuthority)
+    }
     private val _state = MutableStateFlow(DirectMessageUiState())
     val state = _state.asStateFlow()
     private var refreshJob: Job? = null
@@ -338,6 +341,6 @@ class DirectMessageViewModel @AssistedInject constructor(
 
     @AssistedFactory
     interface Factory {
-        fun create(accountId: AccountId, source: SocialSource): DirectMessageViewModel
+        fun create(accountId: AccountId, source: SocialSource, writeGeneration: Long): DirectMessageViewModel
     }
 }

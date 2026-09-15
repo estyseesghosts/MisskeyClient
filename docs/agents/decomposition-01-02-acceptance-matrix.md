@@ -11,8 +11,8 @@
 **Stale when:** A listed exit condition changes, or a slice in
 `docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
 
-**Evidence:** source verified for every path in this page. Test files were inspected. The C-01 and
-C-02 slices ran their focused tests, `test assembleRelease`, and `:app:lintDebug` on 2026-09-14.
+**Evidence:** source verified for every path in this page. Test files were inspected. The C-01, C-02,
+and C-03 slices ran their focused tests, `test assembleRelease`, and `:app:lintDebug` on 2026-09-14.
 Other statuses repeat a pass that `logs/DONE.txt` records, not a new run.
 
 ## 1. How To Read This Page
@@ -65,7 +65,7 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | --- | --- | --- | --- | --- | --- |
 | 02-A | Old successes and failures cannot change current rows, cursors, errors, or independent state. | `FeedViewModel` request epochs | `FeedViewModelRequestTest.kt` | Implemented, test verified | — |
 | 02-B | Late thread or send results cannot move selection or write into another conversation. | `DirectMessageViewModel` selection and send ownership | `DirectMessageViewModelTest.kt` | Partially implemented | C-04 |
-| 02-C | Removed accounts stay deleted. Old sessions cannot write. Accepted sends survive thread refresh. | `DirectMessageWriteAuthority`, `DirectMessageRepository` | `DirectMessageRepositoryTest.kt` | Partially implemented | C-03 |
+| 02-C | Removed accounts stay deleted. Old sessions cannot write. Accepted sends survive thread refresh. | `DirectMessageWriteAuthority`, `DirectMessageRepository` | `DirectMessageRepositoryTest.kt` | Implemented, test verified | — |
 | 02-D | Rejected pages leave memory and persistent state unchanged. Synchronization reports rejection. | `NotificationSynchronizer`, `NotificationRepository` caller query | `NotificationSynchronizerTest.kt`, `NotificationRepositoryTest.kt` | Implemented, source verified | C-09 |
 | 02-E | Refresh, removal, retry, and replacement cannot leave stuck or misowned moderation state. | `ModerationViewModel`, removal tokens, connected entry store | `ModerationViewModelTest.kt` | Implemented, test verified | — |
 | 02-F | One failed action cannot restore unrelated fields or undo another family's result. | `PostInteractionMutationOwner` | `PostInteractionMutationOwnerTest.kt` | Partially implemented | C-07 |
@@ -78,7 +78,9 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 
 ### Source Notes
 
-- `DirectMessageRepository.markRead` (lines 97-103) checks authority and then writes in two steps. It does not use `commitIfCurrent`.
+- `DirectMessageWriteAuthority` serializes activation, revocation, deletion, and accepted writes
+  under one lock per account. The account lifecycle issues the generation. A repository captures it.
+  `DirectMessageRepository.markRead` routes its local write through `commitIfCurrent`.
 - `DirectMessageConversationScreen.kt:124` clears the draft immediately on Send.
 - `HomeFeed.kt:116-121` keys paging demand on `visibleRows.size`. Filter identity is absent.
 - `HomePagingDemand.onPageRequested` counts requests. Its contract describes accepted pages.
@@ -97,7 +99,7 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | Composer | `PalustrisApp.kt` clears editor state without an editor-version check. | C-05, C-06 |
 | Draft callbacks | `DraftActions` has no request or session publication guard. | C-06 |
 | DM text | `DirectMessageConversationScreen.kt:124` clears the input at once. | C-04 |
-| DM storage | `markRead` uses a separate authority check and store write. | C-03 |
+| DM storage | Closed by C-03. `markRead` writes through `commitIfCurrent`. One lock owns activate, revoke, delete, and commit. | C-03 (implemented, test verified) |
 | Locale changes | `reconcilePlatformSelection` always imports a differing platform locale. | C-11 |
 | Home paging | Budget reset uses row count. Filter identity is absent. | C-08 |
 | Documentation | Plans, task state, and ownership pages contradict each other. | C-14, this pass |

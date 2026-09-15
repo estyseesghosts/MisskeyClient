@@ -2,9 +2,9 @@
 
 **Owner:** app-shell and feature-presentation maintainers.
 
-**Status:** current. The shell decomposition is partially migrated. Completion slices C-01 and C-02
-are implemented and test verified in the working tree. Other completion slices repair the remaining
-gaps.
+**Status:** current. The shell decomposition is partially migrated. Completion slices C-01, C-02, and
+C-03 are implemented and test verified in the working tree. Other completion slices repair the
+remaining gaps.
 
 **Last reviewed:** 2026-09-14.
 
@@ -110,6 +110,8 @@ Completion slices close these gaps. The acceptance matrix records the status.
 - The shell consumes one accepted connected context. It never joins separate session flows.
 - `AccountManager` owns the source factory. The shell does not create a source.
 - A feature model retires with its connected entry, not with a composition disposal.
+- The account lifecycle issues the direct-message writer generation. A repository captures it. A
+  revoked writer cannot mutate current DM storage. Network requests stay outside the lock.
 - Photo Grid keeps independent feed state and selection from Home.
 - Active-account and selected-account notification settings stay distinct.
 - Every source-backed feature receives values from one accepted connected lifetime.

@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import me.foxtails.palustris.data.directmessages.DirectMessageWriteAuthority
 import me.foxtails.palustris.data.directmessages.InMemoryDirectMessageStore
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
@@ -99,8 +100,21 @@ class DirectMessageViewModelTest {
         fun failSend(index: Int, error: Exception) { sendPending[index].completeExceptionally(error) }
     }
 
-    private fun setup(source: GatedDirectSource, dispatcher: kotlinx.coroutines.CoroutineDispatcher) =
-        DirectMessageViewModel(accountId, source, InMemoryDirectMessageStore(), dispatcher)
+    private suspend fun setup(
+        source: GatedDirectSource,
+        dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    ): DirectMessageViewModel {
+        val authority = DirectMessageWriteAuthority()
+        val generation = authority.activate(accountId)
+        return DirectMessageViewModel(
+            accountId = accountId,
+            source = source,
+            writeGeneration = generation,
+            store = InMemoryDirectMessageStore(),
+            ioDispatcher = dispatcher,
+            writeAuthority = authority,
+        )
+    }
 
     @Test
     fun lateThreadResultCannotMoveSelection() = runTest {
@@ -330,11 +344,15 @@ class DirectMessageViewModelTest {
                 override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
                 override suspend fun searchHashtag(tag: String, cursor: String?): Page<Post> = Page(emptyList())
             }
+            val authority = DirectMessageWriteAuthority()
+            val generation = authority.activate(accountId)
             val model = DirectMessageViewModel(
-                accountId,
-                plain,
-                InMemoryDirectMessageStore(),
-                StandardTestDispatcher(testScheduler),
+                accountId = accountId,
+                source = plain,
+                writeGeneration = generation,
+                store = InMemoryDirectMessageStore(),
+                ioDispatcher = StandardTestDispatcher(testScheduler),
+                writeAuthority = authority,
             )
             advanceUntilIdle()
 

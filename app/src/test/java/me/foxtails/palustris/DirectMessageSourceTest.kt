@@ -4,6 +4,7 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.directmessages.DirectMessageRepository
+import me.foxtails.palustris.data.directmessages.DirectMessageWriteAuthority
 import me.foxtails.palustris.data.directmessages.InMemoryDirectMessageStore
 import me.foxtails.palustris.data.mastodon.MastodonSource
 import me.foxtails.palustris.data.misskey.MisskeyApi
@@ -197,7 +198,9 @@ class DirectMessageSourceTest {
                 post(EntityId(origin, "post"), message)
             override suspend fun markConversationRead(id: ConversationId) = Unit
         }
-        val repository = DirectMessageRepository(first, source, store)
+        val authority = DirectMessageWriteAuthority()
+        val generation = authority.activate(first)
+        val repository = DirectMessageRepository(first, source, store, generation, authority = authority)
 
         repository.send(DirectMessageRequest(listOf(second), "Private"))
 
@@ -225,7 +228,9 @@ class DirectMessageSourceTest {
             override suspend fun markConversationRead(id: ConversationId) = Unit
         }
         val store = InMemoryDirectMessageStore()
-        val repository = DirectMessageRepository(account, source, store)
+        val authority = DirectMessageWriteAuthority()
+        val generation = authority.activate(account)
+        val repository = DirectMessageRepository(account, source, store, generation, authority = authority)
 
         repository.conversations()
         store.markRead(account, conversation.id)

@@ -23,47 +23,59 @@ class DirectMessageRepository(
     private val accountId: AccountId,
     private val source: DirectMessageSource,
     private val store: DirectMessageStore,
+    private val writeGeneration: Long,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val authority: DirectMessageWriteAuthority = DirectMessageWriteAuthority(),
 ) {
-    /** Writer generation captured at activation. Removal and replacement revoke it. */
-    private val writeGeneration: Long = authority.issue(accountId)
-
     suspend fun conversations(cursor: String? = null): Page<DirectConversation> = withContext(ioDispatcher) {
+        // Capture the local previews before the request. A write accepted while the request is in
+        // flight is newer than the response and must survive the merge.
+        val beforeLastPost = store.conversations(accountId).associate { it.id to it.lastPost.id }
         val remote = source.conversations(cursor)
         authority.commitIfCurrent(accountId, writeGeneration) {
-            val cached = store.conversations(accountId)
-            val byId = linkedMapOf<ConversationId, DirectConversation>()
-            if (cursor == null) cached.forEach { byId[it.id] = it }
+            val items = mutableListOf<DirectConversation>()
+            val remoteIds = mutableSetOf<ConversationId>()
             remote.items.forEach { incoming ->
-                val previous = byId[incoming.id]
-                val merged = if (previous?.lastPost?.id == incoming.lastPost.id) {
-                    incoming.copy(unread = previous.unread)
-                } else {
-                    incoming
+                remoteIds += incoming.id
+                val stored = store.conversation(accountId, incoming.id)
+                val merged = when {
+                    // A local write accepted during the request outranks a stale response.
+                    stored != null && beforeLastPost[stored.id] != stored.lastPost.id -> stored
+                    // Preserve local read state for the same last post on every page.
+                    stored?.lastPost?.id == incoming.lastPost.id -> incoming.copy(unread = stored.unread)
+                    else -> incoming
                 }
-                byId[incoming.id] = merged
                 store.save(accountId, merged)
+                items += merged
             }
-            Page(
-                items = byId.values.sortedByDescending { it.lastPost.publishedAtEpochMillis },
-                nextCursor = remote.nextCursor,
-            )
+            if (cursor == null) {
+                // Keep cached conversations that the first page omitted. Do not sort.
+                store.conversations(accountId).forEach { cached ->
+                    if (cached.id !in remoteIds) items += cached
+                }
+            }
+            // Keep adapter order. Do not sort opaque identifiers or infer chronology.
+            Page(items = items, nextCursor = remote.nextCursor)
         } ?: throw StaleDirectMessageWriter()
     }
 
     suspend fun thread(id: ConversationId): List<Post> = withContext(ioDispatcher) {
+        // Capture the local preview before the request. A send accepted during the request is
+        // newer than the response and must win the preview merge.
+        val beforeLastPostId = store.conversation(accountId, id)?.lastPost?.id
         val remote = source.conversationThread(id)
         authority.commitIfCurrent(accountId, writeGeneration) {
-            if (remote.isEmpty()) return@commitIfCurrent store.thread(accountId, id)
             val current = store.conversation(accountId, id) ?: return@commitIfCurrent remote
-            // Merge with the stored thread so a late response cannot drop a newer sent
-            // message. Opaque IDs carry no order: when the store already holds posts the
-            // response never saw, the stored preview is newer and must win.
             val storedThread = store.thread(accountId, id)
-            val storedExtras = storedThread.filter { stored -> remote.none { it.id == stored.id } }
-            val merged = (remote + storedExtras).distinctBy { it.id }
-            val lastPost = if (storedExtras.isNotEmpty()) current.lastPost else remote.last()
+            // Merge with the stored thread so a late response cannot drop a cached post. Adapter
+            // order stays first. Absence from the response is not proof of chronology.
+            val merged = (remote + storedThread).distinctBy { it.id }
+            val localSendDuringRequest = current.lastPost.id != beforeLastPostId
+            val lastPost = when {
+                localSendDuringRequest -> current.lastPost
+                remote.isNotEmpty() -> remote.last()
+                else -> current.lastPost
+            }
             store.save(accountId, current.copy(lastPost = lastPost), merged)
             merged
         } ?: throw StaleDirectMessageWriter()
@@ -96,8 +108,8 @@ class DirectMessageRepository(
 
     suspend fun markRead(id: ConversationId) {
         withContext(ioDispatcher) { source.markConversationRead(id) }
-        // A single null-safe store call needs no lock. Stale writers skip the write.
-        if (authority.isCurrent(accountId, writeGeneration)) {
+        // Route the local write through the same serialized boundary as every other write.
+        authority.commitIfCurrent(accountId, writeGeneration) {
             store.markRead(accountId, id)
         }
     }

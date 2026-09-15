@@ -24,11 +24,12 @@ fun DirectMessagesHost(
     accountId: AccountId,
     sessionGeneration: Long,
     source: SocialSource,
+    writeGeneration: Long,
     entryStore: ConnectedEntryStore,
 ): DirectMessagesContract {
     val model = hiltViewModel<DirectMessageViewModel, DirectMessageViewModel.Factory>(
         key = "direct-messages-$accountId-$sessionGeneration",
-        creationCallback = { factory -> factory.create(accountId, source) },
+        creationCallback = { factory -> factory.create(accountId, source, writeGeneration) },
     )
     LaunchedEffect(entryStore, sessionGeneration, model) {
         entryStore.register(sessionGeneration, "direct-messages-$accountId-$sessionGeneration") { model.stop() }

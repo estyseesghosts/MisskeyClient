@@ -11,26 +11,28 @@ import me.foxtails.palustris.domain.AccountId
 /**
  * Owns durable write authority for direct-message rows, one generation per account.
  *
- * A repository captures its generation when it starts writing. Account removal revokes
- * writers before deleting rows, and session replacement revokes old writers before new
- * writers activate. Either order is safe: a writer either commits before the revocation
- * and the later deletion still wins, or it observes the revocation and writes nothing.
- * Browsing between conversations or accounts never revokes, so valid cache updates
- * for a still-owned account keep working.
+ * The account lifecycle activates a writer when a session connects and revokes it on removal or
+ * replacement. A repository captures the active generation; it does not issue one. All state
+ * changes for one account run under the same per-account lock: activation, revocation, deletion,
+ * and accepted writes. A store commit checks the generation under that lock, so a revoked writer
+ * cannot interleave a check-then-write. Browsing between conversations or accounts never revokes,
+ * so valid cache updates for a still-owned account keep working.
  *
- * The generation counter is lock-free so revocation can run anywhere, including the
- * main thread during session activation. Store commits take the per-account lock, so a
- * revocation followed by deletion cannot interleave with a stale check-then-write.
- * No lock is held during network requests.
+ * No lock is held during a network request. The generation is monotonic, so an activation waits
+ * for any commit that is already running before it revokes the previous writer.
  */
 @Singleton
 class DirectMessageWriteAuthority @Inject constructor() {
     private val generations = ConcurrentHashMap<AccountId, AtomicLong>()
     private val locks = ConcurrentHashMap<AccountId, Mutex>()
 
-    /** Issues the writer generation for a newly activated writer. */
-    fun issue(accountId: AccountId): Long =
-        generations.getOrPut(accountId) { AtomicLong(0L) }.incrementAndGet()
+    /** Issues the writer generation for a session activation. Revokes the previous writer. */
+    suspend fun activate(accountId: AccountId): Long {
+        val lock = lockFor(accountId)
+        return lock.withLock {
+            generations.getOrPut(accountId) { AtomicLong(0L) }.incrementAndGet()
+        }
+    }
 
     fun isCurrent(accountId: AccountId, generation: Long): Boolean =
         (generations[accountId]?.get() ?: 0L) == generation
@@ -40,21 +42,28 @@ class DirectMessageWriteAuthority @Inject constructor() {
      * Returns null when a removal or session replacement revoked the writer first.
      */
     suspend fun <T> commitIfCurrent(accountId: AccountId, generation: Long, block: suspend () -> T): T? {
-        val lock = locks.getOrPut(accountId) { Mutex() }
+        val lock = lockFor(accountId)
         return lock.withLock {
             if (!isCurrent(accountId, generation)) null else block()
         }
     }
 
-    /** Revokes writers without deleting rows. Later commits from them write nothing. */
-    fun invalidate(accountId: AccountId) {
-        generations.getOrPut(accountId) { AtomicLong(0L) }.incrementAndGet()
+    /** Revokes writers without deleting rows. Serialized with accepted writes. */
+    suspend fun invalidate(accountId: AccountId) {
+        val lock = lockFor(accountId)
+        lock.withLock {
+            generations.getOrPut(accountId) { AtomicLong(0L) }.incrementAndGet()
+        }
     }
 
     /** Revokes writers, then deletes rows in the same serialized boundary. */
     suspend fun invalidateAndDelete(accountId: AccountId, delete: suspend () -> Unit) {
-        invalidate(accountId)
-        val lock = locks.getOrPut(accountId) { Mutex() }
-        lock.withLock { delete() }
+        val lock = lockFor(accountId)
+        lock.withLock {
+            generations.getOrPut(accountId) { AtomicLong(0L) }.incrementAndGet()
+            delete()
+        }
     }
+
+    private fun lockFor(accountId: AccountId): Mutex = locks.getOrPut(accountId) { Mutex() }
 }

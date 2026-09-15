@@ -146,6 +146,7 @@ fun ConnectedSessionHost(
         accountId = accountId,
         sessionGeneration = sessionGeneration,
         source = sharedSource,
+        writeGeneration = connectedContext.directMessageGeneration,
         entryStore = entryStore,
     )
     val notificationSettings = NotificationSettingsHost(

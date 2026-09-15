@@ -960,3 +960,14 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - A combined test assembleRelease :app:lintDebug run hit an AGP lint race on the release Hilt component source. Run the two commands separately.
 - C-02 committed at ffc9c3f.
 - Unverified: device, live-server, signed release.
+
+260914-231203 Slice C-03 direct-message durable write authority:
+- DirectMessageWriteAuthority now runs activate, invalidate, invalidateAndDelete, and commitIfCurrent under one lock per account. Removed issue. The account lifecycle activates the writer. A repository captures the generation.
+- AccountManager.connect is suspend. It activates the direct-message generation before it publishes the context. ConnectedSessionContext carries directMessageGeneration.
+- DirectMessageRepository takes an explicit writeGeneration. conversations and thread capture the local preview before the network request. A write accepted during the request outranks an older response. Adapter order stays first. No sort by timestamp or opaque identifier.
+- markRead routes its local write through commitIfCurrent. Network stays outside the lock.
+- DirectMessageViewModel is assisted by writeGeneration. DirectMessagesHost passes it from the connected context.
+- Updated DirectMessageRepositoryTest, DirectMessageSourceTest, and DirectMessageViewModelTest.
+- Verification passed: focused direct-message suites, test assembleRelease, and :app:lintDebug when run alone.
+- Proposed DirectMessageStoreInstrumentedTest is not written. No device is reachable.
+- Unverified: device, live-server, signed release.

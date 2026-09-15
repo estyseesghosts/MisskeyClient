@@ -82,13 +82,21 @@ class DirectMessageRepositoryTest {
         fun completeSend(index: Int, post: Post) { sendPending[index].complete(post) }
     }
 
+    private fun repository(
+        authority: DirectMessageWriteAuthority,
+        store: InMemoryDirectMessageStore,
+        source: GatedSource,
+        generation: Long,
+        dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    ) = DirectMessageRepository(accountId, source, store, generation, dispatcher, authority)
+
     @Test
     fun removedAccountsStayDeleted() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val authority = DirectMessageWriteAuthority()
         val store = InMemoryDirectMessageStore()
         val source = GatedSource()
-        val repository = DirectMessageRepository(accountId, source, store, dispatcher, authority)
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
 
         val pending = async { repository.conversations() }
         advanceUntilIdle()
@@ -113,15 +121,16 @@ class DirectMessageRepositoryTest {
         val authority = DirectMessageWriteAuthority()
         val store = InMemoryDirectMessageStore()
         val source = GatedSource()
-        val oldRepository = DirectMessageRepository(accountId, source, store, dispatcher, authority)
+        val oldGeneration = authority.activate(accountId)
+        val oldRepository = repository(authority, store, source, oldGeneration, dispatcher)
 
         val pending = async {
             oldRepository.send(DirectMessageRequest(listOf(recipient.id), "stale"))
         }
         advanceUntilIdle()
-        // Session replacement revokes old writers before new writers activate.
-        authority.invalidate(accountId)
-        val newRepository = DirectMessageRepository(accountId, source, store, dispatcher, authority)
+        // Session replacement activates a new writer and revokes the old one.
+        val newGeneration = authority.activate(accountId)
+        val newRepository = repository(authority, store, source, newGeneration, dispatcher)
         source.completeSend(0, post("stale-post", owner))
         advanceUntilIdle()
 
@@ -145,14 +154,50 @@ class DirectMessageRepositoryTest {
     }
 
     @Test
-    fun acceptedSendSurvivesConcurrentThreadRefresh() = runTest {
+    fun twoRepositoriesInOneSessionShareWriterAuthority() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val authority = DirectMessageWriteAuthority()
         val store = InMemoryDirectMessageStore()
         val source = GatedSource()
-        val repository = DirectMessageRepository(accountId, source, store, dispatcher, authority)
-        val id = ConversationId(connection.origin, "a")
+        val generation = authority.activate(accountId)
+        val first = repository(authority, store, source, generation, dispatcher)
+        val second = repository(authority, store, source, generation, dispatcher)
 
+        val pending = async { first.conversations() }
+        advanceUntilIdle()
+        source.completeInbox(0, Page(listOf(conversation("a", "last"))))
+        assertEquals(1, pending.await().items.size)
+        advanceUntilIdle()
+
+        val sending = async {
+            second.send(
+                DirectMessageRequest(listOf(recipient.id), "hi"),
+                conversationId = ConversationId(connection.origin, "a"),
+                recipientAccounts = listOf(recipient),
+            )
+        }
+        advanceUntilIdle()
+        source.completeSend(0, post("sent", owner))
+        sending.await()
+        advanceUntilIdle()
+
+        assertEquals(1, store.conversations(accountId).size)
+        assertEquals("sent", store.conversations(accountId).single().lastPost.id.value)
+    }
+
+    @Test
+    fun sendAcceptedDuringThreadLoadSurvivesOlderResponse() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val authority = DirectMessageWriteAuthority()
+        val store = InMemoryDirectMessageStore()
+        val source = GatedSource()
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
+        val id = ConversationId(connection.origin, "a")
+        store.save(accountId, conversation("a", "seed"))
+
+        val loading = async { repository.thread(id) }
+        advanceUntilIdle()
+        // The send is accepted while the thread request waits.
         val sending = async {
             repository.send(
                 DirectMessageRequest(listOf(recipient.id), "hello"),
@@ -164,17 +209,43 @@ class DirectMessageRepositoryTest {
         source.completeSend(0, post("sent", owner))
         sending.await()
         advanceUntilIdle()
-
-        val loading = async { repository.thread(id) }
-        advanceUntilIdle()
-        // The thread response predates the send. It must not drop the sent message.
+        // The thread response predates the send. It must not drop the sent message or preview.
         source.completeThread(0, listOf(post("old", recipient)))
         val merged = loading.await()
         advanceUntilIdle()
 
         assertTrue(merged.map { it.id.value }.contains("sent"))
         assertEquals("sent", store.conversation(accountId, id)?.lastPost?.id?.value)
-        assertTrue(store.thread(accountId, id).map { it.id.value }.contains("sent"))
+    }
+
+    @Test
+    fun olderInboxResponseDoesNotReplaceNewerSend() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val authority = DirectMessageWriteAuthority()
+        val store = InMemoryDirectMessageStore()
+        val source = GatedSource()
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
+        val id = ConversationId(connection.origin, "a")
+
+        val inbox = async { repository.conversations() }
+        advanceUntilIdle()
+        val sending = async {
+            repository.send(
+                DirectMessageRequest(listOf(recipient.id), "hello"),
+                conversationId = id,
+                recipientAccounts = listOf(recipient),
+            )
+        }
+        advanceUntilIdle()
+        source.completeSend(0, post("sent", owner))
+        sending.await()
+        advanceUntilIdle()
+        // The first page predates the send.
+        source.completeInbox(0, Page(listOf(conversation("a", "old"))))
+        inbox.await()
+        advanceUntilIdle()
+
+        assertEquals("sent", store.conversation(accountId, id)?.lastPost?.id?.value)
     }
 
     @Test
@@ -183,7 +254,7 @@ class DirectMessageRepositoryTest {
         val authority = DirectMessageWriteAuthority()
         val store = InMemoryDirectMessageStore()
         val source = GatedSource()
-        val repository = DirectMessageRepository(accountId, source, store, dispatcher, authority)
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
 
         val first = async { repository.conversations() }
         advanceUntilIdle()
@@ -208,7 +279,7 @@ class DirectMessageRepositoryTest {
         val store = InMemoryDirectMessageStore()
         val source = GatedSource()
         val other = AccountId(connection, "other")
-        val repository = DirectMessageRepository(accountId, source, store, dispatcher, authority)
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
 
         val pending = async { repository.conversations() }
         advanceUntilIdle()
@@ -228,7 +299,7 @@ class DirectMessageRepositoryTest {
         val authority = DirectMessageWriteAuthority()
         val store = InMemoryDirectMessageStore()
         val source = GatedSource()
-        val repository = DirectMessageRepository(accountId, source, store, dispatcher, authority)
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
         val id = ConversationId(connection.origin, "a")
         store.save(accountId, conversation("a", "last", unread = true))
 

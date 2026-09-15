@@ -50,6 +50,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | --- | --- | --- | --- | --- |
 | C-01 | Step 2 | Make connected identity coherent. Resolve one accepted context. Remove the `sourceFactory.create` fallback. | Every source-backed feature receives values from one accepted connected lifetime. | implemented, test verified. Commit `6b8752b`. |
 | C-02 | Step 3 | Repair ViewModel lifetime and route re-entry. Add an explicit connected-entry store and lifecycle owner. | Retired owners cannot publish. Re-entered features never receive stopped owners. | implemented, test verified. Commit `ffc9c3f`. |
+| C-03 | Step 4 | Complete DM durable write authority. Route `markRead` through `commitIfCurrent`. Keep network outside locks. | A retired session cannot mutate current DM storage. Removed rows stay deleted. | implemented, test verified. Commit recorded in the next documentation commit. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -59,11 +60,18 @@ C-02 added `ui/session/ConnectedEntryStore.kt` and `ConnectedEntryStoreTest.kt`.
 `ConnectedApp`, `ConnectedSessionHost`, the feature hosts, `SettingsOverlayHost`, and
 `NotificationSettingsViewModel`.
 
+C-03 changed `DirectMessageWriteAuthority`, `DirectMessageRepository`, `DirectMessageViewModel`,
+`DirectMessagesHost`, `ConnectedSessionContext`, `ConnectedSessionHost`, and `AccountManager`. It
+changed `DirectMessageRepositoryTest`, `DirectMessageSourceTest`, and `DirectMessageViewModelTest`.
+`DirectMessageWriteAuthority` now activates, revokes, deletes, and commits under one per-account
+lock. The account lifecycle issues the writer generation. A repository captures that generation. It
+does not issue one. `markRead` routes its local write through `commitIfCurrent`. Network requests
+stay outside every lock.
+
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-03 | Step 4 | Complete DM durable write authority. Route `markRead` through `commitIfCurrent`. Keep network outside locks. | A retired session cannot mutate current DM storage. Removed rows stay deleted. | pending |
 | C-04 | Step 5 | Give DM recovery text a feature owner. Add an editor revision. Clear only on accepted success. | A send failure cannot erase recoverable text. | pending |
 | C-05 | Step 6 | Establish a composer editor owner. Move editor fields out of `PalustrisApp`. | `PalustrisApp` requests composer transitions. It does not implement editor state. | pending |
 | C-06 | Step 7 | Make draft and publish completion version-aware. Separate the contract from storage. Bind to an account owner. | No late callback clears newer text, starts an obsolete publish, or recreates removed data. | pending |
@@ -80,20 +88,19 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 ## Current Slice
 
-**C-03 — Complete DM durable write authority.**
+**C-04 — Give DM recovery text a feature owner.**
 
-Not started. Work from `progressreport.md` section 3 step 4. C-01 and C-02 are committed.
+Not started. Work from `progressreport.md` section 3 step 5. C-01, C-02, and C-03 are committed.
 
-## Files Involved For C-03
+## Files Involved For C-04
 
-- `app/src/main/java/me/foxtails/palustris/data/directmessages/DirectMessageWriteAuthority.kt`
-- `app/src/main/java/me/foxtails/palustris/data/directmessages/DirectMessageRepository.kt`
-- `app/src/main/java/me/foxtails/palustris/data/directmessages/DirectMessageStore.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessageUiState.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessageViewModel.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/AccountManager.kt`
-- `app/src/test/java/me/foxtails/palustris/DirectMessageRepositoryTest.kt`
-
-Proposed: `DirectMessageStoreInstrumentedTest.kt`.
+- `app/src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessageConversationScreen.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessagesHost.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/shell/DirectMessagesContract.kt`
+- `app/src/test/java/me/foxtails/palustris/DirectMessageViewModelTest.kt`
+- `app/src/test/java/me/foxtails/palustris/DirectMessageScreenTest.kt`
 
 ## Required Verification
 
@@ -114,18 +121,27 @@ C-01 verification result: focused tests passed. `test assembleRelease` passed.
 C-02 verification result: `ConnectedEntryStoreTest` and `ConnectedSessionContextTest` passed.
 `test assembleRelease` passed. `:app:lintDebug` passed when run alone.
 
-Test these cases for C-02:
+C-03 verification result: `DirectMessageRepositoryTest`, `DirectMessageViewModelTest`,
+`DirectMessageSourceTest`, `DirectMessageScreenTest`, `SessionViewModelTest`, and
+`ConnectedSessionContextTest` passed. `test assembleRelease` passed. `:app:lintDebug` passed when
+run alone.
 
-- Same lifetime across a composition gap. Covered by
-  `ConnectedEntryStoreTest.sameLifetimeKeepsRegisteredTeardownAcrossRecomposition`.
-- New lifetime retires the previous entry. Covered by `newLifetimeRetiresThePreviousEntry`.
-- Retire all is idempotent. Covered by `retireAllStopsEveryEntryOnce`.
-- Repeated registration key replaces the callback. Covered by `repeatedKeyReplacesTheTeardown`.
-- Registration for a retired generation stops immediately. Covered by
-  `registrationForARetiredGenerationStopsImmediately`.
-- Owner clear retires the entry. Covered by `clearingTheOwnerRetiresTheAcceptedEntry`.
-- Moderation and notification-settings owners retire with the connected entry. Source verified in
-  `SettingsOverlayHost`. No focused Compose test.
+Test these cases for C-03:
+
+- A session replacement revokes the old writer before the new writer activates. Covered by
+  `DirectMessageRepositoryTest.sessionReplacementRevokesTheOldWriter` and
+  `DirectMessageRepositoryTest.oldSessionCannotWriteAfterReplacement`.
+- A send accepted during a thread load survives an older response. Covered by
+  `sendAcceptedDuringThreadLoadSurvivesOlderResponse`.
+- An older inbox response does not replace a newer accepted send. Covered by
+  `olderInboxResponseDoesNotReplaceNewerSend`.
+- Two repositories in one session share the writer authority. Covered by
+  `twoRepositoriesInOneSessionShareWriterAuthority`.
+- `markRead` routes the local write through `commitIfCurrent`. Source verified in
+  `DirectMessageRepository.markRead`. No focused claim of a deleted-row resurrection.
+
+The proposed `DirectMessageStoreInstrumentedTest.kt` is not written. No device is reachable. The
+Room store deletion and late-write behavior stays device unverified.
 
 ## Unresolved Blockers
 
@@ -139,4 +155,5 @@ Test these cases for C-02:
 
 `ffc9c3f` "Retire feature models with the connected entry".
 
-C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is the next slice.
+C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed before C-04
+starts. C-04 is the next slice.
