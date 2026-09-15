@@ -90,7 +90,7 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | 02-E | Refresh, removal, retry, and replacement cannot leave stuck or misowned moderation state. | `ModerationViewModel`, removal tokens, connected entry store | `ModerationViewModelTest.kt` | Implemented, test verified | — |
 | 02-F | One failed action cannot restore unrelated fields or undo another family's result. | `PostInteractionMutationOwner`, `PostActionFamily` | `PostInteractionMutationOwnerTest.kt`, `PostInteractionExecutionAuthorityTest.kt` | Implemented, test verified | — |
 | 02-G | Refresh cannot revive removed reactions. Stale jobs cannot modify a replacement thread or popup. | `PostThreadViewModel` overlays and projection, retired `PostActionOwner` | `PostThreadViewModelTest.kt`, `PostProjectionTest.kt`, `PostActionOwnerTest.kt` | Implemented, test verified | — |
-| 02-H | Home reaches older visible content without unbounded requests or hidden continuation. | `HomeFeed.kt`, `HomePagingDemand.kt` | `HomePagingDemandTest.kt`, `HomeFeedTest.kt` | Partially implemented | C-08 |
+| 02-H | Home reaches older visible content without unbounded requests or hidden continuation. | `HomeFeed.kt`, `HomePagingDemand.kt` | `HomePagingDemandTest.kt`, `HomeFeedTest.kt` | Implemented, test verified | — |
 | 02-I | Settings changes cannot overwrite newer fields or reopen under the wrong account or page. | `SettingsViewModel`, `SettingsRoute` saver | `SettingsViewModelTest.kt`, `SettingsRouteRestorationTest.kt` | Partially implemented | C-10 |
 | 02-J | All 17 resource locales are listed and selectable. System default stays separate. | `AppLanguage`, `locales_config.xml`, `LanguageSettingsScreen` | `LocalizationResourceTest.kt`, `LanguageSettingsScreenTest.kt` | Implemented, test verified | — |
 | 02-K | Selecting a language changes actual resources and survives supported restoration without loops. | `AppLocaleController`, `MainActivity` | `AppLocaleControllerTest.kt` | Partially implemented | C-11 |
@@ -104,8 +104,10 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 - `DirectMessageViewModel` owns the composer text and an editor revision. A selection change resets
   the text and advances the revision. A send clears the editor only when accepted and unchanged. A
   failed send keeps the text.
-- `HomeFeed.kt:116-121` keys paging demand on `visibleRows.size`. Filter identity is absent.
-- `HomePagingDemand.onPageRequested` counts requests. Its contract describes accepted pages.
+- C-08 published the feed request epoch through `FeedState` and `HomeFeedUiState`. The demand
+  tracks filter identity and the epoch beside the row count. `reset` advances a demand generation
+  so evaluation reruns on unchanged rows. `onPageAccepted` counts only accepted pages. The demand
+  blocks while sign-in is required.
 - `AppLocaleController.reconcilePlatformSelection` imports a differing platform locale on every call. It cannot tell startup reconciliation from a later user command.
 - `NotificationLaunchHost` clears a pending launch after a `Unit` callback. That callback cannot confirm receiving-shell acceptance.
 
@@ -123,7 +125,7 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | DM text | Closed by C-04. `DirectMessageViewModel` owns the composer text and revision. A failed send keeps the text. | C-04 (implemented, test verified) |
 | DM storage | Closed by C-03. `markRead` writes through `commitIfCurrent`. One lock owns activate, revoke, delete, and commit. | C-03 (implemented, test verified) |
 | Locale changes | `reconcilePlatformSelection` always imports a differing platform locale. | C-11 |
-| Home paging | Budget reset uses row count. Filter identity is absent. | C-08 |
+| Home paging | Closed by C-08. The budget resets on filter identity and request epoch changes. Only accepted pages count. | C-08 (implemented, test verified) |
 | Documentation | Plans, task state, and ownership pages contradict each other. | C-14, this pass |
 
 ## 5. Work Assigned To Later Plans

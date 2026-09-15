@@ -57,6 +57,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-06b | Step 7, part 2 | Move the draft storage owner into the data layer. Bind draft operations to the account. Add load request identity. Report load and delete failures. | The presentation contract carries no storage. Draft failures are reported. | implemented, test verified. Commit `c1288da`. |
 | C-06c | Step 7, part 3 | Coordinate account removal with pending draft writes. | A remove cannot leave recreated draft data. | implemented, test verified. Commit `4454bae`. |
 | C-07 | Step 8 | Stabilize post-action ownership and projection. Use typed families. Retire the coordinator with its entry. | Every surface receives the accepted action result once. Retired popups have no authority. | implemented, test verified. Commit `0027b60`. |
+| C-08 | Step 9 | Complete Home paging demand. Include filter identity and the request epoch. Count accepted pages. | Home reaches older visible content without unbounded automatic requests. | implemented, test verified. Commit `PENDING`. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -121,11 +122,17 @@ mutations, and reports. `ConnectedSessionHost` builds the popup owner from the s
 identity, reads the profile refresh callback without recreating the owner, and registers both
 retirements with the entry store. The narrow popup interface extraction stays deferred to C-12.
 
+C-08 published the feed request epoch through `FeedState` and `HomeFeedUiState`. `FeedViewModel`
+advances the epoch on refresh and timeline replacement, including failed timeline changes. Paging
+keeps the epoch. `HomePagingDemand` tracks filter identity and the epoch beside the row count, so
+a filter or epoch change at the same count still resets the budget. `reset` advances a demand
+generation so evaluation reruns even when rows are unchanged. `onPageAccepted` counts only
+accepted pages. The demand blocks while sign-in is required.
+
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-08 | Step 9 | Complete Home paging demand. Include filter identity and the request epoch. Count accepted pages. | Home reaches older visible content without unbounded automatic requests. | pending |
 | C-09 | Step 10 | Finish notification request and launch ownership. Add request identity. Return explicit launch acceptance. | Rejected pages change no state. An undelivered launch is not acknowledged. | pending |
 | C-10 | Step 11 | Complete settings validity and recovery. Bind commands to lifecycle-valid targets. Add recovery. | A settings command cannot change another account or restore deleted state. | pending |
 | C-11 | Step 12 | Repair locale event direction. Separate startup reconciliation from later commands. | The latest accepted user choice controls resources and survives restart. | pending |
@@ -137,18 +144,21 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 ## Current Slice
 
-**C-08 — Complete Home paging demand.**
+**C-09 — Finish notification request and launch ownership.**
 
-Not started. Work from `progressreport.md` section 3 step 9. C-01 through C-07 are committed.
+Not started. Work from `progressreport.md` section 3 step 10. C-01 through C-08 are committed.
 
-## Files Involved For C-08
+## Files Involved For C-09
 
-- `app/src/main/java/me/foxtails/palustris/ui/HomeFeed.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/HomePagingDemand.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/FeedViewModel.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/FeedHost.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/shell/HomeContract.kt`
-- `HomePagingDemandTest.kt`, `HomeFeedTest.kt`, `FeedViewModelRequestTest.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/NotificationsViewModel.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/notifications/NotificationLaunchHost.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/notifications/NotificationLaunchRouter.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/ConnectedApp.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
+- `app/src/main/java/me/foxtails/palustris/data/notifications/NotificationIngestRequest.kt`
+- `app/src/main/java/me/foxtails/palustris/data/notifications/NotificationRepository.kt`
+- `app/src/main/java/me/foxtails/palustris/data/notifications/NotificationSynchronizer.kt`
+- Related notification tests
 
 ## Required Verification
 
@@ -278,6 +288,24 @@ Test these cases for C-07:
 
 No device test ran. Live-server and signed-release behavior stay unverified.
 
+C-08 verification result: `HomePagingDemandTest`, `FeedViewModelRequestTest`, `HomeFeedTest`, and
+`NavigationTest` passed. `test assembleRelease` passed. `:app:lintDebug` passed when run alone.
+
+Test these cases for C-08:
+
+- A filter change at the same row count resets the budget. Covered by
+  `HomePagingDemandTest.filterChangeAtTheSameCountResetsTheBudget`.
+- A request epoch change resets the budget. Covered by `requestEpochChangeResetsTheBudget`.
+- A reset advances the generation for reevaluation. Covered by
+  `resetAdvancesTheGenerationForReevaluation`.
+- The sign-in gate blocks automatic paging. Covered by `signInGateBlocksAutomaticPaging`.
+- Refresh advances the epoch and paging keeps it. Covered by
+  `FeedViewModelRequestTest.refreshAdvancesTheRequestEpochAndPagingKeepsIt`.
+- A failed timeline change carries the new epoch. Covered by
+  `failedTimelineChangeCarriesTheNewRequestEpoch`.
+
+No device test ran. Live-server and signed-release behavior stay unverified.
+
 ## Unresolved Blockers
 
 - No emulator or device is reachable in the agent shell. Connected instrumentation stays unverified.
@@ -289,9 +317,9 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`0027b60` "Stabilize post-action ownership and projection".
+`PENDING` "Complete Home paging demand".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
 C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is committed at `0027b60`.
-C-08 is the next slice.
+C-08 is committed at `PENDING`. C-09 is the next slice.

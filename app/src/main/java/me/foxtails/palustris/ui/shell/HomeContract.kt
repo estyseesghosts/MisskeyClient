@@ -20,6 +20,8 @@ data class HomeFeedUiState(
     val needsSignIn: Boolean = false,
     val selectedTimeline: Timeline = Timeline.Home,
     val availableTimelines: Set<Timeline> = setOf(Timeline.Home),
+    /** Home request epoch from the feed owner. Demand resets when it changes. */
+    val requestEpoch: Long = 0L,
 )
 
 /** Home timeline presentation. The Home owner drives timeline selection and paging. */

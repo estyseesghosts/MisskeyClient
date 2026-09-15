@@ -86,6 +86,7 @@ fun FeedHost(
                 needsSignIn = feed.needsSignIn,
                 selectedTimeline = feed.timeline,
                 availableTimelines = feed.timelines,
+                requestEpoch = feed.requestEpoch,
             ),
             actions = homeActions,
         )

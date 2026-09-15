@@ -1042,6 +1042,16 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - C-07 committed at 0027b60.
 - Unverified: device, live-server, signed release.
 
+260915-010000 Slice C-08 Home paging demand:
+- Added requestEpoch to FeedState and HomeFeedUiState. FeedViewModel advances the epoch on refresh and timeline replacement, including failed timeline changes. Paging keeps the epoch.
+- HomePagingDemand tracks filter identity and the epoch beside the row count. A filter or epoch change at the same count resets the budget.
+- reset advances a demand generation so evaluation reruns even when rows are unchanged. onPageAccepted counts only accepted pages. The demand blocks while sign-in is required.
+- Mapped the epoch through FeedHost and the test fixtures.
+- Added demand cases for same-count filter change, epoch change, generation advance, and sign-in gating, plus feed epoch cases for refresh, paging, and failed timeline change.
+- Verification passed: HomePagingDemandTest, FeedViewModelRequestTest, HomeFeedTest, NavigationTest, test assembleRelease, and :app:lintDebug when run alone.
+- C-08 committed at PENDING.
+- Unverified: device, live-server, signed release.
+
 260915-010000 Slice L-01 Russian and Indonesian locales:
 - Added AppLanguage Russian (ru) and Indonesian (in-ID) with settings labels, values-ru and values-in-rID string files, and locales_config entries.
 - Each new catalog holds a confident navigation and action subset of 14 strings. Uncertain long-form strings stay on English fallback.

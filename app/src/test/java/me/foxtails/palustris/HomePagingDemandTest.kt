@@ -16,28 +16,50 @@ class HomePagingDemandTest {
         loading: Boolean = false,
         loadingMore: Boolean = false,
         errorPresent: Boolean = false,
+        needsSignIn: Boolean = false,
         visiblePostCount: Int = 10,
         lastVisiblePostIndex: Int = 0,
-    ) = HomePagingInput(nextCursor, loading, loadingMore, errorPresent, visiblePostCount, lastVisiblePostIndex)
+        requestEpoch: Long = 1L,
+        filterIdentity: Set<String> = emptySet(),
+        demandGeneration: Long = 0L,
+    ) = HomePagingInput(
+        nextCursor,
+        loading,
+        loadingMore,
+        errorPresent,
+        needsSignIn,
+        visiblePostCount,
+        lastVisiblePostIndex,
+        requestEpoch,
+        filterIdentity,
+        demandGeneration,
+    )
+
+    private fun shown(
+        demand: HomePagingDemand,
+        count: Int,
+        filterIdentity: Set<String> = emptySet(),
+        requestEpoch: Long = 1L,
+    ) = demand.onVisiblePostsChanged(count, filterIdentity, requestEpoch)
 
     @Test
     fun unfilteredRowsReachTheThresholdOncePerCursor() {
         val demand = HomePagingDemand()
-        demand.onVisiblePostsChanged(10)
+        shown(demand, 10)
 
         assertFalse(demand.shouldRequestNextPage(input(lastVisiblePostIndex = 4)))
         assertTrue(demand.shouldRequestNextPage(input(lastVisiblePostIndex = 5)))
 
-        demand.onPageRequested()
+        demand.onPageAccepted()
         // The accepted page adds visible rows, so the budget resets.
-        demand.onVisiblePostsChanged(20)
+        shown(demand, 20)
         assertTrue(demand.shouldRequestNextPage(input(visiblePostCount = 20, lastVisiblePostIndex = 15)))
     }
 
     @Test
     fun finalFetchedRowsAreFiltered() {
         val demand = HomePagingDemand()
-        demand.onVisiblePostsChanged(8)
+        shown(demand, 8)
 
         assertFalse(demand.shouldRequestNextPage(input(visiblePostCount = 8, lastVisiblePostIndex = 2)))
         assertTrue(demand.shouldRequestNextPage(input(visiblePostCount = 8, lastVisiblePostIndex = 3)))
@@ -46,26 +68,26 @@ class HomePagingDemandTest {
     @Test
     fun everyRowFilteredThenALaterPageHasAVisiblePost() {
         val demand = HomePagingDemand()
-        demand.onVisiblePostsChanged(0)
+        shown(demand, 0)
 
         // A fully filtered list still has a usable cursor.
         assertTrue(demand.shouldRequestNextPage(input(visiblePostCount = 0, lastVisiblePostIndex = -1)))
-        demand.onPageRequested()
+        demand.onPageAccepted()
         // The next page still has no visible row.
         assertTrue(demand.shouldRequestNextPage(input(visiblePostCount = 0, lastVisiblePostIndex = -1)))
         // A later page contains a visible post, which resets the budget.
-        demand.onVisiblePostsChanged(1)
+        shown(demand, 1)
         assertTrue(demand.shouldRequestNextPage(input(visiblePostCount = 1, lastVisiblePostIndex = 0)))
     }
 
     @Test
     fun hiddenOnlyPagesExhaustTheAutomaticBudget() {
         val demand = HomePagingDemand()
-        demand.onVisiblePostsChanged(0)
+        shown(demand, 0)
 
         repeat(HomePagingDemand.NO_PROGRESS_LIMIT) {
             assertTrue(demand.shouldRequestNextPage(input(visiblePostCount = 0, lastVisiblePostIndex = -1)))
-            demand.onPageRequested()
+            demand.onPageAccepted()
         }
         assertFalse(demand.shouldRequestNextPage(input(visiblePostCount = 0, lastVisiblePostIndex = -1)))
     }
@@ -73,8 +95,8 @@ class HomePagingDemandTest {
     @Test
     fun manualContinuationResetsAnExhaustedBudget() {
         val demand = HomePagingDemand()
-        demand.onVisiblePostsChanged(0)
-        repeat(HomePagingDemand.NO_PROGRESS_LIMIT) { demand.onPageRequested() }
+        shown(demand, 0)
+        repeat(HomePagingDemand.NO_PROGRESS_LIMIT) { demand.onPageAccepted() }
 
         assertFalse(demand.shouldRequestNextPage(input(visiblePostCount = 0, lastVisiblePostIndex = -1)))
         demand.reset()
@@ -82,12 +104,57 @@ class HomePagingDemandTest {
     }
 
     @Test
+    fun filterChangeAtTheSameCountResetsTheBudget() {
+        val demand = HomePagingDemand()
+        shown(demand, 8)
+        repeat(HomePagingDemand.NO_PROGRESS_LIMIT) { demand.onPageAccepted() }
+        assertFalse(demand.shouldRequestNextPage(input(visiblePostCount = 8, lastVisiblePostIndex = 7)))
+
+        // The row count did not change, but the filter did. The budget restarts.
+        shown(demand, 8, filterIdentity = setOf("spoilers"))
+        assertTrue(demand.shouldRequestNextPage(input(visiblePostCount = 8, lastVisiblePostIndex = 7)))
+    }
+
+    @Test
+    fun requestEpochChangeResetsTheBudget() {
+        val demand = HomePagingDemand()
+        shown(demand, 8, requestEpoch = 1L)
+        repeat(HomePagingDemand.NO_PROGRESS_LIMIT) { demand.onPageAccepted() }
+        assertFalse(demand.shouldRequestNextPage(input(visiblePostCount = 8, lastVisiblePostIndex = 7)))
+
+        shown(demand, 8, requestEpoch = 2L)
+        assertTrue(
+            demand.shouldRequestNextPage(
+                input(visiblePostCount = 8, lastVisiblePostIndex = 7, requestEpoch = 2L),
+            ),
+        )
+    }
+
+    @Test
+    fun resetAdvancesTheGenerationForReevaluation() {
+        val demand = HomePagingDemand()
+        assertEquals(0L, demand.demandGeneration)
+
+        demand.reset()
+
+        assertEquals(1L, demand.demandGeneration)
+    }
+
+    @Test
+    fun signInGateBlocksAutomaticPaging() {
+        val demand = HomePagingDemand()
+        shown(demand, 10)
+
+        assertFalse(demand.shouldRequestNextPage(input(lastVisiblePostIndex = 9, needsSignIn = true)))
+    }
+
+    @Test
     fun cursorChangeWithoutVisibleProgressStillAllowsBoundedProgress() {
         val demand = HomePagingDemand()
-        demand.onVisiblePostsChanged(0)
+        shown(demand, 0)
 
         assertTrue(demand.shouldRequestNextPage(input(nextCursor = "c1", visiblePostCount = 0, lastVisiblePostIndex = -1)))
-        demand.onPageRequested()
+        demand.onPageAccepted()
         // The next cursor arrived but the visible rows did not change.
         assertTrue(demand.shouldRequestNextPage(input(nextCursor = "c2", visiblePostCount = 0, lastVisiblePostIndex = -1)))
     }
@@ -95,7 +162,7 @@ class HomePagingDemandTest {
     @Test
     fun cursorChangeAloneDoesNotBreakTheThreshold() {
         val demand = HomePagingDemand()
-        demand.onVisiblePostsChanged(10)
+        shown(demand, 10)
 
         assertFalse(demand.shouldRequestNextPage(input(nextCursor = "c2", lastVisiblePostIndex = 0)))
     }
@@ -103,7 +170,7 @@ class HomePagingDemandTest {
     @Test
     fun loadingErrorAndFooterRowsCannotTriggerPaging() {
         val demand = HomePagingDemand()
-        demand.onVisiblePostsChanged(10)
+        shown(demand, 10)
 
         assertFalse(demand.shouldRequestNextPage(input(loading = true, lastVisiblePostIndex = 9)))
         assertFalse(demand.shouldRequestNextPage(input(loadingMore = true, lastVisiblePostIndex = 9)))

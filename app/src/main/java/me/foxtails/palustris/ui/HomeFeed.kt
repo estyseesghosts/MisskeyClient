@@ -112,12 +112,14 @@ fun HomeFeed(
     val visibleRows = rows.filterNot { ownedPost -> ContentWarningPolicy.matchesHashtagMute(postHashtags(ownedPost.post.text, ownedPost.post.emoji), mutedHashtags) }
     val currentVisibleRows by rememberUpdatedState(visibleRows)
     val pagingDemand = remember { HomePagingDemand() }
-    // New visible rows reset the no-progress budget.
-    LaunchedEffect(visibleRows.size) {
-        pagingDemand.onVisiblePostsChanged(visibleRows.size)
+    // New visible rows, a changed filter, or a new request epoch reset the no-progress budget.
+    // The row count alone never identifies the filter, so the identity travels with the count.
+    LaunchedEffect(visibleRows.size, mutedHashtags, state.requestEpoch) {
+        pagingDemand.onVisiblePostsChanged(visibleRows.size, mutedHashtags, state.requestEpoch)
     }
-    // A refresh or timeline change starts a new demand budget.
-    LaunchedEffect(state.loading, state.selectedTimeline) {
+    // A refresh, timeline change, epoch change, or filter change starts a new demand budget and
+    // reevaluates demand even when the visible rows are unchanged.
+    LaunchedEffect(state.loading, state.selectedTimeline, state.requestEpoch, mutedHashtags) {
         pagingDemand.reset()
     }
     val statePaneKey = when {
@@ -135,17 +137,27 @@ fun HomeFeed(
                 loading = s.loading,
                 loadingMore = s.loadingMore,
                 errorPresent = s.error != null,
+                needsSignIn = s.needsSignIn,
                 visiblePostCount = postCount,
                 lastVisiblePostIndex = lastVisiblePostIndex(
                     visibleItemIndices = list.layoutInfo.visibleItemsInfo.map { it.index },
                     leadingItemCount = s.leadingItemCount(),
                     postCount = postCount,
                 ),
+                requestEpoch = s.requestEpoch,
+                filterIdentity = mutedHashtags,
+                demandGeneration = pagingDemand.demandGeneration,
             )
         }.distinctUntilChanged().collect { input ->
             if (pagingDemand.shouldRequestNextPage(input)) {
-                pagingDemand.onPageRequested()
+                // The input excludes the rejection cases the feed owner checks (cursor,
+                // loading, error, sign-in), and the shell timeline only diverges from the
+                // feed timeline while the feed loads. The owner reserves the page slot
+                // synchronously, so this request counts as accepted. A refresh that lands
+                // between evaluation and the call can still reject it. That costs one
+                // bounded budget unit and the next reset recovers it.
                 loadMore()
+                pagingDemand.onPageAccepted()
             }
         }
     }

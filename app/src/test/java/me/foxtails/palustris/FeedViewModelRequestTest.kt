@@ -96,6 +96,66 @@ class FeedViewModelRequestTest {
     }
 
     @Test
+    fun refreshAdvancesTheRequestEpochAndPagingKeepsIt() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val coordinator = AccountSyncCoordinator()
+        try {
+            val source = GatedSource()
+            val model = FeedViewModel(accountId, source, coordinator)
+            advanceUntilIdle()
+            source.complete(0, Page(listOf(post("a")), nextCursor = "c1"))
+            advanceUntilIdle()
+            val firstEpoch = model.feed.value.requestEpoch
+
+            model.refresh()
+            advanceUntilIdle()
+            source.complete(1, Page(listOf(post("b")), nextCursor = "c2"))
+            advanceUntilIdle()
+            val secondEpoch = model.feed.value.requestEpoch
+            assertTrue(secondEpoch > firstEpoch)
+
+            model.loadMore()
+            advanceUntilIdle()
+            source.complete(2, Page(listOf(post("b"), post("c")), nextCursor = "c3"))
+            advanceUntilIdle()
+
+            assertEquals(secondEpoch, model.feed.value.requestEpoch)
+            assertEquals(listOf("b", "c"), rows(model))
+        } finally {
+            coordinator.close()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun failedTimelineChangeCarriesTheNewRequestEpoch() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val failing = object : SocialSource {
+            override val capabilities = ServerCapabilities(timelines = setOf(Timeline.Home, Timeline.Local))
+            override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> {
+                if (timeline == Timeline.Local) throw java.io.IOException("timeline unavailable")
+                return Page(listOf(post("a")), nextCursor = "c1")
+            }
+            override suspend fun searchHashtag(tag: String, cursor: String?): Page<Post> = Page(emptyList())
+        }
+        val coordinator = AccountSyncCoordinator()
+        try {
+            val model = FeedViewModel(accountId, failing, coordinator)
+            advanceUntilIdle()
+            val firstEpoch = model.feed.value.requestEpoch
+
+            model.refresh(Timeline.Local)
+            advanceUntilIdle()
+
+            assertTrue(model.feed.value.requestEpoch > firstEpoch)
+            assertEquals(Timeline.Home, model.feed.value.timeline)
+        } finally {
+            coordinator.close()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun staleRefreshSuccessCannotReplaceNewerRefresh() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val coordinator = AccountSyncCoordinator()

@@ -135,6 +135,7 @@ class FeedViewModel @AssistedInject constructor(
             loadingMore = false,
             nextCursor = if (timelineChanged) null else previous.nextCursor,
             error = null,
+            requestEpoch = epoch,
         )
         feedJob = viewModelScope.launch {
             try {
@@ -156,6 +157,7 @@ class FeedViewModel @AssistedInject constructor(
                     favouriteEmoji = favouriteEmoji,
                     publishing = _feed.value.publishing,
                     nextCursor = page.nextCursor,
+                    requestEpoch = epoch,
                 )
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -171,6 +173,7 @@ class FeedViewModel @AssistedInject constructor(
                         error = error,
                         needsSignIn = needsSignIn,
                         publishing = _feed.value.publishing,
+                        requestEpoch = epoch,
                     )
                 } else {
                     // Keep the accepted rows for a same-timeline refresh so a late failure cannot

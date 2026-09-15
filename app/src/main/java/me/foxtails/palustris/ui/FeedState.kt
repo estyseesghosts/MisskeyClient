@@ -27,6 +27,8 @@ data class FeedState(
     val nextCursor: String? = null,
     val error: String? = null,
     val needsSignIn: Boolean = false,
+    /** Home request epoch. Advances on refresh, timeline replacement, and stop. */
+    val requestEpoch: Long = 0L,
 )
 
 data class AccountSearchState(

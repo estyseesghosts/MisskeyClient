@@ -132,6 +132,8 @@ Completion slices close these gaps. The acceptance matrix records the status.
 - The popup owner and the projection coordinator retire with the connected entry. A retired
   popup has no authority. A retired coordinator delivers nothing.
 - Photo Grid keeps independent feed state and selection from Home.
+- Home paging demand resets on filter identity and request epoch changes. Only accepted pages
+  consume the no-progress budget. The demand blocks while sign-in is required.
 - Active-account and selected-account notification settings stay distinct.
 - Every source-backed feature receives values from one accepted connected lifetime.
 

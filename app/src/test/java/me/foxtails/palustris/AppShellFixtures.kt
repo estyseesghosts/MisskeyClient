@@ -173,6 +173,7 @@ internal object AppShellFixtures {
         needsSignIn = feed.needsSignIn,
         selectedTimeline = feed.timeline,
         availableTimelines = feed.timelines,
+        requestEpoch = feed.requestEpoch,
     )
 
     /** Test-only Home contract derived from a fixture feed. */
