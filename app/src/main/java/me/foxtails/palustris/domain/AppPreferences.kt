@@ -62,11 +62,25 @@ enum class AppLanguage(val tag: String?) {
     English("en"),
     German("de"),
     Spanish("es"),
+    SpanishSpain("es-ES"),
+    SpanishLatinAmerica("es-419"),
     French("fr"),
     Hindi("hi"),
     Japanese("ja"),
     Korean("ko"),
+    PortugueseBrazil("pt-BR"),
+    PortuguesePortugal("pt-PT"),
+    CantoneseHongKong("yue-HK"),
     Chinese("zh"),
+    ChineseMainland("zh-CN"),
+    ChineseTaiwan("zh-TW"),
+    ;
+
+    companion object {
+        /** Stored preferences keep the enum name. Unknown names fall back safely. */
+        fun fromNameOrDefault(name: String?): AppLanguage =
+            entries.firstOrNull { it.name == name } ?: SystemDefault
+    }
 }
 
 data class AppPreferencesState(

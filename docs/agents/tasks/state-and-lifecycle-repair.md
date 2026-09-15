@@ -33,7 +33,7 @@ availability, and cancellation.
 | 02-G Thread overlays and projections | completed | `7f03284` |
 | 02-H Home paging demand | completed | `aa19bc4` |
 | 02-I Settings commands and routes | completed | `9679fce` |
-| 02-J Locale catalog | pending | |
+| 02-J Locale catalog | completed | |
 | 02-K Locale lifecycle | pending | |
 | 02-L Cancellation and integration | pending | |
 | 01 skipped items | pending | |
@@ -114,4 +114,19 @@ Slice 02-I is complete and verified.
 - `SettingsRoute` has a saver that preserves origin, protocol, local ID, and moderation kind,
   rejects malformed values to `Main`, and waits for the account index before falling back.
 
-Slice 02-H is complete and verified. 02-J through 02-L remain pending.
+Slice 02-J is complete and verified.
+
+- `AppLanguage` lists all 15 concrete resource tags plus System default. Stored enum
+  names are unchanged, so old `app-preferences.json` values still restore.
+- `locales_config.xml` declares the same 15 BCP 47 tags. System default is a policy
+  choice, not an XML locale.
+- `LanguageSettingsScreen` is a scrollable radio group with one selected row.
+  System-default copy comes from string resources.
+- `LocalizationResourceTest` checks catalog parity across resources, enum, and XML.
+  A new language qualifier fails until it has a selectable entry and XML config.
+- `AppPreferencesRepositoryTest` checks persistence and restore by tag for every
+  choice, plus safe fallback for unknown stored values.
+- `LanguageSettingsScreenTest` checks row reachability on compact screens with
+  large fonts, single-selection radio semantics, and exact regional selection.
+
+Slice 02-K through 02-L remain pending.

@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.preferences.FileAppPreferencesRepository
 import me.foxtails.palustris.domain.AppColorScheme
+import me.foxtails.palustris.domain.AppLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Before
@@ -39,6 +40,32 @@ class AppPreferencesRepositoryTest {
 
         assertEquals(AppColorScheme.System, state.preferences.colorScheme)
         assertNotNull(state.error)
+    }
+
+    @Test
+    fun everySelectionPersistsAndRestoresByTag() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        AppLanguage.entries.forEach { language ->
+            val repository = FileAppPreferencesRepository(context)
+            repository.observe().first { it.loaded }
+            repository.update { it.copy(language = language) }
+
+            val restored = FileAppPreferencesRepository(context).observe().first { it.loaded }
+            assertEquals(language, restored.preferences.language)
+            assertEquals(language.tag, restored.preferences.language.tag)
+        }
+    }
+
+    @Test
+    fun unknownStoredLanguageFallsBackToSystemDefault() = runBlocking {
+        file.parentFile?.mkdirs()
+        file.writeText("""{"language":"Klingon"}""")
+
+        val state = FileAppPreferencesRepository(ApplicationProvider.getApplicationContext())
+            .observe()
+            .first { it.loaded }
+
+        assertEquals(AppLanguage.SystemDefault, state.preferences.language)
     }
 
     @Test

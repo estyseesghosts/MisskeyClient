@@ -535,6 +535,8 @@
     <string name="settings_privacy">Privacy</string>
     <string name="settings_privacy_summary">Manage local privacy rules and account moderation lists.</string>
     <string name="settings_language">Language</string>
+    <string name="language_system_default">System default</string>
+    <string name="language_system_default_description">Follow the device language</string>
     <string name="settings_posting">Posting</string>
     <string name="settings_posting_summary">Choose defaults for new posts and replies.</string>
     <string name="settings_choose_account">Choose account</string>
