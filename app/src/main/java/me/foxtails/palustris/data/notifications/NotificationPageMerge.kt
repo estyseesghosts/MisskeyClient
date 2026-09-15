@@ -1,6 +1,7 @@
 package me.foxtails.palustris.data.notifications
 
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationDeliveryRecord
@@ -80,3 +81,10 @@ internal fun updateNotificationDeliveryOutbox(
         ))
     }
 }
+
+/**
+ * Stable delivery identity for one notification. The hash input is the
+ * compatibility contract for outbox tags and replacement. Do not merge it
+ * with [AndroidNotificationIds] without a separate identity migration.
+ */
+internal fun stableNotificationId(id: EntityId): Int = (id.connection + "\u0000" + id.value).hashCode()

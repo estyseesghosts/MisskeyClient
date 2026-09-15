@@ -5,6 +5,7 @@ import android.util.AtomicFile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.IOException
+import java.security.MessageDigest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -18,6 +19,15 @@ interface NotificationStore {
     fun read(accountId: AccountId): NotificationStoreRead
     fun write(accountId: AccountId, state: NotificationRepositoryState)
     fun delete(accountId: AccountId)
+}
+
+/**
+ * Stable storage key for one account. The SHA-256 input is the compatibility
+ * contract for file names, Room keys, and import markers. Do not change it.
+ */
+internal fun AccountId.stableFileName(): String {
+    val bytes = "$connection\u0000$localId".toByteArray(Charsets.UTF_8)
+    return MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }
 
 class InMemoryNotificationStore : NotificationStore {
