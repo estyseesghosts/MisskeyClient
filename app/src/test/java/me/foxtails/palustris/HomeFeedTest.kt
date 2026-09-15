@@ -62,6 +62,19 @@ private fun show(
     ) {
         compose.activity.runOnUiThread {
             compose.activity.setContent {
+                HomeFeatureFixtures.feed(feedState, onReaction = onReaction)
+            }
+        }
+        compose.waitForIdle()
+    }
+
+    private fun showInShell(
+        post: Post,
+        feedState: FeedState = FeedState(posts = listOf(post)),
+        onReaction: (OwnedPost, me.foxtails.palustris.domain.EmojiChoice) -> Unit = { _, _ -> },
+    ) {
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
                 AppShellFixtures.app(
                     account = account,
                     home = AppShellFixtures.home(feedState),
@@ -101,7 +114,9 @@ private fun show(
             Audience.Public,
         )
         val final = Post(postId("compact-final"), account, "Compact final home post", 0, Audience.Public)
-        show(first, FeedState(posts = listOf(first, final)))
+        // Shell assembly: the timeline selector and floating navigation the final post must
+        // clear live in shell placement, not in the feed presenter.
+        showInShell(first, FeedState(posts = listOf(first, final)))
 
         val timeline = compose.onNodeWithContentDescription("Timeline Home").fetchSemanticsNode().boundsInRoot
         repeat(14) {
@@ -584,7 +599,9 @@ private fun show(
 
     @Test fun postsLongerThan350CharactersShowAnInlineFullPostAction() {
         val text = "x".repeat(351)
-        show(Post(postId("long-body"), account, text, 0, Audience.Public))
+        // Shell assembly: the full-post bubble opens the shell single-post detail through
+        // the navigator. The feed presenter alone renders no bubble without onOpenPost.
+        showInShell(Post(postId("long-body"), account, text, 0, Audience.Public))
 
         compose.onNodeWithText("x".repeat(350) + "…").assertIsDisplayed()
         compose.onNodeWithText(text).assertDoesNotExist()
@@ -698,7 +715,8 @@ private fun show(
     @Test fun linkAwareTruncationUsesTheShortLabelAndKeepsTheLinkBubbleIntact() {
         val url = "https://example.org/a-very-long-path"
         val text = "x".repeat(334) + " " + url + " tail"
-        show(Post(postId("link-truncation"), account, text, 0, Audience.Public))
+        // Shell assembly: same full-post bubble as above.
+        showInShell(Post(postId("link-truncation"), account, text, 0, Audience.Public))
 
         compose.onNodeWithContentDescription("Link example.org").assertIsDisplayed()
         compose.onNodeWithText(url, substring = true).assertDoesNotExist()

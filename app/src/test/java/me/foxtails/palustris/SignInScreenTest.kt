@@ -47,7 +47,7 @@ class SignInScreenTest {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "a"), "A person", "@person@example.org")
         val post = Post(EntityId("https://example.org", "p"), account, "Text hidden by a content warning", System.currentTimeMillis(), Audience.Public, contentWarning = "Spoilers")
         compose.activity.runOnUiThread { compose.activity.setContent {
-            AppShellFixtures.app(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
+            HomeFeatureFixtures.feed(FeedState(posts = listOf(post)))
         } }
         compose.onNodeWithText("Spoilers").assertIsDisplayed()
         compose.onNodeWithText(post.text).assertDoesNotExist()
@@ -69,7 +69,7 @@ class SignInScreenTest {
             attachments = listOf(Attachment("https://example.org/photo.jpg", "image/jpeg", "A photo", sensitive = true)),
         )
         compose.activity.runOnUiThread { compose.activity.setContent {
-            AppShellFixtures.app(account = account, home = AppShellFixtures.home(FeedState(posts = listOf(post))))
+            HomeFeatureFixtures.feed(FeedState(posts = listOf(post)))
         } }
 
         compose.onNodeWithText("Show sensitive media").assertIsDisplayed()
@@ -150,16 +150,8 @@ class SignInScreenTest {
         val account = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "owner"), "Owner", "@owner@example.org")
         val post = Post(EntityId("https://example.org", "post"), account, "Post", System.currentTimeMillis(), Audience.Public)
         val ownedPost = OwnedPost(account.id, post)
-        var bookmarked = false
         compose.activity.runOnUiThread { compose.activity.setContent {
-            AppShellFixtures.app(
-                account = account,
-                home = AppShellFixtures.home(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost))),
-                postInteractions = AppShellFixtures.interactions(
-                    FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost)),
-                    onBookmark = { bookmarked = true },
-                ),
-            )
+            HomeFeatureFixtures.feed(FeedState(posts = listOf(post), ownedPosts = listOf(ownedPost)))
         } }
 
         compose.onNodeWithContentDescription("Reply").assertIsNotEnabled()
@@ -167,7 +159,6 @@ class SignInScreenTest {
         compose.onNodeWithContentDescription("Favorite").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Bookmark").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Share").assertIsEnabled()
-        assertEquals(false, bookmarked)
     }
 
     @Test fun switchingAccountsRebindsDisplayedFeedTimelineAndActionOwnership() {
