@@ -151,6 +151,8 @@
 - Do not add a feature without wiki coverage in the same slice.
 - Do not add an architecture boundary without agent coverage in the same slice.
 - Do not change documented behavior without updating both coverages in the same slice.
+- When cleanup or a refactor touches a file, comment its complicated functions in the
+  same slice. State why the code exists, not what each line does.
 - Confirm documentation coverage in the Completion check before closing a task.
 
 ## Agent Operation
