@@ -22,7 +22,11 @@ data class ServerCapabilities(
     val capabilitySchemaVersion: Int = CURRENT_CAPABILITY_SCHEMA_VERSION,
 ) {
     companion object {
-        const val CURRENT_CAPABILITY_SCHEMA_VERSION = 4
+        /**
+         * Bump when capability semantics change. Revision 5 invalidates snapshots that
+         * recorded reaction support from the removed sentinel mutation probe.
+         */
+        const val CURRENT_CAPABILITY_SCHEMA_VERSION = 5
     }
 }
 

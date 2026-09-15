@@ -1,12 +1,14 @@
 package me.foxtails.palustris
 
 import java.io.ByteArrayInputStream
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.mastodon.MastodonMapper
 import me.foxtails.palustris.data.mastodon.MastodonSource
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.AccountId
+import me.foxtails.palustris.domain.CapabilityProbe
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.Connection
@@ -519,17 +521,80 @@ class MastodonIntegrationTest {
     }
 
     @Test
-    fun failedReactionMutationDowngradesOnlyTheExtensionCapability() = runBlocking {
+    fun failedReactionMutationKeepsExtensionSupport() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(404).setBody("""{"error":"Record not found"}"""))
         val source = reactionSource()
 
         assertThrows(SourceError.Unsupported::class.java) {
             runBlocking { source.react(EntityId(origin, "status-1"), EmojiChoice(":a:", ":a:", null)) }
         }
-        assertEquals(CapabilityStatus.Unsupported, source.capabilities.emoji.reactionMutation)
-        assertFalse(PostAction.React in source.capabilities.actions)
+        // A resource 404 is not proof that the extension is unsupported. Only the
+        // advertisement establishes reaction support, so support stays available.
+        assertEquals(CapabilityStatus.Supported, source.capabilities.emoji.reactionMutation)
+        assertTrue(PostAction.React in source.capabilities.actions)
         assertTrue(source.capabilities.canPublish)
         assertTrue(PostAction.Favorite in source.capabilities.actions)
+    }
+
+    @Test
+    fun failedAddAndRemoveKeepSupportForLaterPosts() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(404).setBody("""{"error":"Record not found"}"""))
+        server.enqueue(MockResponse().setResponseCode(403).setBody("""{"error":"Forbidden"}"""))
+        server.enqueue(MockResponse().setBody(status("reacted").toString()))
+        val source = reactionSource()
+        val first = EntityId(origin, "status-1")
+        val second = EntityId(origin, "status-2")
+
+        assertThrows(SourceError.Unsupported::class.java) {
+            runBlocking { source.react(first, EmojiChoice(":a:", ":a:", null)) }
+        }
+        assertThrows(SourceError.Unauthorized::class.java) {
+            runBlocking { source.removeReaction(first, EmojiChoice(":a:", ":a:", null)) }
+        }
+        // Denial on one resource must not erase server support for another resource.
+        assertEquals(CapabilityStatus.Supported, source.capabilities.emoji.reactionMutation)
+        assertTrue(PostAction.React in source.capabilities.actions)
+
+        source.react(second, EmojiChoice(":a:", ":a:", null))
+
+        assertEquals(
+            listOf(
+                "/api/v1/pleroma/statuses/status-1/reactions/:a:",
+                "/api/v1/pleroma/statuses/status-1/reactions/:a:",
+                "/api/v1/pleroma/statuses/status-2/reactions/:a:",
+            ),
+            List(3) { server.takeRequest().path },
+        )
+    }
+
+    @Test
+    fun refreshedCapabilitiesPublishReactionSupportThroughTheFlow() = runBlocking {
+        server.enqueue(MockResponse().setBody("[${status("newest")}]"))
+        val probe = object : CapabilityProbe {
+            override suspend fun probeCapabilities(connection: Connection): ServerCapabilities =
+                reactionCapabilities()
+        }
+        val source = MastodonSource(
+            origin = origin,
+            token = "token",
+            api = MisskeyApi(),
+            accountId = AccountId(Connection(origin, Protocol.MASTODON), "local-user"),
+            initialCapabilities = ServerCapabilities(
+                timelines = setOf(me.foxtails.palustris.domain.Timeline.Home),
+                capabilitySchemaVersion = 0,
+            ),
+            capabilityProbe = probe,
+            clock = { 0L },
+        )
+        assertFalse(PostAction.React in source.capabilities.actions)
+
+        val published = source.observeCapabilities()
+        source.timeline(me.foxtails.palustris.domain.Timeline.Home)
+
+        // A stale schema revision forces a fresh probe. The refreshed evidence must reach
+        // the collected flow without a catalog or navigation change.
+        assertEquals(CapabilityStatus.Supported, published.first().emoji.reactionMutation)
+        assertTrue(PostAction.React in published.first().actions)
     }
 
     @Test
@@ -792,20 +857,20 @@ class MastodonIntegrationTest {
         ),
     )
 
-    private fun reactionSource() = sourceWith(
-        ServerCapabilities(
-            timelines = setOf(me.foxtails.palustris.domain.Timeline.Home),
-            actions = setOf(PostAction.Reply, PostAction.Favorite, PostAction.React),
-            canPublish = true,
-            emoji = EmojiCapabilities(
-                catalog = CapabilityStatus.Supported,
-                reactionListing = CapabilityStatus.Supported,
-                reactionMutation = CapabilityStatus.Supported,
-                selectionMode = me.foxtails.palustris.domain.ReactionSelectionMode.Independent,
-            ),
-            capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
+    private fun reactionCapabilities() = ServerCapabilities(
+        timelines = setOf(me.foxtails.palustris.domain.Timeline.Home),
+        actions = setOf(PostAction.Reply, PostAction.Favorite, PostAction.React),
+        canPublish = true,
+        emoji = EmojiCapabilities(
+            catalog = CapabilityStatus.Supported,
+            reactionListing = CapabilityStatus.Supported,
+            reactionMutation = CapabilityStatus.Supported,
+            selectionMode = me.foxtails.palustris.domain.ReactionSelectionMode.Independent,
         ),
+        capabilitySchemaVersion = ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION,
     )
+
+    private fun reactionSource() = sourceWith(reactionCapabilities())
 
     private fun profileResponse(id: String) = JSONObject()
         .put("id", id)

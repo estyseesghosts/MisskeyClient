@@ -23,17 +23,24 @@ Read these in order. Treat the repository as the authority.
   committed. `L-01` is committed.
 - Gate slices P-01 through P-07 are committed.
 - Plan 03 is rebased at `b715430` and recorded in `docs/decomposition_3/03.md`. Slice `03-C`
-  is committed at `3603ef3`. The last safe commit is `3603ef3`.
+  is committed at `3603ef3`. Slice `03-A1` is committed at `44b3483`. Slice `03-B1` is
+  committed in this slice. The last safe commit is `44b3483` before the `03-B1` commit.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-A` — replace the Mastodon sentinel reaction probe. Then `03-B`.
+- Next slice: `03-B2` — revision-guarded capability publication and bounded refresh retry.
+  Then `03-A2` (NodeInfo discovery) or the next chunk.
 - The 03-F reset policy and the 03-I visibility migration need maintainer approval before coding.
 
 ## Completed Plan 03 Slices
 
 - R-01 rebase. Verification: source verified, no test ran.
 - 03-C Misskey entity boundaries. Verification: `MisskeyIntegrationTest`, `CrossCuttingTest`.
-- Run `test assembleRelease` and `:app:lintDebug` after slice `03-A`.
+- 03-A1 sentinel reaction probe removal. Verification: `MastodonCapabilityProbeTest`,
+  `MastodonIntegrationTest`.
+- 03-B1 runtime capability evidence and reactive publication. Verification:
+  `MastodonIntegrationTest`, `MastodonCapabilityProbeTest`, `MisskeyIntegrationTest`,
+  `CrossCuttingTest`, `SignInScreenTest`, then `test assembleRelease` and `:app:lintDebug`.
+- Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 
 ## Process Rules
 

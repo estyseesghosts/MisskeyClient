@@ -29,6 +29,10 @@ fun EmojiHost(
         creationCallback = { factory -> factory.create(accountId, source) },
     )
     val state by model.state.collectAsStateWithLifecycle()
+    // Collect the protocol-neutral capability snapshot. A refreshed probe can then update
+    // reaction controls without a catalog or navigation change.
+    val capabilities by source.observeCapabilities()
+        .collectAsStateWithLifecycle(initialValue = source.capabilities)
     LaunchedEffect(entryStore, sessionGeneration, model) {
         entryStore.register(sessionGeneration, "emoji-catalog-$accountId-$sessionGeneration") { model.stop() }
     }
@@ -41,10 +45,10 @@ fun EmojiHost(
             override fun togglePinnedEmoji(identity: String) { model.togglePinnedEmoji(identity) }
         }
     }
-    return remember(state, source.capabilities.emoji, actions) {
+    return remember(state, capabilities.emoji, actions) {
         EmojiPresentation(
             catalog = state,
-            capabilities = source.capabilities.emoji,
+            capabilities = capabilities.emoji,
             actions = actions,
         )
     }

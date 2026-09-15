@@ -54,7 +54,6 @@ import me.foxtails.palustris.domain.PushSubscription
 import me.foxtails.palustris.domain.PushSubscriptionSpec
 import me.foxtails.palustris.domain.PushProviderInfo
 import me.foxtails.palustris.domain.ReportRequest
-import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
@@ -99,6 +98,7 @@ class MastodonSource(
     private val pageClient = MastodonPageClient(origin, token, api)
     private val timelineService = MastodonTimelineService(pageClient, origin)
     override val capabilities: ServerCapabilities get() = _capabilities.value
+    override fun observeCapabilities(): Flow<ServerCapabilities> = _capabilities
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request {
         refreshCapabilities()
@@ -200,36 +200,17 @@ class MastodonSource(
     override suspend fun react(id: EntityId, choice: EmojiChoice) = request {
         validatePostId(id, "react")
         requireReactionMutation()
-        try {
-            mutateEmojiReaction(id, choice.submissionValue, selected = true)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: ApiFailure) {
-            if (e.status == 404 || e.code.equals("NOT_SUPPORTED", ignoreCase = true)) {
-                downgradeReactionMutation()
-            }
-            throw e
-        } catch (e: Exception) {
-            throw e
-        }
+        // A failed mutation returns its normalized error. A resource 404 is not proof that
+        // the extension is unsupported, so support stays until explicit server evidence says
+        // otherwise. Only the advertisement establishes reaction support.
+        mutateEmojiReaction(id, choice.submissionValue, selected = true)
         Unit
     }
 
     override suspend fun removeReaction(id: EntityId, choice: EmojiChoice) = request {
         validatePostId(id, "react")
         requireReactionMutation()
-        try {
-            mutateEmojiReaction(id, choice.submissionValue, selected = false)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: ApiFailure) {
-            if (e.status == 404 || e.code.equals("NOT_SUPPORTED", ignoreCase = true)) {
-                downgradeReactionMutation()
-            }
-            throw e
-        } catch (e: Exception) {
-            throw e
-        }
+        mutateEmojiReaction(id, choice.submissionValue, selected = false)
         Unit
     }
 
@@ -237,16 +218,6 @@ class MastodonSource(
         if (capabilities.emoji.reactionMutation != CapabilityStatus.Supported) {
             throw SourceError.Unsupported("react")
         }
-    }
-
-    private fun downgradeReactionMutation() {
-        _capabilities.value = _capabilities.value.copy(
-            actions = _capabilities.value.actions - PostAction.React,
-            emoji = _capabilities.value.emoji.copy(
-                reactionMutation = CapabilityStatus.Unsupported,
-                selectionMode = ReactionSelectionMode.Unknown,
-            ),
-        )
     }
 
     private suspend fun mutateEmojiReaction(

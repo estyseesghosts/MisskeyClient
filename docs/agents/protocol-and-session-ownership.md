@@ -89,6 +89,21 @@ fetched entity remains valid.
 the server status, the access status, and the implementation status. Keep `Unknown` separate from
 `Unsupported`.
 
+`SocialSource.observeCapabilities()` publishes a protocol-neutral capability snapshot. The default
+returns the current snapshot once. `MisskeySource` and `MastodonSource` return their capability
+state flow. `EmojiHost` collects that flow and passes `EmojiCapabilities` to `EmojiPresentation`, so
+a refreshed probe can update reaction controls without a catalog or navigation change.
+
+Mastodon reaction support comes from the recognized extension advertisement in instance metadata.
+`MastodonSource.react` and `removeReaction` do not downgrade support on a resource failure. A
+resource 404, 403, 429, network failure, or 5xx returns the normalized `SourceError` and keeps the
+advertised support. `MastodonCapabilityProbe` owns the advertisement rules and the bounded metadata
+read; `MastodonAuth` reuses that owner at login.
+
+`ServerCapabilities.CURRENT_CAPABILITY_SCHEMA_VERSION` is `5`. Revision 5 invalidates snapshots
+that recorded reaction support from the removed sentinel mutation probe. `refreshCapabilities`
+re-probes a snapshot whose schema revision is not current.
+
 ## Persistence Contracts
 
 | Data | Location | Protection |

@@ -98,7 +98,8 @@ class MastodonAuth(
         val api = apiFor(pending.origin)
         val user = JSONObject(api.get(pending.origin, "v1/accounts/verify_credentials", token).body)
         val capabilities = runCatching {
-            MastodonCapabilityProbe.parseCapabilities(JSONObject(api.get(pending.origin, "v2/instance").body))
+            val probe = MastodonCapabilityProbe(api)
+            MastodonCapabilityProbe.parseCapabilities(probe.fetchInstanceMetadata(pending.origin))
         }.getOrElse { ServerCapabilities() }
         LoginSession(
             origin = pending.origin,

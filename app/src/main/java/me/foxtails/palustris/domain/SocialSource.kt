@@ -1,8 +1,17 @@
 package me.foxtails.palustris.domain
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+
 /** Transport-independent boundary implemented by individual server adapters. */
 interface SocialSource {
     val capabilities: ServerCapabilities
+    /**
+     * Observable capability snapshot. A feature host collects this instead of reading
+     * [capabilities] once, so a refreshed probe can update capability-driven controls.
+     * The default emits the current snapshot only.
+     */
+    fun observeCapabilities(): Flow<ServerCapabilities> = flowOf(capabilities)
     suspend fun timelines(): List<Timeline> = timelineDisplayOrder.filter { it in capabilities.timelines }
     suspend fun timeline(timeline: Timeline, cursor: String? = null): Page<Post>
     suspend fun post(id: EntityId): Post = unsupported("post")

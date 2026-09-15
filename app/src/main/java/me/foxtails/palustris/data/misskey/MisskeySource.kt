@@ -93,6 +93,7 @@ class MisskeySource(
     private val timelineService = MisskeyTimelineService(origin, token, api)
     private val continuationStore = java.util.concurrent.ConcurrentHashMap<String, ThreadAcquisition>()
     override val capabilities: ServerCapabilities get() = _capabilities.value
+    override fun observeCapabilities(): Flow<ServerCapabilities> = capabilitiesFlow
 
     override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = request(invalidateCapabilitiesOnNotFound = true) {
             refreshCapabilities()
