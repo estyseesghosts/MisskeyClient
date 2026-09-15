@@ -162,4 +162,4 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`27a4b41` "Record 03-B2 commit in task state and handoff".
+`e40ef87` "Freeze the notification state-envelope codec fixtures".
