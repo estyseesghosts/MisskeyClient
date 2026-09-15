@@ -1048,6 +1048,6 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Updated the LocalizationResourceTest directory mapping and count, the AppLocaleControllerTest tag and resolution mappings, and the LanguageSettingsScreenTest label list.
 - Verification passed: LocalizationResourceTest, AppLocaleControllerTest, LanguageSettingsScreenTest, test assembleRelease, and :app:lintDebug when run alone.
 - Resolves the ru-RU and in-ID block in logs/BUGS.txt. Full catalog translation stays open.
-- L-01 committed at PENDING.
+- L-01 committed at 4b3aa4d.
 - Unverified: device rendering, live-server, signed release.
 
