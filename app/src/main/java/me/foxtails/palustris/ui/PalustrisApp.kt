@@ -547,7 +547,6 @@ fun PalustrisApp(
                                            onRefresh = { home.actions.refresh(navigator.timeline) },
                                            onLoadMore = { home.actions.loadMore(navigator.timeline) },
                                            onSignIn = accountSwitcher.actions::signOut,
-                                           ownedPosts = home.state.ownedPosts,
                                            availableActions = availableActions,
                                            quoteEnabled = quoteEnabled,
                                            onScrollDirectionChanged = { if (navigator.destination == Destination.Home && animatedDestination == Destination.Home) navigator.navigationVisible = it },

@@ -64,7 +64,6 @@ fun HomeFeed(
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onSignIn: () -> Unit,
-    ownedPosts: List<OwnedPost> = state.ownedPosts,
     availableActions: Set<PostAction> = emptySet(),
     quoteEnabled: Boolean = false,
     onScrollDirectionChanged: (Boolean) -> Unit = {},
@@ -107,6 +106,8 @@ fun HomeFeed(
     val scrollDirectionChanged by rememberUpdatedState(onScrollDirectionChanged)
     val scheme = LocalPalustrisMotionScheme.current
     val mutedHashtags = LocalMutedHashtags.current
+    // The Home contract owns the rows. state.ownedPosts is authoritative.
+    val ownedPosts = state.ownedPosts
     val hasOwnership = ownedPosts.isNotEmpty()
     val rows = if (hasOwnership) ownedPosts else state.posts.map { OwnedPost(it.author.id, it) }
     val visibleRows = rows.filterNot { ownedPost -> ContentWarningPolicy.matchesHashtagMute(postHashtags(ownedPost.post.text, ownedPost.post.emoji), mutedHashtags) }

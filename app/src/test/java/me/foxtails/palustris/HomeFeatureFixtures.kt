@@ -29,7 +29,6 @@ internal object HomeFeatureFixtures {
             onRefresh = {},
             onLoadMore = {},
             onSignIn = {},
-            ownedPosts = feedState.ownedPosts,
             availableActions = feedState.actions,
             quoteEnabled = feedState.quoteStatus == CapabilityStatus.Supported,
             onReaction = onReaction,

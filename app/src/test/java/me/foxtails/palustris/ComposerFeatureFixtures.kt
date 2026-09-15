@@ -56,7 +56,6 @@ internal object ComposerFeatureFixtures {
             onRefresh = {},
             onLoadMore = {},
             onSignIn = {},
-            ownedPosts = home.state.ownedPosts,
             availableActions = postInteractions.availableActions,
             quoteEnabled = postInteractions.quoteEnabled,
             onReply = { owner.requestReply(it) },
