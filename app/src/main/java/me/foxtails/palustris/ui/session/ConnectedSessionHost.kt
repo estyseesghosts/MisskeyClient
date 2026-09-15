@@ -14,7 +14,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -26,16 +25,12 @@ import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
-import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.CreatePostRequest
-import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostPreferences
-import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.AccountManager
-import me.foxtails.palustris.ui.FeedViewModel
+import me.foxtails.palustris.ui.FeedHost
 import me.foxtails.palustris.ui.PalustrisApp
-import me.foxtails.palustris.ui.PhotoGridFeed
 import me.foxtails.palustris.ui.SavedCollectionsHost
 import me.foxtails.palustris.ui.directmessages.DirectMessagesHost
 import me.foxtails.palustris.ui.emoji.EmojiHost
@@ -48,12 +43,7 @@ import me.foxtails.palustris.ui.profile.ProfileHost
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.DraftActions
-import me.foxtails.palustris.ui.shell.HomeContract
-import me.foxtails.palustris.ui.shell.HomeFeedUiState
-import me.foxtails.palustris.ui.shell.PhotoGridContract
-import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
-import me.foxtails.palustris.ui.shell.SearchContract
 import me.foxtails.palustris.ui.thread.ThreadHost
 
 /**
@@ -126,79 +116,13 @@ fun ConnectedSessionHost(
     val projectionCoordinator = remember(session.accountId, sessionGeneration) {
         PostProjectionCoordinator(session.accountId, session.sessionRevision)
     }
-    val feedModel = hiltViewModel<FeedViewModel, FeedViewModel.Factory>(
-        key = "feed-${session.accountId}-$sessionGeneration",
-        creationCallback = { factory ->
-            factory.create(session.accountId, sharedSource, session.sessionRevision)
-        },
+    val feed = FeedHost(
+        accountId = session.accountId,
+        sessionGeneration = sessionGeneration,
+        sessionRevision = session.sessionRevision,
+        source = sharedSource,
+        coordinator = projectionCoordinator,
     )
-    DisposableEffect(sessionGeneration, feedModel) {
-        onDispose { feedModel.stop() }
-    }
-    val feed by feedModel.feed.collectAsStateWithLifecycle()
-    val homeActions = remember(feedModel) {
-        object : HomeContract.Actions {
-            override fun refresh(timeline: Timeline) { feedModel.refresh(timeline) }
-            override fun loadMore(timeline: Timeline) { feedModel.loadMore(timeline) }
-        }
-    }
-    val home = remember(feed, homeActions) {
-        HomeContract(
-            state = HomeFeedUiState(
-                ownedPosts = feed.ownedPosts,
-                posts = feed.posts,
-                loading = feed.loading,
-                loadingMore = feed.loadingMore,
-                nextCursor = feed.nextCursor,
-                error = feed.error,
-                needsSignIn = feed.needsSignIn,
-                selectedTimeline = feed.timeline,
-                availableTimelines = feed.timelines,
-            ),
-            actions = homeActions,
-        )
-    }
-    val searchActions = remember(feedModel) {
-        object : SearchContract.Actions {
-            override fun search(query: String) { feedModel.search(query) }
-            override fun loadMore() { feedModel.loadMoreSearch() }
-        }
-    }
-    val search = remember(feed.accountSearch, searchActions) {
-        SearchContract(state = feed.accountSearch, actions = searchActions)
-    }
-    val postInteractionsActions = remember(feedModel) {
-        object : PostInteractions.Actions {
-            override fun favorite(post: OwnedPost) { feedModel.favorite(post) }
-            override fun repost(post: OwnedPost) { feedModel.reshare(post) }
-            override fun bookmark(post: OwnedPost) { feedModel.bookmark(post) }
-            override fun react(post: OwnedPost, choice: EmojiChoice) { feedModel.react(post, choice) }
-        }
-    }
-    val postInteractions = remember(feed.actions, feed.quoteStatus, postInteractionsActions) {
-        PostInteractions(
-            availableActions = feed.actions,
-            quoteEnabled = feed.quoteStatus == CapabilityStatus.Supported,
-            actions = postInteractionsActions,
-        )
-    }
-    val photoGridFeed by feedModel.photoGridFeed.collectAsStateWithLifecycle()
-    val photoGridActions = remember(feedModel) {
-        object : PhotoGridContract.Actions {
-            override fun ensureLoaded() { feedModel.ensurePhotoGridLoaded() }
-            override fun selectFeed(feed: PhotoGridFeed) { feedModel.selectPhotoGridFeed(feed) }
-            override fun refresh() { feedModel.refreshPhotoGrid() }
-            override fun loadMore() { feedModel.loadMorePhotoGrid() }
-            override fun addHashtag(value: String, onSuccess: () -> Unit) { feedModel.addPhotoGridHashtag(value, onSuccess) }
-            override fun clearPreferenceError() { feedModel.clearPhotoGridPreferenceError() }
-        }
-    }
-    val photoGrid = remember(photoGridFeed, photoGridActions) {
-        PhotoGridContract(state = photoGridFeed, actions = photoGridActions)
-    }
-    val postReaction = remember(feedModel) {
-        { post: OwnedPost, choice: EmojiChoice -> feedModel.react(post, choice) }
-    }
     val savedCollections = SavedCollectionsHost(
         accountId = session.accountId,
         sessionGeneration = sessionGeneration,
@@ -207,25 +131,8 @@ fun ConnectedSessionHost(
         account = account,
         accountManager = accountManager,
         coordinator = projectionCoordinator,
-        react = postReaction,
+        react = feed.react,
     )
-    val feedSink = remember(feedModel) {
-        object : PostProjectionCoordinator.Sink {
-            override fun applyExternalPost(updated: OwnedPost) { feedModel.applyExternalPost(updated) }
-            override fun applyPublishedPost(request: CreatePostRequest) { feedModel.applyPublishedPost(request) }
-        }
-    }
-    DisposableEffect(projectionCoordinator, feedSink, feedModel) {
-        projectionCoordinator.register(feedSink)
-        val feedProjection: (OwnedPost) -> Unit = { updated ->
-            projectionCoordinator.forwardExternalPost(feedSink, updated)
-        }
-        feedModel.addPostProjectionListener(feedProjection)
-        onDispose {
-            feedModel.removePostProjectionListener(feedProjection)
-            projectionCoordinator.unregister(feedSink)
-        }
-    }
     val profile = ProfileHost(
         accountId = session.accountId,
         sessionGeneration = sessionGeneration,
@@ -286,24 +193,20 @@ fun ConnectedSessionHost(
             onRelationshipChanged = { profile.actions.refresh() },
         )
     }
-    val composerActions = remember(feedModel, feedSink, projectionCoordinator) {
+    val composerActions = remember(feed.publish) {
         object : ComposerContract.Actions {
             override fun publish(request: CreatePostRequest, onAccepted: (OwnedPost) -> Unit) {
-                feedModel.create(request) { created ->
-                    feedModel.applyPublishedPost(request)
-                    projectionCoordinator.forwardPublishedPost(feedSink, request, created)
-                    onAccepted(created)
-                }
+                feed.publish(request, onAccepted)
             }
         }
     }
-    val composer = remember(postPreferences, feed.audiences, feed.canPublish, feed.publishing, feed.error, composerActions) {
+    val composer = remember(postPreferences, feed.composerInputs, composerActions) {
         ComposerContract(
             postPreferences = postPreferences,
-            availableAudiences = feed.audiences,
-            canPublish = feed.canPublish,
-            publishing = feed.publishing,
-            error = feed.error,
+            availableAudiences = feed.composerInputs.availableAudiences,
+            canPublish = feed.composerInputs.canPublish,
+            publishing = feed.composerInputs.publishing,
+            error = feed.composerInputs.error,
             actions = composerActions,
         )
     }
@@ -313,14 +216,14 @@ fun ConnectedSessionHost(
             account = account,
             sessionGeneration = sessionGeneration,
             sessionRevision = session.sessionRevision,
-            home = home,
-            photoGrid = photoGrid,
+            home = feed.home,
+            photoGrid = feed.photoGrid,
             accountSwitcher = accountSwitcher,
             composer = composer,
             thread = thread,
-            search = search,
+            search = feed.search,
             draftsContract = draftsContract,
-            postInteractions = postInteractions,
+            postInteractions = feed.postInteractions,
             bookmarks = savedCollections.bookmarks,
             likes = savedCollections.likes,
             notifications = notifications,
