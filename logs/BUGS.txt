@@ -51,3 +51,21 @@
 260914-204307: ru-RU and in-ID localization is blocked without code changes. Beeline has no values-ru or values-in-rID locale files, and AppLanguage, xml/locales_config.xml, and the LocalizationResourceTest directory mapping have no Russian or Indonesian entries. Adding the files alone would fail localeCatalogMatchesResourcesEnumAndAndroidConfig. References are ready (mastodon-android values-ru-rRU and values-in-rID; Aria misskey_ru-RU plus id-ID for Indonesian).
 
 260915-033000: Correction to 260914-122320: ModerationViewModel.stop() exists since 8dd093e. NotificationsViewModel gains stop() in slice 02-L2 with host disposal wiring. NotificationSettingsViewModel and SettingsViewModel stay stop-free by construction: saves are request-epoch plus token gated with cancellation rethrows, and commands are target-explicit through repository serialization.
+
+260914-235900: Plan 01 and Plan 02 completion gaps. The old task files claim completion. `docs/decomposition_3/progressreport.md` disproves that claim. Track the remaining work in `docs/agents/tasks/decomposition-01-02-completion.md`. Track the status in `docs/agents/decomposition-01-02-acceptance-matrix.md`. Open gaps, source verified at `b629a2c`:
+- Feature teardown is incomplete. Hosts terminally stop activity-store models from composition disposal. A later lookup can retrieve a stopped model. Owner: slice C-02.
+- `DirectMessageRepository.markRead` (`DirectMessageRepository.kt:97-103`) uses a separate authority check and store write. It does not use `commitIfCurrent`. Owner: slice C-03.
+- `DirectMessageConversationScreen.kt:124` clears the draft at once on Send. A failed send loses recoverable text. Owner: slice C-04.
+- Composer editor state remains in `PalustrisApp.kt`. Draft and publish completion is not version-aware. Owner: slices C-05 and C-06.
+- `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. The projection coordinator has no retired state or accepted-publication identity. Owner: slice C-07.
+- `HomeFeed.kt:116-121` keys paging demand on row count. Filter identity is absent. Owner: slice C-08.
+- `NotificationLaunchHost` clears a pending launch after a `Unit` callback. That callback cannot confirm acceptance. Owner: slice C-09.
+- Settings commands and routes still need account-target validity and recovery. Owner: slice C-10.
+- `AppLocaleController.reconcilePlatformSelection` imports a differing platform locale on every call. It cannot tell startup reconciliation from a later command. Owner: slice C-11.
+
+260914-235901: Correction to 260913-030503. The decomposition review findings now have owners:
+- R1-R4 and R9-R11 (settings, preferences, moderation, reactions, Home paging) map to completion slices C-07 through C-11.
+- R12 (build metadata identity) is closed by the Beeline identity work.
+- R5-R6 (notification JSON and checkpoint validation) map to completion slice C-09 and Plan 03.
+- P1-P6 (retention, schema, bounds, rendering, lifecycle, localization) map to Plan 03 and Plan 04.
+The account-removal draft gap is closed. `AccountManager.removeAccount` calls `draftStore.deleteAll` at `AccountManager.kt:320`.

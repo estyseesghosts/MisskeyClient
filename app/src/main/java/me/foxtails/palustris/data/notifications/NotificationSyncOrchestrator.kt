@@ -49,20 +49,28 @@ data class NotificationSyncState(
 
 interface NotificationSyncController {
     fun observeAccount(accountId: AccountId): StateFlow<NotificationSyncState>
-    fun register(accountId: AccountId, source: SocialSource)
+
+    /** Registers [source] and returns the sync token that owns it. */
+    fun register(accountId: AccountId, source: SocialSource): NotificationSyncToken
     fun unregister(accountId: AccountId)
     fun removeAccount(accountId: AccountId)
 }
 
 class NoOpNotificationSyncController : NotificationSyncController {
     private val states = mutableMapOf<AccountId, MutableStateFlow<NotificationSyncState>>()
+    private val generations = mutableMapOf<AccountId, Long>()
 
     @Synchronized
     override fun observeAccount(accountId: AccountId): StateFlow<NotificationSyncState> = states.getOrPut(accountId) {
         MutableStateFlow(NotificationSyncState())
     }.asStateFlow()
 
-    override fun register(accountId: AccountId, source: SocialSource) = Unit
+    @Synchronized
+    override fun register(accountId: AccountId, source: SocialSource): NotificationSyncToken {
+        val generation = (generations[accountId] ?: 0L) + 1L
+        generations[accountId] = generation
+        return NotificationSyncToken(accountId, generation)
+    }
 
     @Synchronized
     override fun unregister(accountId: AccountId) {
@@ -131,7 +139,7 @@ class NotificationSyncOrchestrator @Inject constructor(
         states.remove(accountId)
     }
 
-    override fun register(accountId: AccountId, source: SocialSource) {
+    override fun register(accountId: AccountId, source: SocialSource): NotificationSyncToken {
         val token = synchronized(this) {
             jobs.remove(accountId)?.cancel()
             val generation = (generations[accountId] ?: 0L) + 1L
@@ -176,6 +184,7 @@ class NotificationSyncOrchestrator @Inject constructor(
         synchronized(this) {
             if (isCurrent(token)) jobs[accountId] = job else job.cancel()
         }
+        return token
     }
 
     override suspend fun refresh(accountId: AccountId, query: NotificationQuery): NotificationSyncResult {

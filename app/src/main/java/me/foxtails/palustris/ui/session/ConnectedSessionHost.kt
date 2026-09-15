@@ -1,29 +1,18 @@
 package me.foxtails.palustris.ui.session
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import me.foxtails.palustris.data.AccountSourceRegistry
-import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.AccountIndex
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.NotificationStreamController
-import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.OwnedPost
@@ -49,43 +38,34 @@ import me.foxtails.palustris.ui.thread.ThreadHost
 /**
  * Owns one coherent account/session presentation lifetime.
  *
- * The host resolves the registered source for the active session and composes focused feature
- * hosts. Each feature host owns its model, state, actions, and projection registration. This host
- * keeps only the shared feed owner, the draft owner, the post-action owner, and the projection
- * coordinator. It exposes no token and no source to the shell.
+ * The host reads one accepted [ConnectedSessionContext]. It binds the source-backed feature owners
+ * to the registered source in that context. Each feature host owns its model, state, actions, and
+ * projection registration. This host keeps only the shared feed owner, the draft owner, the
+ * post-action owner, and the projection coordinator. It exposes no token and no source to the shell.
  */
 @Composable
 fun ConnectedSessionHost(
     accountManager: AccountManager,
-    sourceFactory: SocialSourceFactory,
-    sourceRegistry: AccountSourceRegistry,
+    connectedContext: ConnectedSessionContext,
     draftStore: DraftStore,
     notificationStreamController: NotificationStreamController,
-    account: Account,
-    sessionGeneration: Long,
     accountIndex: AccountIndex,
     postPreferences: PostPreferences,
     initialNotificationRoute: AppRoute?,
     onOpenSettings: () -> Unit,
 ) {
-    val activeSession by accountManager.activeSession.collectAsStateWithLifecycle()
-    val session = activeSession?.takeIf { it.accountId == account.id }
-    if (session == null) {
-        Surface(Modifier.fillMaxSize()) {
-            Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        }
-        return
-    }
+    val account = connectedContext.account
+    val accountId = connectedContext.accountId
+    val sessionRevision = connectedContext.sessionRevision
+    val sessionGeneration = connectedContext.presentationGeneration
+    // The registered source comes from the accepted context. Recomposition cannot create a
+    // replacement source, and an unregistered fallback does not exist.
+    val sharedSource = connectedContext.source
 
     val settingsScope = rememberCoroutineScope()
     val context = LocalContext.current
-    // Resolve once per connected session so recomposition cannot create replacement sources.
-    val sharedSource = remember(session.accountId, sessionGeneration) {
-        sourceRegistry.sourceFor(session.accountId) ?: sourceFactory.create(session)
-    }
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(session.accountId, lifecycleOwner) {
-        val accountId = session.accountId
+    DisposableEffect(accountId, lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> notificationStreamController.start(accountId)
@@ -113,20 +93,20 @@ fun ConnectedSessionHost(
     val accountSwitcher = remember(accountIndex.accounts, accountSwitcherActions) {
         AccountSwitcher(accounts = accountIndex.accounts, actions = accountSwitcherActions)
     }
-    val projectionCoordinator = remember(session.accountId, sessionGeneration) {
-        PostProjectionCoordinator(session.accountId, session.sessionRevision)
+    val projectionCoordinator = remember(accountId, sessionGeneration) {
+        PostProjectionCoordinator(accountId, sessionRevision)
     }
     val feed = FeedHost(
-        accountId = session.accountId,
+        accountId = accountId,
         sessionGeneration = sessionGeneration,
-        sessionRevision = session.sessionRevision,
+        sessionRevision = sessionRevision,
         source = sharedSource,
         coordinator = projectionCoordinator,
     )
     val savedCollections = SavedCollectionsHost(
-        accountId = session.accountId,
+        accountId = accountId,
         sessionGeneration = sessionGeneration,
-        sessionRevision = session.sessionRevision,
+        sessionRevision = sessionRevision,
         source = sharedSource,
         account = account,
         accountManager = accountManager,
@@ -134,39 +114,39 @@ fun ConnectedSessionHost(
         react = feed.react,
     )
     val profile = ProfileHost(
-        accountId = session.accountId,
+        accountId = accountId,
         sessionGeneration = sessionGeneration,
-        sessionRevision = session.sessionRevision,
+        sessionRevision = sessionRevision,
         source = sharedSource,
         accountManager = accountManager,
         coordinator = projectionCoordinator,
     )
     val thread = ThreadHost(
-        accountId = session.accountId,
+        accountId = accountId,
         sessionGeneration = sessionGeneration,
-        sessionRevision = session.sessionRevision,
+        sessionRevision = sessionRevision,
         source = sharedSource,
         coordinator = projectionCoordinator,
         lifecycleOwner = lifecycleOwner,
     )
     val notifications = NotificationsHost(
-        accountId = session.accountId,
+        accountId = accountId,
         sessionGeneration = sessionGeneration,
-        sessionRevision = session.sessionRevision,
+        sessionRevision = sessionRevision,
         source = sharedSource,
         coordinator = projectionCoordinator,
     )
     val directMessages = DirectMessagesHost(
-        accountId = session.accountId,
+        accountId = accountId,
         sessionGeneration = sessionGeneration,
         source = sharedSource,
     )
     val notificationSettings = NotificationSettingsHost(
-        accountId = session.accountId,
+        accountId = accountId,
         sessionGeneration = sessionGeneration,
     )
     val emojiPresentation = EmojiHost(
-        accountId = session.accountId,
+        accountId = accountId,
         sessionGeneration = sessionGeneration,
         source = sharedSource,
     )
@@ -184,10 +164,10 @@ fun ConnectedSessionHost(
             },
         ).asContract()
     }
-    val postActionOwner = remember(session.accountId, session.sessionRevision, sharedSource, profile) {
+    val postActionOwner = remember(accountId, sessionRevision, sharedSource, profile) {
         PostActionOwner(
-            accountId = session.accountId,
-            sessionRevision = session.sessionRevision,
+            accountId = accountId,
+            sessionRevision = sessionRevision,
             source = sharedSource,
             scope = settingsScope,
             onRelationshipChanged = { profile.actions.refresh() },
@@ -215,7 +195,7 @@ fun ConnectedSessionHost(
         PalustrisApp(
             account = account,
             sessionGeneration = sessionGeneration,
-            sessionRevision = session.sessionRevision,
+            sessionRevision = sessionRevision,
             home = feed.home,
             photoGrid = feed.photoGrid,
             accountSwitcher = accountSwitcher,

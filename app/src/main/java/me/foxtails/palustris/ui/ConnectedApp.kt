@@ -12,9 +12,12 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -27,10 +30,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.foxtails.palustris.data.AccountSourceRegistry
-import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.AppPreferencesRepository
@@ -48,7 +51,6 @@ import me.foxtails.palustris.ui.settings.SettingsOverlayHost
 @Composable
 fun ConnectedApp(
     accountManager: AccountManager,
-    sourceFactory: SocialSourceFactory,
     sourceRegistry: AccountSourceRegistry,
     draftStore: DraftStore,
     notificationLaunchRouter: NotificationLaunchRouter,
@@ -60,9 +62,10 @@ fun ConnectedApp(
     val accountIndex by accountManager.accountIndex.collectAsStateWithLifecycle()
     val appPreferences by appPreferencesRepository.observe().collectAsStateWithLifecycle(AppPreferencesState())
     ExternalLinkHandler.cleanTrackingParameters = appPreferences.preferences.cleanTrackingParameters
-    val activeSession by accountManager.activeSession.collectAsStateWithLifecycle()
-    val postPreferences by if (activeSession != null) {
-        postPreferencesRepository.observe(activeSession!!.accountId).collectAsStateWithLifecycle(PostPreferences())
+    val connectedContext by accountManager.connectedContext.collectAsStateWithLifecycle()
+    val activeContext = connectedContext?.takeIf { it.accountId == state.account?.id }
+    val postPreferences by if (activeContext != null) {
+        postPreferencesRepository.observe(activeContext.accountId).collectAsStateWithLifecycle(PostPreferences())
     } else {
         remember { mutableStateOf(PostPreferences()) }
     }
@@ -88,6 +91,7 @@ fun ConnectedApp(
     val topLevelScreen = when {
         state.starting || !appPreferences.loaded -> "startup"
         state.account == null || state.addingAccount -> "signin"
+        activeContext == null -> "connecting"
         else -> "app"
     }
     PalustrisTheme(preferences = appPreferences.preferences) {
@@ -123,15 +127,26 @@ fun ConnectedApp(
                      SignInScreen(state, accountManager::signIn, accountManager::finishSignIn, accountManager::reopenBrowser, accountManager::cancelSignIn, onOpenSettings = { settingsVisible = true })
                 }
             }
+            "connecting" -> Surface(Modifier.fillMaxSize()) {
+                Box(contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        state.error?.let { message ->
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+            }
             else -> key(state.account!!.id) {
                 ConnectedSessionHost(
                     accountManager = accountManager,
-                    sourceFactory = sourceFactory,
-                    sourceRegistry = sourceRegistry,
+                    connectedContext = activeContext!!,
                     draftStore = draftStore,
                     notificationStreamController = notificationStreamController,
-                    account = state.account!!,
-                    sessionGeneration = state.sessionGeneration,
                     accountIndex = accountIndex,
                     postPreferences = postPreferences,
                     initialNotificationRoute = initialNotificationRoute,
@@ -146,9 +161,9 @@ fun ConnectedApp(
             accounts = accountIndex.accounts,
             accountsReady = !state.starting,
             postPreferences = postPreferences,
-            activeAccountId = activeSession?.accountId,
+            activeAccountId = activeContext?.accountId,
             sourceRegistry = sourceRegistry,
-            sessionGeneration = state.sessionGeneration,
+            sessionGeneration = activeContext?.presentationGeneration ?: 0L,
         )
         }
         }

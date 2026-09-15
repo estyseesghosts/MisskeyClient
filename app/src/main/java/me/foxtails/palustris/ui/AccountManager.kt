@@ -38,12 +38,15 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
+import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.domain.PhotoGridPreferencesRepository
 import me.foxtails.palustris.domain.PushSessionState
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
+import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.ui.session.ConnectedSessionContext
 import org.json.JSONObject
 
 data class SessionUi(
@@ -100,8 +103,9 @@ class AccountManager @Inject constructor(
     val session = _session.asStateFlow()
     private val _accountIndex = MutableStateFlow(AccountIndex())
     val accountIndex = _accountIndex.asStateFlow()
-    private val _activeSession = MutableStateFlow<Session?>(null)
-    val activeSession = _activeSession.asStateFlow()
+    private val _connectedContext = MutableStateFlow<ConnectedSessionContext?>(null)
+    val connectedContext = _connectedContext.asStateFlow()
+    private var activeSessionValue: Session? = null
     private var pending: PendingLogin? = null
     private var authJob: Job? = null
     private var deferredCallback: String? = null
@@ -125,10 +129,12 @@ class AccountManager @Inject constructor(
                     store.readPending()?.takeIf { it.isFresh(System.currentTimeMillis()) }
                 }
                 _accountIndex.value = restored.index
-                restored.sessions.forEach(::startNotificationSync)
+                val registrations = restored.sessions.associate { session ->
+                    session.accountId to startNotificationSync(session)
+                }
                 if (restored.active != null) {
                     val (session, account) = restored.active
-                    connect(session, account ?: fallbackAccount(session))
+                    connect(session, account ?: fallbackAccount(session), registrations.getValue(session.accountId))
                     if (pending != null) {
                         _session.value = _session.value.copy(
                             addingAccount = true,
@@ -151,7 +157,7 @@ class AccountManager @Inject constructor(
     fun signIn(input: String, replacingAccountId: AccountId? = null) {
         if (_session.value.busy) return
         authJob = viewModelScope.launch {
-            _session.value = _session.value.copy(busy = true, error = null, addingAccount = _activeSession.value != null)
+            _session.value = _session.value.copy(busy = true, error = null, addingAccount = activeSessionValue != null)
             try {
                 val next = auth.prepare(input).copy(replacingAccountId = replacingAccountId)
                 withContext(ioDispatcher) { store.writePending(next) }
@@ -159,11 +165,8 @@ class AccountManager @Inject constructor(
                 _session.value = SessionUi(
                     starting = false,
                     pending = true,
-                    account = _activeSession.value?.let { active ->
-                        _accountIndex.value.accounts.firstOrNull { it.accountId == active.accountId }?.toAccount()
-                            ?: fallbackAccount(active)
-                    },
-                    addingAccount = _activeSession.value != null,
+                    account = _connectedContext.value?.account,
+                    addingAccount = activeSessionValue != null,
                     origin = next.origin,
                     browserUrl = auth.browserUrl(next),
                 )
@@ -196,7 +199,7 @@ class AccountManager @Inject constructor(
     }
 
     fun beginAddAccount() {
-        if (_session.value.busy || _activeSession.value == null) return
+        if (_session.value.busy || activeSessionValue == null) return
         _session.value = _session.value.copy(addingAccount = true, pending = false, error = null)
     }
 
@@ -206,14 +209,13 @@ class AccountManager @Inject constructor(
         deferredCallback = null
         viewModelScope.launch {
             withContext(ioDispatcher) { store.clearPending() }
-            val active = _activeSession.value
+            val active = _connectedContext.value
             if (active == null) {
                 _session.value = SessionUi(starting = false)
             } else {
                 _session.value = SessionUi(
                     starting = false,
-                    account = _accountIndex.value.accounts.firstOrNull { it.accountId == active.accountId }?.toAccount()
-                        ?: fallbackAccount(active),
+                    account = active.account,
                     origin = active.accountId.connection.origin,
                 )
             }
@@ -270,8 +272,7 @@ class AccountManager @Inject constructor(
                     }
                 }
                 pending = null
-                startNotificationSync(session)
-                connect(session, account)
+                connect(session, account, startNotificationSync(session))
             } catch (e: Exception) {
                 failAuth(e)
             }
@@ -295,8 +296,12 @@ class AccountManager @Inject constructor(
                 } else {
                     val (index, session) = switched
                     _accountIndex.value = index
-                    startNotificationSync(session)
-                    connect(session, index.accounts.firstOrNull { it.accountId == accountId }?.toAccount() ?: fallbackAccount(session))
+                    connect(
+                        session,
+                        index.accounts.firstOrNull { it.accountId == accountId }?.toAccount()
+                            ?: fallbackAccount(session),
+                        startNotificationSync(session),
+                    )
                 }
             } catch (e: Exception) {
                 failAuth(e)
@@ -334,10 +339,15 @@ class AccountManager @Inject constructor(
                 if (loginAccountId() == accountId) {
                     val nextSession = replacement.first
                     if (nextSession == null) {
-                        _activeSession.value = null
+                        activeSessionValue = null
+                        _connectedContext.value = null
                         _session.value = SessionUi(starting = false)
                     } else {
-                        connect(nextSession, replacement.second.accounts.first { it.accountId == nextSession.accountId }.toAccount())
+                        connect(
+                            nextSession,
+                            replacement.second.accounts.first { it.accountId == nextSession.accountId }.toAccount(),
+                            startNotificationSync(nextSession),
+                        )
                     }
                 }
             } catch (e: Exception) {
@@ -357,7 +367,7 @@ class AccountManager @Inject constructor(
     }
 
     fun updateAccount(account: Account) {
-        if (_activeSession.value?.accountId != account.id) return
+        if (_connectedContext.value?.accountId != account.id) return
         viewModelScope.launch {
             try {
                 withContext(ioDispatcher) {
@@ -367,18 +377,38 @@ class AccountManager @Inject constructor(
                     _accountIndex.value = index.withAccount(account)
                 }
                 _session.value = _session.value.copy(account = account)
+                _connectedContext.value = _connectedContext.value
+                    ?.takeIf { it.accountId == account.id }
+                    ?.let { current ->
+                        ConnectedSessionContext(
+                            account = account,
+                            sessionRevision = current.sessionRevision,
+                            presentationGeneration = current.presentationGeneration,
+                            source = current.source,
+                            registryToken = current.registryToken,
+                        )
+                    }
             } catch (e: Exception) {
                 failAuth(e)
             }
         }
     }
 
-    private fun connect(value: Session, account: Account) {
+    private fun connect(value: Session, account: Account, registration: RegisteredSource) {
         // Revoke old writers before new writers activate. New keyed models issue a
         // fresh generation when they start, so stale sessions cannot write afterwards.
         directMessageWriteAuthority.invalidate(value.accountId)
         sessionGeneration += 1L
-        _activeSession.value = value
+        activeSessionValue = value
+        // Publish one accepted context. The shell never joins a separate account emission
+        // with a separate session emission.
+        _connectedContext.value = ConnectedSessionContext(
+            account = account,
+            sessionRevision = value.sessionRevision,
+            presentationGeneration = sessionGeneration,
+            source = registration.source,
+            registryToken = registration.token,
+        )
         _session.value = SessionUi(
             starting = false,
             account = account,
@@ -387,12 +417,14 @@ class AccountManager @Inject constructor(
         )
     }
 
-    private fun startNotificationSync(session: Session) {
-        notificationSync.register(session.accountId, sourceFactory.create(session))
+    private fun startNotificationSync(session: Session): RegisteredSource {
+        val source = sourceFactory.create(session)
+        val token = notificationSync.register(session.accountId, source)
         pushRegistrationManager.onSessionAvailable(session.accountId)
+        return RegisteredSource(source, token)
     }
 
-    private fun loginAccountId(): me.foxtails.palustris.domain.AccountId? = _activeSession.value?.accountId
+    private fun loginAccountId(): me.foxtails.palustris.domain.AccountId? = activeSessionValue?.accountId
 
     private fun fallbackAccount(session: Session): Account = Account(
         session.accountId,
@@ -412,6 +444,11 @@ private data class RestoredAccounts(
     val index: AccountIndex,
     val sessions: List<Session>,
     val active: Pair<Session, Account?>?,
+)
+
+private data class RegisteredSource(
+    val source: SocialSource,
+    val token: NotificationSyncToken,
 )
 
 private fun AccountIndex.withAccount(account: Account): AccountIndex {

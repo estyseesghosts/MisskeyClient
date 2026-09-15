@@ -939,3 +939,13 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Detail record: docs/agents/tasks/cancellation-and-shell-continuation.md.
 - Final verification passed: full test assembleRelease and :app:lintDebug.
 - Unverified: connected instrumentation (no emulator or device), live-server, physical-device, signed release.
+
+260915-050000 Slice C-01 connected identity:
+- Added ui/session/ConnectedSessionContext.kt. The context joins the account, durable revision, presentation generation, and registered source.
+- AccountManager now publishes one connectedContext. It removed the public activeSession flow. It registers the source and returns the NotificationSyncToken from NotificationSyncController.register.
+- ConnectedApp consumes the context and shows a bounded connecting state. ConnectedSessionHost reads connectedContext.source. The unregistered sourceFactory.create fallback is removed.
+- Removed sourceFactory forwarding from ConnectedApp and MainActivity. AccountManager keeps source construction.
+- Added ConnectedSessionContextTest (5 tests): startup loading, account switch, same-account replacement, profile update, retired registration.
+- Verification passed: focused suites, full test assembleRelease, and :app:lintDebug.
+- C-01 has no commit. The user must authorize the commit.
+- Unverified: device, live-server, signed release.

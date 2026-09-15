@@ -2,31 +2,37 @@
 
 **Owner:** app-shell and feature-presentation maintainers.
 
-**Status:** current. The shell decomposition is partially migrated.
+**Status:** current. The shell decomposition is partially migrated. Completion slice C-01 is
+implemented and test verified in the working tree. Other completion slices repair the remaining
+gaps.
 
 **Last reviewed:** 2026-09-14.
 
-**Source baseline:** `fb9d8bf`.
+**Source baseline:** `b629a2c`.
 
-**Evidence:** source verified. Test verified with the full JVM suite, `assembleRelease`, and
-`:app:lintDebug`. Device and live-server behavior remain unverified.
+**Evidence:** source verified. Device and live-server behavior remain unverified. No test ran during
+this documentation pass.
+
+**Completion owner:** `docs/agents/tasks/decomposition-01-02-completion.md`.
 
 ## Present Boundary
 
 `ConnectedApp` is root composition. It collects session and account index, chooses the startup,
 sign-in, or connected presentation, installs theme and application-wide content policy, and composes
-three hosts. It does not write settings, assemble feature actions, or own post fan-out.
+the session host. It does not write settings or own post fan-out.
 
-`ConnectedSessionHost` in `app/src/main/java/me/foxtails/palustris/ui/session/` owns one coherent
-account/session presentation lifetime. It resolves the registered source once per connected session
-and composes focused feature hosts. It keeps only the shared feed owner, the saved-collection owner,
-the draft owner, the post-action owner, and the projection coordinator. It exposes no token and no
-`SocialSource`.
+`AccountManager` publishes one `ConnectedSessionContext` under `ui/session/`. The context joins the
+visible account, the durable session revision, the runtime presentation generation, and the
+registered source. `ConnectedSessionHost` in `ui/session/` reads that context. It composes focused
+feature hosts, and keeps the shared feed owner, saved-collection owner, draft owner, post-action
+owner, and projection coordinator. It exposes no token and no `SocialSource` to presentation.
 
 Focused feature hosts own their model, state, actions, and projection registration:
 
 | Host | Owner | Contract |
 | --- | --- | --- |
+| `ui/FeedHost.kt` | Home and Photo Grid `FeedViewModel` | `HomeContract`, `SearchContract`, `PhotoGridContract`, `PostInteractions` |
+| `ui/SavedCollectionsHost.kt` | bookmark and like `SavedPostsViewModel` | `SavedCollections` |
 | `ui/profile/ProfileHost.kt` | `ProfileViewModel` | `ProfileContract` |
 | `ui/thread/ThreadHost.kt` | `PostThreadViewModel` | `ThreadContract` |
 | `ui/notifications/NotificationsHost.kt` | `NotificationsViewModel` | `NotificationsContract` |
@@ -38,13 +44,13 @@ Focused feature hosts own their model, state, actions, and projection registrati
 surfaces share it, so one origin resolves to the same owner.
 
 `SettingsOverlayHost` in `ui/settings/` owns the settings route, settings models, and settings
-commands. `NotificationLaunchHost` in `ui/notifications/` owns launch delivery: it waits for the
-receiving account to become active and acknowledges only the launch it accepted.
+commands. `NotificationLaunchHost` in `ui/notifications/` owns launch delivery.
 
 `PalustrisApp` owns navigation, adaptive layout, and surface placement. It accepts narrow feature
-contracts in `app/src/main/java/me/foxtails/palustris/ui/shell/`. Each contract has one owner and one
-presentation responsibility. Test code binds test-only recorders in
-`app/src/test/java/me/foxtails/palustris/AppShellFixtures.kt`.
+contracts in `ui/shell/`. It also still holds composer editor state, audience, reply, quote, and
+draft action state. Completion slice C-05 moves that state to a composer owner.
+
+Test code binds test-only recorders in `app/src/test/java/me/foxtails/palustris/AppShellFixtures.kt`.
 
 | Contract | Owner | State | Actions |
 | --- | --- | --- | --- |
@@ -58,14 +64,28 @@ presentation responsibility. Test code binds test-only recorders in
 | `ProfileContract` | `ProfileViewModel` | Target, categories, relationship, editor | Open, category, paging, follow, react, editor |
 | `ThreadContract` | `PostThreadViewModel` | Selected thread | Activate, deactivate, paging, mutations |
 | `PhotoGridContract` | Photo Grid `FeedViewModel` | Independent Photo Grid feed | Load, select, refresh, paging, hashtag, error |
+| `ComposerContract` | composer owner (proposed) | Fields, audience, reply, quote | Publish |
 | `DraftsContract` | account draft store | Saved drafts for the active account | Load, save, delete |
 
 `ui/shell/PostProjectionCoordinator` is the single fan-out owner for normalized post updates and
 accepted publications. It validates account and durable revision, excludes the origin sink, and
-suppresses nested forwarding so feed and thread cannot echo. `PostProjectionCoordinatorTest` covers
-origin exclusion, nested suppression, foreign accounts, old revisions, and publications.
+suppresses nested forwarding. `PostProjectionCoordinatorTest` covers origin exclusion, nested
+suppression, foreign accounts, old revisions, and publications.
 
-## Removed In This Migration
+## Known Gaps
+
+Completion slices close these gaps. The acceptance matrix records the status.
+
+| Gap | Source evidence | Completion slice |
+| --- | --- | --- |
+| Post-action ownership | `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. A profile update can replace popup ownership. | C-07 |
+| Composer editor state | `PalustrisApp.kt` holds editor fields, audience, reply, quote, and draft actions. | C-05, C-06 |
+| Feature teardown | Hosts stop activity-store models on composition disposal. A later lookup can retrieve a stopped model. | C-02 |
+| Projection retirement | `PostProjectionCoordinator` has account and revision checks. It has no explicit retired state or accepted-publication identity. | C-07 |
+| Shell assembly | `PalustrisApp.kt` owns navigation and still holds feature state. | C-12 |
+| Test isolation | Small feature scenarios still construct the full shell. | C-12 |
+
+## Removed In The Migration
 
 - The dead outer `onOpenReactionPicker` parameter. Live `expandReactionPicker` forwarding remains.
 - The duplicate shell `ownedPosts` input. Home rows come from `HomeFeedUiState.ownedPosts` only.
@@ -73,44 +93,24 @@ origin exclusion, nested suppression, foreign accounts, old revisions, and publi
 - The test-only `onReply` seam. Reply behavior is asserted through composer state.
 - The obsolete `moved...` import aliases.
 - The pass-through wrappers `AppHomeDestinationContent`, `AppSearchDestinationContent`,
-  `AppPhotoGridDestinationContent`, and `AppProfileDestinationContent`. The shell calls the feature
-  presenters directly. `AppNotificationsDestinationContent` remains because it owns panel and
-  direct-message integration.
-
-## Remaining Flat Parameters
-
-These still cross the `PalustrisApp` boundary and belong to later slices:
-
-- Identity: `account`, `sessionGeneration`, `sessionRevision`.
-- Launch: `initialNotificationRoute`.
-
-## Deferred Work
-
-- The Home feed, saved collections, composer, and post-action owner remain in `ConnectedSessionHost`
-  because the composer, the feed projection origin, and the like reaction share the feed model. A
-  `FeedHost` and `SavedCollectionsHost` would need a feed-action handoff first.
-- Teardown: `NotificationsViewModel`, `DirectMessageViewModel`, `NotificationSettingsViewModel`, and
-  `ModerationViewModel` expose no `stop()`. They rely on session-generation ViewModel keys, not an
-  explicit release. Their owner repair belongs to `docs/decomposition_3/02.md`.
-- `PalustrisApp` retains `Empty` contract defaults and remains callable with few arguments. Test
-  construction was not rewritten to require explicit feature hosts.
-- Navigation transitions use the pure `motionDirection` function. No separate mutable holder was
-  added because the shell already owns the saveable navigation state by design.
+  `AppPhotoGridDestinationContent`, and `AppProfileDestinationContent`.
+- The unregistered `sourceFactory.create(session)` fallback in `ConnectedSessionHost`.
+- The separate `activeSession` and `session` inputs to the connected shell.
 
 ## Invariants
 
 - A contract carries no session secret, access token, source, repository, or ViewModel.
-- `presentationGeneration` and durable `sessionRevision` stay distinct.
-- The connected session resolves one registered source per session. Recomposition does not create
+- `sessionGeneration` and durable `sessionRevision` stay distinct.
+- The connected session uses one registered source per session. Recomposition does not create
   replacement sources.
+- The shell consumes one accepted connected context. It never joins separate session flows.
+- `AccountManager` owns the source factory. The shell does not create a source.
 - Photo Grid keeps independent feed state and selection from Home.
 - Active-account and selected-account notification settings stay distinct.
-- Preview values (`Empty`) exist only because call sites are not fully migrated. Remove them when
-  the boundary is complete.
+- Every source-backed feature receives values from one accepted connected lifetime.
 
 ## Limits
 
 - Contract verification is JVM and Robolectric only.
 - Live-server and physical-device behavior are unverified.
 - The Android 15 system-bar instrumentation failure remains in `logs/BUGS.txt`.
-- Account removal does not delete account-scoped drafts. See `logs/BUGS.txt`.

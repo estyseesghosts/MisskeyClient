@@ -11,7 +11,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.ForegroundNotificationStreamController
@@ -31,7 +30,6 @@ import kotlinx.coroutines.launch
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val accountManager by viewModels<AccountManager>()
-    @Inject lateinit var sourceFactory: SocialSourceFactory
     @Inject lateinit var sourceRegistry: AccountSourceRegistry
     @Inject lateinit var draftStore: DraftStore
     @Inject lateinit var notificationLaunchRouter: NotificationLaunchRouter
@@ -55,7 +53,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             ConnectedApp(
                 accountManager,
-                sourceFactory,
                 sourceRegistry,
                 draftStore,
                 notificationLaunchRouter,

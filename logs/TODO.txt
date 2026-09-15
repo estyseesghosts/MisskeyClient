@@ -1,4 +1,9 @@
 # Active tasks
 
-- Run authorized live-server checks.
+- Complete `docs/agents/tasks/decomposition-01-02-completion.md`.
+- C-01 connected identity is implemented and test verified. Commit it when the user authorizes.
+- Continue with slice C-02, ViewModel lifetime and route re-entry.
+- Keep `docs/agents/decomposition-01-02-acceptance-matrix.md` current at each slice boundary.
+- Rebase `docs/decomposition_3/03.md` and `04.md` after the completion work.
+- Run authorized live-server and device checks when the environment is available.
 - Track long tasks in `docs/agents/tasks/`, not here.

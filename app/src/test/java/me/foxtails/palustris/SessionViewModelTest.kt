@@ -530,7 +530,7 @@ class SessionViewModelTest {
             advanceUntilIdle()
 
             assertEquals("replacement-token", store.storedSession?.token)
-            assertEquals("replacement-token", model.activeSession.value?.token)
+            assertEquals(2L, model.connectedContext.value?.sessionRevision)
             assertTrue(model.session.value.sessionGeneration > initialGeneration)
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
@@ -556,7 +556,8 @@ class SessionViewModelTest {
             advanceUntilIdle()
 
             assertEquals(existingSession, store.storedSession)
-            assertEquals(existingSession, model.activeSession.value)
+            assertEquals(login.account.id, model.connectedContext.value?.accountId)
+            assertEquals(existingSession.sessionRevision, model.connectedContext.value?.sessionRevision)
             assertTrue(model.session.value.error.orEmpty().contains("match"))
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
@@ -570,6 +571,7 @@ class SessionViewModelTest {
             val model = AccountManager(store, auth(login), StandardTestDispatcher(testScheduler))
             owner.put("add", model)
             advanceUntilIdle()
+            val initialContext = model.connectedContext.value
 
             model.beginAddAccount()
             assertTrue(model.session.value.addingAccount)
@@ -579,7 +581,7 @@ class SessionViewModelTest {
 
             assertTrue(model.session.value.pending)
             assertTrue(model.session.value.addingAccount)
-            assertEquals(existingSession, model.activeSession.value)
+            assertSame(initialContext, model.connectedContext.value)
             assertEquals(existingSession, store.sessions[existingSession.accountId])
 
             model.cancelSignIn()
@@ -587,7 +589,7 @@ class SessionViewModelTest {
             assertFalse(model.session.value.addingAccount)
             assertFalse(model.session.value.pending)
             assertEquals(login.account.id, model.session.value.account?.id)
-            assertEquals(existingSession, model.activeSession.value)
+            assertSame(initialContext, model.connectedContext.value)
             assertNull(store.pending)
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
