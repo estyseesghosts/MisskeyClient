@@ -25,15 +25,15 @@ Add missing localized keys to Beeline locale files from mastodon-android and Ari
 - Slice de-DE — added 64 keys to values-de (137 keys, 23.3 percent). Dropped notification_activity_follow (sentence fragment) and post_share_clip_label (verb with wrong meaning). Commit ef1f111.
 - Slice fr-FR — added 60 keys to values-fr (133 keys, 21.5 percent). Dropped post_share_clip_label (verb with wrong meaning), dialog_discard (wrong destructive meaning), notifications_dismiss and settings_error_dismiss (wrong reject meaning). Commit 8f456a4.
 - Slice es-ES — added 17 keys to values-es-rES (167 keys, 27.8 percent). Dropped setup_welcome_back (malformed inclusive form in reference) and post_action_remove_bookmark (clashes with file convention). Never touched values-b+es+419. Commit e141818.
-- Slice pt-BR — added 15 keys to values-pt-rBR (139 keys, 23.8 percent, mastodon-android reference only). Dropped settings_error_dismiss (wrong fire-from-job meaning). Commits next.
+- Slice pt-BR — added 15 keys to values-pt-rBR (139 keys, 23.8 percent, mastodon-android reference only). Dropped settings_error_dismiss (wrong fire-from-job meaning). Commit b250340.
+- Slice pt-PT — added 25 keys to values-pt-rPT (149 keys, 25.4 percent). Dropped post_share_clip_label and single_post_title (verb with wrong meaning), photo_grid_add_hashtag and post_share_unmute and notification_activity_follow (clash with file convention). Commits next.
 
 # Current slice
 
-Slice pt-PT: app/src/main/res/values-pt-rPT/strings.xml.
+Done. ru-RU and in-ID stay blocked (no Beeline locale files; new files need code changes).
 
 # Files involved
 
-- app/src/main/res/values/strings.xml (read-only source)
 - app/src/main/res/values-pt-rPT/strings.xml
 
 # Verification
