@@ -49,7 +49,8 @@ Close the partial gaps from the 01/02 review. Keep completed extractions. Leave 
 | P-03 | Make thread external apply non-emitting. | Externally applied projections never re-emit. No reliance on the coordinator re-entrancy guard. | implemented, test verified. Commit `3b65104`. |
 | P-04 | Bind paging to the exact input cursor. Bump the collection epoch on stop. | A stale same-epoch page cannot merge or rewind the cursor. A stopped collection cannot publish. | implemented, test verified. Commit `4aa3618`. |
 | P-05 | Guard thread reconcile and rollback by action family. | A stale server snapshot cannot overwrite newer local fields. A failed action cannot roll back a newer same-family projection. | implemented, test verified. Commit `ad5d403`. |
-| P-06 | Inject the IO dispatcher into the Room DM store. Extract pure settings route gating with tests. | No hard-coded dispatcher in storage. Pending routes survive loading. Removed accounts remap to the safe parent, never to the active account. | implemented, test verified. |
+| P-06 | Inject the IO dispatcher into the Room DM store. Extract pure settings route gating with tests. | No hard-coded dispatcher in storage. Pending routes survive loading. Removed accounts remap to the safe parent, never to the active account. | implemented, test verified. Commit `ffb47da`. |
+| P-07 | Order the selected-post lookup by origin. Record locale/device limits. Refresh the matrix and ownership docs. | The origin snapshot wins on duplicate rows. Ownership still filters every candidate. Docs agree with source. | implemented, test verified. |
 
 P-01 verification: `HomeFeedTest` and `NavigationTest` pass. The `SearchScreen` `onReply` observer at `HomeFeedTest.kt:774` is a leaf callback test, not a shell seam. `PalustrisApp` carries no `onReply` parameter.
 
@@ -63,9 +64,23 @@ P-05 verification: `PostThreadViewModelTest` (with new `failedFavoriteKeepsNewer
 
 P-06 verification: `SettingsRouteRestorationTest` (with new pending, present, removed, and non-account cases), `SettingsViewModelTest`, `SettingsDisplayTest`, `DirectMessageRepositoryTest`, and `DirectMessageViewModelTest` pass. The Room-backed removal test stays blocked verification without a device. Cache reads already run off the main thread in the repository and the ViewModel.
 
+P-07 verification: `NavigationTest` and `WideNavigationTest` pass. `detailActionsFor` already lives in `DetailActionPolicy.kt`, so no move was required. `AccountManager.removeAccount` revokes DM and draft writers before deleting rows (`AccountManager.kt:328-349`), so the 02-L removal ordering is implemented and covered by `SessionViewModelTest` and `DirectMessageRepositoryTest`. `AppLocaleInstrumentedTest` and the Room-backed store test stay blocked verification without a device.
+
 ## Current Slice
 
-P-07 — Reduce shell remnants and record locale/device limits.
+None. The gate work is done. Plan 03 can start after its rebase.
+
+## Remaining Blockers
+
+- No emulator or device is reachable. `AppLocaleInstrumentedTest` (API 29 recreation, API 33 platform sync, resource tables) is not written. The Room-backed DM removal test is not written.
+- Live-server behavior stays unverified.
+- Signed-release behavior stays unverified.
+- The Android 15 system-bar failure stays in `logs/BUGS.txt`.
+- `PalustrisApp.kt` remains large. It owns navigation, placement, session-bound guards, overlay/sheet placement, and the origin-scoped selected-post lookup. No replacement file carries former feature responsibilities.
+
+## Last Safe Commit
+
+P-07 commit recorded below after the full gate passes.
 
 ## Files Involved For P-01
 

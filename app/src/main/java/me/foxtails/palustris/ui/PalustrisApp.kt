@@ -391,12 +391,23 @@ fun PalustrisApp(
 
     fun latestSelectedPost(): OwnedPost? {
         val selected = navigator.singlePost ?: return null
-        val candidates = home?.state?.ownedPosts.orEmpty() +
-            photoGrid.state.posts +
-            bookmarks.state?.posts.orEmpty() +
-            likes.state?.posts.orEmpty() +
-            profile.state.pinnedPosts +
+        // Resolve through the origin first. Unrelated collections stay as fallback
+        // sources only, so the origin snapshot wins when several collections hold
+        // the same post. Ownership still filters every candidate below.
+        val homePosts = home?.state?.ownedPosts.orEmpty()
+        val photoGridPosts = photoGrid.state.posts
+        val savedPosts = bookmarks.state?.posts.orEmpty()
+        val likedPosts = likes.state?.posts.orEmpty()
+        val profilePosts = profile.state.pinnedPosts +
             profile.state.pages.values.flatMap { it.posts }
+        val candidates = when (navigator.singlePostOrigin) {
+            LargePostOrigin.Home -> homePosts + photoGridPosts + savedPosts + likedPosts + profilePosts
+            LargePostOrigin.PhotoGrid -> photoGridPosts + homePosts + savedPosts + likedPosts + profilePosts
+            LargePostOrigin.Saved -> savedPosts + homePosts + photoGridPosts + likedPosts + profilePosts
+            LargePostOrigin.Liked -> likedPosts + homePosts + photoGridPosts + savedPosts + profilePosts
+            LargePostOrigin.Profile -> profilePosts + homePosts + photoGridPosts + savedPosts + likedPosts
+            else -> homePosts + photoGridPosts + savedPosts + likedPosts + profilePosts
+        }
         return candidates.firstOrNull {
             it.fetchedBy == selected.fetchedBy &&
                 it.sessionRevision == selected.sessionRevision &&

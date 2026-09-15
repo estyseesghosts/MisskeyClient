@@ -6,10 +6,11 @@
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (assessment). C-01 through C-11, C-12a through C-12d4, and C-13 status refreshed against `c9e06c8`.
+**Source baseline:** `b629a2c` (assessment). C-01 through C-11, C-12a through C-12d4, and C-13 status refreshed against `c9e06c8`. Gate slices P-01 through P-06 refreshed against their slice commits in `docs/agents/tasks/plan03-gate-partials.md`.
 
 **Stale when:** A listed exit condition changes, or a slice in
-`docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
+`docs/agents/tasks/decomposition-01-02-completion.md` or
+`docs/agents/tasks/plan03-gate-partials.md` moves the status.
 
 **Evidence:** source verified for every path in this page. Test files were inspected. The C-01, C-02,
 C-03, C-04, C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, C-12a through C-12c,
@@ -75,8 +76,9 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 - C-07 built the popup owner from the stable connected identity and reads the profile refresh
   callback without recreating the owner. The coordinator and the popup owner retire with the
   connected entry. Repeated publication deliveries are rejected by created-post identity.
-  Family slots are typed with operation tokens. The narrow popup interface extraction stays
-  deferred to C-12.
+  Family slots are typed with operation tokens. P-02 finished the narrow popup extraction:
+  `LocalPostActionOwner` provides `PostPopupPresentation`, and generic leaves never receive
+  the service-backed owner, its source, or its scope.
 - C-10 bound post commands to the validated account set the shell publishes. A command for a
   removed account reports an unavailable error at call time. A queued command writes nothing after
   a removal. Failed commands support explicit retry. Command errors are typed, and the shell
@@ -118,6 +120,9 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 - `DirectMessageWriteAuthority` serializes activation, revocation, deletion, and accepted writes
   under one lock per account. The account lifecycle issues the generation. A repository captures it.
   `DirectMessageRepository.markRead` routes its local write through `commitIfCurrent`.
+  `AccountManager.removeAccount` revokes DM and draft writers before deleting rows in one
+  serialized boundary, so removal ordering is implemented and test verified. P-06 gave
+  `RoomDirectMessageStore` the injected IO dispatcher instead of a hard-coded one.
 - `DirectMessageViewModel` owns the composer text and an editor revision. A selection change resets
   the text and advances the revision. A send clears the editor only when accepted and unchanged. A
   failed send keeps the text.
@@ -135,6 +140,13 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
   callback and clears a launch only when the receiving shell accepts it. `ConnectedApp` accepts
   only with an accepted connected context. The inbox carries a request epoch, so rejected pages
   change no state.
+- P-01 made `HomeFeedUiState.ownedPosts` the only Home row source. `HomeFeed` no longer takes
+  a duplicate `ownedPosts` parameter. P-07 orders the selected-post freshness lookup by origin.
+- P-03 made thread external projections non-emitting. P-04 binds feed and collection paging to
+  the exact input cursor and bumps the collection epoch on stop. P-05 builds thread reconcile
+  on current rows and guards thread rollback by action family. P-06 extracts pure settings
+  route gating (`SettingsRouteGating.kt`) with pending, present, removed, and non-account
+  coverage.
 
 ## 4. Progress Report Gap Map
 
