@@ -29,14 +29,15 @@ Read these in order. Treat the repository as the authority.
   `0e0d8c4`. Slice `03-D3` is committed at `5d1f8b2`. Slice `03-E` is committed at `861e457`.
   Slice `03-F1` is committed at `f33607e`. Slice `03-F2` is committed at `15ba26b`. Slice
   `03-F3` is committed at `9dac59b`. Slice `03-F4` is committed at `d3e1323` and test verified.
-  The last safe commit is `d3e1323`.
+  Slice `03-G` is committed at `136c4ae` and test verified.
+  The last safe commit is `136c4ae`.
 - The maintainer approved the 03-F reset behavior and the 03-I visibility migration on
   2026-09-15. The accepted policy is development-only discard: do not migrate old notification
   data. Discard unreadable or incompatible local state and require reauthentication when needed.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-G` (make write failures explicit). `03-H`, `03-I`, and `03-J` follow. 03-F is
-  complete. 03-I is approved to code.
+- Next slice: `03-H` (make legacy import restart-safe). `03-I` and `03-J` follow. 03-F and
+  03-G are complete. 03-I is approved to code.
 - Unrelated documentation and archive changes appeared in the worktree during 03-E. They are
   not part of any committed Plan 03 slice and were left untouched.
 
@@ -91,6 +92,12 @@ Read these in order. Treat the repository as the authority.
   `NotificationSettingsStorageResetTest` (2 tests), `NotificationJsonCodecTest` (46 tests),
   `NotificationRoomStoreFixtureTest` (7 tests), `NotificationStorageRecoveryTest` (9 tests), the
   related notification suites, then `test assembleRelease` and `:app:lintDebug`.
+- 03-G durable write acceptance. Every mutation commits through `commitWrite`: compute from
+  committed state, write on the injected IO dispatcher, publish only while the writer is still
+  current. A failed write marks the account `Unavailable`, publishes nothing, and returns
+  failure. Per-account serialization, explicit claim/dismiss/acknowledge/push/remove failure
+  paths, and best-effort row deletion. Verification: `NotificationWriteFailureTest` (8 tests),
+  the focused notification suites, then `test assembleRelease` and `:app:lintDebug`.
 - Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 
 ## Process Rules

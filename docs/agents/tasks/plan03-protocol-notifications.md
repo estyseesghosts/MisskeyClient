@@ -99,6 +99,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-F2 | Validate the receiving-account ownership of decoded state. | A foreign notification, group, delivery, checkpoint, push, or dismissal origin is Corrupt. Remote actors and public URLs stay valid. | implemented, test verified. |
 | 03-F3 | Add the recoverable storage health, the write, delivery, and push block, the unavailable settings state, and the retry path. | A blocked account keeps its original bytes and blocks every mutation. A retry recovers only after a readable load. Healthy accounts continue normally. | implemented, test verified. |
 | 03-F4 | Refuse newer stored formats, add the approved account-local reset, and record Room schema history. | A newer-format payload stays untouched and blocks writes. Reset revokes the old generation, clears only notification-local state, and prevents legacy reimport. The exported schema is committed and guarded by a test. | implemented, test verified. |
+| 03-G | Make notification write failures explicit through durable acceptance. | Every mutation publishes only after the store accepts the write while the writer is still current. A failed write marks the account Unavailable, publishes nothing, and returns failure. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -228,9 +229,20 @@ account generation, writes an empty readable state, clears the in-memory state, 
 notification suites, then `test assembleRelease` and `:app:lintDebug`. The `1` to `2` Room migration
 stays defensive because no version-1 schema was ever released.
 
+03-G verification: `NotificationRepository.commitWrite` computes each transition from committed
+state, writes it on the injected IO dispatcher, and publishes it only while the token generation
+is still current. A failed write marks the account `Unavailable`, publishes nothing, and returns
+failure. Transitions serialize on a per-account lock. `claimDelivery` returns null on failure so
+the worker never presents it. `dismissFromInbox` and `markAndroidDismissed` stay retryable and
+never acknowledge the server. `acknowledge`, `updateSettings`, `updatePushRegistration`, and
+`clearPushRegistration` return failure without repeating remote work. `remove` revokes memory
+first and treats row deletion as best effort. `NotificationsViewModelTest` injects the test
+dispatcher into the repository. `NotificationWriteFailureTest` (8 tests) passes with the focused
+notification suites, then `test assembleRelease` and `:app:lintDebug`.
+
 ## Current Slice
 
-03-G — Make write failures explicit. 03-F4 is complete.
+03-H — Make legacy import restart-safe. 03-G is complete.
 
 ## Required Verification
 
@@ -252,11 +264,15 @@ Close standard input. Set an explicit timeout for each Gradle call.
 - Signed-release behavior stays unverified.
 - The Android 15 system-bar failure stays in `logs/BUGS.txt`.
 - No approval blocker remains for 03-F or 03-I. Their reset and visibility policy is approved.
+- Residual 03-G ordering risk: the final generation check keeps revoked writes out of memory,
+  but a disk write that lands after revocation and before row deletion can leave stale bytes.
+  Full closure needs removal and reset serialized on the same per-account write boundary.
 
 ## Last Safe Commit
 
-`d3e1323` "Refuse newer notification formats, add reset, and export Room schema".
+`136c4ae` "Publish notification mutations only after durable store writes".
 
-03-F1, 03-F2, 03-F3, and 03-F4 are closed. 03-F2 is committed at `15ba26b`. 03-F3 is committed
-at `9dac59b`. 03-F4 is committed at `d3e1323` and test verified. The next slice is 03-G. Commit
-every green slice as soon as its tests pass.
+03-F1, 03-F2, 03-F3, 03-F4, and 03-G are closed. 03-F2 is committed at `15ba26b`. 03-F3 is
+committed at `9dac59b`. 03-F4 is committed at `d3e1323` and test verified. 03-G is committed
+at `136c4ae` and test verified. The next slice is 03-H. Commit every green slice as soon as
+its tests pass.
