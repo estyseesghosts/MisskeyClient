@@ -1086,3 +1086,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Dead symbols confirmed to have no caller at `53b4340`: `LegacyLargeProfilePresentation`, `LegacyProfileHeader`, `LegacyMediaTransitionImage`, `LegacyMediaTransitionImageCanvas`, `MarkdownPostText`, `AppBackHandler`, `BackNavigationState`, `SectionTabs`, and the `AccountSyncCoordinator` aliases.
 - Verification: `:app:compileDebugKotlin` passes at `53b4340`. No test or device check ran for this documentation pass.
 
+260915-050000 Slice C-11 locale event direction:
+- Added `ui/localization/AppLocaleOwner.kt`. Startup applies first-upgrade precedence once. A moved repository exports the in-app choice; a moved platform imports the external choice, including a clear to System default. A pending import repeats until applied. A stale platform read after an export re-asserts the repository.
+- Wired the owner into `MainActivity.kt` with one mutex across each decision and side effect. The base context prefers the platform value on Android 13 and later. An applied import recreates only when the base context is stale. A failed import surfaces through repository state without a recreation loop. The Language route already survives recreation through `SettingsRouteSaver`.
+- Added `AppLocaleOwnerTest.kt` with 12 event-sequence cases: first upgrade, startup convergence, pending-import repetition, in-app export, System-default clear, external import, external clearing, stale-read re-assertion, repository-move precedence, and superseding imports.
+- Verification passed: `AppLocaleOwnerTest`, `AppLocaleControllerTest`, `test assembleRelease`, and `:app:lintDebug` when run alone.
+- C-11 committed at PENDING.
+- Unverified: API 29 and API 33+ locale instrumentation, device rendering, live-server, signed release.
+

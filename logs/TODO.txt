@@ -14,7 +14,8 @@
 - C-08 Home paging demand is committed at `a011a06`.
 - C-09 notification request and launch ownership is committed at `c6ab9b1`.
 - C-10 settings validity and recovery is committed at `731b74b`.
-- Continue with slice C-11, locale event direction.
+- C-11 locale event direction is committed at `PENDING`.
+- Continue with slice C-12, shell assembly and test isolation.
 - Remove dead scaffolding in slice C-15. See `docs/agents/handoff.md`.
 - Keep `docs/agents/decomposition-01-02-acceptance-matrix.md` current at each slice boundary.
 - Rebase `docs/decomposition_3/03.md` and `04.md` after the completion work.

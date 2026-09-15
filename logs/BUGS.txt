@@ -66,7 +66,9 @@ repository serialization. Device teardown behavior remains unverified.
 - `HomePagingDemand` tracks filter identity and the request epoch beside the row count. Owner C-08. Commit `a011a06`.
 - `NotificationLaunchHost` acknowledges a launch only when the receiving shell accepts it. Owner C-09. Commit `c6ab9b1`.
 Open gaps:
-- `AppLocaleController.reconcilePlatformSelection` imports a differing platform locale on every call. It cannot tell startup reconciliation from a later command. Owner: slice C-11.
+- None. Slice C-11 closed the locale event-direction gap. `AppLocaleOwner` applies
+  first-upgrade precedence once. Later in-app changes export and later external changes
+  import. Commit `PENDING`. API 29 and API 33+ locale instrumentation stays unverified.
 
 260915-042000: Slice C-10 closed. Settings commands bind to the validated account set the shell publishes. A command for a removed account reports an unavailable error. A queued command writes nothing after a removal. Failed commands support explicit retry through typed errors and resource strings. Commit `731b74b`.
 

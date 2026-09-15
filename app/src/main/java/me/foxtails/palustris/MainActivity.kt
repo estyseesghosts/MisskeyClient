@@ -11,6 +11,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.auth.DraftWriteAuthority
@@ -23,6 +26,7 @@ import me.foxtails.palustris.ui.ConnectedApp
 import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
 import me.foxtails.palustris.ui.display.RefreshRateController
 import me.foxtails.palustris.ui.localization.AppLocaleController
+import me.foxtails.palustris.ui.localization.AppLocaleOwner
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -40,11 +44,27 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var postPreferencesRepository: PostPreferencesRepository
     private lateinit var refreshRateController: RefreshRateController
     private var appliedLanguage = AppLanguage.SystemDefault
+    private val localeOwner = AppLocaleOwner()
+    private val localeMutex = Mutex()
 
     override fun attachBaseContext(newBase: android.content.Context) {
-        val language = AppLocaleController.persistedLanguage(newBase)
+        val language = readBaseLanguage(newBase)
         appliedLanguage = language
         super.attachBaseContext(AppLocaleController.localizedContext(newBase, language))
+    }
+
+    /**
+     * Reads the base-context language. On Android 13 and later the platform already
+     * localizes the base context from the per-application locales, so a present platform
+     * value wins over a stale repository override. Otherwise the stored preference wins.
+     * Failures fall back to the stored preference; the startup reconciliation converges.
+     */
+    private fun readBaseLanguage(newBase: android.content.Context): AppLanguage {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val tag = runCatching { AppLocaleController.platformTag(newBase) }.getOrNull()
+            if (!tag.isNullOrBlank()) return AppLocaleController.languageForTag(tag)
+        }
+        return AppLocaleController.persistedLanguage(newBase)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,26 +109,49 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Applies one locale event through the locale owner. A moved repository exports the
+     * in-app choice to the platform. A moved platform imports the external choice into
+     * the repository. The mutex serializes each decision with its side effect, so a
+     * delayed import cannot land after a newer export. A failed import keeps the
+     * repository error visible and retries on the next event instead of recreating
+     * in a loop.
+     */
     private suspend fun applyLocaleState(loaded: Boolean, language: AppLanguage) {
-        // Never apply an unloaded System default over a persisted explicit language.
-        val next = AppLocaleController.effectiveLanguageAfterLoad(loaded, language) ?: return
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            when (val action = AppLocaleController.reconcilePlatformSelection(
-                AppLocaleController.platformTag(this@MainActivity),
-                next,
-            )) {
-                is AppLocaleController.PlatformReconciliation.ImportToRepository ->
-                    appPreferencesRepository.update { it.copy(language = action.language) }
+        localeMutex.withLock {
+            // Never apply an unloaded System default over a persisted explicit language.
+            val next = AppLocaleController.effectiveLanguageAfterLoad(loaded, language) ?: return
+            val platformTag =
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    AppLocaleController.platformTag(this@MainActivity)
+                } else {
+                    null
+                }
+            when (val action = localeOwner.resolve(platformTag, next)) {
+                is AppLocaleController.PlatformReconciliation.ImportToRepository -> {
+                    try {
+                        appPreferencesRepository.update { it.copy(language = action.language) }
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (_: Exception) {
+                        return
+                    }
+                    if (appliedLanguage != action.language) {
+                        appliedLanguage = action.language
+                        recreate()
+                    }
+                }
                 is AppLocaleController.PlatformReconciliation.ExportToPlatform -> {
                     AppLocaleController.applyPlatformLocale(this@MainActivity, action.language)
-                    appliedLanguage = action.language
+                    if (appliedLanguage != action.language) {
+                        appliedLanguage = action.language
+                        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+                            recreate()
+                        }
+                    }
                 }
                 AppLocaleController.PlatformReconciliation.NoOp -> appliedLanguage = next
             }
-        } else if (next != appliedLanguage) {
-            AppLocaleController.applyPlatformLocale(this@MainActivity, next)
-            appliedLanguage = next
-            recreate()
         }
     }
 

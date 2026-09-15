@@ -60,6 +60,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-08 | Step 9 | Complete Home paging demand. Include filter identity and the request epoch. Count accepted pages. | Home reaches older visible content without unbounded automatic requests. | implemented, test verified. Commit `a011a06`. |
 | C-09 | Step 10 | Finish notification request and launch ownership. Add request identity. Return explicit launch acceptance. | Rejected pages change no state. An undelivered launch is not acknowledged. | implemented, test verified. Commit `c6ab9b1`. |
 | C-10 | Step 11 | Complete settings validity and recovery. Bind commands to lifecycle-valid targets. Add recovery. | A settings command cannot change another account or restore deleted account state. | implemented, test verified. Commit `731b74b`. |
+| C-11 | Step 12 | Repair locale event direction. Separate startup reconciliation from later commands. | The latest accepted user choice controls resources and survives restart. | implemented, test verified. Commit `PENDING`. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -148,11 +149,21 @@ are typed, so the shell resolves the user-visible message from resources. Accoun
 wait for the restored account index instead of constructing eagerly. The settings error card
 gains a retry action.
 
+C-11 added `ui/localization/AppLocaleOwner.kt`. The owner applies first-upgrade precedence once
+through `reconcilePlatformSelection`, then follows observed movement: a moved repository exports
+the in-app choice to the platform, and a moved platform imports the external choice into the
+repository, including an external clear to System default. A pending import repeats until the
+repository applies it, and a stale platform read after an export re-asserts the repository.
+`MainActivity` serializes each decision with its side effect under one mutex, prefers the
+platform value for the base context on Android 13 and later, recreates only when an applied
+import leaves a stale base context, and reports a failed import through repository state without
+a recreation loop. The Language settings route already survives recreation through
+`SettingsRouteSaver`.
+
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-11 | Step 12 | Repair locale event direction. Separate startup reconciliation from later commands. | The latest accepted user choice controls resources and survives restart. | pending |
 | C-12 | Step 13 | Reduce shell assembly and finish test isolation. Extract a navigation state holder where shared. | `PalustrisApp` owns navigation and placement. Feature changes stay local. | pending |
 | C-13 | Step 14 | Run cancellation and integration verification. Review every touched suspending path. | Cancellation remains cancellation. All required tests pass. | pending |
 | C-14 | Step 15 | Publish the final ownership documentation. Classify every document. | Maintained documentation matches source. | pending |
@@ -167,22 +178,23 @@ behavior change.
 
 ## Current Slice
 
-**C-11 — Repair locale event direction.**
+**C-12 — Reduce shell assembly and finish test isolation.**
 
-Not started. Work from `progressreport.md` section 3 step 12. C-01 through C-10 are committed.
-A user report confirms the defect: after selecting Japanese, every later selection reverts to
-Japanese on Android 13 and later, because reconciliation imports the platform value over the
-repository on every call.
+Not started. Work from `progressreport.md` section 3 step 13. C-01 through C-11 are committed.
+`PalustrisApp` owns navigation and placement but still holds shell assembly that belongs with
+feature owners, and small feature scenarios still construct the full shell.
 
-## Files Involved For C-11
+## Files Involved For C-12
 
-- `app/src/main/java/me/foxtails/palustris/ui/localization/AppLocaleController.kt`
-- Proposed `app/src/main/java/me/foxtails/palustris/ui/localization/AppLocaleOwner.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/settings/SettingsViewModel.kt`
-- `app/src/main/java/me/foxtails/palustris/MainActivity.kt`
-- `app/src/main/java/me/foxtails/palustris/data/preferences/FileAppPreferencesRepository.kt`
-- `AppLocaleControllerTest.kt`
-- Proposed `AppLocaleInstrumentedTest.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/AppShellState.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/AppLocalPageContent.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/AppNotificationsDestinationContent.kt`
+- Compact and wide detail presentation files
+- `app/src/main/java/me/foxtails/palustris/ui/DetailActionPolicy.kt`
+- `AppShellFixtures.kt`
+- Existing Home, navigation, reply, and wide-layout tests
+- Proposed feature-specific test fixtures
 
 ## Required Verification
 
@@ -370,6 +382,34 @@ Test these cases for C-10:
 
 No device test ran. Live-server and signed-release behavior stay unverified.
 
+C-11 verification result: `AppLocaleOwnerTest` (12 cases) and `AppLocaleControllerTest`
+passed. `test assembleRelease` passed. `:app:lintDebug` passed when run alone.
+
+Test these cases for C-11:
+
+- First upgrade imports an explicit platform locale. Covered by
+  `AppLocaleOwnerTest.firstUpgradeImportsAnExplicitPlatformLocale`.
+- An applied startup import converges quietly, and a repeated check before the applied
+  import repeats it. Covered by `appliedStartupImportConvergesQuietly` and
+  `repeatedCheckBeforeAnAppliedImportRepeatsTheImport`.
+- An in-app selection exports over a differing platform. Covered by
+  `inAppSelectionExportsOverADifferingPlatform`.
+- An in-app selection of System default clears the platform. Covered by
+  `inAppSelectionToSystemDefaultClearsThePlatform`.
+- An external selection after convergence imports. Covered by
+  `externalSelectionAfterConvergenceImports`.
+- An external clear imports System default. Covered by `externalClearingImportsSystemDefault`
+  and `repeatedCheckBeforeAnAppliedExternalImportRepeatsTheImport`.
+- A stale platform read after export re-asserts the repository. Covered by
+  `stalePlatformReadAfterExportDoesNotUndoTheUserChoice`.
+- A repository move during an external check keeps the user choice. Covered by
+  `repositoryMoveDuringExternalCheckKeepsTheUserChoice`.
+- A newer external selection supersedes a pending import. Covered by
+  `newerExternalSelectionSupersedesAPendingImport`.
+
+No device test ran. API 29 and API 33+ locale instrumentation stays unverified.
+Live-server and signed-release behavior stay unverified.
+
 ## Unresolved Blockers
 
 - No emulator or device is reachable in the agent shell. Connected instrumentation stays unverified.
@@ -381,10 +421,10 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`731b74b` "Complete settings validity and recovery".
+`PENDING` "Repair locale event direction".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
 C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is committed at `0027b60`.
 C-08 is committed at `a011a06`. C-09 is committed at `c6ab9b1`. C-10 is committed at `731b74b`.
-C-11 is the next slice.
+C-11 is committed at `PENDING`. C-12 is the next slice.

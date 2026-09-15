@@ -6,13 +6,13 @@
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (assessment). C-01 through C-10 status refreshed against `53b4340`.
+**Source baseline:** `b629a2c` (assessment). C-01 through C-11 status refreshed against `PENDING`.
 
 **Stale when:** A listed exit condition changes, or a slice in
 `docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
 
 **Evidence:** source verified for every path in this page. Test files were inspected. The C-01, C-02,
-C-03, C-04, C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, and L-01 slices ran their focused
+C-03, C-04, C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, and L-01 slices ran their focused
 tests, `test assembleRelease`, and `:app:lintDebug` on 2026-09-14 and 2026-09-15. Other statuses
 repeat a pass that `logs/DONE.txt` records, not a new run.
 
@@ -98,7 +98,7 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | 02-H | Home reaches older visible content without unbounded requests or hidden continuation. | `HomeFeed.kt`, `HomePagingDemand.kt` | `HomePagingDemandTest.kt`, `HomeFeedTest.kt` | Implemented, test verified | — |
 | 02-I | Settings changes cannot overwrite newer fields or reopen under the wrong account or page. | `SettingsViewModel` validity gate and retry, `SettingsRoute` saver | `SettingsViewModelTest.kt`, `SettingsRouteRestorationTest.kt` | Implemented, test verified | — |
 | 02-J | All 17 resource locales are listed and selectable. System default stays separate. | `AppLanguage`, `locales_config.xml`, `LanguageSettingsScreen` | `LocalizationResourceTest.kt`, `LanguageSettingsScreenTest.kt` | Implemented, test verified | — |
-| 02-K | Selecting a language changes actual resources and survives supported restoration without loops. | `AppLocaleController`, `MainActivity` | `AppLocaleControllerTest.kt` | Partially implemented | C-11 |
+| 02-K | Selecting a language changes actual resources and survives supported restoration without loops. | `AppLocaleOwner`, `MainActivity` | `AppLocaleOwnerTest.kt`, `AppLocaleControllerTest.kt` | Implemented, test verified | — |
 | 02-L | Cancellation stays cancellation. Cleanup stays reliable. Repair tests pass. | cancellation rethrows in touched paths | `PushCancellationTest.kt`, `DraftActionsTest.kt`, `NotificationsViewModelTest.kt` | Partially implemented | C-13 |
 
 ### Source Notes
@@ -113,7 +113,12 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
   tracks filter identity and the epoch beside the row count. `reset` advances a demand generation
   so evaluation reruns on unchanged rows. `onPageAccepted` counts only accepted pages. The demand
   blocks while sign-in is required.
-- `AppLocaleController.reconcilePlatformSelection` imports a differing platform locale on every call. It cannot tell startup reconciliation from a later user command.
+- C-11 added `ui/localization/AppLocaleOwner.kt`. Startup runs first-upgrade precedence once.
+  A moved repository exports the in-app choice. A moved platform imports the external choice,
+  including a clear to System default. A pending import repeats until applied. `MainActivity`
+  serializes each decision with its side effect, prefers the platform value for the base
+  context on Android 13 and later, and reports a failed import through repository state
+  without a recreation loop.
 - C-09 made launch delivery return explicit acceptance. The host always calls the latest route
   callback and clears a launch only when the receiving shell accepts it. `ConnectedApp` accepts
   only with an accepted connected context. The inbox carries a request epoch, so rejected pages
@@ -132,7 +137,7 @@ Plan 02 section 14 defines slices 02-A through 02-L. This table maps each exit c
 | Draft callbacks | Closed by C-06a, C-06b, and C-06c. Publish reserves the submission, rejects obsolete callbacks, and reports load and delete failures. A revoked draft writer reports nothing. | C-06a, C-06b, C-06c (implemented, test verified) |
 | DM text | Closed by C-04. `DirectMessageViewModel` owns the composer text and revision. A failed send keeps the text. | C-04 (implemented, test verified) |
 | DM storage | Closed by C-03. `markRead` writes through `commitIfCurrent`. One lock owns activate, revoke, delete, and commit. | C-03 (implemented, test verified) |
-| Locale changes | `reconcilePlatformSelection` always imports a differing platform locale. | C-11 |
+| Locale changes | Closed by C-11. Startup runs first-upgrade precedence once. Later in-app changes export and later external changes import. | C-11 (implemented, test verified) |
 | Home paging | Closed by C-08. The budget resets on filter identity and request epoch changes. Only accepted pages count. | C-08 (implemented, test verified) |
 | Documentation | Plans, task state, and ownership pages contradict each other. | C-14, this pass |
 

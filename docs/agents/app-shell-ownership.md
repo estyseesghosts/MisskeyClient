@@ -3,12 +3,12 @@
 **Owner:** app-shell and feature-presentation maintainers.
 
 **Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through
-C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, and C-10 are implemented and test verified. Slices
-C-11 through C-14 repair the remaining gaps. Slice C-15 removes dead scaffolding.
+C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, and C-11 are implemented and test verified.
+Slices C-12 through C-14 repair the remaining gaps. Slice C-15 removes dead scaffolding.
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (planning). Status refreshed against `53b4340`.
+**Source baseline:** `b629a2c` (planning). Status refreshed against `PENDING`.
 
 **Evidence:** source verified. Device and live-server behavior remain unverified. No test ran during
 this documentation pass.
@@ -159,6 +159,9 @@ caller at `53b4340`. Verify that again before deletion.
 - Post commands bind to the validated account set. A removed target reports unavailable at call
   time and revokes queued writes. Failed commands are retained for explicit retry. Command errors
   resolve to resources in the shell.
+- The locale owner applies first-upgrade precedence once. A moved repository exports the in-app
+  choice to the platform. A moved platform imports the external choice into the repository.
+  `MainActivity` serializes each locale decision with its side effect.
 - Active-account and selected-account notification settings stay distinct.
 - Every source-backed feature receives values from one accepted connected lifetime.
 
