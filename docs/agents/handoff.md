@@ -1,47 +1,39 @@
 # Handoff
 
-**Status:** current pointer. The durable record is
-`docs/agents/tasks/decomposition-01-02-completion.md`.
+**Status:** current pointer. The durable record for the completed 01/02 series is
+`docs/agents/tasks/decomposition-01-02-completion.md`. The durable record for the active
+Plan 03 work is `docs/agents/tasks/plan03-protocol-notifications.md`.
 
 ## Where To Start
 
 Read these in order. Treat the repository as the authority.
 
 1. `AGENTS.md`.
-2. `docs/agents/tasks/decomposition-01-02-completion.md`.
-3. `docs/agents/decomposition-01-02-acceptance-matrix.md`.
-4. `docs/agents/app-shell-ownership.md` and `docs/agents/protocol-and-session-ownership.md`.
-5. `logs/BUGS.txt`.
-6. `git status` and recent commits.
+2. `docs/agents/tasks/plan03-protocol-notifications.md`.
+3. `docs/decomposition_3/03.md`.
+4. `docs/agents/tasks/decomposition-01-02-completion.md`.
+5. `docs/agents/decomposition-01-02-acceptance-matrix.md`.
+6. `docs/agents/app-shell-ownership.md` and `docs/agents/protocol-and-session-ownership.md`.
+7. `logs/BUGS.txt`.
+8. `git status` and recent commits.
 
 ## Current Position
 
 - Completion slices C-01 through C-11, C-12a through C-12d4, C-13, C-14, and C-15 are
   committed. `L-01` is committed.
-- Gate slices P-01 through P-07 are committed. The durable record is
-  `docs/agents/tasks/plan03-gate-partials.md`.
-- The last safe commit is `a1b3615` (P-07). P-07 is the gate close.
-- Plan 01 and Plan 02 exit conditions are met. Every acceptance row is implemented and
-  test verified. Device, live-server, and signed-release behavior stay unverified.
-- No next slice in the 01/02 series. Plan 03 can start after its rebase against the
-  completed boundaries. `AppLocaleInstrumentedTest` and the Room-backed DM removal test
-  are not written. No device is reachable.
-- `test assembleRelease` and `:app:lintDebug` pass at the P-07 behavior commit.
+- Gate slices P-01 through P-07 are committed.
+- Plan 03 is rebased at `b715430` and recorded in `docs/decomposition_3/03.md`. Slice `03-C`
+  is committed at `3603ef3`. The last safe commit is `3603ef3`.
+- Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
+  behavior stay unverified.
+- Next slice: `03-A` — replace the Mastodon sentinel reaction probe. Then `03-B`.
+- The 03-F reset policy and the 03-I visibility migration need maintainer approval before coding.
 
-## Next Cleanup
+## Completed Plan 03 Slices
 
-Done. C-15 removed the dead scaffolding listed here with no behavior change. This
-section stays as the removal record.
-
-- `ui/profile/ProfileScreen.kt`: `LegacyLargeProfilePresentation`, `LegacyProfileHeader`.
-- `ui/media/MediaViewerScreen.kt`: `LegacyMediaTransitionImage`, `LegacyMediaTransitionImageCanvas`.
-- `ui/MarkdownText.kt`: `MarkdownPostText`.
-- `ui/navigation/AppBackHandler.kt` and `ui/navigation/BackNavigationState.kt`.
-- `ui/Components.kt`: `SectionTabs`.
-- `ui/AccountSyncCoordinator.kt`: compatibility aliases. Update the `FeedViewModel` callers to the
-  `data.notifications` names, then delete the file.
-
-Verify with the focused Compose suites, `test assembleRelease`, and `:app:lintDebug`.
+- R-01 rebase. Verification: source verified, no test ran.
+- 03-C Misskey entity boundaries. Verification: `MisskeyIntegrationTest`, `CrossCuttingTest`.
+- Run `test assembleRelease` and `:app:lintDebug` after slice `03-A`.
 
 ## Process Rules
 
@@ -59,3 +51,4 @@ Verify with the focused Compose suites, `test assembleRelease`, and `:app:lintDe
 - No emulator or device is reachable. Connected instrumentation stays unverified.
 - Live-server and signed-release behavior stay unverified.
 - The Android 15 system-bar instrumentation failure stays in `logs/BUGS.txt`.
+- 03-F and 03-I need maintainer approval before implementation.

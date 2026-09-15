@@ -76,6 +76,12 @@ failed request.
 and fragments. Validate the origin before an authenticated request. Validate pagination origins and
 entity origins before account actions.
 
+`MisskeySource` validates every entity identity through `validatePostId(id, feature)` before it
+builds an authenticated request. The validator rejects a foreign connection origin and a blank
+value. `post` and `delete` now call it, as do thread reads, reactions, favourites, reposts, saves,
+repost undo, create reply origins, and create quote identities. A foreign public URL on a locally
+fetched entity remains valid.
+
 ## Capability States
 
 `domain/ServerCapabilities.kt` defines `CapabilityStatus`: `Supported`, `Denied`, `Unsupported`,
