@@ -6,15 +6,15 @@
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (assessment). C-01 through C-11 and C-12a status refreshed against `9b10905`.
+**Source baseline:** `b629a2c` (assessment). C-01 through C-11, C-12a, and C-12b status refreshed against `PENDING`.
 
 **Stale when:** A listed exit condition changes, or a slice in
 `docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
 
 **Evidence:** source verified for every path in this page. Test files were inspected. The C-01, C-02,
-C-03, C-04, C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, C-12a, and L-01 slices ran their focused
-tests, `test assembleRelease`, and `:app:lintDebug` on 2026-09-14 and 2026-09-15. Other statuses
-repeat a pass that `logs/DONE.txt` records, not a new run.
+C-03, C-04, C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, C-12a, C-12b, and L-01
+slices ran their focused tests, `test assembleRelease`, and `:app:lintDebug` on 2026-09-14 and
+2026-09-15. Other statuses repeat a pass that `logs/DONE.txt` records, not a new run.
 
 ## 1. How To Read This Page
 
@@ -39,13 +39,13 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
 | Slice | Exit condition | Implementation | Evidence | Status | Completion slice |
 | --- | --- | --- | --- | --- | --- |
 | 01-A | Tests protect the behavior being moved. Plan 02 failures stay separate. | `AppShellFixtures.kt`, `ShellCharacterizationTest.kt` | those tests | Implemented, test verified | — |
-| 01-B | One feature action change does not change unrelated contracts. | `ui/shell/*.kt` contracts | contract tests, `AppShellFixtures.kt` | Implemented, source verified | C-12b |
+| 01-B | One feature action change does not change unrelated contracts. | `ui/shell/*.kt` contracts | contract tests, `AppShellFixtures.kt` | Implemented, source verified | C-12c |
 | 01-C | No storage selection, repository call, or `SocialSource` remains in `PalustrisApp`. | `LocalPostActionOwner`; composer fields moved to `ui/composer/ComposerOwner.kt` | `ComposerOwnerTest.kt`, `ReplyComposerTest.kt` | Implemented, test verified | — |
 | 01-D | One reviewed path owns fan-out. No duplicate listener, cycle, stale sink, or double increment. | `ui/shell/PostProjectionCoordinator.kt` | `PostProjectionCoordinatorTest.kt` | Implemented, test verified | — |
 | 01-E | Recomposition does not construct replacement sources. Session replacement cannot invoke old owners. | `ui/session/ConnectedSessionContext.kt`, `ui/session/ConnectedEntryStore.kt`, `ConnectedSessionHost.kt`, `AccountManager.kt` | `ConnectedSessionContextTest.kt`, `ConnectedEntryStoreTest.kt`, `SessionViewModelTest.kt` | Implemented, test verified. | — |
 | 01-F | `ConnectedApp` composes root hosts. It does not write settings, assemble actions, or own fan-out. | `ui/ConnectedApp.kt` (root composition only), `SettingsOverlayHost`, `NotificationLaunchHost` | `SettingsViewModelTest.kt`, `NotificationLaunchRouterTest.kt`, `NotificationLaunchHostTest.kt` | Implemented, test verified | — |
-| 01-G | `PalustrisApp` owns navigation and placement, not feature implementation. | navigation shell; composer editor moved to `ui/composer/`; composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt` | `NavigationTest.kt`, `WideNavigationTest.kt` | Partially implemented | C-12b |
-| 01-H | A new feature action needs no unrelated fixture change. Source, tests, and documentation agree. | `AppShellFixtures.app`; documentation was not reconciled | `AppShellFixtures.kt` | Partially implemented | C-12b, C-14 |
+| 01-G | `PalustrisApp` owns navigation and placement, not feature implementation. | navigation shell; composer editor moved to `ui/composer/`; composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt`; back precedence moved to `ui/navigation/ShellBackPolicy.kt` | `NavigationTest.kt`, `WideNavigationTest.kt` | Partially implemented | C-12c |
+| 01-H | A new feature action needs no unrelated fixture change. Source, tests, and documentation agree. | `AppShellFixtures.app`; documentation was not reconciled | `AppShellFixtures.kt` | Partially implemented | C-12c, C-14 |
 
 ### Source Notes
 
@@ -86,6 +86,9 @@ Plan 01 section 9 defines slices 01-A through 01-H. This table maps each exit co
   sheet assembly beside `ComposerOwner`. Owner lifetime and the saveable editor snapshot are
   unchanged. The feature-action review trace confirms a composer presentation change needs no
   shell contract change and no fixture change.
+- C-12b added `ui/navigation/ShellBackPolicy.kt`. Back precedence is a pure decision over one
+  `ShellBackState`. The shell keeps the state and the guarded dismissal, and routes dismissal
+  plus the back and edge-swipe conditions through the policy with no order change.
 
 ## 3. Plan 02 Exit Conditions
 

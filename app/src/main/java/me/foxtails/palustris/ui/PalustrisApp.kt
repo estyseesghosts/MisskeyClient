@@ -86,7 +86,10 @@ import me.foxtails.palustris.ui.media.ImageViewerContent
 import me.foxtails.palustris.ui.media.ImageViewerContentScreen
 import me.foxtails.palustris.ui.navigation.NavigationMode
 import me.foxtails.palustris.ui.navigation.NavigationModeObserver
+import me.foxtails.palustris.ui.navigation.ShellBackState
+import me.foxtails.palustris.ui.navigation.ShellTopSurface
 import me.foxtails.palustris.ui.navigation.edgeSwipeDismiss
+import me.foxtails.palustris.ui.navigation.topSurfaceForBack
 import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.composer.ComposerOwnerContext
@@ -547,26 +550,36 @@ fun PalustrisApp(
             mediaViewerOpen = mediaRequest != null || profileImageRequest != null,
             largePresentation = largePresentation,
         )
+        fun backState() = ShellBackState(
+            mediaViewerOpen = mediaRequest != null,
+            profileImageOpen = profileImageRequest != null,
+            largePresentation = largePresentation,
+            notificationSettingsOpen = overlay == Overlay.NotificationSettings,
+            composerOpen = overlay == Overlay.Composer,
+            editProfileOpen = overlay == Overlay.EditProfile,
+            singlePostOpen = singlePost != null,
+            notificationRouteOpen = notificationRoute != null,
+            pageOpen = page != null,
+            atHome = destination == Destination.Home,
+        )
+        val backSurface = topSurfaceForBack(backState())
         fun dismissTopSurface() {
-            when {
-                profileImageRequest != null -> profileImageRequest = null
-                largePresentation && overlay == Overlay.NotificationSettings -> closeNotificationSettings()
-                largePresentation && overlay == Overlay.Composer -> closeComposer()
-                largePresentation && overlay == Overlay.EditProfile -> closeProfile()
-                singlePost != null -> clearSelectedPost()
-                overlay == Overlay.NotificationSettings -> closeNotificationSettings()
-                overlay == Overlay.Composer -> closeComposer()
-                overlay == Overlay.EditProfile -> closeProfile()
-                notificationRoute != null -> notificationRoute = null
-                page != null -> page = null
-                else -> selectDestination(Destination.Home)
+            when (topSurfaceForBack(backState())) {
+                ShellTopSurface.ProfileImage -> profileImageRequest = null
+                ShellTopSurface.NotificationSettings -> closeNotificationSettings()
+                ShellTopSurface.Composer -> closeComposer()
+                ShellTopSurface.EditProfile -> closeProfile()
+                ShellTopSurface.SinglePost -> clearSelectedPost()
+                ShellTopSurface.NotificationRoute -> notificationRoute = null
+                ShellTopSurface.Page -> page = null
+                ShellTopSurface.Home -> selectDestination(Destination.Home)
+                null -> Unit
             }
         }
-        BackHandler(enabled = mediaRequest == null && (profileImageRequest != null || singlePost != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home), onBack = ::dismissTopSurface)
+        BackHandler(enabled = backSurface != null, onBack = ::dismissTopSurface)
         Row(
             Modifier.fillMaxSize().edgeSwipeDismiss(
-                enabled = navigationMode == NavigationMode.NonGesture && mediaRequest == null &&
-                    (profileImageRequest != null || singlePost != null || notificationRoute != null || overlay != null || page != null || destination != Destination.Home),
+                enabled = navigationMode == NavigationMode.NonGesture && backSurface != null,
                 onDismiss = ::dismissTopSurface,
             ),
         ) {

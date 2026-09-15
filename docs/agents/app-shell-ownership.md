@@ -3,13 +3,13 @@
 **Owner:** app-shell and feature-presentation maintainers.
 
 **Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through
-C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, and C-12a are implemented and test
-verified. Slice C-12b repairs the remaining assembly and isolation gaps. Slices C-13 and C-14
+C-05, C-06a, C-06b, C-06c, C-07, C-08, C-09, C-10, C-11, C-12a, and C-12b are implemented and test
+verified. Slice C-12c repairs the remaining assembly and isolation gaps. Slices C-13 and C-14
 verify and document. Slice C-15 removes dead scaffolding.
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (planning). Status refreshed against `9b10905`.
+**Source baseline:** `b629a2c` (planning). Status refreshed against `PENDING`.
 
 **Evidence:** source verified. Device and live-server behavior remain unverified. No test ran during
 this documentation pass.
@@ -57,8 +57,9 @@ recoverable unavailable state. The inbox carries a request epoch, so rejected pa
 state.
 
 `PalustrisApp` owns navigation, adaptive layout, and surface placement. It accepts narrow feature
-contracts in `ui/shell/`. It also still holds some shell assembly. Completion slice C-12 reduces that
-assembly.
+contracts in `ui/shell/`. Back precedence is a pure policy in `ui/navigation/ShellBackPolicy.kt`.
+The shell keeps the back state and the guarded dismissal, and routes dismissal plus the back and
+edge-swipe conditions through the policy. Completion slice C-12c reduces the remaining assembly.
 
 `ui/composer/ComposerOwner.kt` owns the composer editor for one connected account. It holds text,
 warning, audience, the dirty snapshot, the drafts list, reply and quote restoration, and the publish
@@ -107,8 +108,8 @@ acceptance matrix records the status.
 | Home paging demand | Closed by C-08. `HomePagingDemand` tracks filter identity and the request epoch beside the row count. Only accepted pages consume the budget. | — |
 | Notification launch | Closed by C-09. `NotificationLaunchHost` acknowledges a launch only when the receiving shell accepts its route. Rejected pages change no state. | — |
 | Dead scaffolding | Unused `Legacy*` functions, `MarkdownPostText`, `AppBackHandler`, `BackNavigationState`, `SectionTabs`, and compatibility aliases remain. | C-15 |
-| Shell assembly | `PalustrisApp.kt` owns navigation and still holds shell assembly. Composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt` in C-12a. | C-12b |
-| Test isolation | Small feature scenarios still construct the full shell. | C-12b |
+| Shell assembly | `PalustrisApp.kt` owns navigation and still holds shell assembly. Composer sheet assembly moved to `ui/composer/ComposerOverlayHost.kt` in C-12a. Back precedence moved to `ui/navigation/ShellBackPolicy.kt` in C-12b. | C-12c |
+| Test isolation | Small feature scenarios still construct the full shell. | C-12c |
 
 ## Removed In The Migration
 

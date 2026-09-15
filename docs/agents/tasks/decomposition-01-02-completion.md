@@ -169,12 +169,21 @@ it. A composer presentation change now touches `ui/composer/`, `ui/ComposerScree
 `ui/ComposerSheet.kt`. It needs no shell contract change and no fixture change:
 `AppShellFixtures.app` constructs the unchanged `ComposerContract`.
 
+C-12b added `ui/navigation/ShellBackPolicy.kt`. The back-precedence order left the shell body
+for a pure decision: `topSurfaceForBack` maps one `ShellBackState` to the dismissed surface or
+to null when back has no shell target. `PalustrisApp` keeps the state and the guarded dismissal
+functions, and routes `dismissTopSurface` plus the back and edge-swipe conditions through the
+policy. The order matches the replaced inline `when` exactly, including the wide-layout overlay
+order and the media-viewer back ownership. The dead `AppBackHandler` and `BackNavigationState`
+stay untouched for slice C-15.
+
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
 | C-12a | Step 13, part 1 | Bind composer presentation beside the composer feature owner. | `PalustrisApp` places the composer overlay. Feature changes stay local. | implemented, test verified. Commit `9b10905`. |
-| C-12b | Step 13, part 2 | Reduce shell assembly and finish test isolation. Extract a navigation state holder where shared. | `PalustrisApp` owns navigation and placement. Feature changes stay local. | pending |
+| C-12b | Step 13, part 2 | Extract the shell back-navigation policy into `ui/navigation/`. | Back precedence is a pure tested policy. The shell keeps state and guarded dismissal. | implemented, test verified. Commit `PENDING`. |
+| C-12c | Step 13, part 3 | Reduce the remaining shell assembly and finish test isolation. Extract a navigation state holder where shared. | `PalustrisApp` owns navigation and placement. Feature changes stay local. | pending |
 | C-13 | Step 14 | Run cancellation and integration verification. Review every touched suspending path. | Cancellation remains cancellation. All required tests pass. | pending |
 | C-14 | Step 15 | Publish the final ownership documentation. Classify every document. | Maintained documentation matches source. | pending |
 | C-15 | Cleanup (no report step) | Remove dead scaffolding left by earlier extraction waves. | No caller remains. Focused Compose suites, `test assembleRelease`, and `:app:lintDebug` pass. | pending |
@@ -188,13 +197,13 @@ behavior change.
 
 ## Current Slice
 
-**C-12b — Reduce shell assembly and finish test isolation.**
+**C-12c — Reduce the remaining shell assembly and finish test isolation.**
 
-Not started. C-12a bound composer presentation to the composer feature. The remainder of
-`progressreport.md` section 3 step 13 stays here: extract a navigation state holder where
-shared, keep safe navigation separate from session-bound entities, move small feature tests
-off the full shell (`HomeFeedTest`, `SignInScreenTest`), and move preview-only placement
-beside previews.
+Not started. C-12a bound composer presentation to the composer feature. C-12b extracted the
+back-navigation policy. The remainder of `progressreport.md` section 3 step 13 stays here:
+extract a navigation state holder where shared, keep safe navigation separate from
+session-bound entities, move small feature tests off the full shell, and move preview-only
+placement beside previews.
 
 ## Files Involved For C-12
 
@@ -430,6 +439,14 @@ presentation change needs no shell contract change and no fixture change.
 
 No device test ran. Live-server and signed-release behavior stay unverified.
 
+C-12b verification result: `ShellBackPolicyTest` (8 cases), `NavigationTest`, and
+`WideNavigationTest` passed. `test assembleRelease` passed. `:app:lintDebug` passed when run
+alone. No behavior changed. The unit cases cover the full precedence order, the wide-layout
+overlay order, media-viewer back ownership, and the idle-Home null target. The navigation
+suites characterize back dismissal through the shell.
+
+No device test ran. Live-server and signed-release behavior stay unverified.
+
 ## Unresolved Blockers
 
 - No emulator or device is reachable in the agent shell. Connected instrumentation stays unverified.
@@ -441,10 +458,11 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`9b10905` "Bind composer presentation beside the composer feature owner".
+`PENDING` "Extract the shell back-navigation policy".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
 C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is committed at `0027b60`.
 C-08 is committed at `a011a06`. C-09 is committed at `c6ab9b1`. C-10 is committed at `731b74b`.
-C-11 is committed at `43f8aa0`. C-12a is committed at `9b10905`. C-12b is the next slice.
+C-11 is committed at `43f8aa0`. C-12a is committed at `9b10905`. C-12b is committed at `PENDING`.
+C-12c is the next slice.

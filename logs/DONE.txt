@@ -1102,3 +1102,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - C-12a committed at 9b10905.
 - Unverified: device rendering, live-server, signed release.
 
+260915-060000 Slice C-12b shell back-navigation policy:
+- Added `ui/navigation/ShellBackPolicy.kt`. Back precedence is a pure decision over one `ShellBackState`: profile image, wide-layout overlay, selected post, overlays, notification route, page, then Home. The media viewer owns back while open.
+- Routed `dismissTopSurface` plus the back and edge-swipe conditions in `PalustrisApp` through the policy with no order change. The shell keeps the state and the guarded dismissal functions.
+- Added `ShellBackPolicyTest.kt` with 8 pure unit cases covering the full order, the wide-layout overlay order, media-viewer ownership, and the idle-Home null target.
+- Verification passed: `ShellBackPolicyTest`, `NavigationTest`, `WideNavigationTest`, `test assembleRelease`, and `:app:lintDebug` when run alone.
+- C-12b committed at PENDING.
+- Unverified: device rendering, live-server, signed release.
+
