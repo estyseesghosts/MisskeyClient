@@ -39,19 +39,17 @@ slice. It divides into S1a, S1b, and S1c below.
 
 # Completed
 
-- None. S1 is approved and not started.
+- S1a — Transient overlay state lives in
+  `ui/shell/ShellOverlayPresenter.kt`. Commit `ced43f2`. The six shell
+  suites, the full `test assembleRelease` gate, and `lintDebug` pass.
 
 # Current slice
 
-S1a — Extract transient overlay state into
-`ui/shell/ShellOverlayPresenter.kt`. Move `postActionBubbleTarget`,
-`pendingExpandedReactionTarget`, `postReactionHandler`,
-`pendingEmojiInsertion`, `emojiPickerTarget`, `mediaRequest`,
-`profileImageRequest`, `profileDialog`, and `signOutDialog` into the
-holder. Move `clearPostActionBubble`, `openHashtagBubble`,
-`openReactionBubble`, `expandReactionPicker`, `openMedia`, and
-`openProfileImage` into the holder. Keep the account-change and
-session-change clearing effects calling into the holder.
+S1b — Extract the destination tree into
+`ui/shell/ShellDestinationContent.kt` (destination scaffold, destination
+branches, local pages, notifications destination, profile, search, Photo
+Grid, Home wiring). Keep saveable holders and scroll states in the shell
+unless the slice proves a move safe.
 
 # Files involved
 
@@ -79,13 +77,8 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Next
 
-1. S1a as defined in Current slice above.
-2. S1b — Extract the destination tree into
-   `ui/shell/ShellDestinationContent.kt` (destination scaffold, destination
-   branches, local pages, notifications destination, profile, search, Photo
-   Grid, Home wiring). Keep saveable holders and scroll states in the shell
-   unless the slice proves a move safe.
-3. S1c — Extract overlay, dialog, and bubble hosting into
+1. S1b as defined in Current slice above.
+2. S1c — Extract overlay, dialog, and bubble hosting into
    `ui/shell/ShellOverlayHost.kt` (bubble host, share sheet, media viewer,
    image viewer, selection sheet, composer overlay, edit-profile sheet,
    emoji picker host, notification settings sheet and its back handler,
@@ -109,4 +102,4 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Last safe commit
 
-`beefcb0` "Record 03-J commit in task state and handoff".
+`ced43f2` "Extract transient overlay state into ShellOverlayPresenter".

@@ -33,19 +33,25 @@ Read these in order. Treat the repository as the authority.
   historical, the Plan 03 task is historical in the agent index, and the
   root README no longer calls block, mute, and report unimplemented.
   `01.md`, `02.md`, and `03.md` themselves were not touched.
-- S1 (split `PalustrisApp.kt`) is approved and not started. The task-state
-  file names S1a as the current slice. The last safe commit is `beefcb0`.
+- S1a (extract transient overlay state into `ui/shell/ShellOverlayPresenter.kt`)
+  is committed and test verified. The slice commit is `ced43f2`.
+- S1b (extract the destination tree into `ui/shell/ShellDestinationContent.kt`)
+  is approved and not started. The task-state file names S1b as the current
+  slice. The last safe commit is `ced43f2`.
 - Plan 01 and Plan 02 exit conditions are met except the S1 remainder of
   Step 13 and blocked device verification.
 
 ## Next Slice
 
-S1a — Extract transient overlay state into
-`ui/shell/ShellOverlayPresenter.kt`. Keep the `PalustrisApp` signature and
-`AppShellFixtures.app()` stable. Run the six shell suites plus the full
-gate. Commit only when green. Full scope, files, and verification commands
-are in `docs/agents/tasks/palustrisapp-decomposition.md`. Do not duplicate
-that file here.
+S1b — Extract the destination tree into
+`ui/shell/ShellDestinationContent.kt` (destination scaffold, destination
+branches, local pages, notifications destination, profile, search, Photo
+Grid, Home wiring). Keep the `PalustrisApp` signature and
+`AppShellFixtures.app()` stable. Keep saveable holders and scroll states
+in the shell unless the slice proves a move safe. Run the six shell suites
+plus the full gate. Commit only when green. Full scope, files, and
+verification commands are in `docs/agents/tasks/palustrisapp-decomposition.md`.
+Do not duplicate that file here.
 
 ## After S1
 
