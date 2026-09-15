@@ -54,7 +54,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-04 | Step 5 | Give DM recovery text a feature owner. Add an editor revision. Clear only on accepted success. | A send failure cannot erase recoverable text. | implemented, test verified. Commit `cb6d024`. |
 | C-05 | Step 6 | Establish a composer editor owner. Move editor fields out of `PalustrisApp`. | `PalustrisApp` requests composer transitions. It does not implement editor state. | implemented, test verified. Commit `bd2d1b6`. |
 | C-06a | Step 7, part 1 | Make publish completion version-aware. Reserve the submission before the async save. Reject obsolete save callbacks. Clear and delete only the submitted version. | No late save clears newer text or starts an obsolete publish. | implemented, test verified. Commit `84006c1`. |
-| C-06b | Step 7, part 2 | Move the draft storage owner into the data layer. Bind draft operations to the account. Add load request identity. Report load and delete failures. | The presentation contract carries no storage. Draft failures are reported. | implemented, test verified. Commit recorded in the next documentation commit. |
+| C-06b | Step 7, part 2 | Move the draft storage owner into the data layer. Bind draft operations to the account. Add load request identity. Report load and delete failures. | The presentation contract carries no storage. Draft failures are reported. | implemented, test verified. Commit `c1288da`. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -234,8 +234,8 @@ reachable. The Room store deletion and late-write behavior stays device unverifi
 
 ## Last Safe Commit
 
-`84006c1` "Reserve composer publication by editor version".
+`c1288da` "Move draft storage behind a bound owner".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
-C-06b is committed before C-06c starts. C-06c is the next slice.
+C-06b is committed at `c1288da`. C-06c is the next slice.

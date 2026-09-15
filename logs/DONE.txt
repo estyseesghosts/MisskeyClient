@@ -1017,5 +1017,6 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - ConnectedSessionHost builds the bound actions and adapter. AppShellFixtures.drafts takes an account id.
 - Updated DraftActionsTest (error reporting cases) and NavigationTest (bound account).
 - Split item 11 from C-06. C-06c owns account-removal coordination with pending draft writes.
-- Verification passed: DraftActionsTest, ComposerOwnerTest, ReplyComposerTest, NavigationTest, test assembleRelease (841 tests), and :app:lintDebug when run alone.
+- C-06b committed at c1288da.
 - Unverified: device, live-server, signed release.
+
