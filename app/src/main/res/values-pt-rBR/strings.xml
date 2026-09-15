@@ -139,4 +139,19 @@
     <string name="composer_visibility">Visibilidade</string>
     <string name="audience_unlisted">Não listado</string>
     <string name="audience_followers">Apenas seguidores</string>
+    <string name="setup_welcome_back">Bem-vindo de volta</string>
+    <string name="setup_next">Próximo</string>
+    <string name="notifications_grouped_two_actors">%1$s e %2$s</string>
+    <string name="notification_action_mark_all_read">Marcar tudo como lido</string>
+    <string name="post_share_heading">Compartilhar</string>
+    <string name="post_share_clip_label">Publicação</string>
+    <string name="account_add">Adicionar conta</string>
+    <string name="media_viewer">Visualizador de mídia</string>
+    <string name="photo_grid_add_hashtag">Adicionar hashtag</string>
+    <string name="search_category_for_you">Para você</string>
+    <string name="single_post_title">Publicação</string>
+    <string name="settings_display">Exibição</string>
+    <string name="settings_colour_style_system">Sistema</string>
+    <string name="settings_choose_account">Escolher conta</string>
+    <string name="settings_moderation_confirm">Confirmar</string>
 </resources>
