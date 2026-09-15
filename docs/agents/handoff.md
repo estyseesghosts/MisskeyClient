@@ -18,7 +18,7 @@ Read these in order. Treat the repository as the authority.
 
 - Completion slices C-01 through C-11, C-12a through C-12d4, and C-13 are committed.
   `L-01` is committed.
-- The last safe commit is `c9e06c8` (C-13 behavior commit; record follows).
+- The last safe commit is `d97a39e` (C-13 record commit). C-13 is `c9e06c8`.
 - Steps 13 and 14 of the progress report are complete. C-13 fixed a cancellation swallow
   in `PostInteractionMutationOwner.handleFailure` with a regression test, and recorded an
   out-of-scope sibling finding in `logs/BUGS.txt`.
