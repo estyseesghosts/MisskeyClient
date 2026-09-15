@@ -172,4 +172,4 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`d2643a5` "Record 03-D1 commit in task state and handoff".
+`c6bd9ff` "Discover Mastodon reaction support through NodeInfo when metadata lacks it".
