@@ -55,7 +55,10 @@ class NotificationsViewModelTest {
             rawType = "follow",
         )
         val source = UnsupportedDismissSource(notification)
-        val repository = NotificationRepository(InMemoryNotificationStore())
+        val repository = NotificationRepository(
+            InMemoryNotificationStore(),
+            StandardTestDispatcher(testScheduler),
+        )
         repository.activate(NotificationSyncToken(account, 1))
         val viewModel = NotificationsViewModel(
             account,
@@ -83,7 +86,10 @@ class NotificationsViewModelTest {
         )
         val gate = CompletableDeferred<NotificationPage>()
         val source = GatedNotificationSource(account, notification, gate)
-        val repository = NotificationRepository(InMemoryNotificationStore())
+        val repository = NotificationRepository(
+            InMemoryNotificationStore(),
+            StandardTestDispatcher(testScheduler),
+        )
         repository.activate(NotificationSyncToken(account, 1))
         val viewModel = NotificationsViewModel(account, source, repository)
         advanceUntilIdle()
@@ -119,7 +125,10 @@ class NotificationsViewModelTest {
             rawType = "follow",
         )
         val source = ScriptedNotificationSource()
-        val repository = NotificationRepository(InMemoryNotificationStore())
+        val repository = NotificationRepository(
+            InMemoryNotificationStore(),
+            StandardTestDispatcher(testScheduler),
+        )
         repository.activate(NotificationSyncToken(account, 1))
         val viewModel = NotificationsViewModel(account, source, repository)
         advanceUntilIdle()
@@ -154,7 +163,10 @@ class NotificationsViewModelTest {
             rawType = "follow",
         )
         val source = ScriptedNotificationSource()
-        val repository = NotificationRepository(InMemoryNotificationStore())
+        val repository = NotificationRepository(
+            InMemoryNotificationStore(),
+            StandardTestDispatcher(testScheduler),
+        )
         repository.activate(NotificationSyncToken(account, 1))
         val viewModel = NotificationsViewModel(account, source, repository)
         advanceUntilIdle()

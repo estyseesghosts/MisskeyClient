@@ -175,6 +175,20 @@ before any future migration. The registered `1` to `2` migration stays defensive
 version-1 Room schema was ever released. Do not build a version-1 schema from the current
 annotations.
 
+`NotificationRepository` commits every notification-local mutation through durable acceptance.
+Each transition computes from committed state, writes to the store on the injected IO
+dispatcher, and publishes only after the write succeeds while the writer is still current.
+A failed write marks the account `Unavailable`, publishes nothing, and returns failure, so no
+failed operation is ever described as durably completed. Transitions for one account serialize
+on a per-account lock; unrelated accounts never wait on each other. Cancellation propagates
+without marking health. A failed delivery claim returns null, so the worker never presents it.
+A failed dismissal stays retryable and never becomes server acknowledgement. A remote
+acknowledgement followed by a local write failure returns failure without repeating the remote
+call; the next sync reconciles from server state after storage retry. Row deletion during
+`remove` is best effort: revocation and memory removal are authoritative, so a disk failure
+never blocks local removal. `NotificationsViewModelTest` injects the test dispatcher into the
+repository so committed state stays deterministic under `runTest`.
+
 ## Direct-Message Write Authority
 
 `data/directmessages/DirectMessageWriteAuthority.kt` owns one writer generation for each account.
@@ -217,6 +231,8 @@ The stale claim in older ownership and bug records is removed.
 - `NotificationRepositoryTest`, `NotificationAdapterContractTest`, `NotificationSynchronizerTest`
 - `NotificationStorageRecoveryTest` covers the recoverable health, the write block, the healthy
   second account, the retry reload, and the healthy-retry no-op.
+- `NotificationWriteFailureTest` covers failing writes, deletes, delivery claims, dismissals,
+  acknowledgement, concurrent mutations, and revocation during persistence.
 - `PushRegistrationRepositoryTest`, `PushCancellationTest`
 - `AccountSourceRegistry` behavior is exercised through the notification and session tests.
 

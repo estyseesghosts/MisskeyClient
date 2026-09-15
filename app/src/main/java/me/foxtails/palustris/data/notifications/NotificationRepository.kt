@@ -4,13 +4,18 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import java.security.MessageDigest
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
@@ -40,12 +45,14 @@ import me.foxtails.palustris.domain.NotificationUnreadState
 @Singleton
 class NotificationRepository @Inject constructor(
     private val store: NotificationStore,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     constructor() : this(InMemoryNotificationStore())
 
     private val states = mutableMapOf<AccountId, MutableStateFlow<NotificationRepositoryState>>()
     private val storageHealth = mutableMapOf<AccountId, MutableStateFlow<NotificationStorageHealth>>()
     private val generations = mutableMapOf<AccountId, Long>()
+    private val writeLocks = mutableMapOf<AccountId, Mutex>()
 
     @Synchronized
     fun observe(accountId: AccountId): StateFlow<NotificationRepositoryState> =
@@ -210,23 +217,21 @@ class NotificationRepository @Inject constructor(
         baselineEstablished: Boolean = false,
     ): Boolean {
         val direction = request.direction
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token)) return false
-            if (page.direction != direction) return false
+        return commitWrite(token) { state ->
+            if (page.direction != direction) return@commitWrite null
             if (page.checkpoint?.accountId?.let { it != token.accountId } == true ||
                 page.items.any {
                     it.accountId != token.accountId ||
                         it.id.connection != token.accountId.connection.origin
                 }
-            ) return false
+            ) return@commitWrite null
             // The caller query owns validation. A claimed checkpoint query must equal it,
             // even for empty pages. Checkpoint-free pages are accepted only under the
             // explicit requested query, never a borrowed one.
-            if (page.checkpoint?.query?.let { it != request.query } == true) return false
-            val state = stateForLocked(token.accountId).value
+            if (page.checkpoint?.query?.let { it != request.query } == true) return@commitWrite null
             val query = request.query
             val previousCheckpoint = validatedCheckpoint(state, token.accountId, query)
-            if (!checkBoundaryLocked(request, previousCheckpoint)) return false
+            if (!checkBoundaryLocked(request, previousCheckpoint)) return@commitWrite null
             val previous = state.items.associateBy(Notification::id)
             val incoming = page.items
             val merged = (incoming + state.items)
@@ -260,10 +265,8 @@ class NotificationRepository @Inject constructor(
                     baselineEstablished,
                     direction,
                 ),
-            ).also { stateForLocked(token.accountId).value = it }
-        }
-        persistIfCurrent(token, next)
-        return true
+            ) to Unit
+        } != null
     }
 
     /**
@@ -284,22 +287,14 @@ class NotificationRepository @Inject constructor(
         return current == expected
     }
 
-    suspend fun updateUnreadState(token: NotificationSyncToken, unreadState: NotificationUnreadState): Boolean {
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token)) return false
-            stateForLocked(token.accountId).value.copy(unreadState = unreadState).also {
-                stateForLocked(token.accountId).value = it
-            }
-        }
-        persistIfCurrent(token, next)
-        return true
-    }
+    suspend fun updateUnreadState(token: NotificationSyncToken, unreadState: NotificationUnreadState): Boolean =
+        commitWrite(token) { state ->
+            state.copy(unreadState = unreadState) to Unit
+        } != null
 
     suspend fun applyStreamEvent(token: NotificationSyncToken, event: Event): Boolean {
         if (event.accountId != token.accountId) return false
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token)) return false
-            val current = stateForLocked(token.accountId).value
+        return commitWrite(token) { current ->
             val updated = when (val payload = event.payload) {
                 is SocialEvent.NotificationReceived -> {
                     val incoming = payload.notification
@@ -337,76 +332,78 @@ class NotificationRepository @Inject constructor(
                 }
                 else -> current
             }
-            stateForLocked(token.accountId).value = updated
-            updated
-        }
-        persistIfCurrent(token, next)
-        return true
+            updated to Unit
+        } != null
     }
 
-    suspend fun markLocallySeen(token: NotificationSyncToken, ids: Set<EntityId>): Boolean {
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token)) return false
-            val current = stateForLocked(token.accountId).value
+    suspend fun markLocallySeen(token: NotificationSyncToken, ids: Set<EntityId>): Boolean =
+        commitWrite(token) { current ->
             current.copy(items = current.items.map { item ->
                 if (item.id in ids) item.copy(readState = item.readState.copy(locallySeen = true)) else item
-            }).also { stateForLocked(token.accountId).value = it }
-        }
-        persistIfCurrent(token, next)
-        return true
-    }
+            }) to Unit
+        } != null
 
-    suspend fun markSeen(token: NotificationSyncToken, id: EntityId? = null): Boolean {
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token)) return false
-            val current = stateForLocked(token.accountId).value
+    suspend fun markSeen(token: NotificationSyncToken, id: EntityId? = null): Boolean =
+        commitWrite(token) { current ->
             val items = current.items.map { item ->
                 if (id == null || item.id == id) item.copy(readState = item.readState.copy(locallySeen = true)) else item
             }
-            current.copy(items = items).also { stateForLocked(token.accountId).value = it }
-        }
-        persistIfCurrent(token, next)
-        return true
-    }
+            current.copy(items = items) to Unit
+        } != null
 
-    suspend fun markPresented(token: NotificationSyncToken, id: EntityId): Boolean {
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token)) return false
-            val current = stateForLocked(token.accountId).value
+    suspend fun markPresented(token: NotificationSyncToken, id: EntityId): Boolean =
+        commitWrite(token) { current ->
             val items = current.items.map { item ->
                 if (item.id == id) item.copy(readState = item.readState.copy(androidPresented = true)) else item
             }
-            current.copy(items = items).also { stateForLocked(token.accountId).value = it }
-        }
-        persistIfCurrent(token, next)
-        return true
-    }
+            current.copy(items = items) to Unit
+        } != null
 
-    /** Records only the Android surface dismissal; it never acknowledges the source notification. */
+    /**
+     * Records only the Android surface dismissal; it never acknowledges the source notification.
+     *
+     * The dismissal publishes only after the store accepts it, so a failed write stays
+     * retryable without ever becoming server acknowledgement.
+     */
     suspend fun markAndroidDismissed(accountId: AccountId, id: EntityId): Boolean {
-        val next = synchronized(this) {
-            val state = states[accountId]?.value ?: return false
-            if (storageBlockedLocked(accountId)) return false
-            if (state.items.none { it.id == id }) return false
-            state.copy(items = state.items.map { item ->
-                if (item.id == id) item.copy(readState = item.readState.copy(androidDismissed = true)) else item
-            }).also { states.getValue(accountId).value = it }
-        }
-        withContext(Dispatchers.IO) {
-            synchronized(this@NotificationRepository) {
-                if (states[accountId]?.value == next) store.write(accountId, next)
+        val lock = lockFor(accountId)
+        return lock.withLock {
+            val next = synchronized(this@NotificationRepository) {
+                val state = states[accountId]?.value ?: return@withLock false
+                if (healthForLocked(accountId).value != NotificationStorageHealth.Healthy) return@withLock false
+                if (state.items.none { it.id == id }) return@withLock false
+                state.copy(items = state.items.map { item ->
+                    if (item.id == id) item.copy(readState = item.readState.copy(androidDismissed = true)) else item
+                })
+            }
+            try {
+                withContext(ioDispatcher) { store.write(accountId, next) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                synchronized(this@NotificationRepository) {
+                    healthForLocked(accountId).value = NotificationStorageHealth.Unavailable
+                }
+                return@withLock false
+            }
+            return@withLock synchronized(this@NotificationRepository) {
+                val holder = states[accountId] ?: return@synchronized false
+                if (healthForLocked(accountId).value != NotificationStorageHealth.Healthy) return@synchronized false
+                holder.value = next
+                true
             }
         }
-        return true
     }
 
     suspend fun acknowledge(
         token: NotificationSyncToken,
         acknowledgement: NotificationAcknowledgement,
     ): Boolean {
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token) || acknowledgement.accountId != token.accountId) return false
-            val current = stateForLocked(token.accountId).value
+        // A remote acknowledgement followed by a local write failure needs reconciliation,
+        // not blind command repetition. A false return leaves the remote result untouched and
+        // surfaces the storage failure, so the next sync re-reads server state after retry.
+        return commitWrite(token) { current ->
+            if (acknowledgement.accountId != token.accountId) return@commitWrite null
             val items = when (acknowledgement.readState) {
                 NotificationUnreadState.None,
                 is NotificationUnreadState.Exact,
@@ -420,11 +417,8 @@ class NotificationRepository @Inject constructor(
                     item.copy(readState = item.readState.copy(serverAcknowledged = true))
                 }
             }
-            current.copy(items = items, unreadState = acknowledgement.readState)
-                .also { stateForLocked(token.accountId).value = it }
-        }
-        persistIfCurrent(token, next)
-        return true
+            current.copy(items = items, unreadState = acknowledgement.readState) to Unit
+        } != null
     }
 
     suspend fun applyAcknowledgement(
@@ -437,41 +431,36 @@ class NotificationRepository @Inject constructor(
     }
 
     suspend fun dismissFromInbox(token: NotificationSyncToken, id: EntityId, remoteApplied: Boolean): Boolean {
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token) || id.connection != token.accountId.connection.origin) return false
-            val current = stateForLocked(token.accountId).value
+        return commitWrite(token) { current ->
+            if (id.connection != token.accountId.connection.origin) return@commitWrite null
             current.copy(
                 items = current.items.filterNot { it.id == id },
                 dismissedIds = current.dismissedIds + id,
                 deliveries = current.deliveries - id,
-            ).also {
-                stateForLocked(token.accountId).value = it
-            }
-        }
-        persistIfCurrent(token, next)
-        return true
+            ) to Unit
+        } != null
     }
 
+    /**
+     * Claims one pending delivery only when the claim is durable. A null return means the
+     * caller must not present the notification: either no claimable record exists or the
+     * store rejected the write.
+     */
     suspend fun claimDelivery(
         token: NotificationSyncToken,
         id: EntityId,
         nowEpochMillis: Long = System.currentTimeMillis(),
     ): NotificationDeliveryRecord? {
-        val result = synchronized(this) {
-            if (!mutationAllowedLocked(token)) return null
-            val current = stateForLocked(token.accountId).value
-            val record = current.deliveries[id] ?: return null
-            if (!record.isClaimable(nowEpochMillis)) return null
+        return commitWrite(token) { current ->
+            val record = current.deliveries[id] ?: return@commitWrite null
+            if (!record.isClaimable(nowEpochMillis)) return@commitWrite null
             val claimed = record.claim(
                 nowEpochMillis = nowEpochMillis,
                 claimId = UUID.randomUUID().toString(),
                 leaseMillis = DELIVERY_CLAIM_LEASE_MILLIS,
             )
-            stateForLocked(token.accountId).value = current.copy(deliveries = current.deliveries + (id to claimed))
-            claimed
+            current.copy(deliveries = current.deliveries + (id to claimed)) to claimed
         }
-        result?.let { persistIfCurrent(token, observe(token.accountId).value) }
-        return result
     }
 
     suspend fun finishDelivery(
@@ -481,16 +470,11 @@ class NotificationRepository @Inject constructor(
         errorCategory: String? = null,
         claimId: String? = null,
     ): Boolean {
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token)) return false
-            val current = stateForLocked(token.accountId).value
-            val existing = current.deliveries[id] ?: return false
-            if (claimId != null && existing.claimId != claimId) return false
-            current.copy(deliveries = current.deliveries + (id to existing.finish(state, errorCategory)))
-                .also { stateForLocked(token.accountId).value = it }
-        }
-        persistIfCurrent(token, next)
-        return true
+        return commitWrite(token) { current ->
+            val existing = current.deliveries[id] ?: return@commitWrite null
+            if (claimId != null && existing.claimId != claimId) return@commitWrite null
+            current.copy(deliveries = current.deliveries + (id to existing.finish(state, errorCategory))) to Unit
+        } != null
     }
 
     fun pendingDeliveries(
@@ -512,58 +496,87 @@ class NotificationRepository @Inject constructor(
     fun pushRegistration(accountId: AccountId): PushRegistration? =
         if (storageBlockedLocked(accountId)) null else observe(accountId).value.pushRegistration
 
-    suspend fun updateSettings(token: NotificationSyncToken, settings: NotificationSettings): Boolean {
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token)) return false
-            stateForLocked(token.accountId).value.copy(settings = settings).also {
-                stateForLocked(token.accountId).value = it
-            }
-        }
-        persistIfCurrent(token, next)
-        return true
-    }
+    suspend fun updateSettings(token: NotificationSyncToken, settings: NotificationSettings): Boolean =
+        commitWrite(token) { state ->
+            state.copy(settings = settings) to Unit
+        } != null
 
     suspend fun updatePushRegistration(token: NotificationSyncToken, registration: PushRegistration): Boolean {
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token) || registration.accountId != token.accountId ||
+        // A false return covers both a revoked writer and a rejected store write. The caller
+        // must not repeat the remote registration blindly; it re-reads server state after retry.
+        return commitWrite(token) { state ->
+            if (registration.accountId != token.accountId ||
                 registration.generation != token.generation
-            ) return false
-            stateForLocked(token.accountId).value.copy(pushRegistration = registration).also {
-                stateForLocked(token.accountId).value = it
-            }
-        }
-        persistIfCurrent(token, next)
-        return true
+            ) return@commitWrite null
+            state.copy(pushRegistration = registration) to Unit
+        } != null
     }
 
-    suspend fun clearPushRegistration(token: NotificationSyncToken): Boolean {
-        val next = synchronized(this) {
-            if (!mutationAllowedLocked(token)) return false
-            stateForLocked(token.accountId).value.copy(pushRegistration = null).also {
-                stateForLocked(token.accountId).value = it
-            }
-        }
-        persistIfCurrent(token, next)
-        return true
-    }
+    suspend fun clearPushRegistration(token: NotificationSyncToken): Boolean =
+        commitWrite(token) { state ->
+            state.copy(pushRegistration = null) to Unit
+        } != null
 
+    /**
+     * Drops one account's in-memory state and deletes its rows. Row deletion is best effort:
+     * revocation and memory removal are authoritative, so a disk failure never blocks local
+     * removal or resurrects the account. Callers revoke writers before this call.
+     */
     @Synchronized
     fun remove(accountId: AccountId) {
         states.remove(accountId)
         storageHealth.remove(accountId)
         generations.remove(accountId)
-        store.delete(accountId)
+        try {
+            store.delete(accountId)
+        } catch (error: Exception) {
+            // Best effort. Memory already revoked the account.
+        }
     }
 
-    private suspend fun persistIfCurrent(token: NotificationSyncToken, @Suppress("UNUSED_PARAMETER") state: NotificationRepositoryState) {
-        withContext(Dispatchers.IO) {
-            synchronized(this@NotificationRepository) {
-                if (isCurrentLocked(token) && !storageBlockedLocked(token.accountId)) {
-                    store.write(token.accountId, stateForLocked(token.accountId).value)
+    /**
+     * Durable acceptance boundary for every notification-local mutation.
+     *
+     * The transition computes from committed state, writes to the store on IO, and publishes
+     * only after the write succeeds while the writer is still current. A failed write marks
+     * the account unavailable, publishes nothing, and returns null, so no failed operation
+     * is ever described as durably completed. Transitions for one account serialize on its
+     * own lock, so a failure never rolls back a newer accepted change and unrelated
+     * accounts never wait on each other. Cancellation propagates without marking health.
+     */
+    private suspend fun <T> commitWrite(
+        token: NotificationSyncToken,
+        compute: (NotificationRepositoryState) -> Pair<NotificationRepositoryState, T>?,
+    ): T? {
+        val accountId = token.accountId
+        val lock = lockFor(accountId)
+        return lock.withLock {
+            val prepared = synchronized(this@NotificationRepository) {
+                if (!mutationAllowedLocked(token)) return@withLock null
+                compute(stateForLocked(accountId).value)
+            } ?: return@withLock null
+            val (next, result) = prepared
+            if (!synchronized(this@NotificationRepository) { isCurrentLocked(token) }) return@withLock null
+            try {
+                withContext(ioDispatcher) { store.write(accountId, next) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                synchronized(this@NotificationRepository) {
+                    healthForLocked(accountId).value = NotificationStorageHealth.Unavailable
                 }
+                return@withLock null
+            }
+            synchronized(this@NotificationRepository) {
+                if (!isCurrentLocked(token) || storageBlockedLocked(accountId)) return@synchronized null
+                stateForLocked(accountId).value = next
+                result
             }
         }
     }
+
+    private fun lockFor(accountId: AccountId): Mutex =
+        synchronized(this) { writeLocks.getOrPut(accountId) { Mutex() } }
 
     private fun stateForLocked(accountId: AccountId): MutableStateFlow<NotificationRepositoryState> =
         states.getOrPut(accountId) { MutableStateFlow(loadStateLocked(accountId)) }
