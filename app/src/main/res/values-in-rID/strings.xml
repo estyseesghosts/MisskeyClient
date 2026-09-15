@@ -14,4 +14,7 @@
     <string name="settings_title">Pengaturan</string>
     <string name="language_system_default">Bahasa sistem</string>
     <string name="language_system_default_description">Ikuti bahasa perangkat</string>
+    <string name="settings_error_retry">Coba lagi</string>
+    <string name="settings_error_save_failed">Pengaturan tidak dapat disimpan.</string>
+    <string name="settings_account_unavailable">Akun tersebut tidak lagi tersedia di perangkat ini.</string>
 </resources>

@@ -59,6 +59,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-07 | Step 8 | Stabilize post-action ownership and projection. Use typed families. Retire the coordinator with its entry. | Every surface receives the accepted action result once. Retired popups have no authority. | implemented, test verified. Commit `0027b60`. |
 | C-08 | Step 9 | Complete Home paging demand. Include filter identity and the request epoch. Count accepted pages. | Home reaches older visible content without unbounded automatic requests. | implemented, test verified. Commit `a011a06`. |
 | C-09 | Step 10 | Finish notification request and launch ownership. Add request identity. Return explicit launch acceptance. | Rejected pages change no state. An undelivered launch is not acknowledged. | implemented, test verified. Commit `c6ab9b1`. |
+| C-10 | Step 11 | Complete settings validity and recovery. Bind commands to lifecycle-valid targets. Add recovery. | A settings command cannot change another account or restore deleted account state. | implemented, test verified. Commit `PENDING`. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -139,11 +140,18 @@ only with an accepted connected context, so an undelivered launch stays pending.
 routes to the recoverable unavailable state. A failed switch resolves through the accounts update,
 which reruns the effect into the same unavailable state.
 
+C-10 bound post commands to the validated account set the shell publishes. A command for a
+removed account reports an explicit unavailable error at call time. A command queued before the
+removal writes nothing and reports nothing. Failed commands are retained for explicit retry.
+Dismissing the error hides the message but keeps the retry until the next command. Command errors
+are typed, so the shell resolves the user-visible message from resources. Account settings models
+wait for the restored account index instead of constructing eagerly. The settings error card
+gains a retry action.
+
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-10 | Step 11 | Complete settings validity and recovery. Bind commands to lifecycle-valid targets. Add recovery. | A settings command cannot change another account or restore deleted state. | pending |
 | C-11 | Step 12 | Repair locale event direction. Separate startup reconciliation from later commands. | The latest accepted user choice controls resources and survives restart. | pending |
 | C-12 | Step 13 | Reduce shell assembly and finish test isolation. Extract a navigation state holder where shared. | `PalustrisApp` owns navigation and placement. Feature changes stay local. | pending |
 | C-13 | Step 14 | Run cancellation and integration verification. Review every touched suspending path. | Cancellation remains cancellation. All required tests pass. | pending |
@@ -153,20 +161,22 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 ## Current Slice
 
-**C-10 — Complete settings validity and recovery.**
+**C-11 — Repair locale event direction.**
 
-Not started. Work from `progressreport.md` section 3 step 11. C-01 through C-09 are committed.
+Not started. Work from `progressreport.md` section 3 step 12. C-01 through C-10 are committed.
+A user report confirms the defect: after selecting Japanese, every later selection reverts to
+Japanese on Android 13 and later, because reconciliation imports the platform value over the
+repository on every call.
 
-## Files Involved For C-10
+## Files Involved For C-11
 
+- `app/src/main/java/me/foxtails/palustris/ui/localization/AppLocaleController.kt`
+- Proposed `app/src/main/java/me/foxtails/palustris/ui/localization/AppLocaleOwner.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/settings/SettingsViewModel.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/settings/SettingsOverlayHost.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/settings/SettingsHost.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/settings/SettingsRouteSaver.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/notifications/NotificationSettingsViewModel.kt`
-- `app/src/main/java/me/foxtails/palustris/data/preferences/PostPreferencesRepository.kt`
-- Relevant settings tests
-- `app/src/main/res/values/strings.xml`
+- `app/src/main/java/me/foxtails/palustris/MainActivity.kt`
+- `app/src/main/java/me/foxtails/palustris/data/preferences/FileAppPreferencesRepository.kt`
+- `AppLocaleControllerTest.kt`
+- Proposed `AppLocaleInstrumentedTest.kt`
 
 ## Required Verification
 
@@ -336,6 +346,24 @@ Test these cases for C-09:
 
 No device test ran. Live-server and signed-release behavior stay unverified.
 
+C-10 verification result: `SettingsViewModelTest`, `SettingsRouteRestorationTest`,
+`SettingsDisplayTest`, `ModerationViewModelTest`, and `LocalizationResourceTest` passed.
+`test assembleRelease` passed. `:app:lintDebug` passed when run alone. The full gate failed
+once with test-JVM Main-dispatcher init pollution in `NotificationsViewModelTest`, which this
+slice does not touch. A full `test assembleRelease` rerun passed with no source change.
+
+Test these cases for C-10:
+
+- A post command for a removed account writes nothing and reports unavailable. Covered by
+  `SettingsViewModelTest.postCommandForRemovedAccountWritesNothingAndReportsUnavailable`.
+- A queued post command after removal writes nothing and reports nothing. Covered by
+  `queuedPostCommandAfterRemovalWritesNothingAndReportsNothing`.
+- A failed command retries after recovery. Covered by `failedCommandRetriesAfterRecovery`.
+- Dismiss keeps retry until the next command. Covered by
+  `dismissKeepsRetryUntilTheNextCommand`.
+
+No device test ran. Live-server and signed-release behavior stay unverified.
+
 ## Unresolved Blockers
 
 - No emulator or device is reachable in the agent shell. Connected instrumentation stays unverified.
@@ -347,9 +375,10 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`c6ab9b1` "Finish notification request and launch ownership".
+`PENDING` "Complete settings validity and recovery".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
 C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is committed at `0027b60`.
-C-08 is committed at `a011a06`. C-09 is committed at `c6ab9b1`. C-10 is the next slice.
+C-08 is committed at `a011a06`. C-09 is committed at `c6ab9b1`. C-10 is committed at `PENDING`.
+C-11 is the next slice.

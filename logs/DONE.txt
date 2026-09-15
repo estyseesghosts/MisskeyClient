@@ -1060,6 +1060,15 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - C-09 committed at c6ab9b1.
 - Unverified: device, live-server, signed release.
 
+260915-010000 Slice C-10 settings validity and recovery:
+- SettingsViewModel binds post commands to the validated account set the shell publishes. A removed target reports AccountUnavailable at call time. A queued command rechecks before writing, so a removal that lands first revokes the write silently.
+- Failed commands are retained with their re-invoker. retryFailedCommand reruns the last failure. Dismiss hides the message but keeps retry until the next command. Errors are typed (SaveFailed, AccountUnavailable) and the shell resolves messages from resources.
+- SettingsOverlayHost publishes the restored index as the validity set and delays notification and moderation model construction until the target validates. The settings error card gains a retry action.
+- Added validity, queued-removal, retry, and dismiss-keeps-retry cases. New settings strings ship with Russian and Indonesian translations.
+- Verification passed: SettingsViewModelTest, SettingsRouteRestorationTest, SettingsDisplayTest, ModerationViewModelTest, LocalizationResourceTest, test assembleRelease, and :app:lintDebug when run alone. The full gate failed once with test-JVM Main-dispatcher pollution in NotificationsViewModelTest, which this slice does not touch. A full rerun passed with no source change.
+- C-10 committed at PENDING.
+- Unverified: device, live-server, signed release.
+
 260915-010000 Slice L-01 Russian and Indonesian locales:
 - Added AppLanguage Russian (ru) and Indonesian (in-ID) with settings labels, values-ru and values-in-rID string files, and locales_config entries.
 - Each new catalog holds a confident navigation and action subset of 14 strings. Uncertain long-form strings stay on English fallback.

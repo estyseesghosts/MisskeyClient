@@ -14,4 +14,7 @@
     <string name="settings_title">Настройки</string>
     <string name="language_system_default">Системный язык</string>
     <string name="language_system_default_description">Использовать язык устройства</string>
+    <string name="settings_error_retry">Повторить</string>
+    <string name="settings_error_save_failed">Не удалось сохранить настройки.</string>
+    <string name="settings_account_unavailable">Этот аккаунт больше недоступен на этом устройстве.</string>
 </resources>

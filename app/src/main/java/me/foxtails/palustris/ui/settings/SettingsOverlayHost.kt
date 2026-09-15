@@ -7,8 +7,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import me.foxtails.palustris.R
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.AccountId
@@ -54,9 +56,27 @@ fun SettingsOverlayHost(
     }
     val appPreferences by settingsModel.state.collectAsStateWithLifecycle()
     val commandError by settingsModel.commandError.collectAsStateWithLifecycle()
+    val canRetryError by settingsModel.canRetry.collectAsStateWithLifecycle()
     val repositoryErrorDismissed by settingsModel.repositoryErrorDismissed.collectAsStateWithLifecycle()
-    val displayedError = commandError ?: appPreferences.error?.takeUnless { repositoryErrorDismissed }
-    val notificationAccountId = (route as? SettingsRoute.NotificationAccount)?.accountId
+    val displayedError = when (val failure = commandError) {
+        null -> appPreferences.error?.takeUnless { repositoryErrorDismissed }
+        is SettingsCommandError.SaveFailed ->
+            failure.message ?: stringResource(R.string.settings_error_save_failed)
+        SettingsCommandError.AccountUnavailable ->
+            stringResource(R.string.settings_account_unavailable)
+    }
+    // The shell publishes the restored account index. Unknown validity allows commands, so
+    // account models wait for the validated index instead of constructing eagerly.
+    LaunchedEffect(accounts, accountsReady) {
+        settingsModel.setValidAccountIds(
+            if (accountsReady) accounts.map { it.accountId }.toSet() else null,
+        )
+    }
+    // Account models wait for the validated index. Before restore, an empty account list is
+    // not proof that the target was removed.
+    val requestedNotificationAccountId = (route as? SettingsRoute.NotificationAccount)?.accountId
+    val notificationAccountId = requestedNotificationAccountId
+        ?.takeIf { accountsReady && accounts.any { it.accountId == requestedNotificationAccountId } }
     val notificationModel = notificationAccountId?.let { accountId ->
         hiltViewModel<NotificationSettingsViewModel, NotificationSettingsViewModel.Factory>(
             key = "settings-notification-settings-$accountId-$sessionGeneration",
@@ -73,7 +93,9 @@ fun SettingsOverlayHost(
             "settings-notification-settings-$accountId-$sessionGeneration",
         ) { model.stop() }
     }
-    val moderationRoute = route as? SettingsRoute.Moderation
+    val requestedModerationRoute = route as? SettingsRoute.Moderation
+    val moderationRoute = requestedModerationRoute
+        ?.takeIf { accountsReady && accounts.any { it.accountId == requestedModerationRoute.accountId } }
     val moderationModel = moderationRoute?.let { target ->
         sourceRegistry.sourceFor(target.accountId)?.let { source ->
             hiltViewModel<ModerationViewModel, ModerationViewModel.Factory>(
@@ -125,7 +147,9 @@ fun SettingsOverlayHost(
             activeAccountId?.let { settingsModel.setPostContentWarningRules(it, value) }
         },
         error = displayedError,
+        canRetryError = canRetryError,
         onDismissError = settingsModel::clearError,
+        onRetryError = settingsModel::retryFailedCommand,
         onNotificationAccount = { accountId -> route = SettingsRoute.NotificationAccount(accountId) },
         onModeration = { accountId, kind -> route = SettingsRoute.Moderation(accountId, kind) },
         notificationSettingsState = notificationState,

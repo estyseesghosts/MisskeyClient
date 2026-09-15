@@ -2,6 +2,7 @@ package me.foxtails.palustris.ui.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -53,7 +54,9 @@ fun SettingsHost(
     onPostRepliesUnlisted: (Boolean) -> Unit = {},
     onPostContentWarningRules: (ContentWarningRules) -> Unit = {},
     error: String? = null,
+    canRetryError: Boolean = false,
     onDismissError: () -> Unit = {},
+    onRetryError: () -> Unit = {},
     onNotificationAccount: (AccountId) -> Unit = {},
     onModeration: (AccountId, ModerationKind) -> Unit = { _, _ -> },
     notificationSettingsState: NotificationSettingsUiState = NotificationSettingsUiState(),
@@ -115,8 +118,15 @@ fun SettingsHost(
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Text(error, color = MaterialTheme.colorScheme.onErrorContainer)
-                        TextButton(onClick = onDismissError) {
-                            Text(stringResource(R.string.settings_error_dismiss))
+                        Row {
+                            TextButton(onClick = onDismissError) {
+                                Text(stringResource(R.string.settings_error_dismiss))
+                            }
+                            if (canRetryError) {
+                                TextButton(onClick = onRetryError) {
+                                    Text(stringResource(R.string.settings_error_retry))
+                                }
+                            }
                         }
                     }
                 }

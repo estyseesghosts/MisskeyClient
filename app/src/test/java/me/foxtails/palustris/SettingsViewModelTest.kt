@@ -131,6 +131,113 @@ class SettingsViewModelTest {
         }
     }
 
+    @Test
+    fun postCommandForRemovedAccountWritesNothingAndReportsUnavailable() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val postRepository = InMemoryPostPreferencesRepository()
+            val model = SettingsViewModel(InMemoryAppPreferencesRepository(), postRepository)
+            model.setValidAccountIds(setOf(accountA))
+
+            model.setPostDefaultAudience(accountB, Audience.Followers)
+            advanceUntilIdle()
+
+            assertEquals(Audience.Public, postRepository.observe(accountB).first().defaultAudience)
+            assertEquals(
+                me.foxtails.palustris.ui.settings.SettingsCommandError.AccountUnavailable,
+                model.commandError.value,
+            )
+            assertEquals(false, model.canRetry.value)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun queuedPostCommandAfterRemovalWritesNothingAndReportsNothing() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val postRepository = InMemoryPostPreferencesRepository()
+            val model = SettingsViewModel(InMemoryAppPreferencesRepository(), postRepository)
+            model.setValidAccountIds(setOf(accountA))
+
+            model.setPostDefaultAudience(accountA, Audience.Followers)
+            // The removal lands before the queued command runs.
+            model.setValidAccountIds(emptySet())
+            advanceUntilIdle()
+
+            assertEquals(Audience.Public, postRepository.observe(accountA).first().defaultAudience)
+            assertNull(model.commandError.value)
+            assertEquals(false, model.canRetry.value)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun failedCommandRetriesAfterRecovery() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = ToggleFailingAppPreferencesRepository(AppPreferences())
+            val model = SettingsViewModel(repository, InMemoryPostPreferencesRepository())
+
+            model.setBackground(AppBackground.Dark)
+            advanceUntilIdle()
+            assertEquals(
+                me.foxtails.palustris.ui.settings.SettingsCommandError.SaveFailed("write failed"),
+                model.commandError.value,
+            )
+            assertEquals(true, model.canRetry.value)
+
+            repository.failing = false
+            model.retryFailedCommand()
+            advanceUntilIdle()
+
+            assertEquals(AppBackground.Dark, repository.current.preferences.background)
+            assertNull(model.commandError.value)
+            assertEquals(false, model.canRetry.value)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun dismissKeepsRetryUntilTheNextCommand() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = ToggleFailingAppPreferencesRepository(AppPreferences())
+            val model = SettingsViewModel(repository, InMemoryPostPreferencesRepository())
+
+            model.setBackground(AppBackground.Dark)
+            advanceUntilIdle()
+            model.clearError()
+            assertNull(model.commandError.value)
+            assertEquals(true, model.canRetry.value)
+
+            repository.failing = false
+            model.retryFailedCommand()
+            advanceUntilIdle()
+
+            assertEquals(AppBackground.Dark, repository.current.preferences.background)
+            assertEquals(false, model.canRetry.value)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    private class ToggleFailingAppPreferencesRepository(initial: AppPreferences) : AppPreferencesRepository {
+        private val values = MutableStateFlow(AppPreferencesState(loaded = true, preferences = initial))
+        val current: AppPreferencesState get() = values.value
+        var failing = true
+
+        override fun observe(): Flow<AppPreferencesState> = values.asStateFlow()
+
+        override suspend fun update(transform: (AppPreferences) -> AppPreferences) {
+            if (failing) throw java.io.IOException("write failed")
+            values.value = values.value.copy(preferences = transform(values.value.preferences))
+        }
+    }
+
     private class FailingAppPreferencesRepository(initial: AppPreferences) : AppPreferencesRepository {
         private val values = MutableStateFlow(AppPreferencesState(loaded = true, preferences = initial))
         val current: AppPreferencesState get() = values.value

@@ -49,7 +49,8 @@ Focused feature hosts own their model, state, actions, and projection registrati
 surfaces share it, so one origin resolves to the same owner.
 
 `SettingsOverlayHost` in `ui/settings/` owns the settings route, settings models, and settings
-commands. `NotificationLaunchHost` in `ui/notifications/` owns launch delivery. It acknowledges
+commands. It publishes the validated account set and delays account models until the restored
+index is validated. `NotificationLaunchHost` in `ui/notifications/` owns launch delivery. It acknowledges
 a launch only when the receiving shell accepts its route. A missing account routes to the
 recoverable unavailable state. The inbox carries a request epoch, so rejected pages change no
 state.
@@ -137,6 +138,9 @@ Completion slices close these gaps. The acceptance matrix records the status.
 - Photo Grid keeps independent feed state and selection from Home.
 - Home paging demand resets on filter identity and request epoch changes. Only accepted pages
   consume the no-progress budget. The demand blocks while sign-in is required.
+- Post commands bind to the validated account set. A removed target reports unavailable at call
+  time and revokes queued writes. Failed commands are retained for explicit retry. Command errors
+  resolve to resources in the shell.
 - Active-account and selected-account notification settings stay distinct.
 - Every source-backed feature receives values from one accepted connected lifetime.
 
