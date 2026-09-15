@@ -68,6 +68,9 @@ validation. Only the profile dialog flag survives process recreation.
 branches: notification detail, local pages, Home, search with Photo Grid, notifications, and
 profile. Slice S1b. It owns no state. Saveable holders and scroll states stay with the shell
 and pass through unchanged.
+`ui/shell/ShellOverlayHost.kt` hosts bubbles, viewers, sheets, overlays, the emoji picker,
+notification settings, and dialogs behind two composables. Slice S1c. `ShellBubbleHost`
+preserves the z-order around the compact single-post surface. The host owns no state.
 
 `ui/composer/ComposerOwner.kt` owns the composer editor for one connected account. It holds text,
 warning, audience, the dirty snapshot, the drafts list, reply and quote restoration, and the publish

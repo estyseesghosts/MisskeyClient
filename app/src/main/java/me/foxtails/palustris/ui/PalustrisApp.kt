@@ -36,7 +36,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.LocalIndication
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -52,7 +51,6 @@ import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.domain.Account
-import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationQuery
@@ -62,17 +60,12 @@ import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.ui.emoji.EmojiPickerHost
-import me.foxtails.palustris.ui.emoji.EmojiPickerTarget
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.notifications.NotificationSettingsScreen
-import me.foxtails.palustris.ui.notifications.NotificationSettingsSheet
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
 import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.profile.editableProfilePatch
-import me.foxtails.palustris.ui.media.MediaViewerScreen
-import me.foxtails.palustris.ui.media.ImageViewerContentScreen
 import me.foxtails.palustris.ui.navigation.NavigationMode
 import me.foxtails.palustris.ui.navigation.NavigationModeObserver
 import me.foxtails.palustris.ui.navigation.ShellBackState
@@ -83,7 +76,6 @@ import me.foxtails.palustris.ui.navigation.topSurfaceForBack
 import me.foxtails.palustris.ui.media.LocalMediaTransitionRegistry
 import me.foxtails.palustris.ui.media.MediaTransitionRegistry
 import me.foxtails.palustris.ui.composer.ComposerOwnerContext
-import me.foxtails.palustris.ui.composer.ComposerOverlayHost
 import me.foxtails.palustris.ui.composer.rememberComposerOwner
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
@@ -99,7 +91,9 @@ import me.foxtails.palustris.ui.shell.PhotoGridContract
 import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.ProfileContract
 import me.foxtails.palustris.ui.shell.SearchContract
+import me.foxtails.palustris.ui.shell.ShellBubbleHost
 import me.foxtails.palustris.ui.shell.ShellDestinationContent
+import me.foxtails.palustris.ui.shell.ShellOverlayHost
 import me.foxtails.palustris.ui.shell.ThreadContract
 import me.foxtails.palustris.ui.shell.rememberShellOverlayPresenter
 import me.foxtails.palustris.ui.SinglePostScreen
@@ -117,18 +111,12 @@ import me.foxtails.palustris.ui.thread.PostThreadUiState
 import me.foxtails.palustris.ui.posts.LocalPostRepostConfirmationOwner
 import me.foxtails.palustris.ui.posts.PostRepostConfirmationOwner
 import me.foxtails.palustris.ui.posts.LocalPostActionOwner
-import me.foxtails.palustris.ui.posts.PostShareSheet
-import me.foxtails.palustris.ui.posts.copyPostShareContent
 import me.foxtails.palustris.ui.components.AccountAvatar
-import me.foxtails.palustris.ui.layout.CompactFilterDockHeight
 import me.foxtails.palustris.ui.layout.CompactHomeTimelineSpacing
 import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding
 import me.foxtails.palustris.ui.layout.CompactOverlayVerticalPadding
-import me.foxtails.palustris.ui.layout.CompactSearchDockHeight
 import me.foxtails.palustris.ui.layout.CompactTimelineTabsHeight
 import me.foxtails.palustris.ui.layout.compactGlobalNavigationPositioningInsets
-import me.foxtails.palustris.ui.layout.compactHomeScrollEndClearance
-import me.foxtails.palustris.ui.layout.compactScrollEndClearance
 import me.foxtails.palustris.ui.navigation.CompactContextualNavigationBar
 import me.foxtails.palustris.ui.navigation.HomeTimelineTabs
 import me.foxtails.palustris.ui.navigation.contextualActionFor
@@ -163,7 +151,6 @@ fun PalustrisApp(
         LocalMediaTransitionRegistry provides mediaTransitionRegistry,
         LocalPostRepostConfirmationOwner provides repostConfirmationOwner,
     ) {
-    val context = LocalContext.current
     val onReact = postInteractions.actions::favorite
     val onReshare = postInteractions.actions::repost
     val onBookmark = postInteractions.actions::bookmark
@@ -582,69 +569,16 @@ fun PalustrisApp(
                 }
             }
         }
-         val hashtagBottomClearance = if (largePresentation || navigator.page != null || navigator.notificationRoute != null) {
-            0.dp
-        } else {
-            when (navigator.destination) {
-                 Destination.Home -> compactHomeScrollEndClearance()
-                 Destination.Search -> compactScrollEndClearance(
-                     controlStackHeight = CompactSearchDockHeight,
-                    navigationVisible = navigator.navigationVisible,
-                    ime = WindowInsets.ime,
-                )
-                 Destination.Notifications, Destination.Profile -> compactScrollEndClearance(
-                     controlStackHeight = CompactFilterDockHeight,
-                    navigationVisible = navigator.navigationVisible,
-                )
-            }
-        }
-          PostActionBubbleHost(
-            target = overlay.postActionBubbleTarget,
-            emojiCatalog = emojiPresentation.catalog,
-             emojiCapabilities = emojiPresentation.capabilities,
-             onLoadEmojiCatalog = emojiPresentation.actions::loadCatalog,
-             onRetryEmojiCatalog = emojiPresentation.actions::retryCatalog,
-             onToggleEmojiGroupCollapsed = emojiPresentation.actions::toggleGroupCollapsed,
-             onToggleEmojiGroupPinned = emojiPresentation.actions::toggleGroupPinned,
-             onTogglePinnedEmoji = emojiPresentation.actions::togglePinnedEmoji,
-             onDismiss = overlay::clearPostActionBubble,
-            onHashtagSelected = { hashtag ->
-                overlay.clearPostActionBubble()
-                navigator.openHashtagSearch(hashtag)
-            },
-            onReactionSelected = { target, choice ->
-                val owner = account
-                val handler = overlay.postReactionHandler
-                if (owner != null && target.fetchedBy == owner.id && target.sessionRevision == sessionRevision &&
-                    emojiPresentation.capabilities.reactionMutation == CapabilityStatus.Supported
-                ) {
-                    handler?.invoke(target, choice)
-                }
-                overlay.clearPostActionBubble()
-            },
-            onReactionModeChanged = { expanded -> overlay.postActionBubbleTarget = expanded },
-             hashtagBottomClearance = hashtagBottomClearance,
+          ShellBubbleHost(
+              navigator = navigator,
+              overlay = overlay,
+              postActionOwner = postActionOwner,
+              emojiPresentation = emojiPresentation,
+              largePresentation = largePresentation,
+              account = account,
+              sessionRevision = sessionRevision,
+              directMessages = directMessages,
           )
-          postActionOwner?.target?.let { target ->
-              PostShareSheet(
-                  target = target,
-                  relationship = postActionOwner.relationship,
-                  report = postActionOwner.report,
-                  onDismiss = postActionOwner::dismiss,
-                  onRelationshipAction = postActionOwner::mutate,
-                  onSubmitReport = postActionOwner::submitReport,
-                  onOpenDirectMessage = {
-                      val recipient = target.author
-                      postActionOwner.dismiss()
-                      directMessages.actions.startConversation(recipient)
-                  },
-                  onCopyLink = { copyPostShareContent(context, target.post) },
-                  onShare = {
-                      sharePost(context, target.post)
-                      postActionOwner.dismiss()
-                  },
-              )
-          }
          if (!largePresentation) {
              navigator.singlePost?.let { post ->
                  val threadEnabled = selectedThreadState != null && navigator.singlePostOrigin.supportsComments()
@@ -681,114 +615,23 @@ fun PalustrisApp(
          }
      }
 
-      overlay.mediaRequest?.let { request ->
-          MediaViewerScreen(
-             request = request,
-             onClose = { overlay.mediaRequest = null },
-            onReact = onReact,
-            onReply = handleReply,
-            onReshare = onReshare,
-         )
-     }
-
-      overlay.profileImageRequest?.let { request ->
-          ImageViewerContentScreen(request, onClose = { overlay.profileImageRequest = null })
-     }
-
-       if (navigator.sheet != null) AppSelectionSheet(
-           account = account,
-           accounts = accountSwitcher.accounts,
-           onDismiss = { navigator.sheet = null },
-           onSwitchAccount = accountSwitcher.actions::switchTo,
-           onAddAccount = accountSwitcher.actions::addAccount,
-           onOpenSettings = accountSwitcher.actions::openSettings,
-            onSignOut = { overlay.signOutDialog = true },
-       )
-
-    if (navigator.overlay == Overlay.Composer) ComposerOverlayHost(
-        owner = composerOwner,
-        contract = composer,
-        account = account,
-        onDismiss = ::closeComposer,
-        onClose = { navigator.closeOverlay() },
-        onRequestEmoji = { field -> overlay.emojiPickerTarget = EmojiPickerTarget.Composer(field) },
-        pendingEmojiInsertion = overlay.pendingEmojiInsertion,
-        onEmojiInsertionApplied = { overlay.pendingEmojiInsertion = null },
-    )
-
-    if (navigator.overlay == Overlay.EditProfile && account != null) me.foxtails.palustris.ui.profile.EditProfileSheet(
-        account = account,
-        editor = profile.state.editorDraft,
-        editorBase = profile.state.editorBase,
-        capabilities = profile.state.editorCapabilities,
-        emoji = profile.state.account?.emoji ?: emptyMap(),
-        loading = profile.state.editableLoading,
-        saving = profile.state.savingProfile,
-        error = profile.state.editError ?: profile.state.editableError,
-        onEditorChange = profile.actions::updateEditor,
-        onSave = { patch ->
-            profile.actions.saveEditor(patch) {
-                navigator.closeOverlay()
-            }
-        },
-        onClose = ::closeProfile,
-    )
-
-    if (overlay.emojiPickerTarget != null) {
-        EmojiPickerHost(
-            target = overlay.emojiPickerTarget,
-            catalog = emojiPresentation.catalog,
-            selectionMode = emojiPresentation.capabilities.selectionMode,
-            mutationSupported = emojiPresentation.capabilities.reactionMutation == CapabilityStatus.Supported,
-            onLoadCatalog = emojiPresentation.actions::loadCatalog,
-            onRetryCatalog = emojiPresentation.actions::retryCatalog,
-            onToggleGroupCollapsed = emojiPresentation.actions::toggleGroupCollapsed,
-            onToggleGroupPinned = emojiPresentation.actions::toggleGroupPinned,
-            onTogglePinnedEmoji = emojiPresentation.actions::togglePinnedEmoji,
-            onDismiss = {
-                overlay.emojiPickerTarget = null
-            },
-            onEmojiSelected = { choice ->
-                val target = overlay.emojiPickerTarget
-                when (target) {
-                    is EmojiPickerTarget.Reaction -> Unit
-                    is EmojiPickerTarget.Composer -> overlay.pendingEmojiInsertion = choice to target.field
-                    null -> Unit
-                }
-                overlay.emojiPickerTarget = null
-            },
-        )
-    }
-
-    if (navigator.overlay == Overlay.NotificationSettings && account != null) NotificationSettingsSheet(
-        state = notificationSettings.state,
-        onDismiss = ::closeNotificationSettings,
-        onAlertsEnabled = notificationSettings.actions::setAlertsEnabled,
-        onShowPreviews = notificationSettings.actions::setShowPreviews,
-        onPeriodicFallback = notificationSettings.actions::setPeriodicFallback,
-        onQuietHours = notificationSettings.actions::setQuietHours,
-        onCategoryChanged = notificationSettings.actions::setCategoryEnabled,
-        onRunLocalTest = notificationSettings.actions::runLocalTest,
-        onRetryRegistration = notificationSettings.actions::retryRegistration,
-        onPermissionChanged = notificationSettings.actions::refreshPermission,
-        onRefreshDistributors = notificationSettings.actions::refreshDistributors,
-        onSelectDistributor = notificationSettings.actions::selectDistributor,
-        onRunPushConnectionTest = notificationSettings.actions::runPushConnectionTest,
-        onRetryStorage = notificationSettings.actions::retryStorage,
-        onResetStorage = notificationSettings.actions::resetStorage,
-    )
-
-    BackHandler(enabled = navigator.overlay == Overlay.NotificationSettings) {
-        closeNotificationSettings()
-    }
-
-    AppDialogs(
-        profileDialog = overlay.profileDialog,
-        onProfileDialogDismiss = { overlay.profileDialog = false },
-        onDiscardProfile = ::discardProfileEditor,
-        signOutDialog = overlay.signOutDialog,
-        onSignOutDialogDismiss = { overlay.signOutDialog = false },
-        onSignOut = accountSwitcher.actions::signOut,
-    )
+      ShellOverlayHost(
+          navigator = navigator,
+          overlay = overlay,
+          emojiPresentation = emojiPresentation,
+          account = account,
+          onReact = onReact,
+          onReply = handleReply,
+          onReshare = onReshare,
+          composerOwner = composerOwner,
+          composer = composer,
+          profile = profile,
+          notificationSettings = notificationSettings,
+          accountSwitcher = accountSwitcher,
+          onCloseComposer = ::closeComposer,
+          onCloseProfile = ::closeProfile,
+          onCloseNotificationSettings = ::closeNotificationSettings,
+          onDiscardProfileEditor = ::discardProfileEditor,
+      )
     }
 }
