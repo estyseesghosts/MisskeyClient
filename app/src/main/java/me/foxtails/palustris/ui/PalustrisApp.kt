@@ -27,14 +27,12 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.LocalIndication
@@ -58,7 +56,6 @@ import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.EditableProfilePatch
-import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationQuery
 import me.foxtails.palustris.domain.OwnedPost
@@ -67,7 +64,6 @@ import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.ui.emoji.ComposerField
 import me.foxtails.palustris.ui.emoji.EmojiPickerHost
 import me.foxtails.palustris.ui.emoji.EmojiPickerTarget
 import me.foxtails.palustris.ui.navigation.AppRoute
@@ -79,9 +75,7 @@ import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfileScreen
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.profile.editableProfilePatch
-import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.MediaViewerScreen
-import me.foxtails.palustris.ui.media.ImageViewerContent
 import me.foxtails.palustris.ui.media.ImageViewerContentScreen
 import me.foxtails.palustris.ui.navigation.NavigationMode
 import me.foxtails.palustris.ui.navigation.NavigationModeObserver
@@ -110,6 +104,7 @@ import me.foxtails.palustris.ui.shell.PostInteractions
 import me.foxtails.palustris.ui.shell.ProfileContract
 import me.foxtails.palustris.ui.shell.SearchContract
 import me.foxtails.palustris.ui.shell.ThreadContract
+import me.foxtails.palustris.ui.shell.rememberShellOverlayPresenter
 import me.foxtails.palustris.ui.SinglePostScreen
 import me.foxtails.palustris.ui.directmessages.DirectMessageConversationScreen
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
@@ -183,38 +178,29 @@ fun PalustrisApp(
     val onReaction = postInteractions.actions::react
     val availableActions = postInteractions.availableActions
     val quoteEnabled = postInteractions.quoteEnabled
+    val overlay = rememberShellOverlayPresenter(
+        account = account,
+        sessionRevision = sessionRevision,
+        reactionMutation = emojiPresentation.capabilities.reactionMutation,
+    )
     val screenStates = rememberSaveableStateHolder()
-    var profileDialog by rememberSaveable { mutableStateOf(false) }
-    var signOutDialog by remember { mutableStateOf(false) }
-    var mediaRequest by remember { mutableStateOf<MediaOpenRequest?>(null) }
-    var profileImageRequest by remember { mutableStateOf<ImageViewerContent?>(null) }
     val homeListState = rememberLazyListState()
     val searchListState = rememberLazyListState()
     val photoGridScrollState = rememberLazyStaggeredGridState()
     val profileListState = rememberLazyListState()
-    var emojiPickerTarget by remember { mutableStateOf<EmojiPickerTarget?>(null) }
-    var postActionBubbleTarget by remember { mutableStateOf<PostActionBubbleTarget?>(null) }
-    var pendingExpandedReactionTarget by remember { mutableStateOf<OwnedPost?>(null) }
-    var postReactionHandler by remember { mutableStateOf<((OwnedPost, EmojiChoice) -> Unit)?>(null) }
-    var pendingEmojiInsertion by remember { mutableStateOf<Pair<EmojiChoice, ComposerField>?>(null) }
     val motionScheme = LocalPalustrisMotionScheme.current
     val availableTimelines = if (account == null) Timeline.entries.toSet() else home?.state?.availableTimelines ?: setOf(Timeline.Home)
-    fun clearPostActionBubble() {
-        postActionBubbleTarget = null
-        pendingExpandedReactionTarget = null
-        postReactionHandler = null
-    }
     val navigator = rememberShellNavigator(
         accountId = account?.id,
         initialRoute = initialNotificationRoute,
         availableTimelines = availableTimelines,
         selectedHomeTimeline = home?.state?.selectedTimeline,
         reducedMotion = motionScheme.reducedMotion,
-        onClearTransient = ::clearPostActionBubble,
+        onClearTransient = overlay::clearPostActionBubble,
         onSearch = search.actions::search,
         onStartConversation = directMessages.actions::startConversation,
     )
-    val modalOverlayOpen = navigator.overlay != null || navigator.sheet != null || profileDialog || signOutDialog || mediaRequest != null || profileImageRequest != null || navigator.singlePost != null || emojiPickerTarget != null
+    val modalOverlayOpen = navigator.overlay != null || navigator.sheet != null || overlay.profileDialog || overlay.signOutDialog || overlay.mediaRequest != null || overlay.profileImageRequest != null || navigator.singlePost != null || overlay.emojiPickerTarget != null
     val profileTargetId = navigator.viewedProfile?.id ?: account?.id
     val refreshedProfile = profile.state.account?.takeIf { it.id == profileTargetId }
     val displayedProfile = refreshedProfile ?: navigator.viewedProfile ?: account
@@ -245,20 +231,14 @@ fun PalustrisApp(
 
     LaunchedEffect(account?.id) {
         mediaTransitionRegistry.endActive()
-        mediaRequest = null
-        emojiPickerTarget = null
-        postActionBubbleTarget = null
-        postReactionHandler = null
-        pendingEmojiInsertion = null
+        overlay.clearForAccountChange()
         repostConfirmationOwner.dismiss()
         thread.actions.deactivate()
     }
     // A same-account reauthentication changes the durable revision but not the account id.
     // Rebind the popup authority so a stale handler cannot run a later reaction selection.
     LaunchedEffect(sessionGeneration, sessionRevision) {
-        postActionBubbleTarget = null
-        pendingExpandedReactionTarget = null
-        postReactionHandler = null
+        overlay.clearForSessionChange()
     }
     LaunchedEffect(navigator.destination, navigator.searchPanel, account?.id, sessionGeneration) {
         if (navigator.destination == Destination.Search && navigator.searchPanel == SearchPanel.PhotoGrid) {
@@ -272,34 +252,27 @@ fun PalustrisApp(
     LaunchedEffect(navigator.singlePost?.post?.id, navigator.singlePostOrigin, navigator.singlePostOrigin.supportsComments()) {
         thread.actions.activate(navigator.singlePost, navigator.singlePostOrigin.supportsComments())
     }
-    LaunchedEffect(navigator.destination, navigator.page, navigator.overlayKey, navigator.sheet, profileDialog, signOutDialog, mediaRequest, navigator.singlePost, navigator.notificationRoute) {
-        postActionBubbleTarget = null
-        postReactionHandler = null
+    LaunchedEffect(navigator.destination, navigator.page, navigator.overlayKey, navigator.sheet, overlay.profileDialog, overlay.signOutDialog, overlay.mediaRequest, navigator.singlePost, navigator.notificationRoute) {
+        overlay.clearPostActionBubble()
         postActionOwner?.dismiss()
-        pendingExpandedReactionTarget = null
         repostConfirmationOwner.dismiss()
         postActionOwner?.dismiss()
     }
-    LaunchedEffect(pendingExpandedReactionTarget, postActionBubbleTarget) {
-        val pending = pendingExpandedReactionTarget ?: return@LaunchedEffect
-        val current = postActionBubbleTarget as? PostActionBubbleTarget.Reaction ?: return@LaunchedEffect
-        if (current.ownedPost.fetchedBy == pending.fetchedBy && current.postId == pending.post.id) {
-            postActionBubbleTarget = current.copy(mode = ReactionBubbleMode.Expanded)
-            pendingExpandedReactionTarget = null
-        }
+    LaunchedEffect(overlay.pendingExpandedReactionTarget, overlay.postActionBubbleTarget) {
+        overlay.promotePendingExpansion()
     }
 
     val handleReply: (OwnedPost) -> Unit = { target ->
-        clearPostActionBubble()
+        overlay.clearPostActionBubble()
         composerOwner.requestReply(target)
     }
     val handleQuote: (OwnedPost) -> Unit = { target ->
-        clearPostActionBubble()
+        overlay.clearPostActionBubble()
         composerOwner.requestQuote(target)
     }
 
     fun openComposer() {
-        clearPostActionBubble()
+        overlay.clearPostActionBubble()
         composerOwner.requestNew()
     }
 
@@ -314,47 +287,17 @@ fun PalustrisApp(
 
     fun closeProfile() {
         if (profile.state.savingProfile) return
-        if (profile.state.editorDirty) profileDialog = true else discardProfileEditor()
+        if (profile.state.editorDirty) overlay.profileDialog = true else discardProfileEditor()
     }
 
     fun openProfileEditor() {
         if (account != null && displayedProfile?.id == account.id && profile.state.editableSupported) {
-            clearPostActionBubble()
+            overlay.clearPostActionBubble()
             profile.actions.openEditor()
             navigator.openEditProfileOverlay()
         }
     }
     fun closeNotificationSettings() { navigator.closeOverlay() }
-    fun openHashtagBubble(ownedPost: OwnedPost, hashtags: List<String>, bounds: Rect) {
-        postReactionHandler = null
-        postActionBubbleTarget = PostActionBubbleTarget.HashtagList(
-            postId = ownedPost.post.id,
-            hashtags = hashtags,
-            anchorBounds = bounds,
-        )
-    }
-    fun openReactionBubble(
-        ownedPost: OwnedPost,
-        bounds: Rect,
-        handler: (OwnedPost, EmojiChoice) -> Unit,
-    ) {
-        val owner = account ?: return
-        if (ownedPost.fetchedBy != owner.id || ownedPost.sessionRevision != sessionRevision ||
-            emojiPresentation.capabilities.reactionMutation != CapabilityStatus.Supported
-        ) {
-            return
-        }
-        postReactionHandler = handler
-        postActionBubbleTarget = PostActionBubbleTarget.Reaction(ownedPost, bounds)
-    }
-    fun expandReactionPicker(target: OwnedPost) {
-        pendingExpandedReactionTarget = target
-        val current = postActionBubbleTarget as? PostActionBubbleTarget.Reaction ?: return
-        if (current.ownedPost.fetchedBy == target.fetchedBy && current.postId == target.post.id) {
-            postActionBubbleTarget = current.copy(mode = ReactionBubbleMode.Expanded)
-            pendingExpandedReactionTarget = null
-        }
-    }
     fun openNotificationTarget(route: AppRoute) {
         if (route !is AppRoute.Profile) {
             navigator.notificationRoute = null
@@ -367,25 +310,8 @@ fun PalustrisApp(
         if (target != null) navigator.openProfile(target) else navigator.notificationRoute = null
     }
 
-    fun openMedia(request: MediaOpenRequest) {
-        if (account?.id != null && request.ownedPost.fetchedBy != account.id) return
-        if (request.attachmentIndex !in request.ownedPost.post.attachments.indices) return
-        clearPostActionBubble()
-        mediaRequest = request
-    }
-
-    fun openProfileImage(url: String) {
-        if (url.isBlank()) return
-        val owner = navigator.viewedProfile?.id ?: account?.id
-        profileImageRequest = ImageViewerContent(
-            url = url,
-            identity = "profile:${owner?.connection?.origin}:${owner?.localId}:$url",
-        )
-        clearPostActionBubble()
-    }
-
     fun openSinglePost(post: OwnedPost, origin: LargePostOrigin = LargePostOrigin.Other) {
-        mediaRequest = null
+        overlay.mediaRequest = null
         navigator.openSinglePost(post, origin)
     }
 
@@ -426,12 +352,12 @@ fun PalustrisApp(
         val windowWidth = maxWidth
         val navigationMode = NavigationModeObserver.current(LocalView.current)
         SystemBars(
-            mediaViewerOpen = mediaRequest != null || profileImageRequest != null,
+            mediaViewerOpen = overlay.mediaRequest != null || overlay.profileImageRequest != null,
             largePresentation = largePresentation,
         )
         fun backState() = ShellBackState(
-            mediaViewerOpen = mediaRequest != null,
-            profileImageOpen = profileImageRequest != null,
+            mediaViewerOpen = overlay.mediaRequest != null,
+            profileImageOpen = overlay.profileImageRequest != null,
             largePresentation = largePresentation,
             notificationSettingsOpen = navigator.overlay == Overlay.NotificationSettings,
             composerOpen = navigator.overlay == Overlay.Composer,
@@ -444,7 +370,7 @@ fun PalustrisApp(
         val backSurface = topSurfaceForBack(backState())
         fun dismissTopSurface() {
             when (topSurfaceForBack(backState())) {
-                ShellTopSurface.ProfileImage -> profileImageRequest = null
+                ShellTopSurface.ProfileImage -> overlay.profileImageRequest = null
                 ShellTopSurface.NotificationSettings -> closeNotificationSettings()
                 ShellTopSurface.Composer -> closeComposer()
                 ShellTopSurface.EditProfile -> closeProfile()
@@ -482,7 +408,7 @@ fun PalustrisApp(
                         page = navigator.page,
                         notificationRoute = navigator.notificationRoute,
                         savedTitle = savedTitle,
-                        onBack = { clearPostActionBubble(); if (navigator.page != null) navigator.page = null else navigator.notificationRoute = null },
+                        onBack = { overlay.clearPostActionBubble(); if (navigator.page != null) navigator.page = null else navigator.notificationRoute = null },
                     )
                 }                    ) { padding ->
                     Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
@@ -501,7 +427,7 @@ fun PalustrisApp(
                                 route = navigator.notificationRoute!!,
                                 items = notifications.state.items,
                                 onSearchHashtag = navigator::openHashtagSearch,
-                                onOpenHashtagBubble = ::openHashtagBubble,
+                                onOpenHashtagBubble = overlay::openHashtagBubble,
                                  onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Notification) },
                                  onOpenTarget = (navigator.notificationRoute as? AppRoute.Profile)?.let { route ->
                                       { openNotificationTarget(route) }
@@ -514,7 +440,7 @@ fun PalustrisApp(
                                  onReaction = onReaction,
                                  onQuote = handleQuote,
                                  quoteEnabled = quoteEnabled,
-                                  onOpenReactionBubble = { post, bounds -> openReactionBubble(post, bounds, onReaction) },
+                                  onOpenReactionBubble = { post, bounds -> overlay.openReactionBubble(post, bounds, onReaction) },
                                   sessionRevision = sessionRevision,
                                  largeLayout = largePresentation,
                              )
@@ -524,7 +450,7 @@ fun PalustrisApp(
                                  savedPostsState = bookmarks.state,
                                  likedPostsState = likes.state,
                                  drafts = composerOwner.drafts,
-                                 onLoadDraft = { item -> clearPostActionBubble(); composerOwner.requestDraft(item) },
+                                 onLoadDraft = { item -> overlay.clearPostActionBubble(); composerOwner.requestDraft(item) },
                                  onDeleteDraft = { item -> composerOwner.deleteDraft(item) },
                                  onRefreshSavedPosts = bookmarks.actions::refresh,
                                  onLoadMoreSavedPosts = bookmarks.actions::loadMore,
@@ -539,14 +465,14 @@ fun PalustrisApp(
                                  onBookmark = onBookmark,
                                  onSavedPostReaction = bookmarks.actions::react,
                                  onLikedPostReaction = likes.actions::react,
-                                  onOpenSavedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, bookmarks.actions::react) },
-                                  onOpenLikedReactionBubble = { post, bounds -> openReactionBubble(post, bounds, likes.actions::react) },
-                                  onOpenReactionPicker = ::expandReactionPicker,
-                                 onOpenMedia = ::openMedia,
+                                  onOpenSavedReactionBubble = { post, bounds -> overlay.openReactionBubble(post, bounds, bookmarks.actions::react) },
+                                  onOpenLikedReactionBubble = { post, bounds -> overlay.openReactionBubble(post, bounds, likes.actions::react) },
+                                  onOpenReactionPicker = overlay::expandReactionPicker,
+                                 onOpenMedia = overlay::openMedia,
                                  onOpenPost = ::openSinglePost,
                                  onOpenProfile = navigator::openProfile,
                                  onSearchHashtag = navigator::openHashtagSearch,
-                                 onOpenHashtagBubble = ::openHashtagBubble,
+                                 onOpenHashtagBubble = overlay::openHashtagBubble,
                                  onOpenUsername = navigator::openAccountSearch,
                                  availableActions = availableActions,
                                  largeLayout = largePresentation,
@@ -566,13 +492,13 @@ fun PalustrisApp(
                                           onReshare = onReshare,
                                           onBookmark = onBookmark,
                                           onReaction = onReaction,
-                                           onOpenReactionBubble = { ownedPost, bounds -> openReactionBubble(ownedPost, bounds, onReaction) },
-                                           onOpenReactionPicker = ::expandReactionPicker,
+                                           onOpenReactionBubble = { ownedPost, bounds -> overlay.openReactionBubble(ownedPost, bounds, onReaction) },
+                                           onOpenReactionPicker = overlay::expandReactionPicker,
                                           onQuote = handleQuote,
                                           onOpenProfile = navigator::openProfile,
                                           onSearchHashtag = navigator::openHashtagSearch,
-                                          onOpenHashtagBubble = ::openHashtagBubble,
-                                          onOpenMedia = ::openMedia,
+                                          onOpenHashtagBubble = overlay::openHashtagBubble,
+                                          onOpenMedia = overlay::openMedia,
                                           onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Home) },
                                           onOpenUsername = navigator::openAccountSearch,
                                           listState = homeListState,
@@ -616,13 +542,13 @@ fun PalustrisApp(
                                                onBookmark = onBookmark,
                                                onReaction = onReaction,
                                                 onOpenReactionBubble = { ownedPost, bounds ->
-                                                    openReactionBubble(ownedPost, bounds, onReaction)
+                                                    overlay.openReactionBubble(ownedPost, bounds, onReaction)
                                                 },
-                                                onOpenReactionPicker = ::expandReactionPicker,
+                                                onOpenReactionPicker = overlay::expandReactionPicker,
                                                quoteEnabled = quoteEnabled,
                                                onQuote = handleQuote,
                                                onSearchHashtag = navigator::openHashtagSearch,
-                                               onOpenHashtagBubble = ::openHashtagBubble,
+                                               onOpenHashtagBubble = overlay::openHashtagBubble,
                                                onLoadMoreSearch = search.actions::loadMore,
                                                initialQuery = navigator.searchPrefill,
                                                sharedQuery = navigator.searchQuery,
@@ -635,7 +561,7 @@ fun PalustrisApp(
                                                compactNavigationVisible = !largePresentation,
                                                 mediaOwner = account?.id,
                                                 sessionRevision = sessionRevision,
-                                               onOpenMedia = ::openMedia,
+                                               onOpenMedia = overlay::openMedia,
                                                 onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Search) },
                                                onOpenUsername = navigator::openAccountSearch,
                                            )
@@ -666,7 +592,7 @@ fun PalustrisApp(
                                       onDismissNotification = notifications.actions::dismiss,
                                       onFollowRequest = notifications.actions::respondToFollowRequest,
                                        onOpenNotification = { notification ->
-                                           clearPostActionBubble()
+                                           overlay.clearPostActionBubble()
                                            if (largePresentation) navigator.clearSelectedPost()
                                            navigator.notificationRoute = NotificationRouteResolver.resolve(notification)
                                        },
@@ -674,7 +600,7 @@ fun PalustrisApp(
                                       onMarkAllRead = notifications.actions::markAllRead,
                                        onOpenSettings = {
                                            if (account != null) {
-                                               clearPostActionBubble()
+                                               overlay.clearPostActionBubble()
                                                navigator.openNotificationSettingsOverlay()
                                            }
                                        },
@@ -705,7 +631,7 @@ fun PalustrisApp(
                      onFollow = profile.actions::follow,
                      onUnfollow = profile.actions::unfollow,
                      onMessage = navigator::openDirectMessage,
-                     onOpenProfileImage = ::openProfileImage,
+                      onOpenProfileImage = { url -> overlay.openProfileImage(url, navigator.viewedProfile?.id ?: account?.id) },
                      onEditProfile = ::openProfileEditor,
                       onOpenDrafts = {
                           if (largePresentation) navigator.clearSelectedPost()
@@ -721,7 +647,7 @@ fun PalustrisApp(
                       },
                      onOpenProfile = navigator::openProfile,
                      onSearchHashtag = navigator::openHashtagSearch,
-                     onOpenHashtagBubble = ::openHashtagBubble,
+                     onOpenHashtagBubble = overlay::openHashtagBubble,
                      availableActions = availableActions,
                      onReact = onReact,
                      onReply = handleReply,
@@ -729,10 +655,10 @@ fun PalustrisApp(
                      onBookmark = onBookmark,
                      onReaction = profile.actions::react,
                       onOpenReactionBubble = { ownedPost, bounds ->
-                          openReactionBubble(ownedPost, bounds, profile.actions::react)
+                          overlay.openReactionBubble(ownedPost, bounds, profile.actions::react)
                       },
-                      onOpenReactionPicker = ::expandReactionPicker,
-                     onOpenMedia = ::openMedia,
+                      onOpenReactionPicker = overlay::expandReactionPicker,
+                     onOpenMedia = overlay::openMedia,
                       onOpenPost = { post -> openSinglePost(post, LargePostOrigin.Profile) },
                       onOpenUsername = navigator::openAccountSearch,
                       quoteEnabled = quoteEnabled,
@@ -754,7 +680,7 @@ fun PalustrisApp(
                         twoPane = presentationMode == LargeLayoutMode.Expanded &&
                             (navigator.destination == Destination.Home || (navigator.destination == Destination.Profile && navigator.singlePost != null)),
                         onTargetSelected = navigator::selectLargeTarget,
-                        onOpenAccounts = { clearPostActionBubble(); navigator.sheet = "Accounts" },
+                        onOpenAccounts = { overlay.clearPostActionBubble(); navigator.sheet = "Accounts" },
                         onCompose = ::openComposer,
                         primaryContent = { paneModifier -> destinationScaffold(paneModifier) },
                          detailContent = { paneModifier ->
@@ -781,9 +707,9 @@ fun PalustrisApp(
                                  onReaction = detail.react,
                                  onOpenProfile = navigator::openProfile,
                                  onSearchHashtag = navigator::openHashtagSearch,
-                                 onOpenHashtagBubble = ::openHashtagBubble,
-                                 onOpenReactionBubble = { post, bounds, handler -> openReactionBubble(post, bounds, handler) },
-                                 onOpenMedia = ::openMedia,
+                                 onOpenHashtagBubble = overlay::openHashtagBubble,
+                                 onOpenReactionBubble = { post, bounds, handler -> overlay.openReactionBubble(post, bounds, handler) },
+                                 onOpenMedia = overlay::openMedia,
                                  onOpenUsername = navigator::openAccountSearch,
                                  onThreadRefresh = thread.actions::refresh,
                                  onThreadContinue = thread.actions::continueAcquisition,
@@ -819,7 +745,7 @@ fun PalustrisApp(
                                           selected = navigator.timeline,
                                           modifier = Modifier.height(CompactTimelineTabsHeight),
                                           onSelect = { item ->
-                                              clearPostActionBubble()
+                                              overlay.clearPostActionBubble()
                                               val changed = item != navigator.timeline
                                               navigator.timeline = item
                                               if (changed) home?.actions?.refresh(item)
@@ -857,7 +783,7 @@ fun PalustrisApp(
                                         onUnfollowProfile = profile.actions::unfollow,
                                     ),
                                     account = account,
-                                     onOpenAccounts = { clearPostActionBubble(); navigator.sheet = "Accounts" },
+                                     onOpenAccounts = { overlay.clearPostActionBubble(); navigator.sheet = "Accounts" },
                                     onDestinationSelected = navigator::selectDestination,
                                 )
                             }
@@ -883,7 +809,7 @@ fun PalustrisApp(
             }
         }
           PostActionBubbleHost(
-            target = postActionBubbleTarget,
+            target = overlay.postActionBubbleTarget,
             emojiCatalog = emojiPresentation.catalog,
              emojiCapabilities = emojiPresentation.capabilities,
              onLoadEmojiCatalog = emojiPresentation.actions::loadCatalog,
@@ -891,22 +817,22 @@ fun PalustrisApp(
              onToggleEmojiGroupCollapsed = emojiPresentation.actions::toggleGroupCollapsed,
              onToggleEmojiGroupPinned = emojiPresentation.actions::toggleGroupPinned,
              onTogglePinnedEmoji = emojiPresentation.actions::togglePinnedEmoji,
-             onDismiss = ::clearPostActionBubble,
+             onDismiss = overlay::clearPostActionBubble,
             onHashtagSelected = { hashtag ->
-                clearPostActionBubble()
+                overlay.clearPostActionBubble()
                 navigator.openHashtagSearch(hashtag)
             },
             onReactionSelected = { target, choice ->
                 val owner = account
-                val handler = postReactionHandler
+                val handler = overlay.postReactionHandler
                 if (owner != null && target.fetchedBy == owner.id && target.sessionRevision == sessionRevision &&
                     emojiPresentation.capabilities.reactionMutation == CapabilityStatus.Supported
                 ) {
                     handler?.invoke(target, choice)
                 }
-                clearPostActionBubble()
+                overlay.clearPostActionBubble()
             },
-            onReactionModeChanged = { expanded -> postActionBubbleTarget = expanded },
+            onReactionModeChanged = { expanded -> overlay.postActionBubbleTarget = expanded },
              hashtagBottomClearance = hashtagBottomClearance,
           )
           postActionOwner?.target?.let { target ->
@@ -954,8 +880,8 @@ fun PalustrisApp(
                        onReaction = detail.react,
                      onOpenProfile = navigator::openProfile,
                      onSearchHashtag = navigator::openHashtagSearch,
-                     onOpenHashtagBubble = ::openHashtagBubble,
-                     onOpenMedia = ::openMedia,
+                     onOpenHashtagBubble = overlay::openHashtagBubble,
+                     onOpenMedia = overlay::openMedia,
                       onOpenUsername = navigator::openAccountSearch,
                       threadState = selectedThreadState.takeIf { threadEnabled },
                       onThreadRefresh = thread.actions::refresh,
@@ -965,18 +891,18 @@ fun PalustrisApp(
          }
      }
 
-     mediaRequest?.let { request ->
-         MediaViewerScreen(
-            request = request,
-            onClose = { mediaRequest = null },
+      overlay.mediaRequest?.let { request ->
+          MediaViewerScreen(
+             request = request,
+             onClose = { overlay.mediaRequest = null },
             onReact = onReact,
             onReply = handleReply,
             onReshare = onReshare,
          )
      }
 
-     profileImageRequest?.let { request ->
-         ImageViewerContentScreen(request, onClose = { profileImageRequest = null })
+      overlay.profileImageRequest?.let { request ->
+          ImageViewerContentScreen(request, onClose = { overlay.profileImageRequest = null })
      }
 
        if (navigator.sheet != null) AppSelectionSheet(
@@ -986,7 +912,7 @@ fun PalustrisApp(
            onSwitchAccount = accountSwitcher.actions::switchTo,
            onAddAccount = accountSwitcher.actions::addAccount,
            onOpenSettings = accountSwitcher.actions::openSettings,
-           onSignOut = { signOutDialog = true },
+            onSignOut = { overlay.signOutDialog = true },
        )
 
     if (navigator.overlay == Overlay.Composer) ComposerOverlayHost(
@@ -995,9 +921,9 @@ fun PalustrisApp(
         account = account,
         onDismiss = ::closeComposer,
         onClose = { navigator.closeOverlay() },
-        onRequestEmoji = { field -> emojiPickerTarget = EmojiPickerTarget.Composer(field) },
-        pendingEmojiInsertion = pendingEmojiInsertion,
-        onEmojiInsertionApplied = { pendingEmojiInsertion = null },
+        onRequestEmoji = { field -> overlay.emojiPickerTarget = EmojiPickerTarget.Composer(field) },
+        pendingEmojiInsertion = overlay.pendingEmojiInsertion,
+        onEmojiInsertionApplied = { overlay.pendingEmojiInsertion = null },
     )
 
     if (navigator.overlay == Overlay.EditProfile && account != null) me.foxtails.palustris.ui.profile.EditProfileSheet(
@@ -1018,9 +944,9 @@ fun PalustrisApp(
         onClose = ::closeProfile,
     )
 
-    if (emojiPickerTarget != null) {
+    if (overlay.emojiPickerTarget != null) {
         EmojiPickerHost(
-            target = emojiPickerTarget,
+            target = overlay.emojiPickerTarget,
             catalog = emojiPresentation.catalog,
             selectionMode = emojiPresentation.capabilities.selectionMode,
             mutationSupported = emojiPresentation.capabilities.reactionMutation == CapabilityStatus.Supported,
@@ -1030,16 +956,16 @@ fun PalustrisApp(
             onToggleGroupPinned = emojiPresentation.actions::toggleGroupPinned,
             onTogglePinnedEmoji = emojiPresentation.actions::togglePinnedEmoji,
             onDismiss = {
-                emojiPickerTarget = null
+                overlay.emojiPickerTarget = null
             },
             onEmojiSelected = { choice ->
-                val target = emojiPickerTarget
+                val target = overlay.emojiPickerTarget
                 when (target) {
                     is EmojiPickerTarget.Reaction -> Unit
-                    is EmojiPickerTarget.Composer -> pendingEmojiInsertion = choice to target.field
+                    is EmojiPickerTarget.Composer -> overlay.pendingEmojiInsertion = choice to target.field
                     null -> Unit
                 }
-                emojiPickerTarget = null
+                overlay.emojiPickerTarget = null
             },
         )
     }
@@ -1067,11 +993,11 @@ fun PalustrisApp(
     }
 
     AppDialogs(
-        profileDialog = profileDialog,
-        onProfileDialogDismiss = { profileDialog = false },
+        profileDialog = overlay.profileDialog,
+        onProfileDialogDismiss = { overlay.profileDialog = false },
         onDiscardProfile = ::discardProfileEditor,
-        signOutDialog = signOutDialog,
-        onSignOutDialogDismiss = { signOutDialog = false },
+        signOutDialog = overlay.signOutDialog,
+        onSignOutDialogDismiss = { overlay.signOutDialog = false },
         onSignOut = accountSwitcher.actions::signOut,
     )
     }

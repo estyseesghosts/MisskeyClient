@@ -60,6 +60,10 @@ state.
 contracts in `ui/shell/`. Back precedence is a pure policy in `ui/navigation/ShellBackPolicy.kt`.
 The shell keeps the back state and the guarded dismissal, and routes dismissal plus the back and
 edge-swipe conditions through the policy. Completion slice C-12c reduces the remaining assembly.
+`ui/shell/ShellOverlayPresenter.kt` owns transient overlay state behind one boundary: the
+post-action bubble, the emoji picker target, the media and profile-image requests, and the dialog
+flags. Slice S1a. The shell reads the holder and keeps navigation, placement, and session-bound
+validation. Only the profile dialog flag survives process recreation.
 
 `ui/composer/ComposerOwner.kt` owns the composer editor for one connected account. It holds text,
 warning, audience, the dirty snapshot, the drafts list, reply and quote restoration, and the publish
