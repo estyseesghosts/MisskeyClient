@@ -22,7 +22,8 @@ app file. Do not describe them as verified released-file captures.
 | `read_states.json` | Read, unread, and unknown. Independent local-seen, server-acknowledged, Android-presented, and Android-dismissed flags. |
 | `delivery_variants.json` | Every delivery state. Claims, expiry, attempt count, tags, and IDs. |
 | `delivery_duplicate_ids.json` | Two delivery records for one notification. The last record wins. |
-| `posts_and_accounts.json` | Recursive quotes, moved accounts, profile fields, emoji maps, attachments, polls, wrapper IDs, and action IDs. |
+| `posts_and_accounts.json` | Recursive quotes, moved accounts, profile fields, emoji maps, attachments, polls, wrapper IDs, and action IDs. Predates visibility persistence: its posts decode Hidden. Encoder-stable coverage for posts moved to `post_visibility.json`. |
+| `post_visibility.json` | Visible, hidden, and filtered posts with explicit visibility, including a hidden nested quote. Encoder-stable. |
 | `interaction_counts.json` | Missing, null, zero, positive, negative, numeric-string, fractional, overflow, malformed-text, and boolean counts. |
 | `unread_states.json` | Manifest. Exact, at-least, present, none, unknown, missing, negative normalization, and an unknown kind. |
 | `settings_states.json` | Manifest. Absent settings, empty object, empty categories, unknown categories, valid and out-of-range quiet hours, distributor, preview, and fallback flags. |
@@ -34,17 +35,18 @@ app file. Do not describe them as verified released-file captures.
 | `malformed_checkpoint.json` | A singular checkpoint without its account or query fails the complete decode. |
 | `malformed_push.json` | A push registration without its account or instance fails the complete decode. |
 | `malformed_broken.json` | Text that is not JSON. The file store returns no state; the Room store throws. |
-| `known_omissions.json` | Post visibility and group actor continuation are not persisted. |
+| `known_omissions.json` | Group actor continuation and the nested unknown in-app destination are not persisted. Its visibility item carries an explicit Hidden value and round-trips since 03-I. |
 
 The `unread_states`, `settings_states`, and `push_states` fixtures are case manifests. Each key
 holds a full state object for the decoder. They exist because the codec stores one unread,
 settings, or push value per state.
 
 The `activity_variants`, `navigation_variants`, `read_states`, `delivery_variants`,
-`posts_and_accounts`, and `checkpoints` fixtures are encoder-stable. The `legacy_minimal_state`,
+`post_visibility`, and `checkpoints` fixtures are encoder-stable. The `legacy_minimal_state`,
 `navigation_malformed`, `delivery_duplicate_ids`, `interaction_counts`, `checkpoint_fallback`,
-`known_omissions`, and all `malformed_*` fixtures characterize the decoder only; the encoder
-does not reproduce their omitted or rejected fields.
+`posts_and_accounts`, `known_omissions`, and all `malformed_*` fixtures characterize the decoder
+only; the encoder does not reproduce their omitted or rejected fields. `posts_and_accounts`
+predates visibility persistence, so its posts decode Hidden and the encoder adds the field.
 
 All account names, origins, and endpoints are synthetic. No real notification history,
 access token, or push credential appears in these files.

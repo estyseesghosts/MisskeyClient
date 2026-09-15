@@ -19,6 +19,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationDestination
+import me.foxtails.palustris.domain.PostContentVisibility
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Protocol
@@ -167,6 +168,55 @@ class NotificationRoomStoreFixtureTest {
             val store = RoomNotificationStore(database, importer(context))
 
             assertEquals(NotificationStoreRead.Corrupt, store.read(accountId))
+        } finally {
+            runBlocking(Dispatchers.IO) { database.close() }
+        }
+    }
+
+    @Test
+    fun roomStorePersistsPostVisibilityAcrossRestart() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, NotificationDatabase::class.java).build()
+        try {
+            val accountId = AccountId(Connection("https://misskey.example", Protocol.MISSKEY), "receiver")
+            runBlocking(Dispatchers.IO) {
+                database.notificationDao().saveState(
+                    NotificationStateEntity(accountId.stableFileName(), fixtureText("post_visibility.json"), 1L),
+                )
+            }
+            val store = RoomNotificationStore(database, importer(context))
+
+            val items = (store.read(accountId) as NotificationStoreRead.Readable)
+                .state.items.associateBy { it.id.value }
+
+            assertEquals(PostContentVisibility.Visible, items.getValue("v-visible").post?.contentVisibility)
+            assertEquals(PostContentVisibility.Hidden, items.getValue("v-hidden").post?.contentVisibility)
+            assertEquals(PostContentVisibility.Filtered, items.getValue("v-filtered").post?.contentVisibility)
+            assertEquals(
+                PostContentVisibility.Hidden,
+                items.getValue("v-nested-hidden-quote").post?.quote?.contentVisibility,
+            )
+        } finally {
+            runBlocking(Dispatchers.IO) { database.close() }
+        }
+    }
+
+    @Test
+    fun roomStoreReadsLegacyPostsWithoutVisibilityAsHidden() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, NotificationDatabase::class.java).build()
+        try {
+            val accountId = AccountId(Connection("https://misskey.example", Protocol.MISSKEY), "receiver")
+            runBlocking(Dispatchers.IO) {
+                database.notificationDao().saveState(
+                    NotificationStateEntity(accountId.stableFileName(), fixtureText("posts_and_accounts.json"), 1L),
+                )
+            }
+            val store = RoomNotificationStore(database, importer(context))
+
+            val post = (store.read(accountId) as NotificationStoreRead.Readable).state.items.single().post
+
+            assertEquals(PostContentVisibility.Hidden, post?.contentVisibility)
         } finally {
             runBlocking(Dispatchers.IO) { database.close() }
         }

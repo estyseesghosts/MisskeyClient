@@ -13,6 +13,7 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PostContentVisibility
 import me.foxtails.palustris.domain.Protocol
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -253,6 +254,38 @@ class NotificationsScreenTest {
         compose.waitForIdle()
 
         assertTrue("empty notification inbox should support pull-to-refresh", refreshes > 0)
+    }
+
+    @Test fun hiddenPostBodyIsWithheldBehindPlaceholder() {
+        val connection = Connection("https://example.org", Protocol.MASTODON)
+        val receiver = Account(AccountId(connection, "receiver"), "Receiver", "@receiver@example.org")
+        val actor = Account(AccountId(connection, "actor"), "Actor", "@actor@example.org")
+        fun item(id: String, text: String, visibility: PostContentVisibility) = Notification(
+            id = EntityId(connection.origin, id),
+            accountId = receiver.id,
+            createdAtEpochMillis = 0,
+            activity = NotificationActivity.Mention,
+            actors = listOf(actor),
+            post = Post(
+                EntityId(connection.origin, "$id-post"),
+                actor,
+                text,
+                0,
+                Audience.Public,
+                contentVisibility = visibility,
+            ),
+            rawType = "mention",
+        )
+        showNotifications(
+            connected = true,
+            notificationState = NotificationsUiState(items = listOf(
+                item("hidden-1", "hidden body text", PostContentVisibility.Hidden),
+                item("visible-1", "visible body text", PostContentVisibility.Visible),
+            )),
+        )
+
+        compose.onNodeWithText("visible body text").assertIsDisplayed()
+        compose.onNodeWithText("hidden body text").assertDoesNotExist()
     }
 
 }

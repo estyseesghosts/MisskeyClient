@@ -350,6 +350,7 @@ private fun encodePost(post: me.foxtails.palustris.domain.Post): JSONObject = JS
     put("text", post.text)
     put("publishedAt", post.publishedAtEpochMillis)
     put("audience", post.audience.name)
+    put("contentVisibility", post.contentVisibility.name)
     put("attachments", JSONArray(post.attachments.map(::encodeAttachment)))
     post.contentWarning?.let { put("contentWarning", it) }
     post.resharedBy?.let { put("resharedBy", encodeAccount(it)) }
@@ -385,6 +386,11 @@ private fun decodePost(json: JSONObject): me.foxtails.palustris.domain.Post =
         publishedAtEpochMillis = json.optLong("publishedAt"),
         audience = runCatching { me.foxtails.palustris.domain.Audience.valueOf(json.optString("audience")) }
             .getOrDefault(me.foxtails.palustris.domain.Audience.Public),
+        // Old blobs predate this field and cannot prove their visibility. Unknown values
+        // fail closed for the same reason: neither case may expose the body.
+        contentVisibility = runCatching {
+            me.foxtails.palustris.domain.PostContentVisibility.valueOf(json.getString("contentVisibility"))
+        }.getOrDefault(me.foxtails.palustris.domain.PostContentVisibility.Hidden),
         attachments = json.optJSONArray("attachments")?.let { values ->
             (0 until values.length()).mapNotNull { index ->
                 runCatching { decodeAttachment(values.getJSONObject(index)) }.getOrNull()

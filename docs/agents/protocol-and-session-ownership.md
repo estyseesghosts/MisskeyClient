@@ -142,6 +142,13 @@ helper. `NotificationRepository.kt` keeps the merge, generation, query-validatio
 delivery-claim behavior. It keeps no JSON conversion helper. Both `FileNotificationStore` and
 `RoomNotificationStore` use the same internal `encode` and `decode` boundary.
 
+Every persisted post carries `contentVisibility`, including nested quotes. A missing or
+unknown value decodes to `Hidden`. Old blobs predate the field and cannot prove their
+visibility, so their cached bodies stay withheld until an authenticated refresh replaces
+them. The format stays at version 2: the field is additive, and old fixtures remain
+readable. `NotificationDeliveryPlanner` prepares an Android preview only for `Visible`
+public posts. `NotificationRow` never renders the body of a `Hidden` post.
+
 `NotificationStore.read` returns `NotificationStoreRead`. The variants are `Absent`,
 `Readable`, `Corrupt`, `Unsupported`, and `Unavailable`. A corrupt read never carries stored
 bytes. A malformed row is corrupt, not unavailable. A database or disk failure is unavailable.

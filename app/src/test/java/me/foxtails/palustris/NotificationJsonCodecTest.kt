@@ -491,10 +491,69 @@ class NotificationJsonCodecTest {
     }
 
     @Test
-    fun postsAndAccountsEncodeToTheFrozenFixture() {
-        val fixture = fixture("posts_and_accounts.json")
+    fun postsAndAccountsLegacyPostsWithoutVisibilityDecodeHidden() {
+        // The frozen fixture predates visibility persistence. Old blobs cannot prove
+        // their visibility, so every post and nested quote fails closed to Hidden until
+        // an authenticated refresh replaces the cached body.
+        val post = decode(fixture("posts_and_accounts.json")).items.single().post!!
+
+        assertEquals(PostContentVisibility.Hidden, post.contentVisibility)
+        assertEquals(PostContentVisibility.Hidden, post.quote?.contentVisibility)
+        assertEquals(PostContentVisibility.Hidden, post.quote?.quote?.contentVisibility)
+    }
+
+    @Test
+    fun postVisibilityDecodesEveryVariantIncludingNestedQuotes() {
+        val items = decode(fixture("post_visibility.json")).items.associateBy { it.id.value }
+
+        assertEquals(PostContentVisibility.Visible, items.getValue("v-visible").post?.contentVisibility)
+        assertEquals(PostContentVisibility.Visible, items.getValue("v-visible").post?.quote?.contentVisibility)
+        assertEquals(PostContentVisibility.Hidden, items.getValue("v-hidden").post?.contentVisibility)
+        assertEquals(PostContentVisibility.Filtered, items.getValue("v-filtered").post?.contentVisibility)
+        assertEquals(PostContentVisibility.Visible, items.getValue("v-nested-hidden-quote").post?.contentVisibility)
+        assertEquals(
+            PostContentVisibility.Hidden,
+            items.getValue("v-nested-hidden-quote").post?.quote?.contentVisibility,
+        )
+    }
+
+    @Test
+    fun postVisibilityEncodesToTheFrozenFixture() {
+        val fixture = fixture("post_visibility.json")
 
         assertJsonEquals(fixture, encode(decode(fixture)))
+    }
+
+    @Test
+    fun missingAndUnknownVisibilityFailClosedToHidden() {
+        val missing = decode(JSONObject("""{"version":2,"items":[]}"""))
+        assertEquals(NotificationRepositoryState(), missing)
+
+        val withoutField = decode(JSONObject(
+            """{"version":2,"items":[{""" +
+                """"id":{"connection":"https://misskey.example","value":"n1"},""" +
+                """"accountId":{"origin":"https://misskey.example","protocol":"MISSKEY","localId":"receiver"},""" +
+                """"activity":{"kind":"mention"},""" +
+                """"post":{""" +
+                """"id":{"connection":"https://misskey.example","value":"p1"},""" +
+                """"author":{"id":{"origin":"https://misskey.example","protocol":"MISSKEY","localId":"actor"}},""" +
+                """"text":"legacy body","publishedAt":1,"audience":"Public"},""" +
+                """"rawType":"mention"}]}""",
+        ))
+        assertEquals(PostContentVisibility.Hidden, withoutField.items.single().post?.contentVisibility)
+
+        val unknown = decode(JSONObject(
+            """{"version":2,"items":[{""" +
+                """"id":{"connection":"https://misskey.example","value":"n2"},""" +
+                """"accountId":{"origin":"https://misskey.example","protocol":"MISSKEY","localId":"receiver"},""" +
+                """"activity":{"kind":"mention"},""" +
+                """"post":{""" +
+                """"id":{"connection":"https://misskey.example","value":"p2"},""" +
+                """"author":{"id":{"origin":"https://misskey.example","protocol":"MISSKEY","localId":"actor"}},""" +
+                """"text":"future body","publishedAt":1,"audience":"Public","contentVisibility":"Quarantined"},""" +
+                """"rawType":"mention"}]}""",
+        ))
+        assertEquals(PostContentVisibility.Hidden, unknown.items.single().post?.contentVisibility)
     }
 
     @Test
@@ -761,6 +820,40 @@ class NotificationJsonCodecTest {
     }
 
     @Test
+    fun fileStorePersistsPostVisibilityAcrossRestart() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FileNotificationStore(context)
+        val directory = File(context.noBackupFilesDir, "notifications")
+        directory.mkdirs()
+        File(directory, "${misskeyReceiver.stableFileName()}.json").writeText(fixtureText("post_visibility.json"))
+
+        val items = (store.read(misskeyReceiver) as NotificationStoreRead.Readable)
+            .state.items.associateBy { it.id.value }
+
+        assertEquals(PostContentVisibility.Visible, items.getValue("v-visible").post?.contentVisibility)
+        assertEquals(PostContentVisibility.Hidden, items.getValue("v-hidden").post?.contentVisibility)
+        assertEquals(PostContentVisibility.Filtered, items.getValue("v-filtered").post?.contentVisibility)
+        assertEquals(
+            PostContentVisibility.Hidden,
+            items.getValue("v-nested-hidden-quote").post?.quote?.contentVisibility,
+        )
+    }
+
+    @Test
+    fun fileStoreReadsLegacyPostsWithoutVisibilityAsHidden() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FileNotificationStore(context)
+        val directory = File(context.noBackupFilesDir, "notifications")
+        directory.mkdirs()
+        File(directory, "${misskeyReceiver.stableFileName()}.json").writeText(fixtureText("posts_and_accounts.json"))
+
+        val post = (store.read(misskeyReceiver) as NotificationStoreRead.Readable).state.items.single().post
+
+        assertEquals(PostContentVisibility.Hidden, post?.contentVisibility)
+        assertEquals(PostContentVisibility.Hidden, post?.quote?.contentVisibility)
+    }
+
+    @Test
     fun fileStorePreservesNestedUnknownServerDestination() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = FileNotificationStore(context)
@@ -778,10 +871,17 @@ class NotificationJsonCodecTest {
     }
 
     @Test
-    fun knownOmissionsAreNotRoundTripComplete() {
+    fun groupContinuationAndUnknownDestinationAreNotRoundTripComplete() {
+        // Post visibility is persisted since 03-I. The frozen omission item already
+        // carries an explicit Hidden value, so it decodes Hidden and round-trips.
         val items = decode(fixture("known_omissions.json")).items.associateBy { it.id.value }
 
-        assertEquals(PostContentVisibility.Visible, items.getValue("omit-visibility").post?.contentVisibility)
+        assertEquals(PostContentVisibility.Hidden, items.getValue("omit-visibility").post?.contentVisibility)
+        assertEquals(
+            PostContentVisibility.Hidden,
+            decode(encode(decode(fixture("known_omissions.json"))))
+                .items.associateBy { it.id.value }.getValue("omit-visibility").post?.contentVisibility,
+        )
         assertNull(items.getValue("omit-continuation").group?.actorContinuation)
     }
 

@@ -182,7 +182,9 @@ fun NotificationRow(
                             style = MaterialTheme.typography.labelMedium,
                         )
                     }
-                    if (post.text.isNotBlank() && post.contentWarning.isNullOrBlank()) {
+                    if (post.text.isNotBlank() && post.contentWarning.isNullOrBlank() &&
+                        warningDecision != ContentWarningDecision.Hidden
+                    ) {
                         me.foxtails.palustris.ui.emoji.PostText(
                             post,
                             style = MaterialTheme.typography.bodyMedium,

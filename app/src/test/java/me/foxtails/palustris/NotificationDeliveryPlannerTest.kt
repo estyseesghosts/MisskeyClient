@@ -15,6 +15,7 @@ import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationReadState
 import me.foxtails.palustris.domain.NotificationSettings
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.PostContentVisibility
 import me.foxtails.palustris.domain.Protocol
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -84,6 +85,41 @@ class NotificationDeliveryPlannerTest {
         assertTrue(plan.showPreview.not())
         assertFalse(plan.decision == NotificationDeliveryDecision.SuppressedBySettings)
         assertEquals(NotificationChannelKind.Conversations, plan.channel)
+    }
+
+    @Test
+    fun hiddenAndFilteredBodiesAreNeverPreparedAsAPreview() {
+        val publicSettings = NotificationSettings(
+            alertsEnabled = true,
+            showPreviews = true,
+            categories = setOf(NotificationCategory.All),
+        )
+        val publicPost = notification.post!!.copy(audience = Audience.Public)
+
+        assertTrue(
+            planner.plan(
+                notification.copy(post = publicPost.copy(contentVisibility = PostContentVisibility.Visible)),
+                publicSettings,
+                permissionGranted = true,
+                foreground = false,
+            ).showPreview,
+        )
+        assertFalse(
+            planner.plan(
+                notification.copy(post = publicPost.copy(contentVisibility = PostContentVisibility.Hidden)),
+                publicSettings,
+                permissionGranted = true,
+                foreground = false,
+            ).showPreview,
+        )
+        assertFalse(
+            planner.plan(
+                notification.copy(post = publicPost.copy(contentVisibility = PostContentVisibility.Filtered)),
+                publicSettings,
+                permissionGranted = true,
+                foreground = false,
+            ).showPreview,
+        )
     }
 
     @Test
