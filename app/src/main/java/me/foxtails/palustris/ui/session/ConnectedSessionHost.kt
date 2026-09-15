@@ -11,6 +11,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import me.foxtails.palustris.data.auth.AccountIndex
+import me.foxtails.palustris.data.auth.DraftActions
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.AccountId
@@ -21,6 +22,7 @@ import me.foxtails.palustris.ui.AccountManager
 import me.foxtails.palustris.ui.FeedHost
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.SavedCollectionsHost
+import me.foxtails.palustris.ui.composer.asDraftsContract
 import me.foxtails.palustris.ui.directmessages.DirectMessagesHost
 import me.foxtails.palustris.ui.emoji.EmojiHost
 import me.foxtails.palustris.ui.navigation.AppRoute
@@ -31,7 +33,6 @@ import me.foxtails.palustris.ui.posts.PostActionOwner
 import me.foxtails.palustris.ui.profile.ProfileHost
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.ComposerContract
-import me.foxtails.palustris.ui.shell.DraftActions
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
 import me.foxtails.palustris.ui.thread.ThreadHost
 
@@ -164,14 +165,8 @@ fun ConnectedSessionHost(
             ?.takeIf { it.id == account.id && it != account }
             ?.let(accountManager::updateAccount)
     }
-    val draftsContract = remember(draftStore, context, settingsScope) {
-        DraftActions(
-            settingsScope,
-            draftStore,
-            legacyPreferences = {
-                context.getSharedPreferences("local_draft", android.content.Context.MODE_PRIVATE)
-            },
-        ).asContract()
+    val draftsContract = remember(draftStore, context, settingsScope, accountId) {
+        DraftActions.create(settingsScope, draftStore, accountId, context).asDraftsContract()
     }
     val postActionOwner = remember(accountId, sessionRevision, sharedSource, profile) {
         PostActionOwner(

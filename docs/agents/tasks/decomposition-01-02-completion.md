@@ -54,6 +54,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-04 | Step 5 | Give DM recovery text a feature owner. Add an editor revision. Clear only on accepted success. | A send failure cannot erase recoverable text. | implemented, test verified. Commit `cb6d024`. |
 | C-05 | Step 6 | Establish a composer editor owner. Move editor fields out of `PalustrisApp`. | `PalustrisApp` requests composer transitions. It does not implement editor state. | implemented, test verified. Commit `bd2d1b6`. |
 | C-06a | Step 7, part 1 | Make publish completion version-aware. Reserve the submission before the async save. Reject obsolete save callbacks. Clear and delete only the submitted version. | No late save clears newer text or starts an obsolete publish. | implemented, test verified. Commit `84006c1`. |
+| C-06b | Step 7, part 2 | Move the draft storage owner into the data layer. Bind draft operations to the account. Add load request identity. Report load and delete failures. | The presentation contract carries no storage. Draft failures are reported. | implemented, test verified. Commit recorded in the next documentation commit. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -92,13 +93,20 @@ advances the revision. `publish` captures the request, account, draft identity, 
 session revision, then reserves the submission before the asynchronous draft save starts. A second
 publish is rejected while a submission is reserved. An obsolete save callback cannot publish. A
 successful publish clears and deletes only the submitted version. The publish control disables while
-a submission is in flight. C-06b still owns the drafts storage boundary.
+a submission is in flight.
+
+C-06b added `data/auth/DraftActions.kt`. The draft storage owner left `ui/shell/DraftsContract.kt`.
+The presentation contract carries no storage type. `DraftActions.create` holds the legacy preferences
+lookup in the data layer. `DraftActions` binds to one account. `ui/composer/DraftsContractAdapter.kt`
+adapts it to the presentation contract. `ComposerOwner.refreshDrafts` uses a load epoch so a stale
+load result cannot replace a newer one. Load and delete failures report an explicit message. C-06c
+still owns account-removal coordination.
 
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-06b | Step 7, part 2 | Separate the drafts presentation contract from storage. Move legacy preferences into data-layer construction. Bind operations to an account owner. Add draft-load request identity. Report load and delete failures. Coordinate account removal with pending writes. | No late callback recreates removed draft data. Draft failures are visible. | pending |
+| C-06c | Step 7, part 3 | Coordinate account removal with pending draft writes. | A remove cannot leave recreated draft data. | pending |
 | C-07 | Step 8 | Stabilize post-action ownership and projection. Use typed families. Retire the coordinator with its entry. | Every surface receives the accepted action result once. Retired popups have no authority. | pending |
 | C-08 | Step 9 | Complete Home paging demand. Include filter identity and the request epoch. Count accepted pages. | Home reaches older visible content without unbounded automatic requests. | pending |
 | C-09 | Step 10 | Finish notification request and launch ownership. Add request identity. Return explicit launch acceptance. | Rejected pages change no state. An undelivered launch is not acknowledged. | pending |
@@ -112,20 +120,19 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 ## Current Slice
 
-**C-06b — Separate the drafts contract from storage and coordinate account removal.**
+**C-06c — Coordinate account removal with pending draft writes.**
 
-Not started. Work from `progressreport.md` section 3 step 7. C-01 through C-06a are committed.
+Not started. Work from `progressreport.md` section 3 step 7. C-01 through C-06b are committed.
 
-## Files Involved For C-06b
+## Files Involved For C-06c
 
-- `app/src/main/java/me/foxtails/palustris/ui/shell/DraftsContract.kt`
 - `app/src/main/java/me/foxtails/palustris/data/auth/DraftStore.kt`
-- Production draft construction in `di/`
-- `app/src/main/java/me/foxtails/palustris/ui/session/ConnectedSessionHost.kt`
+- `app/src/main/java/me/foxtails/palustris/data/auth/DraftActions.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/AccountManager.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/composer/ComposerOwner.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/session/ConnectedSessionHost.kt`
+- `app/src/main/java/me/foxtails/palustris/di/AppModule.kt`
 - `app/src/test/java/me/foxtails/palustris/DraftActionsTest.kt`
+- `app/src/test/java/me/foxtails/palustris/SessionViewModelTest.kt`
 
 ## Required Verification
 
@@ -190,6 +197,27 @@ Test these cases for C-06a:
 - Newer edits typed during publication survive acceptance. Covered by
   `newerEditsDuringPublishSurviveAcceptance`.
 
+C-06b verification result: `DraftActionsTest`, `ComposerOwnerTest`, `ReplyComposerTest`, and
+`NavigationTest` passed. `test assembleRelease` passed with 841 tests. `:app:lintDebug` passed when
+run alone.
+
+Test these cases for C-06b:
+
+- Load migrates legacy preferences, then lists. Covered by
+  `DraftActionsTest.loadMigratesThenLists`.
+- A load failure reports an explicit message. Covered by `loadFailureReportsError`.
+- A load cancellation reports nothing. Covered by `loadCancellationReportsNothing`.
+- A delete failure still completes and reports an explicit message. Covered by
+  `deleteFailureStillCompletesAndReports`.
+- A delete cancellation reports nothing. Covered by `deleteCancellationReportsNothing`.
+- Drafts survive activity recreation and delete through the bound account. Covered by
+  `NavigationTest.draftsSurviveActivityRecreationAndCanBeDeleted`.
+- Closing the composer autosaves through the bound account. Covered by
+  `NavigationTest.closingComposerAutosavesUnsavedText`.
+
+The load and delete failure messages surface through the composer error field. The drafts page has
+no separate error surface. No device test ran.
+
 Process-recreation restoration of the saveable editor snapshot is source verified only. No
 instrumented recreation test ran.
 
@@ -210,4 +238,4 @@ reachable. The Room store deletion and late-write behavior stays device unverifi
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
-C-06b is the next slice.
+C-06b is committed before C-06c starts. C-06c is the next slice.

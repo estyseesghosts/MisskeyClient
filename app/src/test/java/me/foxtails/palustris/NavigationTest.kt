@@ -766,7 +766,7 @@ class NavigationTest {
 
     @Test fun draftsSurviveActivityRecreationAndCanBeDeleted() {
         val account = fixtureAccount("draft-owner")
-        val drafts = AppShellFixtures.drafts()
+        val drafts = AppShellFixtures.drafts(accountId = account.id)
         compose.activity.runOnUiThread { compose.activity.setContent { AppShellFixtures.app(account = account, draftsContract = drafts) } }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Compose post").performClick()
@@ -788,7 +788,7 @@ class NavigationTest {
 
     @Test fun closingComposerAutosavesUnsavedText() {
         val account = fixtureAccount("autosave-owner")
-        compose.activity.runOnUiThread { compose.activity.setContent { AppShellFixtures.app(account = account, draftsContract = AppShellFixtures.drafts()) } }
+        compose.activity.runOnUiThread { compose.activity.setContent { AppShellFixtures.app(account = account, draftsContract = AppShellFixtures.drafts(accountId = account.id)) } }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Compose post").performClick()
         compose.onNodeWithContentDescription("Post text").performTextInput("Unsaved")

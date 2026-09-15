@@ -1007,3 +1007,15 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Split from C-06. C-06b owns the drafts storage boundary and account-removal coordination.
 - C-06a committed at 84006c1.
 - Unverified: device, live-server, signed release.
+
+260915-003807 Slice C-06b drafts storage boundary:
+- Added data/auth/DraftActions.kt. The class left ui/shell/DraftsContract.kt. The data layer no longer depends on a UI contract.
+- DraftActions.create holds the legacy preferences lookup in the data layer. DraftActions binds to one account.
+- Added ui/composer/DraftsContractAdapter.kt to adapt the data owner to the presentation contract.
+- DraftsContract now carries no storage type. load and delete report an explicit error message.
+- ComposerOwner.refreshDrafts uses a load epoch so a stale result cannot replace a newer list. Load and delete failures surface through the composer error field.
+- ConnectedSessionHost builds the bound actions and adapter. AppShellFixtures.drafts takes an account id.
+- Updated DraftActionsTest (error reporting cases) and NavigationTest (bound account).
+- Split item 11 from C-06. C-06c owns account-removal coordination with pending draft writes.
+- Verification passed: DraftActionsTest, ComposerOwnerTest, ReplyComposerTest, NavigationTest, test assembleRelease (841 tests), and :app:lintDebug when run alone.
+- Unverified: device, live-server, signed release.

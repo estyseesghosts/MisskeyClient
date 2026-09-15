@@ -105,12 +105,23 @@ class ComposerOwner internal constructor(
 
     fun consumeNavigation() { navigation = null }
 
+    private var draftLoadEpoch = 0L
+
+    /** Reloads the draft list. A stale load result cannot replace a newer one. */
     fun refreshDrafts() {
-        draftsContract.actions.load(context.account?.id) { result -> drafts = result }
+        val epoch = ++draftLoadEpoch
+        draftsContract.actions.load(
+            onResult = { result -> if (epoch == draftLoadEpoch) drafts = result },
+            onError = { message -> if (epoch == draftLoadEpoch) editorState.value = editor.copy(error = message) },
+        )
     }
 
     fun deleteDraft(item: PostDraft) {
-        draftsContract.actions.delete(context.account?.id, item.id) { refreshDrafts() }
+        draftsContract.actions.delete(
+            draftId = item.id,
+            onDone = { refreshDrafts() },
+            onError = { message -> editorState.value = editor.copy(error = message) },
+        )
     }
 
     /** Clears restored reply and quote targets after a session replacement. */
@@ -282,7 +293,11 @@ class ComposerOwner internal constructor(
                     savedWarning = saved.contentWarning.orEmpty(),
                 )
                 context.contract.actions.publish(request) {
-                    draftsContract.actions.delete(current.accountId, saved.id) { refreshDrafts() }
+                    draftsContract.actions.delete(
+                        draftId = saved.id,
+                        onDone = { refreshDrafts() },
+                        onError = { message -> editorState.value = editor.copy(error = message) },
+                    )
                     onSent(submittedReply != null, submittedQuote != null)
                     clearAfterPublish(current)
                 }

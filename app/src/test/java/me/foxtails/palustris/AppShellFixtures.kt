@@ -23,6 +23,7 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.data.auth.DraftActions
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.auth.InMemoryDraftStore
 import kotlinx.coroutines.CoroutineScope
@@ -33,12 +34,12 @@ import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.profile.ProfileCategory
+import me.foxtails.palustris.ui.composer.asDraftsContract
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.DirectMessagesContract
-import me.foxtails.palustris.ui.shell.DraftActions
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.HomeContract
@@ -236,16 +237,17 @@ internal object AppShellFixtures {
     )
 
     /** Test-only draft persistence backed by an explicit store. */
-    fun drafts(store: DraftStore = InMemoryDraftStore()): DraftsContract {
+    fun drafts(store: DraftStore = InMemoryDraftStore(), accountId: me.foxtails.palustris.domain.AccountId? = null): DraftsContract {
         val scope = CoroutineScope(Dispatchers.Unconfined)
         return DraftActions(
-            scope,
-            store,
+            scope = scope,
+            store = store,
+            accountId = accountId,
             legacyPreferences = {
                 ApplicationProvider.getApplicationContext<Context>()
                     .getSharedPreferences("local_draft", Context.MODE_PRIVATE)
             },
-        ).asContract()
+        ).asDraftsContract()
     }
 
     /** Test-only app assembly with explicit construction. Production offers no defaults. */

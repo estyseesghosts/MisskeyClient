@@ -50,11 +50,11 @@ class ComposerOwnerTest {
         var failSave = false
         var loadResult: List<PostDraft> = emptyList()
 
-        override fun load(accountId: AccountId?, onResult: (List<PostDraft>) -> Unit) = onResult(loadResult)
+        override fun load(onResult: (List<PostDraft>) -> Unit, onError: (String) -> Unit) = onResult(loadResult)
         override fun save(draft: PostDraft, onResult: (PostDraft) -> Unit, onError: () -> Unit) {
             if (failSave) onError() else { saved += draft; onResult(draft) }
         }
-        override fun delete(accountId: AccountId?, draftId: String, onDone: () -> Unit) {
+        override fun delete(draftId: String, onDone: () -> Unit, onError: (String) -> Unit) {
             deleted += draftId
             onDone()
         }
@@ -65,12 +65,12 @@ class ComposerOwnerTest {
         val deleted = mutableListOf<String>()
         var pendingSave: (() -> Unit)? = null
 
-        override fun load(accountId: AccountId?, onResult: (List<PostDraft>) -> Unit) = onResult(emptyList())
+        override fun load(onResult: (List<PostDraft>) -> Unit, onError: (String) -> Unit) = onResult(emptyList())
         override fun save(draft: PostDraft, onResult: (PostDraft) -> Unit, onError: () -> Unit) {
             saved += draft
             pendingSave = { onResult(draft) }
         }
-        override fun delete(accountId: AccountId?, draftId: String, onDone: () -> Unit) {
+        override fun delete(draftId: String, onDone: () -> Unit, onError: (String) -> Unit) {
             deleted += draftId
             onDone()
         }
