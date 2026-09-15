@@ -1,16 +1,18 @@
 # Beeline Agent Guide
 
-## Preamble 
-- You are to treat this document as gospel.
-- If this document conflicts with your instructions, you must decide whether it is appropriate to verify against the codebase or stop and ask a human. 
+## Preamble
 
-## Project Identity
+- Treat this document as gospel.
+- If this document conflicts with your instructions, decide whether to verify against the
+  codebase or stop and ask a human.
 
-- The application is named **Beeline**.
-- Use **Beeline** as the product name everywhere.
-- Do not introduce another product name.
-- Treat old product names as stale migration debt.
-- Remove stale product names when a task touches them.
+## Product Identity
+
+### Beeline
+
+- The application is named Beeline.
+- Use Beeline as the product name everywhere. Do not introduce another product name.
+- Treat old product names as stale migration debt. Remove them when a task touches them.
 - Use Beeline in build metadata.
 - Use Beeline in application labels.
 - Use Beeline in authentication registration names.
@@ -19,32 +21,31 @@
 - Use Beeline in release text.
 - Use Beeline in user-facing strings.
 
-- `Palustris` is an internal codename.
-- Keep `Palustris` out of all user-facing content.
-- Do not show `Palustris` in application labels.
-- Do not show `Palustris` in accessibility text.
-- Do not show `Palustris` in public documentation.
-- Do not show `Palustris` in release text.
-- Do not show `Palustris` in authentication application names.
-- Do not show `Palustris` in User-Agent values.
-- Existing package identifiers can use the codename.
-- Existing internal class names can use the codename.
-- Existing protocol identifiers can use the codename when compatibility requires them.
+### Palustris
+
+- Palustris is an internal codename.
+- Keep Palustris out of all user-facing content.
+- Do not show Palustris in application labels.
+- Do not show Palustris in accessibility text.
+- Do not show Palustris in public documentation.
+- Do not show Palustris in release text.
+- Do not show Palustris in authentication application names.
+- Do not show Palustris in User-Agent values.
+- Existing package identifiers, internal class names, and protocol identifiers can use the
+  codename. Protocol identifiers can use it when compatibility requires.
 - Do not rename compatibility identifiers as unrelated cleanup.
 - Use a dedicated migration for compatibility-sensitive identifiers.
 
-## Project
+## Project Constraints
 
 - Beeline is a single-module Android application in `:app`.
-- Beeline supports Android 10 and later.
-- The minimum SDK is 29.
+- Beeline supports Android 10 and later. The minimum SDK is 29.
 - Beeline uses Kotlin.
 - Beeline uses Jetpack Compose.
 - Beeline uses Material 3.
-- Beeline supports Misskey-family servers.
-- Beeline supports Mastodon-compatible servers.
-- Misskey has first-class protocol support.
-- Mastodon has first-class supported adapter behavior.
+- Beeline supports Misskey-family servers. Misskey has first-class protocol support.
+- Beeline supports Mastodon-compatible servers. Mastodon has first-class supported adapter
+  behavior.
 - Keep shared domain behavior protocol-neutral.
 - Keep protocol differences behind protocol boundaries.
 - Do not add XML layouts.
@@ -53,117 +54,129 @@
 - Keep new UI in Compose Material 3.
 - Existing XML resources can support Android platform requirements.
 
-## Source Of Truth
+## Authority And Documentation
+
+### Source Of Truth
 
 - Use current source code as the architecture authority.
 - Use current tests as behavior evidence.
 - Use current Gradle files as build configuration authority.
 - Use current manifests and resources as Android configuration authority.
-- Verify documentation claims against current source.
-- Do not trust old TODO lists without verification.
-- Do not trust old implementation plans without verification.
-- Do not trust old progress documents without verification.
+- Use CI workflows for hosted build, test, lint, instrumentation, and release behavior.
+- Use `AGENTS.md` for repository operation and non-negotiable constraints.
+- Use `logs/` for historical work, unresolved risks, and verification limits.
+- Verify every documentation claim against its authority before publication.
+- Do not trust an old TODO list, plan, roadmap, progress note, or report without verification.
+- Do not use a plan, roadmap, progress note, or old report as proof of current behavior.
 - Do not describe planned behavior as implemented behavior.
 - Do not describe partial behavior as complete behavior.
 - Inspect recent changes before you start substantial work.
 
-## Documentation Requirements
+### Documentation Maintenance
 
 - Treat documentation as maintained engineering work, not as a one-time cleanup.
 - Serve three audiences separately: code readers, human contributors and users, and agents.
 - Keep useful comments and KDoc close to the code.
 - Keep human-facing project documentation separate from agent-facing engineering documentation.
-- Keep the agent wiki focused on ownership, invariants, protocol boundaries, persistence contracts, affected tests, and verification limits.
-- Do not turn the agent wiki into a copy of source code.
-- Do not maintain two independently edited copies of the same architecture information.
 - Keep the README short and user-facing.
 - Keep stable contributor guidance in the human wiki.
 - Keep implementation maps and fragile invariants in the agent wiki.
-- Keep generated API or protocol material in reference documentation with a repeatable generator or pinned source.
+- Keep the agent wiki focused on ownership, invariants, protocol boundaries, persistence
+  contracts, affected tests, and verification limits.
+- Do not turn the agent wiki into a copy of source code.
+- Do not maintain two independently edited copies of the same architecture information.
+- Keep generated API or protocol material in reference documentation with a repeatable
+  generator or pinned source.
 - Keep short-lived plans and task history out of permanent architecture pages.
 - Mark temporary plans as `planned` or `historical` when they are not current behavior.
 - Remove or archive a document when it no longer provides current evidence or useful history.
+- Give each maintained page an owner, status, last-reviewed date, and links to authoritative
+  code and tests.
+- State when runtime, device, or live-server evidence is unavailable.
+- Use `source verified`, `test verified`, `device verified`, `live verified`, and `unverified`
+  precisely.
+- Update documentation in the same implementation slice when behavior, ownership,
+  architecture, persistence, protocol support, build steps, release steps, test requirements,
+  or important invariants change.
+- Do not edit documentation for a private implementation change that leaves documented
+  behavior unchanged.
+- Review documentation during every feature change.
+- Perform a full source-to-documentation audit before release.
+- Include documentation review in the definition of done.
 
-### Stale Documentation
+### Stale Documents
 
 - Treat stale documentation as a maintenance defect.
-- Treat a document as stale when its behavior, status, ownership, file paths, or verification claims no longer match the repository.
-- Treat a document as stale when it duplicates a newer authoritative document without a clear maintenance purpose.
+- Treat a document as stale when its behavior, status, ownership, file paths, or verification
+  claims no longer match the repository.
+- Treat a document as stale when it duplicates a newer authoritative document without a clear
+  maintenance purpose.
 - Do not cite stale documentation as evidence for implementation decisions.
-- Do not leave known stale documentation in an active documentation path while presenting a replacement as current.
-- Update a stale document when it still explains current behavior or a required contributor process.
-- Move a stale document to an explicitly marked archive when it provides useful historical context.
+- Do not leave known stale documentation in an active documentation path while presenting a
+  replacement as current.
+- Update a stale document when it still explains current behavior or a required contributor
+  process.
+- Move a stale document to an explicitly marked archive when it provides useful historical
+  context.
 - Delete a stale document when it has no current or historical value.
 - Prefer deletion over archiving when an old document would confuse readers.
 - Use Git history and task logs for history instead of retaining obsolete technical guidance.
-- Review all documents affected by a code change for stale claims before completing the change.
-- During each documentation audit, classify every reviewed document as `current`, `planned`, `historical`, `reference`, or `stale`.
+- Review all documents affected by a code change for stale claims before you complete the
+  change.
+- During each documentation audit, classify every reviewed document as `current`, `planned`,
+  `historical`, `reference`, or `stale`.
 - Give every `planned` document an owner, review date, and condition that makes it stale.
-- Remove stale status claims, obsolete file manifests, and references to missing documents before publishing a page.
-- If cleanup is deferred, record the intended update, archive, or deletion without treating the document as current.
-
-- Use current source code for implemented runtime behavior.
-- Use current tests for intended and verified behavior.
-- Use Gradle files for local build configuration.
-- Use CI workflows for hosted build, test, lint, instrumentation, and release behavior.
-- Use `AGENTS.md` for repository operation and non-negotiable constraints.
-- Use `logs/` for historical work, unresolved risks, and verification limits.
-- Do not use a plan, roadmap, progress note, or old report as proof of current behavior.
-- Do not describe planned behavior as implemented behavior.
-- Do not describe partial behavior as complete behavior.
-- Verify every documentation claim against its authority before publication.
-
-- Give each maintained page an owner, status, last-reviewed date, and links to authoritative code and tests.
-- State when runtime, device, or live-server evidence is unavailable.
-- Use `source verified`, `test verified`, `device verified`, `live verified`, and `unverified` precisely.
-- Do not treat mocked HTTP tests as proof of live-server behavior.
-- Do not treat Compose tests as proof of physical-device rendering.
-- Do not treat release assembly as proof of signed release publication.
-- Update documentation in the same implementation slice when behavior, ownership, architecture, persistence, protocol support, build steps, release steps, test requirements, or important invariants change.
-- Do not edit documentation for a private implementation change that leaves documented behavior unchanged.
-- Review documentation during every feature change and perform a full source-to-documentation audit before release.
-
-- Add a comment when the reason is not clear from the code.
-- Use comments for compatibility behavior, lifecycle and concurrency invariants, security boundaries, protocol quirks, non-obvious fallbacks, bounds, and performance tradeoffs.
-- Use KDoc when an API contract is not clear from its type signature.
-- Do not comment obvious syntax, assignments, or simple delegation.
-- Keep comments near the code that enforces the rule.
-- Update or remove comments when source behavior changes.
-
-- Before changing a documented boundary, record the current owner, callers, invariants, and tests.
-- Mark refactor notes as temporary until the new boundary is stable.
-- Add characterization tests before risky decomposition.
-- Update the agent ownership map after a stable boundary changes.
-- Update human documentation when user or contributor understanding changes.
-- Remove temporary documentation after extracting any still-valid requirement.
-- Include documentation review in the definition of done.
+- Remove stale status claims, obsolete file manifests, and references to missing documents
+  before publishing a page.
+- If cleanup is deferred, record the intended update, archive, or deletion without treating the
+  document as current.
 
 ### Documentation Coverage
 
 - Document the codebase as a standing rule, not as a cleanup pass.
-- Write a comment or KDoc for every complicated function. Explain the reason, the
-  invariants, and the non-obvious branches. Do not explain simple functions.
-- Explain every feature area in the human wiki. Cover what it does, its status, its
-  source owner, and its limits.
-- Explain every architecture boundary in the agent folder. Cover the owner, the
-  invariants, the protocol rules, the persistence contract, the affected tests, and
-  the verification limits.
+- Write a comment or KDoc for every complicated function. Explain the reason, the invariants,
+  and the non-obvious branches. Do not explain simple functions.
+- Explain every feature area in the human wiki. Cover what it does, its status, its source
+  owner, and its limits.
+- Explain every architecture boundary in the agent folder. Cover the owner, the invariants, the
+  protocol rules, the persistence contract, the affected tests, and the verification limits.
 - Do not add a feature without wiki coverage in the same slice.
 - Do not add an architecture boundary without agent coverage in the same slice.
 - Do not change documented behavior without updating both coverages in the same slice.
-- When cleanup or a refactor touches a file, comment its complicated functions in the
-  same slice. State why the code exists, not what each line does.
-- Confirm documentation coverage in the Completion check before closing a task.
+- When cleanup or a refactor touches a file, comment its complicated functions in the same
+  slice. State why the code exists, not what each line does.
+- Confirm documentation coverage in the Completion check before you close a task.
 
-## Agent Operation
+### Comments And KDoc
+
+- Add a comment when the reason is not clear from the code.
+- Use comments for compatibility behavior, lifecycle and concurrency invariants, security
+  boundaries, protocol quirks, non-obvious fallbacks, bounds, and performance tradeoffs.
+- Use KDoc when an API contract is not clear from its type signature.
+- Do not comment obvious syntax, assignments, or simple delegation.
+- Keep comments short. Explain only non-obvious behavior.
+- Keep comments near the code that enforces the rule.
+- Update or remove comments when source behavior changes.
+
+### Boundary Changes
+
+- Before you change a documented boundary, record the current owner, callers, invariants, and
+  tests.
+- Mark refactor notes as temporary until the new boundary is stable.
+- Add characterization tests before risky decomposition.
+- Update the agent ownership map after a stable boundary changes.
+- Update human documentation when user or contributor understanding changes.
+- Remove temporary documentation after you extract any still-valid requirement.
+
+## Working Process
+
+### Start
 
 - Work directly on the requested task.
-- Do not use subagents by default.
-- Do not delegate work to another agent by default.
+- Do not use subagents by default. Do not delegate work to another agent by default.
 - Use a subagent only when the user explicitly requests one.
-- Do not create a subagent because the task is large.
-- Divide large tasks into implementation slices instead.
-
+- Do not create a subagent because the task is large. Divide large tasks into implementation
+  slices instead.
 - Read the relevant source before you make changes.
 - Trace the current behavior before you replace it.
 - Identify the current owner of each behavior.
@@ -171,13 +184,12 @@
 - Identify the affected persisted state.
 - Identify the affected UI state.
 - Identify the affected tests.
-
 - Do not stop at an implementation idea.
 - Implement the requested behavior unless the user requests only analysis.
 - Verify each completed implementation slice.
 - Record unresolved problems before you continue.
 
-## Long-Horizon Work
+### Long-Horizon State
 
 - Treat repository state as authoritative.
 - Treat conversation context as disposable.
@@ -185,11 +197,13 @@
 - Keep permanent rules in `AGENTS.md`.
 - Keep the current truth of a long task in `docs/agents/tasks/<task>.md`.
 - Keep verified history in Git commits.
-- Rewrite the task-state file at each slice boundary.
-- Do not append to the task-state file.
+- Rewrite the task-state file at each slice boundary. Do not append to it.
 - Recover state from files and Git, not from memory.
 - Use `/resume` to recover task state.
 - Use `/checkpoint` at each slice boundary.
+- Rebuild the TODO list from the files. Treat TODO lists as execution aids, not as the durable
+  record.
+- Stop implementation and reconstruct state when context is incomplete.
 
 ### Task Size Check
 
@@ -208,6 +222,10 @@
 - Leave the repository working.
 - Give each slice one verification method.
 - Give each slice one commit.
+- Divide coding work into small coherent slices.
+- Make each slice independently understandable and independently verifiable.
+- Include required tests, migrations, and contract changes in the same slice.
+- Do not mix unrelated cleanup into a slice.
 
 ### Slice Checkpoint
 
@@ -220,8 +238,12 @@ Use this order at every slice boundary:
 5. Commit.
 6. Start the next slice.
 
-- Update the task-state file before you move on.
-- Record the last safe commit in the task-state file.
+- Update the task-state file before you move on. Record the last safe commit in it.
+- Complete one slice before you start the next slice.
+- Run the relevant verification for the slice.
+- Review the slice for regression risk.
+- Update the task logs.
+- Commit the completed slice. Start the next slice only after the commit.
 
 ### State Recovery
 
@@ -233,10 +255,6 @@ Read these items at the start of a session, after compaction, and when you are u
 4. Recent relevant commits.
 5. The current diff.
 
-- Rebuild the TODO list from these items.
-- Treat TODO lists as execution aids, not as the durable record.
-- Stop implementation and reconstruct state when context is incomplete.
-
 ### Handoff
 
 - Rewrite `docs/agents/handoff.md` after each completed slice.
@@ -247,23 +265,7 @@ Read these items at the start of a session, after compaction, and when you are u
 - Keep the handoff consistent with the task-state file, the task logs, and Git.
 - Do not describe planned behavior as implemented behavior.
 
-## Implementation Slices
-
-- Divide coding work into small coherent slices.
-- Give each slice one clear purpose.
-- Make each slice independently understandable.
-- Make each slice independently verifiable.
-- Include required tests in the same slice.
-- Include required migrations in the same slice.
-- Include required contract changes in the same slice.
-- Do not mix unrelated cleanup into a slice.
-
-- Complete one slice before you start the next slice.
-- Run the relevant verification for the slice.
-- Review the slice for regression risk.
-- Update the task logs.
-- Commit the completed slice.
-- Start the next slice only after the commit.
+### Commits
 
 - Use commits as the permanent work record.
 - Make one commit for each completed slice.
@@ -274,18 +276,36 @@ Read these items at the start of a session, after compaction, and when you are u
 - Stage only files that belong to the slice.
 - Preserve unrelated worktree changes.
 - Never discard user changes to make a commit clean.
-
-- Do not commit a knowingly broken slice.
-- Fix the slice before you commit it.
+- Do not commit a knowingly broken slice. Fix the slice before you commit it.
 - Divide the slice again if it became too large.
 - Record external blockers in `logs/BUGS.txt`.
 
+### Task Logs
+
+- Treat `logs/` as an audit trail, not as agent memory.
+- Keep the current truth in `docs/agents/tasks/`.
+- Keep verified history in Git commits.
+- Create `logs/YYMMDD-HHMMSS.txt` when a coding task starts.
+- Record the task goal, the planned slices, the affected files, and the important risks in the
+  task log.
+- Track active long work in `docs/agents/tasks/<task>.md`. Rewrite the file at each slice
+  boundary. Do not leave completed slices in it.
+- Record completed results in the slice commit. Record the related verification in the commit
+  message when useful.
+- Do not maintain `logs/DONE.txt` or `logs/TODO.txt`. They are retired.
+- Record failures, unresolved concerns, and external blockers in `logs/BUGS.txt`.
+- Remove obsolete bug entries when the issue is resolved.
+- Keep all logs free of secrets.
+- Do not put complete server responses, credentials, or access tokens in logs.
+- If the user forbids source changes, do not edit source code. Edit only the required task
+  logs.
+- Do not use a log change to hide an unauthorized source change.
+
 ## Risk Review
 
-- Consider the effects of a change before implementation.
-- Do not consider only the requested happy path.
-- Identify likely failure states.
-- Identify likely regression states.
+- Consider the effects of a change before implementation. Do not consider only the requested
+  happy path.
+- Identify likely failure states and likely regression states.
 - Identify interaction with existing features.
 - Identify behavior during partial server support.
 - Identify behavior during network failure.
@@ -295,7 +315,6 @@ Read these items at the start of a session, after compaction, and when you are u
 - Identify behavior with stale cached data.
 - Identify behavior with empty data.
 - Identify behavior with malformed remote data.
-
 - Review protocol differences before shared model changes.
 - Review storage effects before model changes.
 - Review migration effects before stored-format changes.
@@ -310,63 +329,14 @@ Read these items at the start of a session, after compaction, and when you are u
 - Review compact and wide layouts before layout changes.
 - Review old Android behavior before platform-specific changes.
 - Review performance before adding work to feed rendering.
-
 - Add tests for important failure states.
 - Do not add only happy-path tests.
 - Record risks that cannot be verified locally.
 - Include unresolved risks in the final handoff.
 
-## Maintainability
+## Architecture And Boundaries
 
-- Optimize the project for long-term maintenance.
-- Do not optimize only for the current patch.
-- Keep each file responsible for a small coherent area.
-- Keep each class responsible for a clear concept.
-- Keep each function responsible for a clear operation.
-- Keep state ownership explicit.
-- Keep dependencies directional.
-- Keep protocol boundaries visible.
-
-- Do not make a large file larger only because it already contains related code.
-- Existing complexity does not justify new complexity.
-- Existing duplication does not justify new duplication.
-- Existing mixed responsibilities do not define the preferred architecture.
-
-- Treat large coordinator files as decomposition targets.
-- Do not use a large coordinator file as the default location for new behavior.
-- Extract a focused owner when a file gains another major responsibility.
-- Extract reusable UI from screen coordinators.
-- Extract state models from large presentation files.
-- Extract navigation policy from feature UI.
-- Extract protocol behavior from shared UI.
-- Extract persistence behavior from ViewModels.
-- Extract formatting logic when several screens use it.
-
-- Do not create generic helper files without a clear domain.
-- Do not create dumping-ground utility classes.
-- Do not create broad `Utils` objects.
-- Do not create broad `Managers` without defined ownership.
-- Do not move complexity into a new file without improving boundaries.
-
-- Prefer feature packages when a feature has several related files.
-- Keep screen UI near its feature.
-- Keep feature state near its feature.
-- Keep feature ViewModels near their feature.
-- Keep feature-specific presentation helpers near their feature.
-
-- Prefer composition over one large configurable component.
-- Prefer small state holders over one global mutable state object.
-- Prefer explicit dependencies over hidden global access.
-- Prefer clear domain types over loosely related primitive values.
-- Prefer one canonical implementation over copied behavior.
-
-- Refactor when a requested feature exposes an unsafe boundary.
-- Keep refactors limited to the boundary required by the task.
-- Do not perform unrelated architecture rewrites.
-- Preserve behavior during structural refactors.
-- Add characterization tests before risky decomposition.
-
-## Architecture
+### Architecture
 
 - `domain/` owns protocol-neutral models and contracts.
 - `data/` owns data access and persistence implementations.
@@ -381,30 +351,26 @@ Read these items at the start of a session, after compaction, and when you are u
 - `ui/` owns Compose presentation.
 - Feature-specific UI packages own feature presentation.
 - Hilt provides application dependencies through dependency injection.
-
 - `SocialSource` is the shared social source contract.
 - Protocol adapters implement shared source contracts.
 - `SocialSourceFactory` creates sources for authenticated sessions.
 - `AccountSourceRegistry` associates sources with accounts.
 - `AccountManager` owns account and session state.
-
 - Keep account ownership outside Compose functions.
 - Keep transport behavior outside Compose functions.
 - Keep protocol JSON outside Compose functions.
 - Keep persistent storage outside Compose functions.
-
 - Use dedicated ViewModels for substantial independent feature state.
 - Do not make one ViewModel own unrelated destinations.
 - Do not tie background synchronization to a screen lifetime.
 
-## Protocol Boundary
+### Protocol Boundary
 
 - Keep shared domain models protocol-neutral.
 - Do not put Misskey JSON structures into shared models.
 - Do not put Mastodon JSON structures into shared models.
 - Map protocol data at the adapter boundary.
 - Normalize failures before they reach generic UI.
-
 - Use `ServerCapabilities` for feature availability.
 - Use capability probes for protocol support.
 - Do not hard-code server software checks in UI.
@@ -414,12 +380,10 @@ Read these items at the start of a session, after compaction, and when you are u
 - Keep protocol branches in authentication.
 - Keep protocol branches in source creation.
 - Keep protocol branches in capability detection.
-
 - Keep unknown capability state separate from unsupported state.
 - Keep denied access separate from unsupported behavior.
 - Keep temporary failure separate from unsupported behavior.
 - Do not mark a feature unsupported after one failed request.
-
 - Keep cursors opaque above adapters.
 - Do not construct protocol pagination URLs in UI.
 - Do not construct protocol pagination URLs in generic ViewModels.
@@ -430,34 +394,9 @@ Read these items at the start of a session, after compaction, and when you are u
 - Do not compare opaque identifiers lexically.
 - Do not infer time from opaque identifiers.
 
-## Authentication And Accounts
+## Security And Privacy
 
-- Detect the protocol before protocol-specific authentication.
-- Store servers as validated HTTPS origins.
-- Reject origins with credentials.
-- Reject origins with paths.
-- Reject origins with queries.
-- Reject origins with fragments.
-
-- Bind each account to its connection origin.
-- Bind each account to its protocol.
-- Bind each account to its local account identifier.
-- Scope registration credentials to their connection origin.
-- Scope access grants to their account session.
-- Scope tokens to their account session.
-- Scope capabilities to their account session.
-
-- Preserve existing sessions when the user adds an account.
-- Preserve unrelated sessions during reauthentication.
-- Verify an account before session replacement.
-- Reject stale authentication callbacks.
-- Stop account streams before account removal.
-- Disable account push before account removal.
-- Remove account-scoped local state during account removal.
-- Treat remote cleanup as best effort.
-- Do not block local sign-out because a server is unavailable.
-
-## Network Security
+### Network Security
 
 - Validate origins before authenticated requests.
 - Validate pagination origins before authenticated requests.
@@ -468,18 +407,16 @@ Read these items at the start of a session, after compaction, and when you are u
 - Keep authenticated redirects disabled unless a reviewed protocol flow requires them.
 - Do not send credentials to an unvalidated origin.
 
-## Storage And Privacy
+### Storage And Privacy
 
 - Keep account secrets in no-backup storage.
 - Keep sessions account-scoped.
-- Encrypt stored session secrets.
-- Use Android Keystore protection for session encryption.
+- Encrypt stored session secrets with Android Keystore protection.
 - Keep pending authentication data encrypted.
 - Keep drafts account-scoped.
 - Keep notification data separate from authentication secrets.
 - Keep preferences scoped correctly.
 - Delete account-scoped data during account removal.
-
 - Never log access tokens.
 - Never log client secrets.
 - Never log authorization codes.
@@ -490,7 +427,29 @@ Read these items at the start of a session, after compaction, and when you are u
 - Redact credentials from diagnostics.
 - Redact long opaque identifiers when they can contain sensitive data.
 
-## Direct Messages
+## Domain Rules
+
+### Authentication And Accounts
+
+- Detect the protocol before protocol-specific authentication.
+- Store servers as validated HTTPS origins.
+- Reject origins with credentials, paths, queries, or fragments.
+- Bind each account to its connection origin, its protocol, and its local account identifier.
+- Scope registration credentials to their connection origin.
+- Scope access grants to their account session.
+- Scope tokens to their account session.
+- Scope capabilities to their account session.
+- Preserve existing sessions when the user adds an account.
+- Preserve unrelated sessions during reauthentication.
+- Verify an account before session replacement.
+- Reject stale authentication callbacks.
+- Stop account streams before account removal.
+- Disable account push before account removal.
+- Remove account-scoped local state during account removal.
+- Treat remote cleanup as best effort.
+- Do not block local sign-out because a server is unavailable.
+
+### Direct Messages
 
 - Beeline has direct-message inbox and conversation behavior.
 - Do not describe direct messages as a placeholder feature.
@@ -501,7 +460,7 @@ Read these items at the start of a session, after compaction, and when you are u
 - Do not present federated direct posts as encrypted messaging.
 - Do not claim private messages are secure or encrypted.
 
-## Interaction Data
+### Interaction Data
 
 - Keep post interaction counts protocol-neutral.
 - Use `PostInteractionCounts` for normalized counts.
@@ -513,7 +472,7 @@ Read these items at the start of a session, after compaction, and when you are u
 - Update optimistic counts with their related post action.
 - Reconcile optimistic values with server responses.
 
-## Photo Grid
+### Photo Grid
 
 - Photo Grid belongs to the Search destination.
 - Photo Grid has independent feed state.
@@ -525,7 +484,7 @@ Read these items at the start of a session, after compaction, and when you are u
 - Keep Photo Grid media filtering explicit.
 - Preserve Photo Grid navigation state across supported restoration paths.
 
-## Preferences And Settings
+### Preferences And Settings
 
 - Keep persisted settings outside Compose functions.
 - Use repository-owned preference state.
@@ -536,7 +495,7 @@ Read these items at the start of a session, after compaction, and when you are u
 - Make migrations explicit when stored preference formats change.
 - Preserve safe defaults when a new preference has no stored value.
 
-## Moderation
+### Moderation
 
 - Keep moderation contracts protocol-neutral.
 - Keep moderation transport inside adapters.
@@ -547,7 +506,7 @@ Read these items at the start of a session, after compaction, and when you are u
 - Validate account origins before moderation actions.
 - Refresh affected state after successful moderation changes.
 
-## Notifications
+### Notifications
 
 - Keep notification ingestion separate from presentation.
 - Use the notification repository as the merge point for notification data.
@@ -559,7 +518,6 @@ Read these items at the start of a session, after compaction, and when you are u
 - Keep notification identity separate from group identity.
 - Keep account identity separate from notification identity.
 - Keep local dismissal separate from server acknowledgement.
-
 - Do not alert for initial baseline imports.
 - Use adapter unread state when available.
 - Preserve unread precision.
@@ -567,7 +525,7 @@ Read these items at the start of a session, after compaction, and when you are u
 - Use actor account identifiers for actor actions.
 - Do not use notification identifiers as account identifiers.
 
-## Synchronization And Delivery
+### Synchronization And Delivery
 
 - Keep REST reconciliation as the freshness authority where designed.
 - Keep foreground streams owned by their stream controller.
@@ -583,14 +541,13 @@ Read these items at the start of a session, after compaction, and when you are u
 - Validate endpoint generations.
 - Keep notification presentation policy separate from ingestion.
 
-## Compose And UI
+## UI And Presentation
 
 - Keep screen state ownership clear.
 - Prefer stateless presentation components.
 - Hoist state when a parent owns the behavior.
 - Do not make reusable components depend on protocol types.
 - Do not make reusable components depend on account managers.
-
 - Keep floating controls independent from scroll content.
 - Keep rows behind floating controls transparent where the design requires it.
 - Keep final scroll items reachable above floating controls.
@@ -603,7 +560,52 @@ Read these items at the start of a session, after compaction, and when you are u
 - Test system font scaling.
 - Test long translated text where relevant.
 
-## Coding Rules
+## Code Quality
+
+### Structure
+
+- Optimize the project for long-term maintenance. Do not optimize only for the current patch.
+- Keep each file responsible for a small coherent area.
+- Keep each class responsible for a clear concept.
+- Keep each function responsible for a clear operation.
+- Keep state ownership explicit.
+- Keep dependencies directional.
+- Keep protocol boundaries visible.
+- Do not make a large file larger only because it already contains related code.
+- Existing complexity does not justify new complexity.
+- Existing duplication does not justify new duplication.
+- Existing mixed responsibilities do not define the preferred architecture.
+- Treat large coordinator files as decomposition targets.
+- Do not use a large coordinator file as the default location for new behavior.
+- Extract a focused owner when a file gains another major responsibility.
+- Extract reusable UI from screen coordinators.
+- Extract state models from large presentation files.
+- Extract navigation policy from feature UI.
+- Extract protocol behavior from shared UI.
+- Extract persistence behavior from ViewModels.
+- Extract formatting logic when several screens use it.
+- Do not create generic helper files without a clear domain.
+- Do not create dumping-ground utility classes.
+- Do not create broad `Utils` objects.
+- Do not create broad `Managers` without defined ownership.
+- Do not move complexity into a new file without improving boundaries.
+- Prefer feature packages when a feature has several related files.
+- Keep screen UI near its feature.
+- Keep feature state near its feature.
+- Keep feature ViewModels near their feature.
+- Keep feature-specific presentation helpers near their feature.
+- Prefer composition over one large configurable component.
+- Prefer small state holders over one global mutable state object.
+- Prefer explicit dependencies over hidden global access.
+- Prefer clear domain types over loosely related primitive values.
+- Prefer one canonical implementation over copied behavior.
+- Refactor when a requested feature exposes an unsafe boundary.
+- Keep refactors limited to the boundary required by the task.
+- Do not perform unrelated architecture rewrites.
+- Preserve behavior during structural refactors.
+- Add characterization tests before risky decomposition.
+
+### Coding Rules
 
 - Follow official Kotlin coding conventions.
 - Prefer imports over fully qualified names.
@@ -611,15 +613,11 @@ Read these items at the start of a session, after compaction, and when you are u
 - Keep related declarations together.
 - Use one technical name for one concept.
 - Preserve exact code identifiers in technical documentation.
-- Keep comments short.
-- Explain only non-obvious behavior in comments.
-
 - Do not copy protocol logic between adapters.
 - Do not copy substantial UI behavior between screens.
 - Extract shared behavior when it has one stable meaning.
 - Do not abstract two pieces of code only because they look similar.
 - Use clear names instead of explanatory comments where possible.
-
 - Preserve unrelated worktree changes.
 - Do not revert user changes.
 - Do not reformat unrelated files.
@@ -627,14 +625,12 @@ Read these items at the start of a session, after compaction, and when you are u
 
 ## Writing Style
 
-- Read the project writing-style file before you write.
-- Follow that style in all agent-written text.
+- Read the project writing-style file before you write. Follow that style in all
+  agent-written text.
 - Use Simplified Technical English.
 - Use approved simple words where possible.
 - Use technical nouns when necessary.
-- Give one term one meaning.
-- Do not change terms only to avoid repetition.
-
+- Give one term one meaning. Do not change terms only to avoid repetition.
 - Use active voice.
 - Use short sentences.
 - Give one main instruction in each sentence.
@@ -644,52 +640,12 @@ Read these items at the start of a session, after compaction, and when you are u
 - Use one name for one thing.
 - Avoid long noun groups.
 - Use American English spelling.
-
-- Use the same style in task logs.
-- Use the same style in documentation.
-- Use the same style in plans.
-- Use the same style in comments.
-- Use the same style in commit messages where practical.
-- Use the same style in final handoff text.
-- Use the same style in user-facing copy unless product tone requires another style.
-
+- Use the same style in task logs, documentation, plans, comments, commit messages where
+  practical, final handoff text, and user-facing copy unless product tone requires another
+  style.
 - Do not change exact code identifiers to fit the writing style.
 - Do not change protocol names to fit the writing style.
 - Do not change official API field names to fit the writing style.
-
-## Task Logs
-
-- Treat `logs/` as an audit trail, not as agent memory.
-- Keep the current truth in `docs/agents/tasks/`.
-- Keep verified history in Git commits.
-
-- Create `logs/YYMMDD-HHMMSS.txt` when a coding task starts.
-- Record the task goal in the task log.
-- Record the planned slices in the task log.
-- Record affected files in the task log.
-- Record important risks in the task log.
-
-- Track active long work in `docs/agents/tasks/<task>.md`.
-- Rewrite the task-state file at each slice boundary.
-- Do not leave completed slices in the task-state file.
-
-- Record completed results in the slice commit.
-- Record the related verification in the commit message when useful.
-- Do not maintain `logs/DONE.txt` or `logs/TODO.txt`. They are retired.
-
-- Record failures in `logs/BUGS.txt`.
-- Record unresolved concerns in `logs/BUGS.txt`.
-- Record external blockers in `logs/BUGS.txt`.
-- Remove obsolete bug entries when the issue is resolved.
-
-- Keep all logs free of secrets.
-- Do not put complete server responses in logs.
-- Do not put credentials in logs.
-- Do not put access tokens in logs.
-
-- If the user forbids source changes, do not edit source code.
-- In that case, edit only the required task logs.
-- Do not use a log change to hide an unauthorized source change.
 
 ## Verification
 
@@ -701,14 +657,12 @@ Read these items at the start of a session, after compaction, and when you are u
 - Run account lifecycle tests after session changes.
 - Run Compose tests after presentation changes.
 - Run instrumented tests for Android-only behavior.
-
 - Run lint after authentication changes.
 - Run lint after storage changes.
 - Run lint after adapter changes.
 - Run lint after contract changes.
 - Run lint after notification changes.
 - Run lint after security-sensitive changes.
-
 - Use the Gradle wrapper for every Gradle command.
 - Add `--no-daemon --console=plain` to every agent Gradle command.
 - Use `./gradlew --no-daemon --console=plain` in Unix shell examples.
@@ -717,13 +671,12 @@ Read these items at the start of a session, after compaction, and when you are u
 - Set `GRADLE_OPTS=-Dorg.gradle.daemon=false` as a safety net for agent environments.
 - Set an explicit timeout for every Gradle tool call.
 - Close standard input for non-interactive Gradle calls.
-
-- Run `./gradlew --no-daemon --console=plain test assembleRelease` before you declare a coding task complete.
+- Run `./gradlew --no-daemon --console=plain test assembleRelease` before you declare a
+  coding task complete.
 - Run additional required checks for the affected feature.
 - Fix failures caused by the current slice.
 - Do not hide failing tests.
 - Do not disable tests only to complete a task.
-
 - Do not treat mocked HTTP tests as proof of live server behavior.
 - Do not treat Compose tests as proof of physical device rendering.
 - Do not treat authentication tests as proof of browser callback behavior.
