@@ -17,7 +17,7 @@ Read these in order. Treat the repository as the authority.
 ## Current Position
 
 - Completion slices C-01 through C-11 and C-12a through C-12d2 are committed. `L-01` is committed.
-- The last safe commit is `3f0c704` (C-12d2 behavior commit; record follows).
+- The last safe commit is `e13d97e` (C-12d2 record commit). C-12d2 is `3f0c704`.
 - The next slice is **C-12d3, navigation transitions**. The task-state file holds its scope:
   move the guarded transition functions into `ui/navigation/` behind event callbacks for
   popup clearing, search execution, and conversation start, and keep session-bound guards
