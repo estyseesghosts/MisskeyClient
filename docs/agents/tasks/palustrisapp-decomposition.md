@@ -45,14 +45,17 @@ slice. It divides into S1a, S1b, and S1c below.
 - S1b — The destination tree lives in
   `ui/shell/ShellDestinationContent.kt`. Commit `101be82`. The six shell
   suites, the full `test assembleRelease` gate, and `lintDebug` pass.
+- S1c — Overlay, dialog, and bubble hosting lives in
+  `ui/shell/ShellOverlayHost.kt`. Commit `4c97d43`. The six shell
+  suites, the full `test assembleRelease` gate, and `lintDebug` pass.
+
+S1 is complete. `ui/PalustrisApp.kt` is 622 lines and owns navigation
+and placement. The next work (P1 and later) needs its own task-state
+file and verification. This file stays as the completed S1 record.
 
 # Current slice
 
-S1c — Extract overlay, dialog, and bubble hosting into
-`ui/shell/ShellOverlayHost.kt` (bubble host, share sheet, media viewer,
-image viewer, selection sheet, composer overlay, edit-profile sheet,
-emoji picker host, notification settings sheet and its back handler,
-dialogs).
+None. S1 is complete.
 
 # Files involved
 
@@ -80,8 +83,11 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Next
 
-1. S1c as defined in Current slice above.
-2. After S1: P1 (finish the `ui/` package migration), Q1 (ktlint/detekt
+P1 and later work needs its own task-state file. The recorded order is:
+
+1. P1 (finish the `ui/` package migration; group the
+   `ShellDestinationContent` branch callbacks into narrow param bundles to
+   replace the 37-parameter signature), Q1 (ktlint/detekt
    with baseline; fix wildcard imports and fully-qualified names), T1
    (mirror test packages to production packages; merge the two
    duplicate-named test classes), V1 (repair instrumentation tests,
@@ -100,4 +106,4 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Last safe commit
 
-`101be82` "Extract destination tree into ShellDestinationContent".
+`4c97d43` "Extract overlay hosting into ShellOverlayHost".

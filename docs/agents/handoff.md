@@ -38,42 +38,44 @@ Read these in order. Treat the repository as the authority.
 - S1b (extract the destination tree into `ui/shell/ShellDestinationContent.kt`)
   is committed and test verified. The slice commit is `101be82`.
 - S1c (extract overlay, dialog, and bubble hosting into
-  `ui/shell/ShellOverlayHost.kt`) is approved and not started. The
-  task-state file names S1c as the current slice. The last safe commit is
-  `101be82`.
-- Plan 01 and Plan 02 exit conditions are met except the S1 remainder of
-  Step 13 and blocked device verification.
+  `ui/shell/ShellOverlayHost.kt`) is committed and test verified. The
+  slice commit is `4c97d43`.
+- S1 (split `PalustrisApp.kt`) is complete. The shell is 622 lines and
+  owns navigation and placement. Feature state lives in the overlay
+  holder, the destination content, and the overlay host. The last safe
+  commit is `4c97d43`.
+- Plan 01 and Plan 02 exit conditions are met except blocked device
+  verification.
 
 ## Next Slice
 
-S1c — Extract overlay, dialog, and bubble hosting into
-`ui/shell/ShellOverlayHost.kt` (bubble host, share sheet, media viewer,
-image viewer, selection sheet, composer overlay, edit-profile sheet,
-emoji picker host, notification settings sheet and its back handler,
-dialogs). Keep the `PalustrisApp` signature and
-`AppShellFixtures.app()` stable. Run the six shell suites plus the full
-gate. Commit only when green. Full scope, files, and verification commands
-are in `docs/agents/tasks/palustrisapp-decomposition.md`. Do not duplicate
-that file here.
+P1 — Finish the `ui/` package migration. Move the flat feature files
+(`FeedViewModel`, `HomeFeed`, search, Photo Grid, saved collections,
+`AccountManager` out of `ui/`) into feature packages. Behavior-neutral.
+Group the `ShellDestinationContent` branch callbacks into narrow param
+bundles to replace the 37-parameter signature. Open a dedicated
+task-state file for P1 with its own verification before implementation.
+The S1 task-state file stays as the completed record.
 
 ## After S1
 
 Do these in order. Each needs its own task-state file and verification.
 
-1. S1b and S1c from the S1 task-state file.
-2. P1 — Finish the `ui/` package migration. Move the flat feature files
+1. P1 — Finish the `ui/` package migration. Move the flat feature files
    (`FeedViewModel`, `HomeFeed`, search, Photo Grid, saved collections,
    `AccountManager` out of `ui/`) into feature packages. Behavior-neutral.
-3. Q1 — Add ktlint or detekt with a baseline. Fix the 12 wildcard imports
+   Group the `ShellDestinationContent` branch callbacks into narrow param
+   bundles to replace the 37-parameter signature.
+2. Q1 — Add ktlint or detekt with a baseline. Fix the 12 wildcard imports
    and the fully-qualified names. Smallest change with the broadest payoff.
-4. T1 — Mirror test packages to production packages. Merge the two
+3. T1 — Mirror test packages to production packages. Merge the two
    duplicate-named test classes (`EmojiCatalogViewModelTest`,
    `PostActionOwnerTest`).
-5. V1 — Repair `Api29StartupInstrumentedTest` and
+4. V1 — Repair `Api29StartupInstrumentedTest` and
    `RoomNotificationStoreInstrumentedTest`. De-flake the two known timing
    tests. Record blocked device checks honestly.
-6. Plan 04 rebase (`docs/decomposition_3/04.md`), then implementation.
-7. Device, live-server, and signed-release verification when a device and
+5. Plan 04 rebase (`docs/decomposition_3/04.md`), then implementation.
+6. Device, live-server, and signed-release verification when a device and
    signing inputs exist.
 
 ## Process Rules
