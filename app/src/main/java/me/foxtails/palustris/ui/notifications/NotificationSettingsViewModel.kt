@@ -129,23 +129,35 @@ class NotificationSettingsViewModel @AssistedInject constructor(
 
     fun retryRegistration() {
         viewModelScope.launch {
-            runCatching { pushRegistrationManager.retry(accountId) }
-                .onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Delivery registration could not be retried.") }
+            try {
+                pushRegistrationManager.retry(accountId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _state.value = _state.value.copy(error = error.message ?: "Delivery registration could not be retried.")
+            }
         }
     }
 
     fun refreshDistributors() {
         viewModelScope.launch {
             _state.value = _state.value.copy(distributorLoading = true)
-            val distributors = runCatching {
-                connector.availableDistributors().map { packageName ->
+            try {
+                val distributors = connector.availableDistributors().map { packageName ->
                     UnifiedPushDistributorUi(packageName, distributorLabel(packageName))
                 }
-            }.getOrDefault(emptyList())
-            _state.value = _state.value.copy(
-                availableDistributors = distributors,
-                distributorLoading = false,
-            )
+                _state.value = _state.value.copy(
+                    availableDistributors = distributors,
+                    distributorLoading = false,
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(
+                    availableDistributors = emptyList(),
+                    distributorLoading = false,
+                )
+            }
         }
     }
 

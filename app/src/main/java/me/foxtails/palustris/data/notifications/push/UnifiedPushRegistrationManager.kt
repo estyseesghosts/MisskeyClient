@@ -168,6 +168,8 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 messageForDistributor = context.getString(R.string.notifications_distributor_message, ProductIdentity.name),
                 vapidPublicKey = providerInfo.vapidPublicKey,
             )
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: SourceError) {
             update(token, registering.copy(
                 state = if (error == SourceError.Unauthorized) {
@@ -199,6 +201,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
                 state = NotificationPushRegistrationState.Removing,
                 lastErrorCategory = null,
             ))
+            var cancelled: CancellationException? = null
             try {
                 if (session != null) {
                     sourceFor(session, token)?.let { source ->
@@ -206,6 +209,8 @@ class UnifiedPushRegistrationManager @Inject constructor(
                         if (confirmed != null) source.removePushSubscription(confirmed)
                     }
                 }
+            } catch (error: CancellationException) {
+                cancelled = error
             } catch (_: Exception) {
                 // Local opt-out and distributor removal still proceed if the server is unavailable.
             }
@@ -215,6 +220,7 @@ class UnifiedPushRegistrationManager @Inject constructor(
             scheduler.cancel(accountId)
             repository.observe(accountId).value.items.forEach { presenter.dismiss(accountId, it.id) }
             token?.let { repository.clearPushRegistration(it) }
+            cancelled?.let { throw it }
         }
     }
 

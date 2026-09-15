@@ -903,3 +903,11 @@ Confirmed that the worktree already contains unrelated changes. No existing file
 - Standalone checks passed per slice: XML parses, keys in default catalog, kinds and placeholders match, no platform words in added strings.
 - ru-RU and in-ID remain blocked: no Beeline locale files exist and new locales need code changes. See logs/BUGS.txt.
 - Verification complete: LocalizationResourceTest passes (5 tests, 0 failures), which covers all touched locale files. The earlier locked-R.jar blocker is resolved.
+
+260915-030000 Slice 02-L1 push cancellation audit:
+- UnifiedPushRegistrationManager.reconcile rethrows CancellationException instead of recording it as a registration failure.
+- disable finishes distributor removal, work cancellation, dismissal, and local registration cleanup, then rethrows.
+- UnifiedPushConnector.runConnector rethrows cancellation before wrapping it as PushConnectorFailure.
+- NotificationSettingsViewModel retryRegistration and refreshDistributors rethrow cancellation instead of mapping it to error state.
+- Added PushCancellationTest (5 tests) with a real manager, gate-controlled fakes, and manual WorkManager init for Robolectric.
+- Verification passed: PushCancellationTest plus push, notification settings, ViewModel, and connector suites.

@@ -4,6 +4,7 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import org.unifiedpush.android.connector.UnifiedPush
 import org.unifiedpush.android.connector.keys.DefaultKeyManager
 
@@ -77,6 +78,8 @@ class AndroidUnifiedPushConnector @Inject constructor(
 
     private fun <T> runConnector(operation: PushConnectorOperation, block: () -> T): T = try {
         block()
+    } catch (error: CancellationException) {
+        throw error
     } catch (error: PushConnectorFailure) {
         throw error
     } catch (error: Exception) {
