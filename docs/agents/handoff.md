@@ -1,136 +1,81 @@
 # Handoff
 
 **Status:** current pointer. The durable record for the completed 01/02 series is
-`docs/agents/tasks/decomposition-01-02-completion.md`. The durable record for the active
-Plan 03 work is `docs/agents/tasks/plan03-protocol-notifications.md`.
+`docs/agents/tasks/decomposition-01-02-completion.md`. The durable record for the completed
+Plan 03 work is `docs/agents/tasks/plan03-protocol-notifications.md`. The corrected audit of
+Plans 01, 02, and 03 is `docs/decomposition_3/03_corrected.md` (git-ignored planning material,
+do not force-add). The durable record for the active S1 work is
+`docs/agents/tasks/palustrisapp-decomposition.md`.
 
 ## Where To Start
 
 Read these in order. Treat the repository as the authority.
 
 1. `AGENTS.md`.
-2. `docs/agents/tasks/plan03-protocol-notifications.md`.
-3. `docs/decomposition_3/03.md`.
-4. `docs/agents/tasks/decomposition-01-02-completion.md`.
+2. `docs/agents/tasks/palustrisapp-decomposition.md`.
+3. `docs/decomposition_3/03_corrected.md`.
+4. `docs/agents/app-shell-ownership.md` and `docs/agents/protocol-and-session-ownership.md`.
 5. `docs/agents/decomposition-01-02-acceptance-matrix.md`.
-6. `docs/agents/app-shell-ownership.md` and `docs/agents/protocol-and-session-ownership.md`.
-7. `logs/BUGS.txt`.
-8. `git status` and recent commits.
+6. `logs/BUGS.txt`.
+7. `git status` and recent commits.
 
 ## Current Position
 
-- Completion slices C-01 through C-11, C-12a through C-12d4, C-13, C-14, and C-15 are
-  committed. `L-01` is committed.
-- Gate slices P-01 through P-07 are committed.
-- Plan 03 is rebased at `b715430` and recorded in `docs/decomposition_3/03.md`. Slice `03-C`
-  is committed at `3603ef3`. Slice `03-A1` is committed at `44b3483`. Slice `03-B1` is
-  committed at `36eeeb9`. Slice `03-B2` is committed at `1c45afb`. Slice `03-D1` is committed
-  at `e40ef87`. Slice `03-A2` is committed at `c6bd9ff`. Slice `03-D2` is committed at
-  `0e0d8c4`. Slice `03-D3` is committed at `5d1f8b2`. Slice `03-E` is committed at `861e457`.
-  Slice `03-F1` is committed at `f33607e`. Slice `03-F2` is committed at `15ba26b`. Slice
-  `03-F3` is committed at `9dac59b`. Slice `03-F4` is committed at `d3e1323` and test verified.
-  Slice `03-G` is committed at `136c4ae` and test verified. Slice `03-H` is committed
-  at `fc5cb6e` and test verified. Slice `03-I` is committed at `299712f` and test verified.
-  Slice `03-J` is committed at `5609f3c` and test verified.
-  The last safe commit is `5609f3c`.
-- The maintainer approved the 03-F reset behavior and the 03-I visibility migration on
-  2026-09-15. The accepted policy is development-only discard: do not migrate old notification
-  data. Discard unreadable or incompatible local state and require reauthentication when needed.
-- Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
-  behavior stay unverified.
-- Every Plan 03 chunk is complete: 03-A1, 03-A2, 03-B1, 03-B2, 03-C, 03-D1, 03-D2, 03-D3,
-  03-E, 03-F1 through 03-F4, 03-G, 03-H, 03-I, and 03-J are committed and test verified.
-  No next Plan 03 slice remains.
-- Unrelated documentation and archive changes appeared in the worktree during 03-E. They are
-  not part of any committed Plan 03 slice and were left untouched.
+- Plan 03 is complete. Every chunk from `03-A1` through `03-J` is committed
+  and test verified. The last Plan 03 slice is `5609f3c`.
+- The corrected audit is written at `docs/decomposition_3/03_corrected.md`.
+  Its main finding: Plan 01 Step 13 is only half met because
+  `ui/PalustrisApp.kt` is still 1078 lines and still coordinates feature
+  state. All other Plan 01, 02, and 03 slices are complete except blocked
+  device verification.
+- Stale status claims are fixed outside `docs/decomposition_3/`: the
+  documentation inventory reclassifies `01.md`, `02.md`, and `03.md` as
+  historical, the Plan 03 task is historical in the agent index, and the
+  root README no longer calls block, mute, and report unimplemented.
+  `01.md`, `02.md`, and `03.md` themselves were not touched.
+- S1 (split `PalustrisApp.kt`) is approved and not started. The task-state
+  file names S1a as the current slice. The last safe commit is `beefcb0`.
+- Plan 01 and Plan 02 exit conditions are met except the S1 remainder of
+  Step 13 and blocked device verification.
 
-## Completed Plan 03 Slices
+## Next Slice
 
-- R-01 rebase. Verification: source verified, no test ran.
-- 03-C Misskey entity boundaries. Verification: `MisskeyIntegrationTest`, `CrossCuttingTest`.
-- 03-A1 sentinel reaction probe removal. Verification: `MastodonCapabilityProbeTest`,
-  `MastodonIntegrationTest`.
-- 03-B1 runtime capability evidence and reactive publication. Verification:
-  `MastodonIntegrationTest`, `MastodonCapabilityProbeTest`, `MisskeyIntegrationTest`,
-  `CrossCuttingTest`, `SignInScreenTest`, then `test assembleRelease` and `:app:lintDebug`.
-- 03-B2 revision-guarded capability publication and bounded refresh retry. Verification:
-  `MastodonIntegrationTest`, `CrossCuttingTest`, `MisskeyIntegrationTest`,
-  `ConnectedSessionContextTest`, then `test assembleRelease` and `:app:lintDebug`.
-- 03-D1 notification state-envelope fixtures and file-store contract. Verification:
-  `NotificationJsonCodecTest`, then `test assembleRelease` and `:app:lintDebug`.
-- 03-A2 NodeInfo discovery fallback. Verification: `MastodonNodeInfoDiscoveryTest`,
-  `MastodonCapabilityProbeTest`, `MastodonIntegrationTest`, `MisskeyIntegrationTest`, then
-  `test assembleRelease` and `:app:lintDebug`.
-- 03-D2 activity, navigation, read-state, and delivery fixtures plus the Room fixed-JSON test.
-  Verification: `NotificationJsonCodecTest`, `NotificationRoomStoreFixtureTest`, then
-  `test assembleRelease` and `:app:lintDebug`.
-- 03-D3 posts, interaction counts, unread state, settings, push, checkpoints, malformed
-  structure, and known-omission fixtures. Verification: `NotificationJsonCodecTest` (39 tests)
-  and `NotificationRoomStoreFixtureTest` (3 tests), then `test assembleRelease` and
-  `:app:lintDebug`.
-- 03-E notification codec ownership. Every recursive helper moved to `NotificationJsonCodec`
-  and made private. Verification: `NotificationJsonCodecTest` (40 tests) and
-  `NotificationRoomStoreFixtureTest` (4 tests), a moved-text identity check, then
-  `test assembleRelease` and `:app:lintDebug`.
-- 03-F1 typed notification store read result. `NotificationStore.read` returns Absent, Readable,
-  Corrupt, or Unavailable. Verification: `NotificationJsonCodecTest` (43 tests),
-  `NotificationRoomStoreFixtureTest` (4 tests), related repository and settings suites, then
-  `test assembleRelease` and `:app:lintDebug`.
-- 03-F2 receiving-account ownership validation. A foreign notification, group, delivery,
-  checkpoint, push, or dismissal origin is Corrupt. Verification: `NotificationStateOwnershipTest`
-  (8 tests), `NotificationJsonCodecTest`, `NotificationRoomStoreFixtureTest`, then
-  `test assembleRelease` and `:app:lintDebug`.
-- 03-F3 recoverable storage health. `NotificationStorageHealth` separates `Healthy`, `Recoverable`,
-  and `Unavailable` outside the stored payload. A non-healthy account blocks page ingestion, the
-  baseline, local mutations, delivery claims and finishing, settings writes, and push registration
-  writes. The inbox and settings surfaces show the failure and an explicit retry. Verification:
-  `NotificationStorageRecoveryTest` (5 tests), the focused notification suites, then
-  `test assembleRelease` and `:app:lintDebug`.
-- 03-F4 future-format refusal, account-local reset, and Room schema history.
-  `NotificationStoreRead` and `NotificationStorageHealth` add `Unsupported`. Both stores keep a
-  newer-format payload untouched and block writes. `NotificationRepository.reset` advances the
-  account generation and writes an empty readable state so the legacy importer does not reimport.
-  The settings surface adds a confirmed reset action. `NotificationDatabase` exports schema history
-  to `app/schemas`. Verification: `NotificationDatabaseSchemaTest` (4 tests),
-  `NotificationSettingsStorageResetTest` (2 tests), `NotificationJsonCodecTest` (46 tests),
-  `NotificationRoomStoreFixtureTest` (7 tests), `NotificationStorageRecoveryTest` (9 tests), the
-  related notification suites, then `test assembleRelease` and `:app:lintDebug`.
-- 03-G durable write acceptance. Every mutation commits through `commitWrite`: compute from
-  committed state, write on the injected IO dispatcher, publish only while the writer is still
-  current. A failed write marks the account `Unavailable`, publishes nothing, and returns
-  failure. Per-account serialization, explicit claim/dismiss/acknowledge/push/remove failure
-  paths, and best-effort row deletion. Verification: `NotificationWriteFailureTest` (8 tests),
-  the focused notification suites, then `test assembleRelease` and `:app:lintDebug`.
-- 03-H restart-safe legacy import. The Room row is authoritative over the legacy file. A
-  readable legacy state is saved to Room before the marker is written. Corrupt, future-format,
-  and transient failures stay unmarked for retry. Deletion seals the legacy file so a removed
-  account cannot resurrect old state. Cancellation propagates. Verification:
-  `NotificationLegacyImportTest` (11 tests), the focused notification suites, then
-  `test assembleRelease` and `:app:lintDebug`. `:app:assembleDebugAndroidTest` still fails in
-  the pre-existing `Api29StartupInstrumentedTest`; the repaired
-  `RoomNotificationStoreInstrumentedTest` compiles.
-- 03-I visibility persistence. Every stored post carries `contentVisibility`, including nested
-  quotes. Missing or unknown values decode to `Hidden`. Android previews and row bodies stay
-  hidden for non-visible posts. Verification: `NotificationJsonCodecTest`,
-  `NotificationRoomStoreFixtureTest`, `NotificationDeliveryPlannerTest`, and
-  `NotificationsScreenTest` (new `post_visibility.json` fixture, legacy fallback, preview
-  gating, and row suppression), then `test assembleRelease` and `:app:lintDebug`.
-- 03-J identity helper placement. `AccountId.stableFileName` moved to `NotificationStore.kt`
-  with its SHA-256 input and exact output. `stableNotificationId` moved to
-  `NotificationPageMerge.kt` beside the delivery outbox with its hash input and exact output.
-  `Notification.matches` stays in the repository. Verification: the focused notification
-  suites plus `AndroidNotificationIdsTest`, then `test assembleRelease` and
-  `:app:lintDebug`.
-- Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
+S1a — Extract transient overlay state into
+`ui/shell/ShellOverlayPresenter.kt`. Keep the `PalustrisApp` signature and
+`AppShellFixtures.app()` stable. Run the six shell suites plus the full
+gate. Commit only when green. Full scope, files, and verification commands
+are in `docs/agents/tasks/palustrisapp-decomposition.md`. Do not duplicate
+that file here.
+
+## After S1
+
+Do these in order. Each needs its own task-state file and verification.
+
+1. S1b and S1c from the S1 task-state file.
+2. P1 — Finish the `ui/` package migration. Move the flat feature files
+   (`FeedViewModel`, `HomeFeed`, search, Photo Grid, saved collections,
+   `AccountManager` out of `ui/`) into feature packages. Behavior-neutral.
+3. Q1 — Add ktlint or detekt with a baseline. Fix the 12 wildcard imports
+   and the fully-qualified names. Smallest change with the broadest payoff.
+4. T1 — Mirror test packages to production packages. Merge the two
+   duplicate-named test classes (`EmojiCatalogViewModelTest`,
+   `PostActionOwnerTest`).
+5. V1 — Repair `Api29StartupInstrumentedTest` and
+   `RoomNotificationStoreInstrumentedTest`. De-flake the two known timing
+   tests. Record blocked device checks honestly.
+6. Plan 04 rebase (`docs/decomposition_3/04.md`), then implementation.
+7. Device, live-server, and signed-release verification when a device and
+   signing inputs exist.
 
 ## Process Rules
 
-- One slice, one behavior, one commit. Then a record commit. Committing each verified slice is
-  required, not optional. The slice commit happens as soon as its tests are green. Do not commit a
+- One slice, one behavior, one commit. Then a record commit. Do not commit a
   slice whose tests are not green, and do not leave a green slice uncommitted.
 - Rewrite this handoff after each completed slice, per `AGENTS.md`.
-- Keep the acceptance matrix and the ownership pages current in the same slice.
+- Keep the ownership pages current in the same slice.
 - Stage only files that belong to the slice. Preserve unrelated worktree changes.
+- Keep `PalustrisApp`'s signature and `AppShellFixtures.app()` stable
+  through S1. Change internals only.
 - Use Beeline in user-facing text. Keep the internal codename out of user-facing content.
 - Keep protocol behavior in adapters. Keep account secrets and tokens out of presentation contracts.
 - Do not change a stored format without a migration in the same slice.
@@ -141,4 +86,11 @@ Read these in order. Treat the repository as the authority.
 - No emulator or device is reachable. Connected instrumentation stays unverified.
 - Live-server and signed-release behavior stay unverified.
 - The Android 15 system-bar instrumentation failure stays in `logs/BUGS.txt`.
-- No approval blocker remains for 03-F or 03-I.
+- The worktree holds another author's uncommitted drafts (`docs/archive/`,
+  wiki stubs, `documentation-inventory.md`, `gradle-no-daemon.md`, images).
+  Do not commit them under S1. The S1 audit files from this task
+  (`03_corrected.md`, inventory rows, index updates, README line) are also
+  uncommitted for the same reason; `03_corrected.md` is git-ignored and
+  must not be force-added.
+- The residual 03-G ordering risk (disk write after revocation, before row
+  deletion) stays in the Plan 03 task state.

@@ -45,14 +45,17 @@ Rebuild the TODO list from these items.
 
 ## Current tasks
 
-- [Decomposition 01 and 02 completion](tasks/decomposition-01-02-completion.md)
+No long task is active. The S1 split of `PalustrisApp.kt` is approved as the
+next implementation task. It has no task-state file yet.
 
 ## Historical tasks
 
-- [App-shell decomposition](tasks/app-shell-decomposition.md)
-- [State and lifecycle repair](tasks/state-and-lifecycle-repair.md)
-- [Cancellation and shell continuation](tasks/cancellation-and-shell-continuation.md)
-- [Reference localization](tasks/reference-localization.md)
+- [Plan 03 protocol and notification persistence](tasks/plan03-protocol-notifications.md)
+- [Plan 03 gate partials](tasks/plan03-gate-partials.md)
+- [Decomposition 01 and 02 completion](tasks/decomposition-01-02-completion.md)
+- [Archive index](../archive/README.md). It holds the app-shell decomposition, state and
+  lifecycle repair, cancellation and shell continuation, and reference localization task
+  states.
 
 ## Pages
 

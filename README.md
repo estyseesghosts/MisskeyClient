@@ -51,7 +51,7 @@ as of now?
 
 uploading media attachments is not yet supported. additionally, for misskey, we should support drive in a basic way. 
 
-content warnings are not fully implemented. reporting is not implemented. blocking and muting are not yet fully implemented. 
+content warnings are not fully implemented. reporting, blocking, and muting are implemented through the moderation lists. 
 
 comments are missing entirely. 
 
