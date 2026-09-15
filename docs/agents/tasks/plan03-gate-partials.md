@@ -80,7 +80,9 @@ None. The gate work is done. Plan 03 can start after its rebase.
 
 ## Last Safe Commit
 
-P-07 commit recorded below after the full gate passes.
+`a1b3615` "Order selected-post lookup by origin and refresh gate docs".
+
+P-01 is committed at `0fbc7c4`. P-02 is committed at `108ca3a`. P-03 is committed at `3b65104`. P-04 is committed at `4aa3618`. P-05 is committed at `ad5d403`. P-06 is committed at `ffb47da`. P-07 is committed at `a1b3615`.
 
 ## Files Involved For P-01
 

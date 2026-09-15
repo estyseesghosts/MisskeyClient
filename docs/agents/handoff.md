@@ -18,13 +18,15 @@ Read these in order. Treat the repository as the authority.
 
 - Completion slices C-01 through C-11, C-12a through C-12d4, C-13, C-14, and C-15 are
   committed. `L-01` is committed.
-- The last safe commit is `f6c1725` (C-15 record commit). C-15 is `b2b143c`.
+- Gate slices P-01 through P-07 are committed. The durable record is
+  `docs/agents/tasks/plan03-gate-partials.md`.
+- The last safe commit is `a1b3615` (P-07). P-07 is the gate close.
 - Plan 01 and Plan 02 exit conditions are met. Every acceptance row is implemented and
   test verified. Device, live-server, and signed-release behavior stay unverified.
-- No next slice. The dead scaffolding is removed. The `EmojiCatalogViewModel`
-  cancellation finding is resolved: `loadIfNeeded` rethrows before its fallback,
-  with a regression test. See `logs/BUGS.txt`.
-- `test assembleRelease` and `:app:lintDebug` pass at the C-15 behavior commit.
+- No next slice in the 01/02 series. Plan 03 can start after its rebase against the
+  completed boundaries. `AppLocaleInstrumentedTest` and the Room-backed DM removal test
+  are not written. No device is reachable.
+- `test assembleRelease` and `:app:lintDebug` pass at the P-07 behavior commit.
 
 ## Next Cleanup
 
