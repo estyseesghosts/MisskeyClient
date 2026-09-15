@@ -37,7 +37,10 @@ without changing installed data.
 - The progress report is the Plan 03 rebase authority.
 - Chunks 03-A through 03-C are independent of codec work.
 - Chunks 03-F and 03-G need one shared storage failure contract.
-- Chunks 03-I (visibility migration) and 03-F reset behavior need maintainer approval.
+- The maintainer approved the 03-F reset behavior and the 03-I visibility migration on
+  2026-09-15. The accepted policy is development-only discard: do not migrate old notification
+  data. Discard unreadable or incompatible local state and require reauthentication when needed.
+- Chunks 03-I (visibility migration) and 03-F reset behavior are approved to code.
 - No emulator is reachable. Instrumented and live-server checks stay blocked verification.
 
 ## Rebase Findings (R-01)
@@ -53,10 +56,10 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
   failed metadata probe backs off for 30 seconds.
 - 03-C: still required, reduced scope. `MisskeySource.post` (`:102`) and `delete` (`:549`)
   omit `validatePostId`. Repost undo (`:442`) and quote creation (`:350`) already validate.
-- 03-D: partially closed by 03-D1 and 03-D2. The state envelope, file-store contract, Room
-  fixed-JSON read, activity variants, navigation, read states, and delivery records are frozen.
-  Remaining: posts and accounts, interaction counts, unread state, settings, push, checkpoints,
-  malformed structure, and known omissions. Tracked as 03-D3.
+- 03-D: closed by 03-D1, 03-D2, and 03-D3. The complete state envelope, file-store
+  contract, Room fixed-JSON read, activity variants, navigation, read states, delivery
+  records, posts and accounts, interaction counts, unread state, settings, push, checkpoints,
+  malformed structure, and known omissions are frozen.
 - 03-E: still required. Recursive codecs remain in `NotificationRepository.kt:529-1117`.
   `NotificationJsonCodec.kt` holds only state-level `encode`/`decode`.
 - 03-H: still required. `LegacyNotificationFileImporter` writes the marker before returning
@@ -86,6 +89,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-D1 | Freeze the notification state-envelope codec. Add `NotificationJsonCodecTest` and literal fixtures for the complete and legacy minimal states. Add file-store fixed-JSON tests. | The state envelope round-trips. Legacy defaults, legacy target-only navigation, and the legacy reaction `imageUrl` are characterized. | implemented, test verified. |
 | 03-A2 | Add NodeInfo discovery when instance metadata omits the reaction advertisement. Validate discovery URLs, keep the request credential-free, disable redirects, bound reads, and fetch one document. | A server that advertises reactions only in NodeInfo gets React. A foreign, credentialed, or fragmented URL triggers no request. All discovery failures stay Unknown. | implemented, test verified. |
 | 03-D2 | Freeze the activity, navigation, read-state, and delivery fixtures. Add the Room fixed-JSON read test. | Every activity discriminant, navigation target, read state, and delivery state is characterized. Room decodes JSON inserted directly. | implemented, test verified. |
+| 03-D3 | Freeze the remaining fixtures: posts and accounts, interaction counts, unread state, settings, push, checkpoints, malformed structure, and known omissions. | Every remaining 03-D family has a fixed decoder contract, and the encoder-stable families round-trip. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -147,14 +151,25 @@ reads it through `RoomNotificationStore`. The Room write test round-trips the de
 `decode` collapses duplicate delivery IDs to the last record, and a malformed server destination
 falls back to the target or drops. `test assembleRelease` and `:app:lintDebug` pass.
 
+03-D3 verification: `NotificationJsonCodecTest` passes with thirty-nine tests and
+`NotificationRoomStoreFixtureTest` passes with three tests. New fixtures: `posts_and_accounts.json`,
+`interaction_counts.json`, `unread_states.json`, `settings_states.json`, `push_states.json`,
+`checkpoints.json`, `checkpoint_fallback.json`, `malformed_root_shape.json`, `malformed_entries.json`,
+`malformed_checkpoint.json`, `malformed_push.json`, `malformed_broken.json`, and
+`known_omissions.json`. `posts_and_accounts` and `checkpoints` are encoder-stable. The manifest
+fixtures hold one state per case because the codec stores one unread, settings, or push value per
+state. Confirmed decoder boundaries: malformed item, dismissal, and delivery entries drop
+individually; a malformed singular checkpoint or push registration fails the complete decode; the
+file store returns no state for broken JSON while the Room store throws. Post visibility and group
+actor continuation stay unpersisted. `test assembleRelease` and `:app:lintDebug` pass.
+
 ## Current Slice
 
-03-D3 — Freeze the posts, interaction-count, unread-state, settings, push, checkpoint, malformed,
-and known-omission fixtures.
+03-E — Complete codec ownership. Move the recursive conversion helpers from
+`NotificationRepository.kt` into `NotificationJsonCodec.kt` without changing the stored format.
 
-Remaining 03-D families: posts and accounts, interaction counts, unread state, settings, push,
-checkpoints, malformed structure, and known omissions. 03-F and 03-I need maintainer approval
-before coding.
+`03-D` is closed. 03-F and 03-I are approved. The approved policy discards old notification
+data instead of migrating it forward.
 
 ## Required Verification
 
@@ -175,8 +190,10 @@ Close standard input. Set an explicit timeout for each Gradle call.
 - Live-server behavior stays unverified.
 - Signed-release behavior stays unverified.
 - The Android 15 system-bar failure stays in `logs/BUGS.txt`.
-- 03-F reset policy and 03-I visibility migration need maintainer approval before coding.
+- No approval blocker remains for 03-F or 03-I. Their reset and visibility policy is approved.
 
 ## Last Safe Commit
 
-`0e0d8c4` "Freeze notification activity, navigation, read-state, and delivery fixtures".
+`5d1f8b2` "Freeze the remaining notification codec fixtures".
+
+03-D is closed. 03-E is the current slice. It rebases on the frozen fixture boundary.

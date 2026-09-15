@@ -26,12 +26,14 @@ Read these in order. Treat the repository as the authority.
   is committed at `3603ef3`. Slice `03-A1` is committed at `44b3483`. Slice `03-B1` is
   committed at `36eeeb9`. Slice `03-B2` is committed at `1c45afb`. Slice `03-D1` is committed
   at `e40ef87`. Slice `03-A2` is committed at `c6bd9ff`. Slice `03-D2` is committed at
-  `0e0d8c4`. The last safe commit is `0e0d8c4`.
+  `0e0d8c4`. Slice `03-D3` is committed at `5d1f8b2`. The last safe commit is `5d1f8b2`.
+- The maintainer approved the 03-F reset behavior and the 03-I visibility migration on
+  2026-09-15. The accepted policy is development-only discard: do not migrate old notification
+  data. Discard unreadable or incompatible local state and require reauthentication when needed.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-D3` (posts, interaction counts, unread state, settings, push, checkpoints,
-  malformed, and known-omission fixtures), then the remaining Plan 03 chunks. 03-F and 03-I
-  need maintainer approval before coding.
+- Next slice: `03-E` (complete notification codec ownership). The remaining Plan 03 chunks
+  follow. 03-F and 03-I are approved to code.
 
 ## Completed Plan 03 Slices
 
@@ -53,6 +55,10 @@ Read these in order. Treat the repository as the authority.
 - 03-D2 activity, navigation, read-state, and delivery fixtures plus the Room fixed-JSON test.
   Verification: `NotificationJsonCodecTest`, `NotificationRoomStoreFixtureTest`, then
   `test assembleRelease` and `:app:lintDebug`.
+- 03-D3 posts, interaction counts, unread state, settings, push, checkpoints, malformed
+  structure, and known-omission fixtures. Verification: `NotificationJsonCodecTest` (39 tests)
+  and `NotificationRoomStoreFixtureTest` (3 tests), then `test assembleRelease` and
+  `:app:lintDebug`.
 - Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 
 ## Process Rules
@@ -71,4 +77,4 @@ Read these in order. Treat the repository as the authority.
 - No emulator or device is reachable. Connected instrumentation stays unverified.
 - Live-server and signed-release behavior stay unverified.
 - The Android 15 system-bar instrumentation failure stays in `logs/BUGS.txt`.
-- 03-F and 03-I need maintainer approval before implementation.
+- No approval blocker remains for 03-F or 03-I.
