@@ -162,4 +162,21 @@
     <string name="audience_unlisted">No listado</string>
     <string name="audience_followers">Solo seguidores</string>
     <string name="audience_direct">Directo</string>
+    <string name="notifications_dismiss">Descartar</string>
+    <string name="setup_sign_in">Iniciar sesión</string>
+    <string name="setup_next">Siguiente</string>
+    <string name="notifications_grouped_two_actors">%1$s y %2$s</string>
+    <string name="notification_action_mark_all_read_description">Marcar todas las notificaciones como leídas</string>
+    <string name="notifications_settings_polls">Encuestas</string>
+    <string name="post_action_hashtags_close">Cerrar</string>
+    <string name="post_share_copy_link">Copiar</string>
+    <string name="post_share_heading">Compartir</string>
+    <string name="post_action_not_selected">No seleccionado</string>
+    <string name="account_add">Añadir cuenta</string>
+    <string name="dialog_discard">Descartar</string>
+    <string name="media_viewer">Visor multimedia</string>
+    <string name="settings_error_dismiss">Descartar</string>
+    <string name="settings_display">Visualización</string>
+    <string name="settings_choose_account">Elegir cuenta</string>
+    <string name="composer_visibility">Visibilidad</string>
 </resources>
