@@ -45,14 +45,9 @@ fun SettingsOverlayHost(
     }
     // An account route is valid only while its exact account exists. Before the account index
     // is restored, an empty list is not proof that the account was removed.
-    val routeAccountId = when (val current = route) {
-        is SettingsRoute.NotificationAccount -> current.accountId
-        is SettingsRoute.Moderation -> current.accountId
-        else -> null
-    }
-    val accountAvailable = routeAccountId == null || accounts.any { it.accountId == routeAccountId }
+    val resolvedRoute = resolveAccountRoute(route, accounts, accountsReady)
     LaunchedEffect(route, accounts, accountsReady) {
-        if (accountsReady && !accountAvailable) route = route.safeParent()
+        if (resolvedRoute != route) route = resolvedRoute
     }
     val appPreferences by settingsModel.state.collectAsStateWithLifecycle()
     val commandError by settingsModel.commandError.collectAsStateWithLifecycle()
@@ -74,9 +69,7 @@ fun SettingsOverlayHost(
     }
     // Account models wait for the validated index. Before restore, an empty account list is
     // not proof that the target was removed.
-    val requestedNotificationAccountId = (route as? SettingsRoute.NotificationAccount)?.accountId
-    val notificationAccountId = requestedNotificationAccountId
-        ?.takeIf { accountsReady && accounts.any { it.accountId == requestedNotificationAccountId } }
+    val notificationAccountId = notificationAccountFor(route, accounts, accountsReady)
     val notificationModel = notificationAccountId?.let { accountId ->
         hiltViewModel<NotificationSettingsViewModel, NotificationSettingsViewModel.Factory>(
             key = "settings-notification-settings-$accountId-$sessionGeneration",
@@ -93,9 +86,7 @@ fun SettingsOverlayHost(
             "settings-notification-settings-$accountId-$sessionGeneration",
         ) { model.stop() }
     }
-    val requestedModerationRoute = route as? SettingsRoute.Moderation
-    val moderationRoute = requestedModerationRoute
-        ?.takeIf { accountsReady && accounts.any { it.accountId == requestedModerationRoute.accountId } }
+    val moderationRoute = moderationRouteFor(route, accounts, accountsReady)
     val moderationModel = moderationRoute?.let { target ->
         sourceRegistry.sourceFor(target.accountId)?.let { source ->
             hiltViewModel<ModerationViewModel, ModerationViewModel.Factory>(

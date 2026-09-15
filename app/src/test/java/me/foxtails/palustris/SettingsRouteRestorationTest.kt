@@ -1,5 +1,6 @@
 package me.foxtails.palustris
 
+import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.Protocol
@@ -7,6 +8,9 @@ import me.foxtails.palustris.ui.settings.ModerationKind
 import me.foxtails.palustris.ui.settings.SettingsRoute
 import me.foxtails.palustris.ui.settings.decodeSettingsRoute
 import me.foxtails.palustris.ui.settings.encodeSettingsRoute
+import me.foxtails.palustris.ui.settings.moderationRouteFor
+import me.foxtails.palustris.ui.settings.notificationAccountFor
+import me.foxtails.palustris.ui.settings.resolveAccountRoute
 import me.foxtails.palustris.ui.settings.restoreSettingsRoute
 import me.foxtails.palustris.ui.settings.safeParent
 import org.junit.Assert.assertEquals
@@ -15,6 +19,8 @@ import org.junit.Test
 
 class SettingsRouteRestorationTest {
     private val account = AccountId(Connection("https://example.org", Protocol.MISSKEY), "person")
+    private val other = AccountId(Connection("https://example.org", Protocol.MISSKEY), "other")
+    private fun ref(id: AccountId) = AccountRef(id, "@${id.localId}", null, id.localId)
 
     @Test
     fun everyObjectRouteRoundTrips() {
@@ -75,5 +81,56 @@ class SettingsRouteRestorationTest {
             SettingsRoute.Moderation(account, ModerationKind.Blocked).safeParent(),
         )
         assertEquals(SettingsRoute.Main, SettingsRoute.Display.safeParent())
+    }
+
+    @Test
+    fun pendingRouteSurvivesWhileTheAccountIndexLoads() {
+        val route = SettingsRoute.NotificationAccount(account)
+        assertEquals(route, resolveAccountRoute(route, emptyList(), accountsReady = false))
+        assertNull(notificationAccountFor(route, emptyList(), accountsReady = false))
+
+        val moderation = SettingsRoute.Moderation(account, ModerationKind.Muted)
+        assertEquals(moderation, resolveAccountRoute(moderation, emptyList(), accountsReady = false))
+        assertNull(moderationRouteFor(moderation, emptyList(), accountsReady = false))
+    }
+
+    @Test
+    fun presentAccountRouteStaysAndConstructsItsModel() {
+        val accounts = listOf(ref(account), ref(other))
+        val route = SettingsRoute.NotificationAccount(account)
+        assertEquals(route, resolveAccountRoute(route, accounts, accountsReady = true))
+        assertEquals(account, notificationAccountFor(route, accounts, accountsReady = true))
+
+        val moderation = SettingsRoute.Moderation(account, ModerationKind.Blocked)
+        assertEquals(moderation, resolveAccountRoute(moderation, accounts, accountsReady = true))
+        assertEquals(moderation, moderationRouteFor(moderation, accounts, accountsReady = true))
+    }
+
+    @Test
+    fun removedAccountRouteFallsBackWithoutMappingToTheActiveAccount() {
+        val accounts = listOf(ref(other))
+        val route = SettingsRoute.NotificationAccount(account)
+        assertEquals(SettingsRoute.Notifications, resolveAccountRoute(route, accounts, accountsReady = true))
+        assertNull(notificationAccountFor(route, accounts, accountsReady = true))
+
+        val moderation = SettingsRoute.Moderation(account, ModerationKind.Muted)
+        assertEquals(
+            SettingsRoute.PrivacyAccounts,
+            resolveAccountRoute(moderation, accounts, accountsReady = true),
+        )
+        assertNull(moderationRouteFor(moderation, accounts, accountsReady = true))
+    }
+
+    @Test
+    fun nonAccountRoutesNeverRemap() {
+        val accounts = listOf(ref(other))
+        assertEquals(
+            SettingsRoute.Language,
+            resolveAccountRoute(SettingsRoute.Language, accounts, accountsReady = true),
+        )
+        assertEquals(
+            SettingsRoute.Language,
+            resolveAccountRoute(SettingsRoute.Language, emptyList(), accountsReady = false),
+        )
     }
 }

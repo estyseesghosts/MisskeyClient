@@ -2,8 +2,9 @@ package me.foxtails.palustris.data.directmessages
 
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.runBlocking
+import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.DirectConversation
@@ -51,29 +52,33 @@ class InMemoryDirectMessageStore : DirectMessageStore {
 @Singleton
 class RoomDirectMessageStore @Inject constructor(
     private val database: DirectMessageDatabase,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : DirectMessageStore {
     private val dao = database.directMessageDao()
 
-    override fun conversations(accountId: AccountId): List<DirectConversation> = runBlocking(Dispatchers.IO) {
+    // The interface stays synchronous because the repository and the ViewModel already
+    // confine every call to the injected IO dispatcher. The blocking bridge below uses
+    // that same dispatcher instead of a hard-coded one, so tests can substitute it.
+    override fun conversations(accountId: AccountId): List<DirectConversation> = runBlocking(ioDispatcher) {
         dao.conversations(accountId.key()).mapNotNull { entity ->
             runCatching { DirectMessageCodec.decodeConversation(entity) }.getOrNull()
         }
     }
 
-    override fun conversation(accountId: AccountId, id: ConversationId): DirectConversation? = runBlocking(Dispatchers.IO) {
+    override fun conversation(accountId: AccountId, id: ConversationId): DirectConversation? = runBlocking(ioDispatcher) {
         dao.conversation(accountId.key(), id.connection, id.value)?.let {
             runCatching { DirectMessageCodec.decodeConversation(it) }.getOrNull()
         }
     }
 
-    override fun thread(accountId: AccountId, id: ConversationId): List<Post> = runBlocking(Dispatchers.IO) {
+    override fun thread(accountId: AccountId, id: ConversationId): List<Post> = runBlocking(ioDispatcher) {
         dao.conversation(accountId.key(), id.connection, id.value)?.let {
             runCatching { DirectMessageCodec.decodeThread(it) }.getOrDefault(emptyList())
         }.orEmpty()
     }
 
     override fun save(accountId: AccountId, value: DirectConversation, thread: List<Post>) {
-        runBlocking(Dispatchers.IO) {
+        runBlocking(ioDispatcher) {
             val key = accountId.key()
             val previous = dao.conversation(key, value.id.connection, value.id.value)
             val existingThread = previous?.let { runCatching { DirectMessageCodec.decodeThread(it) }.getOrDefault(emptyList()) }
@@ -91,11 +96,11 @@ class RoomDirectMessageStore @Inject constructor(
     }
 
     override fun markRead(accountId: AccountId, id: ConversationId) {
-        runBlocking(Dispatchers.IO) { dao.markRead(accountId.key(), id.connection, id.value) }
+        runBlocking(ioDispatcher) { dao.markRead(accountId.key(), id.connection, id.value) }
     }
 
     override fun delete(accountId: AccountId) {
-        runBlocking(Dispatchers.IO) { dao.deleteAccount(accountId.key()) }
+        runBlocking(ioDispatcher) { dao.deleteAccount(accountId.key()) }
     }
 }
 

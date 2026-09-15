@@ -48,7 +48,8 @@ Close the partial gaps from the 01/02 review. Keep completed extractions. Leave 
 | P-02 | Narrow popup contract. Leaves use `PostPopupPresentation`. | Generic leaves never receive the service-backed owner, source, or scope. | implemented, test verified. Commit `108ca3a`. |
 | P-03 | Make thread external apply non-emitting. | Externally applied projections never re-emit. No reliance on the coordinator re-entrancy guard. | implemented, test verified. Commit `3b65104`. |
 | P-04 | Bind paging to the exact input cursor. Bump the collection epoch on stop. | A stale same-epoch page cannot merge or rewind the cursor. A stopped collection cannot publish. | implemented, test verified. Commit `4aa3618`. |
-| P-05 | Guard thread reconcile and rollback by action family. | A stale server snapshot cannot overwrite newer local fields. A failed action cannot roll back a newer same-family projection. | implemented, test verified. |
+| P-05 | Guard thread reconcile and rollback by action family. | A stale server snapshot cannot overwrite newer local fields. A failed action cannot roll back a newer same-family projection. | implemented, test verified. Commit `ad5d403`. |
+| P-06 | Inject the IO dispatcher into the Room DM store. Extract pure settings route gating with tests. | No hard-coded dispatcher in storage. Pending routes survive loading. Removed accounts remap to the safe parent, never to the active account. | implemented, test verified. |
 
 P-01 verification: `HomeFeedTest` and `NavigationTest` pass. The `SearchScreen` `onReply` observer at `HomeFeedTest.kt:774` is a leaf callback test, not a shell seam. `PalustrisApp` carries no `onReply` parameter.
 
@@ -60,9 +61,11 @@ P-04 verification: `FeedViewModelRequestTest`, `SavedPostsViewModelTest`, and `F
 
 P-05 verification: `PostThreadViewModelTest` (with new `failedFavoriteKeepsNewerSameFamilyCountProjection` and `staleServerSnapshotPreservesNewerLocalFields`), `PostInteractionMutationOwnerTest`, and `PostInteractionExecutionAuthorityTest` pass. Cross-surface same-family concurrency stays serialized by the shared execution authority. The focused mutation owner already merges and rolls back by family.
 
+P-06 verification: `SettingsRouteRestorationTest` (with new pending, present, removed, and non-account cases), `SettingsViewModelTest`, `SettingsDisplayTest`, `DirectMessageRepositoryTest`, and `DirectMessageViewModelTest` pass. The Room-backed removal test stays blocked verification without a device. Cache reads already run off the main thread in the repository and the ViewModel.
+
 ## Current Slice
 
-P-06 — Fix Room store dispatcher and add settings gating coverage.
+P-07 — Reduce shell remnants and record locale/device limits.
 
 ## Files Involved For P-01
 
