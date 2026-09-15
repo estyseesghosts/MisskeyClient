@@ -101,6 +101,7 @@ Source verified against `HEAD`. Plan 03's baseline `c78e2cf` predates C-01..C-15
 | 03-F4 | Refuse newer stored formats, add the approved account-local reset, and record Room schema history. | A newer-format payload stays untouched and blocks writes. Reset revokes the old generation, clears only notification-local state, and prevents legacy reimport. The exported schema is committed and guarded by a test. | implemented, test verified. |
 | 03-G | Make notification write failures explicit through durable acceptance. | Every mutation publishes only after the store accepts the write while the writer is still current. A failed write marks the account Unavailable, publishes nothing, and returns failure. | implemented, test verified. |
 | 03-H | Make legacy import restart-safe. | The Room row wins over the legacy file. The marker is written only after a successful Room save. Transient failures stay unmarked for retry. | implemented, test verified. |
+| 03-I | Persist post visibility and withhold hidden bodies. | Every stored post carries `contentVisibility`, including nested quotes. Missing or unknown values decode Hidden. Android previews and row bodies stay hidden for non-visible posts. | implemented, test verified. |
 
 R-01 verification: source verified for every named authority at `b715430`. No test ran. The
 rebase changed documentation only.
@@ -251,9 +252,21 @@ notification suites, then `test assembleRelease` and `:app:lintDebug`. `:app:ass
 still fails in the pre-existing `Api29StartupInstrumentedTest` (missing constructor arguments);
 `RoomNotificationStoreInstrumentedTest` itself compiles after the typed-read repair.
 
+03-I verification: `encodePost` always writes `contentVisibility`, including nested quotes.
+`decodePost` maps a missing or unknown value to `Hidden`, so old blobs withhold their cached
+bodies until an authenticated refresh replaces them. The format stays at version 2: the field
+is additive, and old fixtures remain readable. `NotificationDeliveryPlanner` prepares an Android
+preview only for `Visible` public posts. `NotificationRow` never renders the body of a `Hidden`
+post. New fixture `post_visibility.json` covers visible, hidden, filtered, and nested-hidden
+posts through the codec, the file store, and Room restart. `posts_and_accounts.json` keeps its
+bytes and now characterizes legacy decode to Hidden. `NotificationJsonCodecTest`,
+`NotificationRoomStoreFixtureTest`, `NotificationDeliveryPlannerTest`, and
+`NotificationsScreenTest` pass with the focused notification suites, then `test assembleRelease`
+and `:app:lintDebug`.
+
 ## Current Slice
 
-03-I — Repair visibility separately. 03-H is complete.
+03-J — Place identity helpers. 03-I is complete.
 
 ## Required Verification
 
@@ -281,9 +294,10 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 ## Last Safe Commit
 
-`fc5cb6e` "Make legacy notification import restart-safe".
+`299712f` "Persist post visibility in notification storage and withhold hidden bodies".
 
-03-F1, 03-F2, 03-F3, 03-F4, 03-G, and 03-H are closed. 03-F2 is committed at `15ba26b`. 03-F3 is
-committed at `9dac59b`. 03-F4 is committed at `d3e1323` and test verified. 03-G is committed
-at `136c4ae` and test verified. 03-H is committed at `fc5cb6e` and test verified. The next slice
-is 03-I. Commit every green slice as soon as its tests pass.
+03-F1, 03-F2, 03-F3, 03-F4, 03-G, 03-H, and 03-I are closed. 03-F2 is committed at `15ba26b`.
+03-F3 is committed at `9dac59b`. 03-F4 is committed at `d3e1323` and test verified. 03-G is
+committed at `136c4ae` and test verified. 03-H is committed at `fc5cb6e` and test verified.
+03-I is committed at `299712f` and test verified. The next slice is 03-J. Commit every green
+slice as soon as its tests pass.

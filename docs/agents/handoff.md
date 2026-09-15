@@ -30,15 +30,14 @@ Read these in order. Treat the repository as the authority.
   Slice `03-F1` is committed at `f33607e`. Slice `03-F2` is committed at `15ba26b`. Slice
   `03-F3` is committed at `9dac59b`. Slice `03-F4` is committed at `d3e1323` and test verified.
   Slice `03-G` is committed at `136c4ae` and test verified. Slice `03-H` is committed
-  at `fc5cb6e` and test verified.
-  The last safe commit is `fc5cb6e`.
+  at `fc5cb6e` and test verified. Slice `03-I` is committed at `299712f` and test verified.
+  The last safe commit is `299712f`.
 - The maintainer approved the 03-F reset behavior and the 03-I visibility migration on
   2026-09-15. The accepted policy is development-only discard: do not migrate old notification
   data. Discard unreadable or incompatible local state and require reauthentication when needed.
 - Plan 01 and Plan 02 exit conditions are met. Device, live-server, and signed-release
   behavior stay unverified.
-- Next slice: `03-I` (repair visibility separately). `03-J` follows. 03-F, 03-G, and
-  03-H are complete. 03-I is approved to code.
+- Next slice: `03-J` (place identity helpers). 03-F, 03-G, 03-H, and 03-I are complete.
 - Unrelated documentation and archive changes appeared in the worktree during 03-E. They are
   not part of any committed Plan 03 slice and were left untouched.
 
@@ -107,6 +106,12 @@ Read these in order. Treat the repository as the authority.
   `test assembleRelease` and `:app:lintDebug`. `:app:assembleDebugAndroidTest` still fails in
   the pre-existing `Api29StartupInstrumentedTest`; the repaired
   `RoomNotificationStoreInstrumentedTest` compiles.
+- 03-I visibility persistence. Every stored post carries `contentVisibility`, including nested
+  quotes. Missing or unknown values decode to `Hidden`. Android previews and row bodies stay
+  hidden for non-visible posts. Verification: `NotificationJsonCodecTest`,
+  `NotificationRoomStoreFixtureTest`, `NotificationDeliveryPlannerTest`, and
+  `NotificationsScreenTest` (new `post_visibility.json` fixture, legacy fallback, preview
+  gating, and row suppression), then `test assembleRelease` and `:app:lintDebug`.
 - Run `test assembleRelease` and `:app:lintDebug` after each remaining slice.
 
 ## Process Rules
