@@ -14,7 +14,9 @@
 .cxx
 local.properties
 /.gradle-user
+/.kotlin/
 /logs/*.txt
+/*.jpg
 /app/release/
 /docs/*
 !/docs/wiki/
