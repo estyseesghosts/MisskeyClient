@@ -13,13 +13,17 @@ import me.foxtails.palustris.domain.PostDraft
  *
  * This owner hides storage selection, legacy migration, and account scoping. The presentation
  * contract carries no storage type. Cancellation rethrows so a cancelled scope never reports
- * success, failure, or completion. Load and delete failures report an explicit message.
+ * success, failure, or completion. Load and delete failures report an explicit message. Save
+ * and delete run through the draft write authority, so a writer revoked by account removal
+ * writes nothing and reports no success.
  */
 class DraftActions(
     private val scope: CoroutineScope,
     private val store: DraftStore,
     private val accountId: AccountId?,
     private val legacyPreferences: () -> SharedPreferences,
+    private val writeGeneration: Long = 0L,
+    private val writeAuthority: DraftWriteAuthority = DraftWriteAuthority(),
 ) {
     fun load(onResult: (List<PostDraft>) -> Unit, onError: (String) -> Unit = {}) {
         scope.launch {
@@ -37,8 +41,9 @@ class DraftActions(
     fun save(draft: PostDraft, onResult: (PostDraft) -> Unit, onError: () -> Unit) {
         scope.launch {
             try {
-                store.save(draft)
-                onResult(draft)
+                val accepted = writeIfCurrent { store.save(draft) }
+                // A revoked writer writes nothing and reports no success.
+                if (accepted) onResult(draft) else return@launch
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -50,8 +55,9 @@ class DraftActions(
     fun delete(draftId: String, onDone: () -> Unit, onError: (String) -> Unit = {}) {
         scope.launch {
             try {
-                store.delete(accountId, draftId)
-                onDone()
+                val accepted = writeIfCurrent { store.delete(accountId, draftId) }
+                // A revoked writer deletes nothing and reports no completion.
+                if (accepted) onDone() else return@launch
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -60,6 +66,14 @@ class DraftActions(
                 onDone()
             }
         }
+    }
+
+    private suspend fun writeIfCurrent(block: suspend () -> Unit): Boolean {
+        val bound = accountId ?: run {
+            block()
+            return true
+        }
+        return writeAuthority.commitIfCurrent(bound, writeGeneration) { block() } != null
     }
 
     companion object {
@@ -72,8 +86,17 @@ class DraftActions(
             store: DraftStore,
             accountId: AccountId?,
             context: Context,
-        ): DraftActions = DraftActions(scope, store, accountId) {
-            context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)
-        }
+            writeGeneration: Long = 0L,
+            writeAuthority: DraftWriteAuthority = DraftWriteAuthority(),
+        ): DraftActions = DraftActions(
+            scope = scope,
+            store = store,
+            accountId = accountId,
+            legacyPreferences = {
+                context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)
+            },
+            writeGeneration = writeGeneration,
+            writeAuthority = writeAuthority,
+        )
     }
 }

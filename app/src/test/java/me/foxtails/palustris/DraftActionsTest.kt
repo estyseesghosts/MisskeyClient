@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -15,6 +16,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import me.foxtails.palustris.data.auth.DraftActions
 import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.auth.DraftWriteAuthority
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.PostDraft
@@ -140,6 +142,90 @@ class DraftActionsTest {
 
     private fun preferences() = ApplicationProvider.getApplicationContext<Context>()
         .getSharedPreferences("local_draft", Context.MODE_PRIVATE)
+
+    @Test
+    fun saveAfterInvalidationWritesNothingAndReportsNothing() = runTest {
+        val authority = DraftWriteAuthority()
+        val generation = authority.activate(account)
+        val store = GateDraftStore()
+        val actions = DraftActions(
+            scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob()),
+            store = store,
+            accountId = account,
+            legacyPreferences = ::preferences,
+            writeGeneration = generation,
+            writeAuthority = authority,
+        )
+        authority.invalidate(account)
+
+        var results = 0
+        var errors = 0
+        actions.save(draft, onResult = { results++ }, onError = { errors++ })
+        advanceUntilIdle()
+
+        assertTrue(store.saved.isEmpty())
+        assertEquals(0, results)
+        assertEquals(0, errors)
+    }
+
+    @Test
+    fun deleteAfterInvalidationDeletesNothingAndReportsNothing() = runTest {
+        val authority = DraftWriteAuthority()
+        val generation = authority.activate(account)
+        val store = GateDraftStore()
+        val actions = DraftActions(
+            scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob()),
+            store = store,
+            accountId = account,
+            legacyPreferences = ::preferences,
+            writeGeneration = generation,
+            writeAuthority = authority,
+        )
+        authority.invalidate(account)
+
+        var done = 0
+        val errors = mutableListOf<String>()
+        actions.delete(draftId = "draft", onDone = { done++ }, onError = { errors += it })
+        advanceUntilIdle()
+
+        assertTrue(store.deleted.isEmpty())
+        assertEquals(0, done)
+        assertTrue(errors.isEmpty())
+    }
+
+    @Test
+    fun inFlightSaveCannotRecreateRowsDeletedByRemoval() = runTest {
+        val authority = DraftWriteAuthority()
+        val generation = authority.activate(account)
+        val saveGate = CompletableDeferred<Unit>()
+        val store = GateDraftStore(saveGate = saveGate)
+        val actions = DraftActions(
+            scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob()),
+            store = store,
+            accountId = account,
+            legacyPreferences = ::preferences,
+            writeGeneration = generation,
+            writeAuthority = authority,
+        )
+
+        var results = 0
+        var errors = 0
+        actions.save(draft, onResult = { results++ }, onError = { errors++ })
+        runCurrent()
+        // Removal revokes the writer and deletes rows in one serialized boundary.
+        val removal = async { authority.invalidateAndDelete(account) { store.saved.clear() } }
+        runCurrent()
+        saveGate.complete(Unit)
+        removal.await()
+        advanceUntilIdle()
+
+        assertTrue(store.saved.isEmpty())
+        // Either the save won the lock and the delete removed it, or the save was revoked.
+        // In neither case may a success callback claim the removed draft survived.
+        // A revoked save reports nothing; an accepted-then-deleted save is still gone.
+        assertTrue(results <= 1)
+        assertEquals(0, errors)
+    }
 
     private fun TestScope.actions(store: DraftStore): DraftActions = DraftActions(
         scope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob()),

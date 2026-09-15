@@ -13,6 +13,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.auth.DraftWriteAuthority
 import me.foxtails.palustris.data.notifications.ForegroundNotificationStreamController
 import me.foxtails.palustris.domain.AppLanguage
 import me.foxtails.palustris.domain.AppPreferencesRepository
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
     private val accountManager by viewModels<AccountManager>()
     @Inject lateinit var sourceRegistry: AccountSourceRegistry
     @Inject lateinit var draftStore: DraftStore
+    @Inject lateinit var draftWriteAuthority: DraftWriteAuthority
     @Inject lateinit var notificationLaunchRouter: NotificationLaunchRouter
     @Inject lateinit var notificationStreamController: ForegroundNotificationStreamController
     @Inject lateinit var appPreferencesRepository: AppPreferencesRepository
@@ -55,6 +57,7 @@ class MainActivity : ComponentActivity() {
                 accountManager,
                 sourceRegistry,
                 draftStore,
+                draftWriteAuthority,
                 notificationLaunchRouter,
                 notificationStreamController,
                 appPreferencesRepository,

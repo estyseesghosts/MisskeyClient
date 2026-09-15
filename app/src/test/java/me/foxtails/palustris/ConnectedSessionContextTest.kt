@@ -17,6 +17,7 @@ import me.foxtails.palustris.data.SocialSourceFactory
 import me.foxtails.palustris.data.auth.AccountIndex
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.data.auth.AuthGateway
+import me.foxtails.palustris.data.auth.DraftWriteAuthority
 import me.foxtails.palustris.data.auth.InMemoryDraftStore
 import me.foxtails.palustris.data.auth.LoginSession
 import me.foxtails.palustris.data.auth.PendingLogin
@@ -144,6 +145,7 @@ class ConnectedSessionContextTest {
         emojiCatalogRepository = InMemoryEmojiCatalogRepository(),
         emojiPickerPreferencesRepository = InMemoryEmojiPickerPreferencesRepository(),
         draftStore = InMemoryDraftStore(),
+        draftWriteAuthority = DraftWriteAuthority(),
     )
 
     private fun auth(result: LoginSession) = object : AuthGateway {

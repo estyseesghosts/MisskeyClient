@@ -8,7 +8,8 @@
 - C-05 composer editor ownership is committed at `bd2d1b6`.
 - C-06a version-aware composer publish is committed at `84006c1`.
 - C-06b drafts storage boundary is committed at `c1288da`.
-- Continue with slice C-06c, account-removal coordination for pending draft writes.
+- C-06c draft removal coordination is committed at `PENDING`.
+- Continue with slice C-07, post-action ownership and projection.
 - Keep `docs/agents/decomposition-01-02-acceptance-matrix.md` current at each slice boundary.
 - Rebase `docs/decomposition_3/03.md` and `04.md` after the completion work.
 - Run authorized live-server and device checks when the environment is available.

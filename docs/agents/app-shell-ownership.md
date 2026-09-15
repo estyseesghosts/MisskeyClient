@@ -3,10 +3,10 @@
 **Owner:** app-shell and feature-presentation maintainers.
 
 **Status:** current. The shell decomposition is partially migrated. Completion slices C-01 through C-05,
-C-06a, and C-06b are implemented and test verified in the working tree. Other completion slices repair
+C-06a, C-06b, and C-06c are implemented and test verified in the working tree. Other completion slices repair
 the remaining gaps.
 
-**Last reviewed:** 2026-09-14.
+**Last reviewed:** 2026-09-15.
 
 **Source baseline:** `b629a2c`.
 
@@ -92,7 +92,7 @@ Completion slices close these gaps. The acceptance matrix records the status.
 | Post-action ownership | `ConnectedSessionHost.kt:187` remembers `PostActionOwner` with the whole `profile` contract. A profile update can replace popup ownership. | C-07 |
 | Composer completion | Closed by C-06a. `ComposerOwner.publish` reserves the submission and rejects obsolete save callbacks. | — |
 | Draft storage boundary | Closed by C-06b. `data/auth/DraftActions.kt` owns storage and binds to one account. `ui/shell/DraftsContract.kt` carries no storage type. | — |
-| Draft removal coordination | Account removal does not coordinate pending draft writes. A late save can recreate a draft. | C-06c |
+| Draft removal coordination | Closed by C-06c. `AccountManager.removeAccount` revokes draft writers and deletes rows in one serialized boundary. A revoked `DraftActions` writer writes nothing and reports no success. | — |
 | Projection retirement | `PostProjectionCoordinator` has account and revision checks. It has no explicit retired state or accepted-publication identity. | C-07 |
 | Shell assembly | `PalustrisApp.kt` owns navigation and still holds some shell assembly. | C-12 |
 | Test isolation | Small feature scenarios still construct the full shell. | C-12 |
@@ -120,6 +120,8 @@ Completion slices close these gaps. The acceptance matrix records the status.
 - A feature model retires with its connected entry, not with a composition disposal.
 - The account lifecycle issues the direct-message writer generation. A repository captures it. A
   revoked writer cannot mutate current DM storage. Network requests stay outside the lock.
+- The account lifecycle issues the draft writer generation. `DraftActions` captures it. A revoked
+  draft writer cannot recreate removed drafts. Removal revokes writers before deleting rows.
 - The direct-message composer text stays with the direct-message feature owner. A screen does not
   hold it and does not clear it on Send.
 - The composer editor stays with the composer feature owner. The shell requests transitions and

@@ -55,6 +55,7 @@ section 1. Keep the completed extractions and repairs. Do not recreate the old a
 | C-05 | Step 6 | Establish a composer editor owner. Move editor fields out of `PalustrisApp`. | `PalustrisApp` requests composer transitions. It does not implement editor state. | implemented, test verified. Commit `bd2d1b6`. |
 | C-06a | Step 7, part 1 | Make publish completion version-aware. Reserve the submission before the async save. Reject obsolete save callbacks. Clear and delete only the submitted version. | No late save clears newer text or starts an obsolete publish. | implemented, test verified. Commit `84006c1`. |
 | C-06b | Step 7, part 2 | Move the draft storage owner into the data layer. Bind draft operations to the account. Add load request identity. Report load and delete failures. | The presentation contract carries no storage. Draft failures are reported. | implemented, test verified. Commit `c1288da`. |
+| C-06c | Step 7, part 3 | Coordinate account removal with pending draft writes. | A remove cannot leave recreated draft data. | implemented, test verified. Commit `PENDING`. |
 
 C-01 changed `AccountManager`, `NotificationSyncController`, `ConnectedApp`,
 `ConnectedSessionHost`, `MainActivity`, `SessionViewModelTest`, and added
@@ -99,14 +100,20 @@ C-06b added `data/auth/DraftActions.kt`. The draft storage owner left `ui/shell/
 The presentation contract carries no storage type. `DraftActions.create` holds the legacy preferences
 lookup in the data layer. `DraftActions` binds to one account. `ui/composer/DraftsContractAdapter.kt`
 adapts it to the presentation contract. `ComposerOwner.refreshDrafts` uses a load epoch so a stale
-load result cannot replace a newer one. Load and delete failures report an explicit message. C-06c
-still owns account-removal coordination.
+load result cannot replace a newer one. Load and delete failures report an explicit message.
+
+C-06c added `data/auth/DraftWriteAuthority.kt`. The authority mirrors `DirectMessageWriteAuthority`
+with one lock per account, monotonic generations, `activate`, `invalidate`, `invalidateAndDelete`,
+and `commitIfCurrent`. `AccountManager.connect` activates the draft generation before it publishes
+the context. `updateAccount` carries the generation into the rebuilt context. `removeAccount`
+revokes writers and deletes rows in one serialized boundary. `DraftActions` routes save and delete
+through `commitIfCurrent`. A revoked writer writes nothing and reports no success. `ConnectedSessionHost`
+builds the draft owner from `connectedContext.draftGeneration` and the injected authority.
 
 ## Remaining Slices
 
 | Slice | Report step | Scope | Exit | Status |
 | --- | --- | --- | --- | --- |
-| C-06c | Step 7, part 3 | Coordinate account removal with pending draft writes. | A remove cannot leave recreated draft data. | pending |
 | C-07 | Step 8 | Stabilize post-action ownership and projection. Use typed families. Retire the coordinator with its entry. | Every surface receives the accepted action result once. Retired popups have no authority. | pending |
 | C-08 | Step 9 | Complete Home paging demand. Include filter identity and the request epoch. Count accepted pages. | Home reaches older visible content without unbounded automatic requests. | pending |
 | C-09 | Step 10 | Finish notification request and launch ownership. Add request identity. Return explicit launch acceptance. | Rejected pages change no state. An undelivered launch is not acknowledged. | pending |
@@ -120,19 +127,17 @@ Split a slice when it spans independent behavior. Keep one verification method f
 
 ## Current Slice
 
-**C-06c — Coordinate account removal with pending draft writes.**
+**C-07 — Stabilize post-action ownership and projection.**
 
-Not started. Work from `progressreport.md` section 3 step 7. C-01 through C-06b are committed.
+Not started. Work from `progressreport.md` section 3 step 8. C-01 through C-06c are committed.
 
-## Files Involved For C-06c
+## Files Involved For C-07
 
-- `app/src/main/java/me/foxtails/palustris/data/auth/DraftStore.kt`
-- `app/src/main/java/me/foxtails/palustris/data/auth/DraftActions.kt`
-- `app/src/main/java/me/foxtails/palustris/ui/AccountManager.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/posts/PostActionOwner.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/posts/PostInteractionMutationOwner.kt`
 - `app/src/main/java/me/foxtails/palustris/ui/session/ConnectedSessionHost.kt`
-- `app/src/main/java/me/foxtails/palustris/di/AppModule.kt`
-- `app/src/test/java/me/foxtails/palustris/DraftActionsTest.kt`
-- `app/src/test/java/me/foxtails/palustris/SessionViewModelTest.kt`
+- `app/src/main/java/me/foxtails/palustris/ui/shell/PostProjectionCoordinator.kt`
+- Post-action and projection tests
 
 ## Required Verification
 
@@ -224,6 +229,23 @@ instrumented recreation test ran.
 The proposed `DirectMessageStoreInstrumentedTest.kt` from C-03 is not written. No device is
 reachable. The Room store deletion and late-write behavior stays device unverified.
 
+C-06c verification result: `DraftActionsTest`, `SessionViewModelTest`, `ComposerOwnerTest`, and
+`ConnectedSessionContextTest` passed. `test assembleRelease` passed. `:app:lintDebug` passed when
+run alone.
+
+Test these cases for C-06c:
+
+- A save after invalidation writes nothing and reports nothing. Covered by
+  `DraftActionsTest.saveAfterInvalidationWritesNothingAndReportsNothing`.
+- A delete after invalidation deletes nothing and reports nothing. Covered by
+  `deleteAfterInvalidationDeletesNothingAndReportsNothing`.
+- An in-flight save cannot recreate rows deleted by removal. Covered by
+  `inFlightSaveCannotRecreateRowsDeletedByRemoval`.
+- A pending save cannot recreate the removed draft while a second account keeps its drafts.
+  Covered by `SessionViewModelTest.removeAccountCannotLeaveRecreatedDraftFromPendingSave`.
+
+No device test ran. Live-server and signed-release behavior stay unverified.
+
 ## Unresolved Blockers
 
 - No emulator or device is reachable in the agent shell. Connected instrumentation stays unverified.
@@ -234,8 +256,8 @@ reachable. The Room store deletion and late-write behavior stays device unverifi
 
 ## Last Safe Commit
 
-`c1288da` "Move draft storage behind a bound owner".
+`PENDING` "Coordinate account removal with pending draft writes".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
-C-06b is committed at `c1288da`. C-06c is the next slice.
+C-06b is committed at `c1288da`. C-06c is committed at `PENDING`. C-07 is the next slice.

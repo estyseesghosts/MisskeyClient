@@ -13,6 +13,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import me.foxtails.palustris.data.auth.AccountIndex
 import me.foxtails.palustris.data.auth.DraftActions
 import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.auth.DraftWriteAuthority
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
@@ -50,6 +51,7 @@ fun ConnectedSessionHost(
     connectedContext: ConnectedSessionContext,
     entryStore: ConnectedEntryStore,
     draftStore: DraftStore,
+    draftWriteAuthority: DraftWriteAuthority,
     notificationStreamController: NotificationStreamController,
     accountIndex: AccountIndex,
     postPreferences: PostPreferences,
@@ -165,8 +167,15 @@ fun ConnectedSessionHost(
             ?.takeIf { it.id == account.id && it != account }
             ?.let(accountManager::updateAccount)
     }
-    val draftsContract = remember(draftStore, context, settingsScope, accountId) {
-        DraftActions.create(settingsScope, draftStore, accountId, context).asDraftsContract()
+    val draftsContract = remember(draftStore, draftWriteAuthority, context, settingsScope, accountId, connectedContext.draftGeneration) {
+        DraftActions.create(
+            settingsScope,
+            draftStore,
+            accountId,
+            context,
+            connectedContext.draftGeneration,
+            draftWriteAuthority,
+        ).asDraftsContract()
     }
     val postActionOwner = remember(accountId, sessionRevision, sharedSource, profile) {
         PostActionOwner(

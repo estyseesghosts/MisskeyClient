@@ -36,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.foxtails.palustris.data.AccountSourceRegistry
 import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.auth.DraftWriteAuthority
 import me.foxtails.palustris.data.notifications.NotificationStreamController
 import me.foxtails.palustris.domain.AppPreferencesRepository
 import me.foxtails.palustris.domain.AppPreferencesState
@@ -55,6 +56,7 @@ fun ConnectedApp(
     accountManager: AccountManager,
     sourceRegistry: AccountSourceRegistry,
     draftStore: DraftStore,
+    draftWriteAuthority: DraftWriteAuthority,
     notificationLaunchRouter: NotificationLaunchRouter,
     notificationStreamController: NotificationStreamController,
     appPreferencesRepository: AppPreferencesRepository,
@@ -156,6 +158,7 @@ fun ConnectedApp(
                     connectedContext = activeContext!!,
                     entryStore = entryStore,
                     draftStore = draftStore,
+                    draftWriteAuthority = draftWriteAuthority,
                     notificationStreamController = notificationStreamController,
                     accountIndex = accountIndex,
                     postPreferences = postPreferences,

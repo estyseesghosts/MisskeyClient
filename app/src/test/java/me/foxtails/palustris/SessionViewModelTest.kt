@@ -201,6 +201,90 @@ class SessionViewModelTest {
         } finally { owner.clear(); Dispatchers.resetMain() }
     }
 
+    @Test fun removeAccountCannotLeaveRecreatedDraftFromPendingSave() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val owner = ViewModelStore()
+        try {
+            val store = MemoryStore(Session(login.account.id, login.token, ServerCapabilities()), login.account)
+            val other = Account(AccountId(Connection("https://example.org", Protocol.MISSKEY), "b"), "Bob", "@bob@example.org")
+            store.sessions[other.id] = Session(other.id, "token-b", ServerCapabilities())
+            store.index = store.index.copy(accounts = store.index.accounts + AccountRef(other.id, other.handle, other.avatarUrl, other.displayName))
+            val saveGate = CompletableDeferred<Unit>()
+            val drafts = GatedDraftStore(saveGate = saveGate)
+            drafts.saveDirect(PostDraft(accountId = other.id, text = "keep"))
+            val authority = me.foxtails.palustris.data.auth.DraftWriteAuthority()
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val accountManager = AccountManager(store, auth(login), dispatcher, drafts, authority)
+            owner.put("account", accountManager)
+            advanceUntilIdle()
+            val generation = accountManager.connectedContext.value!!.draftGeneration
+            val actionsScope = kotlinx.coroutines.CoroutineScope(dispatcher + kotlinx.coroutines.SupervisorJob())
+            val actions = me.foxtails.palustris.data.auth.DraftActions(
+                scope = actionsScope,
+                store = drafts,
+                accountId = login.account.id,
+                legacyPreferences = { InMemoryPreferences() },
+                writeGeneration = generation,
+                writeAuthority = authority,
+            )
+            var results = 0
+            actions.save(PostDraft(accountId = login.account.id, text = "late"), onResult = { results++ }, onError = {})
+            runCurrent()
+            accountManager.removeAccount(login.account.id)
+            runCurrent()
+            saveGate.complete(Unit)
+            advanceUntilIdle()
+            assertTrue(drafts.list(login.account.id).isEmpty())
+            assertEquals(listOf("keep"), drafts.list(other.id).map { it.text })
+            // A late save must not report success for a removed account.
+            // If it won the lock before removal, the serialized delete still removed it.
+            assertTrue(results <= 1)
+            assertTrue(drafts.list(login.account.id).isEmpty())
+        } finally { owner.clear(); Dispatchers.resetMain() }
+    }
+
+    private class GatedDraftStore(
+        var saveGate: CompletableDeferred<Unit>? = null,
+    ) : me.foxtails.palustris.data.auth.DraftStore {
+        private val backing = InMemoryDraftStore()
+        suspend fun saveDirect(draft: PostDraft) { backing.save(draft) }
+        override suspend fun list(accountId: AccountId?): List<PostDraft> = backing.list(accountId)
+        override suspend fun save(draft: PostDraft) {
+            saveGate?.await()
+            backing.save(draft)
+        }
+        override suspend fun delete(accountId: AccountId?, draftId: String) { backing.delete(accountId, draftId) }
+        override suspend fun deleteAll(accountId: AccountId?) { backing.deleteAll(accountId) }
+        override suspend fun migrateLegacy(accountId: AccountId?, preferences: android.content.SharedPreferences) = Unit
+    }
+
+    private class InMemoryPreferences : android.content.SharedPreferences {
+        private val values = mutableMapOf<String, Any?>()
+        override fun getAll(): Map<String, *> = values.toMap()
+        override fun getString(key: String?, defValue: String?): String? = values[key] as? String ?: defValue
+        override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? = defValues
+        @Suppress("UNCHECKED_CAST")
+        override fun getInt(key: String?, defValue: Int): Int = values[key] as? Int ?: defValue
+        override fun getLong(key: String?, defValue: Long): Long = values[key] as? Long ?: defValue
+        override fun getFloat(key: String?, defValue: Float): Float = values[key] as? Float ?: defValue
+        override fun getBoolean(key: String?, defValue: Boolean): Boolean = values[key] as? Boolean ?: defValue
+        override fun contains(key: String?): Boolean = values.containsKey(key)
+        override fun edit(): android.content.SharedPreferences.Editor = object : android.content.SharedPreferences.Editor {
+            override fun putString(key: String?, value: String?): android.content.SharedPreferences.Editor { values[key!!] = value; return this }
+            override fun putStringSet(key: String?, values: MutableSet<String>?): android.content.SharedPreferences.Editor = this
+            override fun putInt(key: String?, value: Int): android.content.SharedPreferences.Editor { values[key!!] = value; return this }
+            override fun putLong(key: String?, value: Long): android.content.SharedPreferences.Editor { values[key!!] = value; return this }
+            override fun putFloat(key: String?, value: Float): android.content.SharedPreferences.Editor { values[key!!] = value; return this }
+            override fun putBoolean(key: String?, value: Boolean): android.content.SharedPreferences.Editor { values[key!!] = value; return this }
+            override fun remove(key: String?): android.content.SharedPreferences.Editor { values.remove(key); return this }
+            override fun clear(): android.content.SharedPreferences.Editor { values.clear(); return this }
+            override fun commit(): Boolean = true
+            override fun apply() = Unit
+        }
+        override fun registerOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+        override fun unregisterOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+    }
+
     @Test fun pendingAuthSurvivesRestartAndInvalidCallbackDoesNotConnect() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val owner = ViewModelStore()

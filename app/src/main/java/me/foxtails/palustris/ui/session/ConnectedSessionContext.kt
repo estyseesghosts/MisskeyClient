@@ -23,6 +23,7 @@ class ConnectedSessionContext internal constructor(
     internal val source: SocialSource,
     internal val registryToken: NotificationSyncToken,
     internal val directMessageGeneration: Long,
+    internal val draftGeneration: Long,
 ) {
     val accountId: AccountId get() = account.id
 

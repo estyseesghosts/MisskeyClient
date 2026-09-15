@@ -17,6 +17,7 @@ import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.data.auth.AuthCallback
 import me.foxtails.palustris.data.auth.AuthGateway
 import me.foxtails.palustris.data.auth.DraftStore
+import me.foxtails.palustris.data.auth.DraftWriteAuthority
 import me.foxtails.palustris.data.auth.InMemoryDraftStore
 import me.foxtails.palustris.data.auth.PendingLogin
 import me.foxtails.palustris.data.auth.SessionStore
@@ -77,12 +78,14 @@ class AccountManager @Inject constructor(
     private val emojiCatalogRepository: EmojiCatalogRepository,
     private val emojiPickerPreferencesRepository: EmojiPickerPreferencesRepository,
     private val draftStore: DraftStore,
+    private val draftWriteAuthority: DraftWriteAuthority,
 ) : ViewModel() {
     constructor(
         store: SessionStore,
         auth: AuthGateway,
         ioDispatcher: CoroutineDispatcher,
         draftStore: DraftStore = InMemoryDraftStore(),
+        draftWriteAuthority: DraftWriteAuthority = DraftWriteAuthority(),
     ) : this(
         store,
         auth,
@@ -98,6 +101,7 @@ class AccountManager @Inject constructor(
         InMemoryEmojiCatalogRepository(),
         InMemoryEmojiPickerPreferencesRepository(),
         draftStore,
+        draftWriteAuthority,
     )
     private val _session = MutableStateFlow(SessionUi())
     val session = _session.asStateFlow()
@@ -322,7 +326,10 @@ class AccountManager @Inject constructor(
                     directMessageWriteAuthority.invalidateAndDelete(accountId) {
                         directMessageStore.delete(accountId)
                     }
-                    draftStore.deleteAll(accountId)
+                    // Revoke draft writers before deleting rows. A late save stays deleted.
+                    draftWriteAuthority.invalidateAndDelete(accountId) {
+                        draftStore.deleteAll(accountId)
+                    }
                     emojiCatalogRepository.remove(accountId)
                     emojiPickerPreferencesRepository.remove(accountId)
                     store.transaction {
@@ -387,6 +394,7 @@ class AccountManager @Inject constructor(
                             source = current.source,
                             registryToken = current.registryToken,
                             directMessageGeneration = current.directMessageGeneration,
+                            draftGeneration = current.draftGeneration,
                         )
                     }
             } catch (e: Exception) {
@@ -399,6 +407,7 @@ class AccountManager @Inject constructor(
         // The account lifecycle issues the writer generation. The session replacement revokes old
         // writers before the new generation activates. Stale sessions cannot write afterwards.
         val directMessageGeneration = directMessageWriteAuthority.activate(value.accountId)
+        val draftGeneration = draftWriteAuthority.activate(value.accountId)
         sessionGeneration += 1L
         activeSessionValue = value
         // Publish one accepted context. The shell never joins a separate account emission
@@ -410,6 +419,7 @@ class AccountManager @Inject constructor(
             source = registration.source,
             registryToken = registration.token,
             directMessageGeneration = directMessageGeneration,
+            draftGeneration = draftGeneration,
         )
         _session.value = SessionUi(
             starting = false,
