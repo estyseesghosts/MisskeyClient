@@ -231,7 +231,7 @@ dead bookmark recorder left with the migrated assertion. All 37 plus 13 tests pa
 | C-12d3 | Step 13, part 4c | Move guarded navigation transitions into the navigator behind event callbacks. Keep safe navigation separate from session-bound entities. | Transition functions live in `ui/navigation/`. Session-bound guards stay in the shell. | implemented, test verified. Commit `1331ec3`. |
 | C-12d4 | Step 13, part 4d | Move the remaining small feature tests off the full shell. | Feature-local harnesses cover the moved tests. | implemented, test verified. Commit `5ab3c62`. |
 | C-13 | Step 14 | Run cancellation and integration verification. Review every touched suspending path. | Cancellation remains cancellation. All required tests pass. | implemented, test verified. Commit `c9e06c8`. |
-| C-14 | Step 15 | Publish the final ownership documentation. Classify every document. | Maintained documentation matches source. | implemented, test verified. Commit `PENDING`. |
+| C-14 | Step 15 | Publish the final ownership documentation. Classify every document. | Maintained documentation matches source. | implemented, test verified. Commit `8eada6d`. |
 | C-15 | Cleanup (no report step) | Remove dead scaffolding left by earlier extraction waves. | No caller remains. Focused Compose suites, `test assembleRelease`, and `:app:lintDebug` pass. | pending |
 
 Split a slice when it spans independent behavior. Keep one verification method for each slice.
@@ -511,11 +511,11 @@ No device test ran. Live-server and signed-release behavior stay unverified.
 
 ## Last Safe Commit
 
-`PENDING` "Publish the final ownership documentation".
+`8eada6d` "Publish the final ownership documentation".
 
 C-01 is committed at `6b8752b`. C-02 is committed at `ffc9c3f`. C-03 is committed at `bfbd7ed`.
 C-04 is committed at `cb6d024`. C-05 is committed at `bd2d1b6`. C-06a is committed at `84006c1`.
 C-06b is committed at `c1288da`. C-06c is committed at `4454bae`. C-07 is committed at `0027b60`.
 C-08 is committed at `a011a06`. C-09 is committed at `c6ab9b1`. C-10 is committed at `731b74b`.
 C-11 is committed at `43f8aa0`. C-12a is committed at `9b10905`. C-12b is committed at `0dec102`.
-C-12c is committed at `56c4cee`. C-12d1 is committed at `624678f`. C-12d2 is committed at `3f0c704`. C-12d3 is committed at `1331ec3`. C-12d4 is committed at `5ab3c62`. C-13 is committed at `c9e06c8`. C-14 is committed at `PENDING`. C-15 is the next slice.
+C-12c is committed at `56c4cee`. C-12d1 is committed at `624678f`. C-12d2 is committed at `3f0c704`. C-12d3 is committed at `1331ec3`. C-12d4 is committed at `5ab3c62`. C-13 is committed at `c9e06c8`. C-14 is committed at `8eada6d`. C-15 is the next slice.
