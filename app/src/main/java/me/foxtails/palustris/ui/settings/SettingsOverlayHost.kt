@@ -151,6 +151,7 @@ fun SettingsOverlayHost(
         onNotificationCategoryChanged = { category, enabled -> notificationModel?.setCategoryEnabled(category, enabled) },
         onNotificationLocalTest = { notificationModel?.runLocalPresentationTest() },
         onNotificationRetryRegistration = { notificationModel?.retryRegistration() },
+        onNotificationRetryStorage = { notificationModel?.retryStorage() },
         onNotificationPermissionChanged = { notificationModel?.refreshPermission() },
         onNotificationRefreshDistributors = { notificationModel?.refreshDistributors() },
         onNotificationSelectDistributor = { packageName -> notificationModel?.selectDistributor(packageName) },

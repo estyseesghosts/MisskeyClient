@@ -20,6 +20,7 @@ import me.foxtails.palustris.data.notifications.NotificationPresentationFactory
 import me.foxtails.palustris.data.notifications.NotificationPresenter
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.NotificationSettingsRepository
+import me.foxtails.palustris.data.notifications.NotificationStorageHealth
 import me.foxtails.palustris.data.notifications.push.PushRegistrationManager
 import me.foxtails.palustris.data.notifications.push.UnifiedPushConnector
 import me.foxtails.palustris.data.notifications.work.NotificationWorkScheduler
@@ -39,6 +40,8 @@ import kotlinx.coroutines.sync.withLock
 
 data class NotificationSettingsUiState(
     val settings: NotificationSettings = NotificationSettings(),
+    /** True while stored notification state is corrupt or unreadable. Defaults are not confirmed settings. */
+    val storageUnavailable: Boolean = false,
     val permissionGranted: Boolean = false,
     val registrationState: NotificationPushRegistrationState = NotificationPushRegistrationState.Off,
     val failureStage: me.foxtails.palustris.domain.PushRegistrationFailureStage? = null,
@@ -78,6 +81,7 @@ class NotificationSettingsViewModel @AssistedInject constructor(
     private var saveRequest = 0L
     private var settingsObservation: Job? = null
     private var repositoryObservation: Job? = null
+    private var storageObservation: Job? = null
 
     init {
         settingsObservation = viewModelScope.launch {
@@ -85,6 +89,13 @@ class NotificationSettingsViewModel @AssistedInject constructor(
                 _state.value = _state.value.copy(
                     settings = settings,
                     selectedDistributor = settings.selectedDistributor,
+                )
+            }
+        }
+        storageObservation = viewModelScope.launch {
+            repository.observeStorageHealth(accountId).collectLatest { health ->
+                _state.value = _state.value.copy(
+                    storageUnavailable = health != NotificationStorageHealth.Healthy,
                 )
             }
         }
@@ -106,8 +117,15 @@ class NotificationSettingsViewModel @AssistedInject constructor(
     fun stop() {
         settingsObservation?.cancel()
         repositoryObservation?.cancel()
+        storageObservation?.cancel()
         settingsObservation = null
         repositoryObservation = null
+        storageObservation = null
+    }
+
+    /** Explicit recovery path. The repository reloads storage and clears the failure on success. */
+    fun retryStorage() {
+        viewModelScope.launch { repository.retry(accountId) }
     }
 
     fun setAlertsEnabled(enabled: Boolean) = save(_state.value.settings.copy(alertsEnabled = enabled))
@@ -227,6 +245,10 @@ class NotificationSettingsViewModel @AssistedInject constructor(
     private fun save(settings: NotificationSettings) {
         val previousSettings = _state.value.settings
         val request = ++saveRequest
+        if (_state.value.storageUnavailable) {
+            _state.value = _state.value.copy(error = "Notification settings are unavailable until stored data is recovered.")
+            return
+        }
         val token = repository.currentToken(accountId)
         if (token == null) {
             _state.value = _state.value.copy(error = "This account is not ready for notification settings.")

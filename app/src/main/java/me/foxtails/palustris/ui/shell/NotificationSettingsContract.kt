@@ -23,6 +23,7 @@ data class NotificationSettingsContract(
         fun setQuietHours(enabled: Boolean)
         fun setCategoryEnabled(category: NotificationCategory, enabled: Boolean)
         fun runLocalTest()
+        fun retryStorage()
         fun retryRegistration()
         fun refreshPermission()
         fun refreshDistributors()
@@ -46,6 +47,7 @@ private object NotificationSettingsEmptyActions : NotificationSettingsContract.A
     override fun setQuietHours(enabled: Boolean) = Unit
     override fun setCategoryEnabled(category: NotificationCategory, enabled: Boolean) = Unit
     override fun runLocalTest() = Unit
+    override fun retryStorage() = Unit
     override fun retryRegistration() = Unit
     override fun refreshPermission() = Unit
     override fun refreshDistributors() = Unit

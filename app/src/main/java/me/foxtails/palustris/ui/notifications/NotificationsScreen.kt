@@ -197,6 +197,7 @@ fun NotificationsScreen(
                 endClearance = notificationEndClearance,
                 stateKey = "${selectedFilterName ?: "all"}:${when {
                     notificationState.loading && notificationState.items.isEmpty() -> "loading"
+                    notificationState.storageUnavailable -> "storage-error"
                     notificationState.error != null && notificationState.items.isEmpty() -> "error"
                     visibleItems.isEmpty() -> "empty"
                     else -> "content"
@@ -229,6 +230,7 @@ fun NotificationsScreen(
                 endClearance = 0.dp,
                 stateKey = "${selectedFilterName ?: "all"}:${when {
                     notificationState.loading && notificationState.items.isEmpty() -> "loading"
+                    notificationState.storageUnavailable -> "storage-error"
                     notificationState.error != null && notificationState.items.isEmpty() -> "error"
                     visibleItems.isEmpty() -> "empty"
                     else -> "content"
@@ -289,6 +291,17 @@ private fun NotificationContent(
                     Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
                         when {
                             state.loading && !state.refreshing -> CircularProgressIndicator()
+                            state.storageUnavailable -> Column(
+                                Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text(
+                                    stringResource(R.string.notifications_storage_unavailable),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                                TextButton(onClick = onRefresh) { Text(stringResource(R.string.notifications_retry)) }
+                            }
                             state.error != null -> Column(
                                 Modifier.padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,

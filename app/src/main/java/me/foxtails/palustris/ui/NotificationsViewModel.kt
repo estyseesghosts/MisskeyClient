@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.notifications.NotificationRepository
+import me.foxtails.palustris.data.notifications.NotificationStorageHealth
 import me.foxtails.palustris.data.notifications.NotificationSynchronizer
 import me.foxtails.palustris.data.notifications.NotificationSyncIntents
 import me.foxtails.palustris.data.notifications.SourceBackedNotificationSyncIntents
@@ -43,6 +44,8 @@ data class NotificationsUiState(
     val loadingMore: Boolean = false,
     val syncDelayed: Boolean = false,
     val error: String? = null,
+    /** True while stored notification state is corrupt or unreadable. Writes and alerts stay blocked. */
+    val storageUnavailable: Boolean = false,
     val actionStates: Map<EntityId, NotificationActionState> = emptyMap(),
     val actionErrors: Map<EntityId, String> = emptyMap(),
     val postOverlays: Map<EntityId, Post> = emptyMap(),
@@ -74,6 +77,7 @@ class NotificationsViewModel @AssistedInject constructor(
     val state = _state.asStateFlow()
     private val actionJobs = ConcurrentHashMap<EntityId, Job>()
     private var observeJob: Job? = null
+    private var storageJob: Job? = null
     private var refreshJob: Job? = null
     private var olderJob: Job? = null
     private var acknowledgementJob: Job? = null
@@ -100,6 +104,13 @@ class NotificationsViewModel @AssistedInject constructor(
                 }
             }
         }
+        storageJob = viewModelScope.launch {
+            repository.observeStorageHealth(accountId).collectLatest { health ->
+                _state.value = _state.value.copy(
+                    storageUnavailable = health != NotificationStorageHealth.Healthy,
+                )
+            }
+        }
         refresh(showIndicator = false)
     }
 
@@ -119,6 +130,20 @@ class NotificationsViewModel @AssistedInject constructor(
         val selectedQuery = query.value
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
+            // A corrupt or unreadable account must recover storage before any network refresh.
+            // The same explicit refresh action is the retry path; no side effect is replayed.
+            if (!repository.retry(accountId)) {
+                if (epoch != requestEpoch || stopped) return@launch
+                _state.value = _state.value.copy(
+                    loading = false,
+                    refreshing = false,
+                    loadingMore = false,
+                    error = null,
+                    storageUnavailable = true,
+                )
+                return@launch
+            }
+            _state.value = _state.value.copy(storageUnavailable = false)
             val hasCache = _state.value.items.isNotEmpty()
             _state.value = _state.value.copy(
                 loading = !hasCache,
@@ -290,6 +315,7 @@ class NotificationsViewModel @AssistedInject constructor(
         if (stopped) return
         stopped = true
         observeJob?.cancel()
+        storageJob?.cancel()
         refreshJob?.cancel()
         olderJob?.cancel()
         acknowledgementJob?.cancel()

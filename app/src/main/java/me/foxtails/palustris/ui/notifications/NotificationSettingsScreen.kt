@@ -49,6 +49,7 @@ fun NotificationSettingsScreen(
     onSelectDistributor: (String) -> Unit = {},
     onRunPushConnectionTest: () -> Unit = {},
     onPermissionChanged: () -> Unit = {},
+    onRetryStorage: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -61,32 +62,42 @@ fun NotificationSettingsScreen(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        if (state.storageUnavailable) {
+            Text(
+                stringResource(R.string.notifications_storage_unavailable),
+                color = MaterialTheme.colorScheme.error,
+            )
+            TextButton(onClick = onRetryStorage) {
+                Text(stringResource(R.string.notifications_retry))
+            }
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+        }
         SettingSwitch(
             title = stringResource(R.string.notifications_settings_alerts),
             subtitle = stringResource(R.string.notifications_settings_alerts_subtitle),
             checked = state.settings.alertsEnabled,
-            enabled = !state.saving,
+            enabled = !state.saving && !state.storageUnavailable,
             onCheckedChange = onAlertsEnabled,
         )
         SettingSwitch(
             title = stringResource(R.string.notifications_settings_previews),
             subtitle = stringResource(R.string.notifications_settings_previews_subtitle),
             checked = state.settings.showPreviews,
-            enabled = !state.saving,
+            enabled = !state.saving && !state.storageUnavailable,
             onCheckedChange = onShowPreviews,
         )
         SettingSwitch(
             title = stringResource(R.string.notifications_settings_quiet_hours),
             subtitle = stringResource(R.string.notifications_settings_quiet_hours_subtitle),
             checked = state.settings.quietHoursStartMinutes != null,
-            enabled = !state.saving,
+            enabled = !state.saving && !state.storageUnavailable,
             onCheckedChange = onQuietHours,
         )
         SettingSwitch(
             title = stringResource(R.string.notifications_settings_periodic),
             subtitle = stringResource(R.string.notifications_settings_periodic_subtitle),
             checked = state.settings.periodicFallbackEnabled,
-            enabled = !state.saving,
+            enabled = !state.saving && !state.storageUnavailable,
             onCheckedChange = onPeriodicFallback,
         )
         HorizontalDivider(Modifier.padding(vertical = 12.dp))
@@ -103,7 +114,7 @@ fun NotificationSettingsScreen(
                 title = stringResource(label),
                 subtitle = null,
                 checked = NotificationCategory.All in state.settings.categories || category in state.settings.categories,
-                enabled = !state.saving,
+                enabled = !state.saving && !state.storageUnavailable,
                 onCheckedChange = { enabled -> onCategoryChanged(category, enabled) },
             )
         }
@@ -128,7 +139,7 @@ fun NotificationSettingsScreen(
                     RadioButton(
                         selected = state.selectedDistributor == distributor.packageName,
                         onClick = { onSelectDistributor(distributor.packageName) },
-                        enabled = !state.saving,
+                        enabled = !state.saving && !state.storageUnavailable,
                     )
                     Text(distributor.label)
                 }
@@ -163,7 +174,7 @@ fun NotificationSettingsScreen(
         ) {
             TextButton(
                 onClick = onRetryRegistration,
-                enabled = !state.saving,
+                enabled = !state.saving && !state.storageUnavailable,
             ) { Text(stringResource(R.string.notifications_settings_retry_registration)) }
         }
         TextButton(onClick = onRunLocalTest, enabled = !state.saving) {

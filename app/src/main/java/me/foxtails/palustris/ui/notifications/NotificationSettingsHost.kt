@@ -35,6 +35,7 @@ fun NotificationSettingsHost(
                 model.setCategoryEnabled(category, enabled)
             }
             override fun runLocalTest() { model.runLocalPresentationTest() }
+            override fun retryStorage() { model.retryStorage() }
             override fun retryRegistration() { model.retryRegistration() }
             override fun refreshPermission() { model.refreshPermission() }
             override fun refreshDistributors() { model.refreshDistributors() }

@@ -44,12 +44,24 @@ class NotificationRepository @Inject constructor(
     constructor() : this(InMemoryNotificationStore())
 
     private val states = mutableMapOf<AccountId, MutableStateFlow<NotificationRepositoryState>>()
+    private val storageHealth = mutableMapOf<AccountId, MutableStateFlow<NotificationStorageHealth>>()
     private val generations = mutableMapOf<AccountId, Long>()
 
     @Synchronized
-    fun observe(accountId: AccountId): StateFlow<NotificationRepositoryState> = states.getOrPut(accountId) {
-        MutableStateFlow(readState(accountId))
-    }.asStateFlow()
+    fun observe(accountId: AccountId): StateFlow<NotificationRepositoryState> =
+        stateForLocked(accountId).asStateFlow()
+
+    /**
+     * Health is account-local. A corrupt or unavailable account receives a stable failure that
+     * blocks writes until [retry] reloads a readable state or finds no state. Other accounts are
+     * not affected.
+     */
+    @Synchronized
+    fun observeStorageHealth(accountId: AccountId): StateFlow<NotificationStorageHealth> {
+        // Materialize the state entry so the first health read also classifies the stored value.
+        stateForLocked(accountId)
+        return healthForLocked(accountId).asStateFlow()
+    }
 
     fun observeInbox(accountId: AccountId, query: NotificationQuery): Flow<NotificationInboxSnapshot> =
         observe(accountId).map { state ->
@@ -91,7 +103,7 @@ class NotificationRepository @Inject constructor(
     fun activate(token: NotificationSyncToken) {
         val current = generations[token.accountId]
         if (current == null || token.generation >= current) generations[token.accountId] = token.generation
-        states.getOrPut(token.accountId) { MutableStateFlow(readState(token.accountId)) }
+        stateForLocked(token.accountId)
     }
 
     @Synchronized
@@ -122,6 +134,29 @@ class NotificationRepository @Inject constructor(
         generations[accountId] = next
     }
 
+    /**
+     * Reloads persisted state for one account after a recoverable read failure.
+     *
+     * A healthy account returns immediately, so a normal refresh never replaces committed
+     * in-memory state. A blocked account re-reads storage and replaces its empty in-memory state
+     * only after a successful load. The original bytes stay untouched on another failure. This
+     * path issues no side effects and no network work. The read uses the same synchronous store
+     * boundary as [observe].
+     */
+    fun retry(accountId: AccountId): Boolean {
+        if (!synchronized(this) { storageBlockedLocked(accountId) }) return true
+        val read = store.read(accountId)
+        return synchronized(this) {
+            val health = read.toStorageHealth()
+            if (health == NotificationStorageHealth.Healthy) {
+                stateForLocked(accountId).value =
+                    (read as? NotificationStoreRead.Readable)?.state ?: NotificationRepositoryState()
+            }
+            healthForLocked(accountId).value = health
+            health == NotificationStorageHealth.Healthy
+        }
+    }
+
     suspend fun establishBaseline(
         token: NotificationSyncToken,
         request: NotificationIngestRequest,
@@ -148,7 +183,7 @@ class NotificationRepository @Inject constructor(
     ): Boolean {
         val direction = request.direction
         val next = synchronized(this) {
-            if (!isCurrentLocked(token)) return false
+            if (!mutationAllowedLocked(token)) return false
             if (page.direction != direction) return false
             if (page.checkpoint?.accountId?.let { it != token.accountId } == true ||
                 page.items.any {
@@ -223,7 +258,7 @@ class NotificationRepository @Inject constructor(
 
     suspend fun updateUnreadState(token: NotificationSyncToken, unreadState: NotificationUnreadState): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token)) return false
+            if (!mutationAllowedLocked(token)) return false
             stateForLocked(token.accountId).value.copy(unreadState = unreadState).also {
                 stateForLocked(token.accountId).value = it
             }
@@ -235,7 +270,7 @@ class NotificationRepository @Inject constructor(
     suspend fun applyStreamEvent(token: NotificationSyncToken, event: Event): Boolean {
         if (event.accountId != token.accountId) return false
         val next = synchronized(this) {
-            if (!isCurrentLocked(token)) return false
+            if (!mutationAllowedLocked(token)) return false
             val current = stateForLocked(token.accountId).value
             val updated = when (val payload = event.payload) {
                 is SocialEvent.NotificationReceived -> {
@@ -283,7 +318,7 @@ class NotificationRepository @Inject constructor(
 
     suspend fun markLocallySeen(token: NotificationSyncToken, ids: Set<EntityId>): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token)) return false
+            if (!mutationAllowedLocked(token)) return false
             val current = stateForLocked(token.accountId).value
             current.copy(items = current.items.map { item ->
                 if (item.id in ids) item.copy(readState = item.readState.copy(locallySeen = true)) else item
@@ -295,7 +330,7 @@ class NotificationRepository @Inject constructor(
 
     suspend fun markSeen(token: NotificationSyncToken, id: EntityId? = null): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token)) return false
+            if (!mutationAllowedLocked(token)) return false
             val current = stateForLocked(token.accountId).value
             val items = current.items.map { item ->
                 if (id == null || item.id == id) item.copy(readState = item.readState.copy(locallySeen = true)) else item
@@ -308,7 +343,7 @@ class NotificationRepository @Inject constructor(
 
     suspend fun markPresented(token: NotificationSyncToken, id: EntityId): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token)) return false
+            if (!mutationAllowedLocked(token)) return false
             val current = stateForLocked(token.accountId).value
             val items = current.items.map { item ->
                 if (item.id == id) item.copy(readState = item.readState.copy(androidPresented = true)) else item
@@ -323,6 +358,7 @@ class NotificationRepository @Inject constructor(
     suspend fun markAndroidDismissed(accountId: AccountId, id: EntityId): Boolean {
         val next = synchronized(this) {
             val state = states[accountId]?.value ?: return false
+            if (storageBlockedLocked(accountId)) return false
             if (state.items.none { it.id == id }) return false
             state.copy(items = state.items.map { item ->
                 if (item.id == id) item.copy(readState = item.readState.copy(androidDismissed = true)) else item
@@ -341,7 +377,7 @@ class NotificationRepository @Inject constructor(
         acknowledgement: NotificationAcknowledgement,
     ): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token) || acknowledgement.accountId != token.accountId) return false
+            if (!mutationAllowedLocked(token) || acknowledgement.accountId != token.accountId) return false
             val current = stateForLocked(token.accountId).value
             val items = when (acknowledgement.readState) {
                 NotificationUnreadState.None,
@@ -374,7 +410,7 @@ class NotificationRepository @Inject constructor(
 
     suspend fun dismissFromInbox(token: NotificationSyncToken, id: EntityId, remoteApplied: Boolean): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token) || id.connection != token.accountId.connection.origin) return false
+            if (!mutationAllowedLocked(token) || id.connection != token.accountId.connection.origin) return false
             val current = stateForLocked(token.accountId).value
             current.copy(
                 items = current.items.filterNot { it.id == id },
@@ -394,7 +430,7 @@ class NotificationRepository @Inject constructor(
         nowEpochMillis: Long = System.currentTimeMillis(),
     ): NotificationDeliveryRecord? {
         val result = synchronized(this) {
-            if (!isCurrentLocked(token)) return null
+            if (!mutationAllowedLocked(token)) return null
             val current = stateForLocked(token.accountId).value
             val record = current.deliveries[id] ?: return null
             if (!record.isClaimable(nowEpochMillis)) return null
@@ -418,7 +454,7 @@ class NotificationRepository @Inject constructor(
         claimId: String? = null,
     ): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token)) return false
+            if (!mutationAllowedLocked(token)) return false
             val current = stateForLocked(token.accountId).value
             val existing = current.deliveries[id] ?: return false
             if (claimId != null && existing.claimId != claimId) return false
@@ -432,21 +468,25 @@ class NotificationRepository @Inject constructor(
     fun pendingDeliveries(
         accountId: AccountId,
         nowEpochMillis: Long = System.currentTimeMillis(),
-    ): List<NotificationDeliveryRecord> =
-        observe(accountId).value.deliveries.values.filter {
+    ): List<NotificationDeliveryRecord> {
+        synchronized(this) { if (storageBlockedLocked(accountId)) return emptyList() }
+        return observe(accountId).value.deliveries.values.filter {
             it.state == NotificationDeliveryState.Pending || it.state == NotificationDeliveryState.Failed ||
                 (it.state == NotificationDeliveryState.Posting && it.claimExpiresAtEpochMillis <= nowEpochMillis)
         }
+    }
 
     @Synchronized
     fun settings(accountId: AccountId): NotificationSettings = observe(accountId).value.settings
 
+    /** A blocked account exposes no registration, so push callbacks route nothing until recovery. */
     @Synchronized
-    fun pushRegistration(accountId: AccountId): PushRegistration? = observe(accountId).value.pushRegistration
+    fun pushRegistration(accountId: AccountId): PushRegistration? =
+        if (storageBlockedLocked(accountId)) null else observe(accountId).value.pushRegistration
 
     suspend fun updateSettings(token: NotificationSyncToken, settings: NotificationSettings): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token)) return false
+            if (!mutationAllowedLocked(token)) return false
             stateForLocked(token.accountId).value.copy(settings = settings).also {
                 stateForLocked(token.accountId).value = it
             }
@@ -457,7 +497,7 @@ class NotificationRepository @Inject constructor(
 
     suspend fun updatePushRegistration(token: NotificationSyncToken, registration: PushRegistration): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token) || registration.accountId != token.accountId ||
+            if (!mutationAllowedLocked(token) || registration.accountId != token.accountId ||
                 registration.generation != token.generation
             ) return false
             stateForLocked(token.accountId).value.copy(pushRegistration = registration).also {
@@ -470,7 +510,7 @@ class NotificationRepository @Inject constructor(
 
     suspend fun clearPushRegistration(token: NotificationSyncToken): Boolean {
         val next = synchronized(this) {
-            if (!isCurrentLocked(token)) return false
+            if (!mutationAllowedLocked(token)) return false
             stateForLocked(token.accountId).value.copy(pushRegistration = null).also {
                 stateForLocked(token.accountId).value = it
             }
@@ -482,6 +522,7 @@ class NotificationRepository @Inject constructor(
     @Synchronized
     fun remove(accountId: AccountId) {
         states.remove(accountId)
+        storageHealth.remove(accountId)
         generations.remove(accountId)
         store.delete(accountId)
     }
@@ -489,20 +530,37 @@ class NotificationRepository @Inject constructor(
     private suspend fun persistIfCurrent(token: NotificationSyncToken, @Suppress("UNUSED_PARAMETER") state: NotificationRepositoryState) {
         withContext(Dispatchers.IO) {
             synchronized(this@NotificationRepository) {
-                if (isCurrentLocked(token)) store.write(token.accountId, stateForLocked(token.accountId).value)
+                if (isCurrentLocked(token) && !storageBlockedLocked(token.accountId)) {
+                    store.write(token.accountId, stateForLocked(token.accountId).value)
+                }
             }
         }
     }
 
     private fun stateForLocked(accountId: AccountId): MutableStateFlow<NotificationRepositoryState> =
-        states.getOrPut(accountId) { MutableStateFlow(readState(accountId)) }
+        states.getOrPut(accountId) { MutableStateFlow(loadStateLocked(accountId)) }
+
+    private fun healthForLocked(accountId: AccountId): MutableStateFlow<NotificationStorageHealth> =
+        storageHealth.getOrPut(accountId) { MutableStateFlow(NotificationStorageHealth.Healthy) }
+
+    private fun mutationAllowedLocked(token: NotificationSyncToken): Boolean =
+        isCurrentLocked(token) && !storageBlockedLocked(token.accountId)
+
+    private fun storageBlockedLocked(accountId: AccountId): Boolean {
+        // Materialize the state entry first so a first-touch mutation classifies the stored value.
+        stateForLocked(accountId)
+        return healthForLocked(accountId).value != NotificationStorageHealth.Healthy
+    }
 
     /**
-     * Absent, corrupt, and unavailable reads all yield an empty in-memory state for now.
-     * Slice 03-F3 adds the recoverable error state and blocks writes for the affected account.
+     * Reads one account and records its health. Absent and readable storage are both healthy. A
+     * corrupt or unavailable read yields an empty in-memory state that mutations must not persist.
      */
-    private fun readState(accountId: AccountId): NotificationRepositoryState =
-        (store.read(accountId) as? NotificationStoreRead.Readable)?.state ?: NotificationRepositoryState()
+    private fun loadStateLocked(accountId: AccountId): NotificationRepositoryState {
+        val read = store.read(accountId)
+        healthForLocked(accountId).value = read.toStorageHealth()
+        return (read as? NotificationStoreRead.Readable)?.state ?: NotificationRepositoryState()
+    }
 
     private fun isCurrentLocked(token: NotificationSyncToken): Boolean =
         (token.generation == 0L && token.accountId !in generations) || generations[token.accountId] == token.generation

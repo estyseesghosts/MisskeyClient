@@ -1058,6 +1058,7 @@ fun PalustrisApp(
         onRefreshDistributors = notificationSettings.actions::refreshDistributors,
         onSelectDistributor = notificationSettings.actions::selectDistributor,
         onRunPushConnectionTest = notificationSettings.actions::runPushConnectionTest,
+        onRetryStorage = notificationSettings.actions::retryStorage,
     )
 
     BackHandler(enabled = navigator.overlay == Overlay.NotificationSettings) {
