@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import java.io.File
 import me.foxtails.palustris.data.notifications.FileNotificationStore
 import me.foxtails.palustris.data.notifications.NotificationRepositoryState
+import me.foxtails.palustris.data.notifications.NotificationStoreRead
 import me.foxtails.palustris.data.notifications.decode
 import me.foxtails.palustris.data.notifications.encode
 import me.foxtails.palustris.data.notifications.stableFileName
@@ -203,12 +204,11 @@ class NotificationJsonCodecTest {
         directory.mkdirs()
         File(directory, "${accountId.stableFileName()}.json").writeText(fixtureText("complete_current_state.json"))
 
-        val state = store.read(accountId)
+        val state = (store.read(accountId) as NotificationStoreRead.Readable).state
 
-        assertNotNull(state)
-        assertEquals(2, state?.items?.size)
-        assertEquals(NotificationUnreadState.AtLeast(2), state?.unreadState)
-        assertEquals(NotificationPushRegistrationState.Connected, state?.pushRegistration?.state)
+        assertEquals(2, state.items.size)
+        assertEquals(NotificationUnreadState.AtLeast(2), state.unreadState)
+        assertEquals(NotificationPushRegistrationState.Connected, state.pushRegistration?.state)
     }
 
     @Test
@@ -660,14 +660,35 @@ class NotificationJsonCodecTest {
     }
 
     @Test
-    fun fileStoreReturnsNoStateForBrokenJson() {
+    fun fileStoreReportsBrokenJsonAsCorrupt() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = FileNotificationStore(context)
         val directory = File(context.noBackupFilesDir, "notifications")
         directory.mkdirs()
         File(directory, "${misskeyReceiver.stableFileName()}.json").writeText(fixtureText("malformed_broken.json"))
 
-        assertNull(store.read(misskeyReceiver))
+        assertEquals(NotificationStoreRead.Corrupt, store.read(misskeyReceiver))
+    }
+
+    @Test
+    fun fileStoreReportsAbsentStateForMissingFile() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FileNotificationStore(context)
+        File(File(context.noBackupFilesDir, "notifications"), "${misskeyReceiver.stableFileName()}.json").delete()
+
+        assertEquals(NotificationStoreRead.Absent, store.read(misskeyReceiver))
+    }
+
+    @Test
+    fun fileStoreReportsInvalidValuesAsCorrupt() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FileNotificationStore(context)
+        val directory = File(context.noBackupFilesDir, "notifications")
+        directory.mkdirs()
+        File(directory, "${misskeyReceiver.stableFileName()}.json")
+            .writeText("""{"version":2,"settings":{"quietStart":2000}}""")
+
+        assertEquals(NotificationStoreRead.Corrupt, store.read(misskeyReceiver))
     }
 
     @Test
@@ -678,7 +699,7 @@ class NotificationJsonCodecTest {
         directory.mkdirs()
         File(directory, "${misskeyReceiver.stableFileName()}.json").writeText(fixtureText("posts_and_accounts.json"))
 
-        val post = store.read(misskeyReceiver)?.items?.single()?.post
+        val post = (store.read(misskeyReceiver) as NotificationStoreRead.Readable).state.items.single().post
 
         assertNotNull(post)
         assertEquals(4, post?.interactionCounts?.quoteRepostCount)
@@ -693,8 +714,8 @@ class NotificationJsonCodecTest {
         directory.mkdirs()
         File(directory, "${misskeyReceiver.stableFileName()}.json").writeText(fixtureText("activity_variants.json"))
 
-        val activity = store.read(misskeyReceiver)?.items
-            ?.first { it.id.value == "a-unknown" }?.activity as NotificationActivity.Unknown
+        val activity = (store.read(misskeyReceiver) as NotificationStoreRead.Readable).state.items
+            .first { it.id.value == "a-unknown" }.activity as NotificationActivity.Unknown
 
         assertEquals(
             NotificationDestination.Server(ValidatedUrl.https("https://misskey.example/notice/9")!!),

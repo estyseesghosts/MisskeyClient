@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.notifications.FileNotificationStore
 import me.foxtails.palustris.data.notifications.LegacyNotificationFileImporter
+import me.foxtails.palustris.data.notifications.NotificationStoreRead
 import me.foxtails.palustris.data.notifications.RoomNotificationStore
 import me.foxtails.palustris.data.notifications.decode
 import me.foxtails.palustris.data.notifications.db.NotificationDatabase
@@ -20,11 +21,9 @@ import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ValidatedUrl
-import org.json.JSONException
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -50,12 +49,11 @@ class NotificationRoomStoreFixtureTest {
             }
             val store = RoomNotificationStore(database, importer(context))
 
-            val state = store.read(accountId)
+            val state = (store.read(accountId) as NotificationStoreRead.Readable).state
 
-            assertNotNull(state)
-            assertEquals(2, state?.items?.size)
-            assertEquals(NotificationUnreadState.AtLeast(2), state?.unreadState)
-            assertEquals(NotificationPushRegistrationState.Connected, state?.pushRegistration?.state)
+            assertEquals(2, state.items.size)
+            assertEquals(NotificationUnreadState.AtLeast(2), state.unreadState)
+            assertEquals(NotificationPushRegistrationState.Connected, state.pushRegistration?.state)
         } finally {
             runBlocking(Dispatchers.IO) { database.close() }
         }
@@ -81,7 +79,7 @@ class NotificationRoomStoreFixtureTest {
     }
 
     @Test
-    fun roomStoreThrowsOnBrokenJson() {
+    fun roomStoreReportsBrokenJsonAsCorrupt() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, NotificationDatabase::class.java).build()
         try {
@@ -93,7 +91,7 @@ class NotificationRoomStoreFixtureTest {
             }
             val store = RoomNotificationStore(database, importer(context))
 
-            assertThrows(JSONException::class.java) { store.read(accountId) }
+            assertEquals(NotificationStoreRead.Corrupt, store.read(accountId))
         } finally {
             runBlocking(Dispatchers.IO) { database.close() }
         }
@@ -112,8 +110,8 @@ class NotificationRoomStoreFixtureTest {
             }
             val store = RoomNotificationStore(database, importer(context))
 
-            val activity = store.read(accountId)?.items
-                ?.first { it.id.value == "a-unknown" }?.activity as NotificationActivity.Unknown
+            val activity = (store.read(accountId) as NotificationStoreRead.Readable).state.items
+                .first { it.id.value == "a-unknown" }.activity as NotificationActivity.Unknown
 
             assertEquals(
                 NotificationDestination.Server(ValidatedUrl.https("https://misskey.example/notice/9")!!),

@@ -48,7 +48,7 @@ class NotificationRepository @Inject constructor(
 
     @Synchronized
     fun observe(accountId: AccountId): StateFlow<NotificationRepositoryState> = states.getOrPut(accountId) {
-        MutableStateFlow(store.read(accountId) ?: NotificationRepositoryState())
+        MutableStateFlow(readState(accountId))
     }.asStateFlow()
 
     fun observeInbox(accountId: AccountId, query: NotificationQuery): Flow<NotificationInboxSnapshot> =
@@ -91,7 +91,7 @@ class NotificationRepository @Inject constructor(
     fun activate(token: NotificationSyncToken) {
         val current = generations[token.accountId]
         if (current == null || token.generation >= current) generations[token.accountId] = token.generation
-        states.getOrPut(token.accountId) { MutableStateFlow(store.read(token.accountId) ?: NotificationRepositoryState()) }
+        states.getOrPut(token.accountId) { MutableStateFlow(readState(token.accountId)) }
     }
 
     @Synchronized
@@ -495,7 +495,14 @@ class NotificationRepository @Inject constructor(
     }
 
     private fun stateForLocked(accountId: AccountId): MutableStateFlow<NotificationRepositoryState> =
-        states.getOrPut(accountId) { MutableStateFlow(store.read(accountId) ?: NotificationRepositoryState()) }
+        states.getOrPut(accountId) { MutableStateFlow(readState(accountId)) }
+
+    /**
+     * Absent, corrupt, and unavailable reads all yield an empty in-memory state for now.
+     * Slice 03-F3 adds the recoverable error state and blocks writes for the affected account.
+     */
+    private fun readState(accountId: AccountId): NotificationRepositoryState =
+        (store.read(accountId) as? NotificationStoreRead.Readable)?.state ?: NotificationRepositoryState()
 
     private fun isCurrentLocked(token: NotificationSyncToken): Boolean =
         (token.generation == 0L && token.accountId !in generations) || generations[token.accountId] == token.generation

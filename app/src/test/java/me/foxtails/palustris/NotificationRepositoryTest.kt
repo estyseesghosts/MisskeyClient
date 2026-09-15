@@ -6,6 +6,7 @@ import me.foxtails.palustris.data.notifications.InMemoryNotificationStore
 import me.foxtails.palustris.data.notifications.NotificationIngestRequest
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.NotificationRepositoryState
+import me.foxtails.palustris.data.notifications.NotificationStoreRead
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
@@ -589,7 +590,7 @@ class NotificationRepositoryTest {
             unreadState = NotificationUnreadState.Exact(1),
         )))
         val memoryBefore = repository.observe(account).value
-        val durableBefore = store.read(account)
+        val durableBefore = (store.read(account) as? NotificationStoreRead.Readable)?.state
 
         assertFalse(repository.ingestNewerPage(token, newerRequest(query), NotificationPage(
             items = listOf(notification("rejected", NotificationActivity.Mention)),
@@ -604,7 +605,7 @@ class NotificationRepositoryTest {
         )))
 
         val memoryAfter = repository.observe(account).value
-        val durableAfter = store.read(account)
+        val durableAfter = (store.read(account) as? NotificationStoreRead.Readable)?.state
         assertEquals(memoryBefore.items.map { it.id }, memoryAfter.items.map { it.id })
         assertEquals(memoryBefore.unreadState, memoryAfter.unreadState)
         assertEquals(memoryBefore.checkpoints, memoryAfter.checkpoints)
