@@ -6,7 +6,7 @@
 
 **Last reviewed:** 2026-09-15.
 
-**Source baseline:** `b629a2c` (assessment). C-01 through C-11, C-12a, and C-12b status refreshed against `PENDING`.
+**Source baseline:** `b629a2c` (assessment). C-01 through C-11, C-12a, and C-12b status refreshed against `0dec102`.
 
 **Stale when:** A listed exit condition changes, or a slice in
 `docs/agents/tasks/decomposition-01-02-completion.md` moves the status.
