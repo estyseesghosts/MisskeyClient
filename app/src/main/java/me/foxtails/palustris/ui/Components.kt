@@ -63,7 +63,7 @@ fun Avatar(modifier: Modifier = Modifier, description: String? = "Profile avatar
         color = MaterialTheme.colorScheme.secondaryContainer,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(AppIcons.Person, null, Modifier.fillMaxSize(.55f), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+            Icon(AppIcons.DefaultUser, null, Modifier.fillMaxSize(.55f), tint = MaterialTheme.colorScheme.onSecondaryContainer)
         }
     }
 }

@@ -64,7 +64,7 @@ internal fun AppNotificationsDestinationContent(
             )
         } else if (account == null) {
             EmptyState(
-                AppIcons.Chat,
+                AppIcons.DirectMessage,
                 androidx.compose.ui.res.stringResource(R.string.direct_messages_connect_title),
                 androidx.compose.ui.res.stringResource(R.string.direct_messages_connect_subtitle),
             )

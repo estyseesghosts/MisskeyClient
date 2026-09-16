@@ -65,7 +65,7 @@ fun NotificationDetailScreen(
     AnimatedStatePane(stateKey = stateKey, modifier = modifier) {
     when (route) {
         is AppRoute.NotificationSettings -> EmptyState(
-            me.foxtails.palustris.ui.AppIcons.Notifications,
+            me.foxtails.palustris.ui.AppIcons.Mail,
             stringResource(R.string.notifications_detail_title),
             stringResource(R.string.notifications_target_unavailable),
             Modifier.fillMaxSize(),
@@ -95,7 +95,7 @@ fun NotificationDetailScreen(
             val notification = items.firstOrNull { it.id == route.notificationId }
             if (notification == null) {
                 EmptyState(
-                    me.foxtails.palustris.ui.AppIcons.Notifications,
+                    me.foxtails.palustris.ui.AppIcons.Mail,
                     stringResource(R.string.notifications_detail_title),
                     stringResource(R.string.notifications_detail_not_cached),
                     Modifier.fillMaxSize(),
@@ -116,7 +116,7 @@ fun NotificationDetailScreen(
             }
             if (notification == null) {
                 EmptyState(
-                    me.foxtails.palustris.ui.AppIcons.Notifications,
+                    me.foxtails.palustris.ui.AppIcons.Mail,
                     stringResource(R.string.notifications_detail_title),
                     stringResource(R.string.notifications_target_unavailable),
                     Modifier.fillMaxSize(),

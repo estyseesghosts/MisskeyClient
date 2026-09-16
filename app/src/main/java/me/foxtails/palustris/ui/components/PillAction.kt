@@ -34,6 +34,7 @@ internal fun PillAction(
     maxLines: Int = 1,
     loading: Boolean = false,
     fillContent: Boolean = false,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
 ) {
     Surface(
         modifier = modifier
@@ -56,6 +57,10 @@ internal fun PillAction(
         ) {
             if (loading) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+            }
+            if (leadingIcon != null && !loading) {
+                androidx.compose.material3.Icon(leadingIcon, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
             }
             Text(

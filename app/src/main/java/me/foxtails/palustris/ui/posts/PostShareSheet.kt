@@ -236,11 +236,13 @@ private fun ShareActionCard(
                         )
                     }
                 } else {
+                    var unfollowConfirmation by remember(target.post.id, target.ownerAccountId, target.sessionRevision) { mutableStateOf(false) }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         RelationshipAction(
                             tag = "post_share_follow",
                             label = when {
                                 current?.requested == true -> stringResource(R.string.post_share_requested)
+                                current?.following == true && unfollowConfirmation -> stringResource(R.string.profile_unfollow_confirm)
                                 current?.following == true -> stringResource(R.string.post_share_unfollow_with_handle, handle)
                                 else -> stringResource(R.string.post_share_follow_with_handle, handle)
                             },
@@ -248,10 +250,22 @@ private fun ShareActionCard(
                             modifier = Modifier.weight(1f),
                             enabled = !self && !relationshipLoading && current?.requested != true && current != null,
                             loading = relationship.mutation == RelationshipMutation.Follow || relationship.mutation == RelationshipMutation.Unfollow,
+                            leadingIcon = when {
+                                current?.following == true -> AppIcons.Unfollow
+                                current != null -> AppIcons.Follow
+                                else -> null
+                            },
                             onClick = {
-                                onRelationshipAction(
-                                    if (current?.following == true) RelationshipMutation.Unfollow else RelationshipMutation.Follow,
-                                )
+                                if (current?.following == true) {
+                                    if (unfollowConfirmation) {
+                                        unfollowConfirmation = false
+                                        onRelationshipAction(RelationshipMutation.Unfollow)
+                                    } else {
+                                        unfollowConfirmation = true
+                                    }
+                                } else {
+                                    onRelationshipAction(RelationshipMutation.Follow)
+                                }
                             },
                         )
                         RelationshipAction(
@@ -293,6 +307,7 @@ private fun RelationshipAction(
     enabled: Boolean,
     loading: Boolean = false,
     onClick: () -> Unit,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
 ) {
     PillAction(
         label = label,
@@ -302,6 +317,7 @@ private fun RelationshipAction(
         modifier = modifier.fillMaxWidth().testTag(tag),
         contentDescription = label,
         fillContent = true,
+        leadingIcon = leadingIcon,
     )
 }
 
@@ -345,9 +361,9 @@ private fun BottomShareActions(
                 style = MaterialTheme.typography.labelLarge,
             )
             Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                ShareCell(AppIcons.Chat, stringResource(R.string.post_share_pm), enabled, onOpenDirectMessage, Modifier.weight(1f).testTag("post_share_pm"))
-                ShareCell(AppIcons.Link, stringResource(R.string.post_share_copy_link), enabled && hasLink, onCopyLink, Modifier.weight(1f).testTag("post_share_copy"))
-                ShareCell(AppIcons.Share, stringResource(R.string.post_share_system), enabled, onShare, Modifier.weight(1f).testTag("post_share_system"))
+                ShareCell(AppIcons.DirectMessage, stringResource(R.string.post_share_pm), enabled, onOpenDirectMessage, Modifier.weight(1f).testTag("post_share_pm"))
+                ShareCell(AppIcons.LinkBeeline, stringResource(R.string.post_share_copy_link), enabled && hasLink, onCopyLink, Modifier.weight(1f).testTag("post_share_copy"))
+                ShareCell(AppIcons.ShareBeeline, stringResource(R.string.post_share_system), enabled, onShare, Modifier.weight(1f).testTag("post_share_system"))
             }
         }
     }

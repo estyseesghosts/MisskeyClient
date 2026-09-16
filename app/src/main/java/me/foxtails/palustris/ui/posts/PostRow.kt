@@ -336,6 +336,16 @@ internal fun actionsForPost(availableActions: Set<PostAction>, post: Post): Set<
 internal fun Post.hasVisibleInteractionSelection(): Boolean =
     favourited || myReaction != null || selectedReactions.isNotEmpty()
 
+/** Stars show Mastodon favourite state. Hearts show like and reaction state on all other services. */
+internal fun favouriteIconFor(ownedPost: OwnedPost): ImageVector {
+    val selected = ownedPost.post.hasVisibleInteractionSelection()
+    return if (ownedPost.fetchedBy.connection.protocol == Protocol.MASTODON) {
+        if (selected) AppIcons.FilledStar else AppIcons.HollowStar
+    } else {
+        if (selected) AppIcons.FilledHeart else AppIcons.HollowHeart
+    }
+}
+
 @Composable
 internal fun PostBodyText(
     text: String,
@@ -665,14 +675,14 @@ internal fun InteractionRow(
     ) {
         InteractionButton(
             Modifier.weight(1f),
-            AppIcons.Reply,
+            AppIcons.Comment,
             stringResource(R.string.post_action_reply),
             enabled = PostAction.Reply in availableActions,
             onClick = { onReply(ownedPost) },
         )
         InteractionButton(
             Modifier.weight(1f),
-            AppIcons.Repost,
+            AppIcons.RepostBeeline,
             stringResource(if (ownedPost.post.reposted) R.string.post_action_undo_repost else R.string.post_action_repost),
              enabled = PostAction.Reshare in availableActions,
              isSelected = ownedPost.post.reposted,
@@ -688,11 +698,10 @@ internal fun InteractionRow(
             fun openReactionBubble(bounds: Rect) = onOpenReactionBubble(ownedPost, bounds)
             InteractionButton(
                 modifier = Modifier.fillMaxWidth(),
-                icon = AppIcons.Heart,
+                icon = favouriteIconFor(ownedPost),
                 label = stringResource(if (ownedPost.post.favourited) R.string.post_action_unfavorite else R.string.post_action_favorite),
              enabled = favouriteEnabled || reactionEnabled,
              isSelected = ownedPost.post.hasVisibleInteractionSelection(),
-             selectedIndicator = if (ownedPost.post.hasVisibleInteractionSelection()) "(:" else null,
                 onClick = {
                     when {
                         favouriteEnabled -> onReact(ownedPost)
@@ -713,7 +722,7 @@ internal fun InteractionRow(
         }
         InteractionButton(
             Modifier.weight(1f),
-            AppIcons.Bookmark,
+            if (ownedPost.post.saved) AppIcons.FilledBookmark else AppIcons.HollowBookmark,
             stringResource(if (ownedPost.post.saved) R.string.post_action_remove_bookmark else R.string.post_action_bookmark),
             enabled = PostAction.Bookmark in availableActions,
             isSelected = ownedPost.post.saved,
@@ -721,7 +730,7 @@ internal fun InteractionRow(
         )
           InteractionButton(
               Modifier.weight(1f),
-              AppIcons.Share,
+              AppIcons.ShareBeeline,
               stringResource(R.string.post_action_share),
               onClick = {},
               onClickWithBounds = { bounds -> onShare(ownedPost, bounds) },

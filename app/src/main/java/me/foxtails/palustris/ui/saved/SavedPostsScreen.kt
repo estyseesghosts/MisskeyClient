@@ -97,7 +97,7 @@ fun SavedPostsScreen(
                 onAction = if (state.needsSignIn) onSignIn else onRefresh,
             )
             state.posts.isEmpty() -> EmptyState(
-                if (likes) AppIcons.Heart else AppIcons.Bookmark,
+                if (likes) AppIcons.FilledHeart else AppIcons.HollowBookmark,
                 when {
                     likes -> stringResource(R.string.liked_posts_empty_title)
                     state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites -> "No favourites yet"

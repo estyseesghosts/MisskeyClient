@@ -383,6 +383,8 @@
     <string name="media_viewer">Media viewer</string>
     <string name="media_description">Description</string>
     <string name="media_close_description">Close description</string>
+    <string name="media_options">Media options</string>
+    <string name="media_close_viewer">Close media viewer</string>
     <string name="media_open_browser">Open media in browser</string>
     <string name="media_page_count">%1$d / %2$d</string>
     <string name="media_sensitive">Sensitive media</string>
@@ -474,6 +476,18 @@
     <string name="profile_banner">Profile banner</string>
     <string name="profile_edit">Edit profile</string>
     <string name="profile_message">Message</string>
+    <string name="profile_follow">Follow</string>
+    <string name="profile_following">Following</string>
+    <string name="profile_requested">Requested</string>
+    <string name="profile_unfollow_confirm">unfollow?</string>
+    <string name="profile_locked">Locked</string>
+    <string name="profile_bot">Bot</string>
+    <string name="profile_no_biography">No biography yet.</string>
+    <string name="profile_loading_details">Loading profile details</string>
+    <string name="profile_saved_details">Showing saved profile details. %1$s</string>
+    <string name="profile_follow_action">Follow profile</string>
+    <string name="profile_unfollow_action">Unfollow profile</string>
+    <string name="profile_cancel_request_action">Cancel follow request</string>
     <string name="profile_details">Profile details</string>
     <string name="profile_featured_posts">Featured posts</string>
     <string name="profile_no_posts_title">No posts in this view</string>

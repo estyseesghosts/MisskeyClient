@@ -105,7 +105,7 @@ fun ProfileScreen(
         ?: account
     if (displayedAccount == null) {
         EmptyState(
-            icon = AppIcons.Person,
+            icon = AppIcons.DefaultUser,
             title = stringResource(R.string.profile_empty_title),
             subtitle = stringResource(R.string.profile_empty_subtitle),
             modifier = Modifier.fillMaxSize(),

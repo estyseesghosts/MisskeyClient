@@ -42,7 +42,7 @@ internal fun AppLargeDetailPane(
 ) {
     if (selected == null) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            EmptyState(AppIcons.Home, androidx.compose.ui.res.stringResource(R.string.post_select_title), androidx.compose.ui.res.stringResource(R.string.post_select_subtitle))
+            EmptyState(AppIcons.HoneyHome, androidx.compose.ui.res.stringResource(R.string.post_select_title), androidx.compose.ui.res.stringResource(R.string.post_select_subtitle))
         }
         return
     }

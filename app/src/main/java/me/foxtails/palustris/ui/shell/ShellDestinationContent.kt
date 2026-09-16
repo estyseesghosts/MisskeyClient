@@ -211,7 +211,7 @@ internal fun ShellDestinationContent(
                                     }
                                 }) else null,
                             ) else Box(Modifier.fillMaxSize()) {
-                                EmptyState(AppIcons.Home, stringResource(R.string.feed_timeline_empty_title), stringResource(R.string.feed_timeline_empty_subtitle, stringResource(timelineLabelRes(navigator.timeline))))
+                                EmptyState(AppIcons.HoneyHome, stringResource(R.string.feed_timeline_empty_title), stringResource(R.string.feed_timeline_empty_subtitle, stringResource(timelineLabelRes(navigator.timeline))))
                                 if (largePresentation) {
                                     LargeBottomDock(modifier = Modifier.align(Alignment.BottomStart), content = {
                                         LargeTimelineDockContent(availableTimelines, navigator.timeline) { item ->

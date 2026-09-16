@@ -90,12 +90,12 @@ internal fun LargeNavigationRail(
                     ) {
                         Icon(
                             imageVector = when (target) {
-                                LargeNavTarget.Home -> AppIcons.Home
-                                LargeNavTarget.Search -> AppIcons.Search
-                                LargeNavTarget.PhotoGrid -> AppIcons.WaffleGrid
-                                LargeNavTarget.Notifications -> AppIcons.Notifications
-                                LargeNavTarget.DirectMessages -> AppIcons.Chat
-                                LargeNavTarget.Profile -> AppIcons.Person
+                                LargeNavTarget.Home -> AppIcons.HoneyHome
+                                LargeNavTarget.Search -> AppIcons.SearchBeeline
+                                LargeNavTarget.PhotoGrid -> AppIcons.PhotoGrid
+                                LargeNavTarget.Notifications -> AppIcons.Mail
+                                LargeNavTarget.DirectMessages -> AppIcons.DirectMessage
+                                LargeNavTarget.Profile -> AppIcons.DefaultUser
                             },
                             contentDescription = null,
                             modifier = Modifier.padding(14.dp),

@@ -204,7 +204,7 @@ fun HomeFeed(
                             }
                         }
                     }
-                    if (state.posts.isEmpty() && !state.loading && state.error == null) item { Box(Modifier.fillParentMaxSize()) { EmptyState(AppIcons.Home, stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_subtitle)) } }
+                    if (state.posts.isEmpty() && !state.loading && state.error == null) item { Box(Modifier.fillParentMaxSize()) { EmptyState(AppIcons.HoneyHome, stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_subtitle)) } }
                     val enabledActions = if (hasOwnership) availableActions.intersect(ClientReadyPostActions) else emptySet()
                     items(visibleRows, key = { "${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
                         Column(Modifier.animateItem(fadeInSpec = scheme.fastFadeIn, fadeOutSpec = scheme.fastFadeOut, placementSpec = scheme.gentleOffset)) {

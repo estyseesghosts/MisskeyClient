@@ -405,7 +405,7 @@ private fun LazyListScope.profilePageItems(
     if (page.posts.isEmpty() && page.error == null && !page.refreshing) {
         item(key = "profile-timeline-empty") {
             AnimatedStatePane(stateKey = "empty", modifier = Modifier.fillMaxWidth()) {
-                EmptyState(AppIcons.Person, stringResource(R.string.profile_no_posts_title), stringResource(R.string.profile_no_posts_subtitle))
+                EmptyState(AppIcons.DefaultUser, stringResource(R.string.profile_no_posts_title), stringResource(R.string.profile_no_posts_subtitle))
             }
         }
     }

@@ -89,6 +89,7 @@ private fun Modifier.roundPressLayer(
     color: androidx.compose.ui.graphics.Color,
 ): Modifier = bubblePressLayer(pressed, color, androidx.compose.foundation.shape.CircleShape)
 
+@Composable
 internal fun contextualActionFor(
     destination: Destination,
     searchPanel: SearchPanel,
@@ -103,30 +104,30 @@ internal fun contextualActionFor(
     onFollowProfile: () -> Unit,
     onUnfollowProfile: () -> Unit,
 ): ContextualBottomAction? = when (destination) {
-    Destination.Home -> ContextualBottomAction(AppIcons.Compose, "Compose post", true, onCompose)
+    Destination.Home -> ContextualBottomAction(AppIcons.Compose, stringResource(R.string.nav_compose), true, onCompose)
     Destination.Search -> if (searchPanel == SearchPanel.Search) {
-        ContextualBottomAction(AppIcons.WaffleGrid, "Photo grid", true, onSearchToggle)
+        ContextualBottomAction(AppIcons.PhotoGrid, stringResource(R.string.nav_photo_grid), true, onSearchToggle)
     } else {
-        ContextualBottomAction(AppIcons.Search, "Search", true, onSearchToggle)
+        ContextualBottomAction(AppIcons.SearchBeeline, stringResource(R.string.nav_search), true, onSearchToggle)
     }
     Destination.Notifications -> if (notificationsPanel == NotificationsPanel.Notifications) {
-        ContextualBottomAction(AppIcons.Chat, "Direct messages", true, onNotificationsToggle)
+        ContextualBottomAction(AppIcons.DirectMessage, stringResource(R.string.nav_direct_messages), true, onNotificationsToggle)
     } else {
-        ContextualBottomAction(AppIcons.Notifications, "Notifications", true, onNotificationsToggle)
+        ContextualBottomAction(AppIcons.Mail, stringResource(R.string.nav_notifications), true, onNotificationsToggle)
     }
     Destination.Profile -> when {
         profileTarget?.movedTo != null -> null
         profileTarget?.id == authenticatedAccountId && authenticatedAccountId != null ->
-            ContextualBottomAction(AppIcons.PersonEdit, "Edit profile", profileState.editableSupported, onEditProfile)
+            ContextualBottomAction(AppIcons.PersonEdit, stringResource(R.string.profile_edit), profileState.editableSupported, onEditProfile)
         profileState.relationshipSupported == true && profileState.relationship != null -> {
             val relationship = profileState.relationship
             val following = relationship.following || relationship.requested
             ContextualBottomAction(
-                icon = AppIcons.Person,
+                icon = if (following) AppIcons.Unfollow else AppIcons.Follow,
                 contentDescription = when {
-                    relationship.following -> "Unfollow profile"
-                    relationship.requested -> "Cancel follow request"
-                    else -> "Follow profile"
+                    relationship.following -> stringResource(R.string.profile_unfollow_action)
+                    relationship.requested -> stringResource(R.string.profile_cancel_request_action)
+                    else -> stringResource(R.string.profile_follow_action)
                 },
                 enabled = !profileState.relationshipMutation,
                 onClick = if (following) onUnfollowProfile else onFollowProfile,
@@ -168,7 +169,7 @@ internal fun CompactContextualNavigationBar(
                         val photoGridSelected = destination == Destination.Search &&
                             item == Destination.Search && searchPanel == SearchPanel.PhotoGrid
                         val label = stringResource(if (photoGridSelected) R.string.nav_photo_grid else item.labelRes)
-                        val icon = if (photoGridSelected) AppIcons.WaffleGrid else item.icon
+                        val icon = if (photoGridSelected) AppIcons.PhotoGrid else item.icon
                         val interactionSource = remember(item) { MutableInteractionSource() }
                         val pressed by interactionSource.collectIsPressedAsState()
                         val selectedTint = rememberSelectedColor(

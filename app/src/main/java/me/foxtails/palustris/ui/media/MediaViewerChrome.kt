@@ -49,9 +49,9 @@ internal fun BoxScope.MediaViewerChrome(
             .graphicsLayer { this.alpha = alpha },
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        ChromeButton(AppIcons.Close, "Close media viewer", enabled, onClose)
+        ChromeButton(AppIcons.Close, stringResource(R.string.media_close_viewer), enabled, onClose)
         Box {
-            ChromeButton(AppIcons.More, "Media options", enabled) { onMenuVisibilityChanged(true) }
+            ChromeButton(AppIcons.More, stringResource(R.string.media_options), enabled) { onMenuVisibilityChanged(true) }
             DropdownMenu(expanded = menuVisible && enabled, onDismissRequest = { onMenuVisibilityChanged(false) }) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.media_open_browser)) }, onClick = { onMenuVisibilityChanged(false); onOpenBrowser() })
                 if (descriptionAvailable) DropdownMenuItem(text = { Text(stringResource(R.string.media_description)) }, onClick = { onMenuVisibilityChanged(false); onShowDescription() })
@@ -64,10 +64,10 @@ internal fun BoxScope.MediaViewerChrome(
             .graphicsLayer { this.alpha = alpha },
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        ChromeButton(AppIcons.Heart, "Favorite", enabled, onReact)
-        ChromeButton(AppIcons.Reply, "Reply", enabled, onReply)
-        ChromeButton(AppIcons.Repost, "Repost", enabled, onReshare)
-        ChromeButton(AppIcons.Share, "Share", enabled, onShare)
+        ChromeButton(AppIcons.HollowHeart, stringResource(R.string.post_action_favorite), enabled, onReact)
+        ChromeButton(AppIcons.Comment, stringResource(R.string.post_action_reply), enabled, onReply)
+        ChromeButton(AppIcons.RepostBeeline, stringResource(R.string.post_action_repost), enabled, onReshare)
+        ChromeButton(AppIcons.ShareBeeline, stringResource(R.string.post_action_share), enabled, onShare)
     }
 }
 

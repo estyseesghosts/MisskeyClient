@@ -70,7 +70,7 @@ internal fun AppLocalPageContent(
                 onOpenUsername = onOpenUsername,
                 largeLayout = largeLayout,
             )
-        } ?: EmptyState(AppIcons.Bookmark, androidx.compose.ui.res.stringResource(R.string.saved_posts_empty_title), androidx.compose.ui.res.stringResource(R.string.saved_posts_empty_subtitle))
+        } ?: EmptyState(AppIcons.HollowBookmark, androidx.compose.ui.res.stringResource(R.string.saved_posts_empty_title), androidx.compose.ui.res.stringResource(R.string.saved_posts_empty_subtitle))
         LocalPage.Likes -> likedPostsState?.let { state ->
             SavedPostsScreen(
                 state = state,
@@ -95,7 +95,7 @@ internal fun AppLocalPageContent(
                 onOpenUsername = onOpenUsername,
                 largeLayout = largeLayout,
             )
-        } ?: EmptyState(AppIcons.Heart, androidx.compose.ui.res.stringResource(R.string.liked_posts_empty_title), androidx.compose.ui.res.stringResource(R.string.liked_posts_empty_subtitle))
+        } ?: EmptyState(AppIcons.HollowHeart, androidx.compose.ui.res.stringResource(R.string.liked_posts_empty_title), androidx.compose.ui.res.stringResource(R.string.liked_posts_empty_subtitle))
         LocalPage.Drafts -> DraftsScreen(drafts, onLoadDraft, onDeleteDraft)
         LocalPage.About -> EmptyState(AppIcons.Globe, androidx.compose.ui.res.stringResource(R.string.about_empty_title), androidx.compose.ui.res.stringResource(R.string.about_empty_subtitle))
         null -> Unit

@@ -277,7 +277,7 @@ fun PhotoGridScreen(
                     } else {
                         item(key = "photo-grid-empty", span = StaggeredGridItemSpan.FullLine) {
                             EmptyState(
-                                AppIcons.WaffleGrid,
+                                AppIcons.PhotoGrid,
                                 stringResource(R.string.photo_grid_empty_title),
                                 stringResource(R.string.photo_grid_empty_subtitle),
                                 modifier = Modifier.fillMaxWidth().height(300.dp),

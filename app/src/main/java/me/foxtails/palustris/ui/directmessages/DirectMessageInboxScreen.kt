@@ -78,13 +78,13 @@ fun DirectMessageInboxScreen(
                 contentAlignment = Alignment.Center,
             ) { CircularProgressIndicator() }
             state.error != null && state.conversations.isEmpty() -> EmptyState(
-                icon = AppIcons.Chat,
+                icon = AppIcons.DirectMessage,
                 title = stringResource(R.string.dm_load_error),
                 subtitle = state.error,
                 modifier = Modifier.fillMaxSize(),
             )
             state.conversations.isEmpty() -> EmptyState(
-                icon = AppIcons.Chat,
+                icon = AppIcons.DirectMessage,
                 title = stringResource(R.string.dm_empty_title),
                 subtitle = stringResource(R.string.dm_empty_subtitle),
                 modifier = Modifier.fillMaxSize(),

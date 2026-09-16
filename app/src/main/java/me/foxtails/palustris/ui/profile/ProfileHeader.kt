@@ -20,7 +20,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -164,21 +167,56 @@ internal fun ProfileHeader(
                         if (state.relationshipSupported == true && state.relationship != null) {
                             val relationship = state.relationship
                             val following = relationship.following || relationship.requested
-                            Button(
-                                onClick = if (following) onUnfollow else onFollow,
-                                enabled = !state.relationshipMutation,
-                                modifier = Modifier.testTag("profile_follow_action"),
-                            ) {
-                                if (state.relationshipMutation) {
-                                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                                } else {
-                                    Text(
+                            var confirmUnfollow by remember(account.id, relationship.following) { mutableStateOf(false) }
+                            if (relationship.following && confirmUnfollow && !state.relationshipMutation) {
+                                me.foxtails.palustris.ui.components.PillAction(
+                                    label = stringResource(R.string.profile_unfollow_confirm),
+                                    onClick = {
+                                        confirmUnfollow = false
+                                        onUnfollow()
+                                    },
+                                    modifier = Modifier.testTag("profile_unfollow_confirm"),
+                                    contentDescription = stringResource(R.string.profile_unfollow_confirm),
+                                    leadingIcon = me.foxtails.palustris.ui.AppIcons.Unfollow,
+                                )
+                            } else {
+                                Button(
+                                    onClick = {
                                         when {
-                                            relationship.following -> "Following"
-                                            relationship.requested -> "Requested"
-                                            else -> "Follow"
-                                        },
-                                    )
+                                            relationship.following -> confirmUnfollow = true
+                                            following -> onUnfollow()
+                                            else -> {
+                                                confirmUnfollow = false
+                                                onFollow()
+                                            }
+                                        }
+                                    },
+                                    enabled = !state.relationshipMutation,
+                                    modifier = Modifier.testTag("profile_follow_action"),
+                                ) {
+                                    if (state.relationshipMutation) {
+                                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                    } else if (!following) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            androidx.compose.material3.Icon(
+                                                me.foxtails.palustris.ui.AppIcons.Follow,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                            Text(stringResource(R.string.profile_follow))
+                                        }
+                                    } else {
+                                        Text(
+                                            when {
+                                                relationship.following -> stringResource(R.string.profile_following)
+                                                relationship.requested -> stringResource(R.string.profile_requested)
+                                                else -> stringResource(R.string.profile_follow)
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -190,24 +228,28 @@ internal fun ProfileHeader(
                     modifier = Modifier.padding(top = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (account.locked) ProfileBadge("Locked")
-                    if (account.bot) ProfileBadge("Bot")
+                    if (account.locked) ProfileBadge(stringResource(R.string.profile_locked))
+                    if (account.bot) ProfileBadge(stringResource(R.string.profile_bot))
                 }
             }
             InlineEmojiText(
-                text = account.biography.ifBlank { "No biography yet." },
+                text = account.biography.ifBlank { stringResource(R.string.profile_no_biography) },
                 emoji = account.emoji,
                 modifier = Modifier.padding(top = 16.dp).testTag("profile_biography"),
                 style = if (largeSummary) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
             )
             ProfileStats(account)
             when {
-                state.detailLoading -> LinearProfileProgress("Loading profile details")
-                state.staleDetails && state.detailError != null -> ProfileStatus("Showing saved profile details. ${state.detailError}", "Retry", onRefresh)
-                state.detailError != null -> ProfileStatus(state.detailError, "Retry", onRefresh)
+                state.detailLoading -> LinearProfileProgress(stringResource(R.string.profile_loading_details))
+                state.staleDetails && state.detailError != null -> ProfileStatus(
+                    stringResource(R.string.profile_saved_details, state.detailError ?: ""),
+                    stringResource(R.string.notifications_retry),
+                    onRefresh,
+                )
+                state.detailError != null -> ProfileStatus(state.detailError, stringResource(R.string.notifications_retry), onRefresh)
             }
             if (!isSelf && state.relationshipError != null) {
-                ProfileStatus(state.relationshipError, "Retry", onRefresh)
+                ProfileStatus(state.relationshipError, stringResource(R.string.notifications_retry), onRefresh)
             }
             Spacer(Modifier.height(20.dp))
         }

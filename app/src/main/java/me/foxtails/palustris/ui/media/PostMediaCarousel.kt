@@ -291,7 +291,7 @@ private fun MediaPreviewTile(
 @Composable
 internal fun SensitiveMediaTile(onReveal: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(AppIcons.Image, null)
+        Icon(AppIcons.PhotoGrid, null)
         TextButton(onClick = onReveal) { Text(stringResource(R.string.media_show_sensitive)) }
     }
 }
@@ -299,7 +299,7 @@ internal fun SensitiveMediaTile(onReveal: () -> Unit) {
 @Composable
 private fun UnsupportedMediaTile(attachment: Attachment) {
     Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(AppIcons.Image, null)
+        Icon(AppIcons.PhotoGrid, null)
         Text(attachment.kind.name, style = MaterialTheme.typography.labelLarge)
         Text(stringResource(R.string.media_type_unavailable), style = MaterialTheme.typography.bodySmall)
     }

@@ -169,13 +169,14 @@ private fun ExpandedHashtags(
 @Composable
 private fun HashtagPill(hashtag: String, onSelected: (String) -> Unit) {
     PillAction(
-        label = hashtag,
+        label = hashtag.removePrefix("#"),
         onClick = { onSelected(hashtag) },
         modifier = Modifier
             .widthIn(max = 240.dp)
             .testTag("hashtag_bubble_$hashtag"),
         contentDescription = stringResource(R.string.post_action_hashtag_description, hashtag),
         maxLines = 2,
+        leadingIcon = AppIcons.Hashtag,
     )
 }
 

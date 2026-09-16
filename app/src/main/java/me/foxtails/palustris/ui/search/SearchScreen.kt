@@ -300,7 +300,7 @@ private fun SearchContent(
                 ) else AccountSearchResults(query, accountSearch, onAccountClick, endClearance, listState)
             } else {
                 EmptyState(
-                    AppIcons.Tag,
+                    AppIcons.Hashtag,
                     if (query.isNotBlank()) stringResource(R.string.search_ready_when_you_are) else when (tab) {
                         1 -> stringResource(R.string.search_explore_hashtags)
                         2 -> stringResource(R.string.search_news_from_network)
@@ -327,7 +327,7 @@ private fun SearchField(query: String, onSubmit: () -> Unit, onQueryChange: (Str
         onValueChange = onQueryChange,
         modifier = Modifier.fillMaxWidth().semantics { contentDescription = searchFieldDescription },
         placeholder = { Text(stringResource(R.string.search_placeholder_handle)) },
-        leadingIcon = { Icon(AppIcons.Search, null) },
+        leadingIcon = { Icon(AppIcons.SearchBeeline, null) },
         trailingIcon = {
             AnimatedContent(
                 targetState = query.isNotEmpty(),
@@ -383,7 +383,7 @@ private fun HashtagSearchResults(
     val scheme = LocalPalustrisMotionScheme.current
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        state.error != null -> EmptyState(AppIcons.Search, stringResource(R.string.search_hashtag_failed), state.error)
+        state.error != null -> EmptyState(AppIcons.SearchBeeline, stringResource(R.string.search_hashtag_failed), state.error)
         state.posts.isNotEmpty() && state.query == query.trim() -> LazyColumn(
             state = listState ?: rememberLazyListState(),
             modifier = Modifier.fillMaxSize(),
@@ -430,9 +430,9 @@ private fun HashtagSearchResults(
                 }
             }
         }
-        query.isBlank() -> EmptyState(AppIcons.Tag, stringResource(R.string.search_find_hashtag), stringResource(R.string.search_hashtag_prompt))
-        state.query == query.trim() -> EmptyState(AppIcons.Tag, stringResource(R.string.search_no_posts), stringResource(R.string.search_no_posts_for, state.query))
-        else -> EmptyState(AppIcons.Tag, stringResource(R.string.search_hashtag_ready), stringResource(R.string.search_hashtag_ready_prompt))
+        query.isBlank() -> EmptyState(AppIcons.Hashtag, stringResource(R.string.search_find_hashtag), stringResource(R.string.search_hashtag_prompt))
+        state.query == query.trim() -> EmptyState(AppIcons.Hashtag, stringResource(R.string.search_no_posts), stringResource(R.string.search_no_posts_for, state.query))
+        else -> EmptyState(AppIcons.Hashtag, stringResource(R.string.search_hashtag_ready), stringResource(R.string.search_hashtag_ready_prompt))
     }
 }
 
@@ -447,7 +447,7 @@ private fun AccountSearchResults(
     val scheme = LocalPalustrisMotionScheme.current
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        state.error != null -> EmptyState(AppIcons.Search, stringResource(R.string.search_account_failed), state.error)
+        state.error != null -> EmptyState(AppIcons.SearchBeeline, stringResource(R.string.search_account_failed), state.error)
         state.accounts.isNotEmpty() -> LazyColumn(
             state = listState ?: rememberLazyListState(),
             modifier = Modifier.fillMaxSize(),
@@ -470,8 +470,8 @@ private fun AccountSearchResults(
                 )
             }
         }
-        query.isBlank() -> EmptyState(AppIcons.Search, stringResource(R.string.search_find_account), stringResource(R.string.search_account_prompt))
-        state.query == query.trim() -> EmptyState(AppIcons.Search, stringResource(R.string.search_no_account), stringResource(R.string.search_no_account_prompt))
-        else -> EmptyState(AppIcons.Search, stringResource(R.string.search_ready), stringResource(R.string.search_ready_prompt))
+        query.isBlank() -> EmptyState(AppIcons.SearchBeeline, stringResource(R.string.search_find_account), stringResource(R.string.search_account_prompt))
+        state.query == query.trim() -> EmptyState(AppIcons.SearchBeeline, stringResource(R.string.search_no_account), stringResource(R.string.search_no_account_prompt))
+        else -> EmptyState(AppIcons.SearchBeeline, stringResource(R.string.search_ready), stringResource(R.string.search_ready_prompt))
     }
 }

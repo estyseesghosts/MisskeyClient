@@ -14,12 +14,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.foxtails.palustris.R
 import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.domain.Account
-import me.foxtails.palustris.ui.Avatar
+import me.foxtails.palustris.ui.AppIcons
 
 @Composable
 fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemantics: Boolean = true) {
@@ -39,13 +43,20 @@ fun AccountAvatar(account: Account, modifier: Modifier = Modifier, exposeSemanti
                 contentDescription = avatarDescription
             } else Modifier),
     ) {
-        Avatar(Modifier.fillMaxSize(), description = null)
-        AsyncImage(
-            model = avatarRequest,
-            imageLoader = mediaImageLoader.imageLoader,
+        Icon(
+            AppIcons.DefaultUserIcon,
             contentDescription = null,
-            contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
+            tint = Color.Unspecified,
         )
+        if (!account.avatarUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = avatarRequest,
+                imageLoader = mediaImageLoader.imageLoader,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }

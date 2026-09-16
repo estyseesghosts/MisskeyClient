@@ -310,7 +310,7 @@ private fun NotificationContent(
                                 Text(state.error, color = MaterialTheme.colorScheme.error)
                                 TextButton(onClick = onRefresh) { Text(stringResource(R.string.notifications_retry)) }
                             }
-                            else -> EmptyState(AppIcons.Notifications, title, subtitle)
+                            else -> EmptyState(AppIcons.Mail, title, subtitle)
                         }
                     }
                 }

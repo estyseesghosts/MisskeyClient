@@ -337,7 +337,7 @@ private fun buildInlineContent(
                                 emSize = emSize,
                                 width = entityWidthEm(segment.displayLabel, true, emSize, textMeasurer, density, bubbleTextStyle),
                                 onClick = { onOpenUrl(segment.target) },
-                                isLink = true,
+                                leadingIcon = AppIcons.LinkBeeline,
                             ),
                         )
                     } else {
@@ -353,20 +353,21 @@ private fun buildInlineContent(
                             emSize = emSize,
                             width = entityWidthEm(segment.displayLabel, false, emSize, textMeasurer, density, bubbleTextStyle),
                             onClick = onOpenUsername?.let { callback -> { callback(segment.target) } },
-                            isLink = false,
+                            leadingIcon = null,
                         ),
                     )
                 }
                 is RichTextSegment.Hashtag -> if (enableInlineEntities) {
+                    val hashtagLabel = segment.displayLabel.removePrefix("#")
                     put(
                         inlineContentId(segment),
                         entityContent(
-                            label = segment.displayLabel,
+                            label = hashtagLabel,
                             description = "Hashtag ${segment.displayLabel}",
                             emSize = emSize,
-                            width = entityWidthEm(segment.displayLabel, false, emSize, textMeasurer, density, bubbleTextStyle),
+                            width = entityWidthEm(hashtagLabel, true, emSize, textMeasurer, density, bubbleTextStyle),
                             onClick = onSearchHashtag?.let { callback -> { callback(segment.target) } },
-                            isLink = false,
+                            leadingIcon = AppIcons.Hashtag,
                         ),
                     )
                 }
@@ -383,7 +384,7 @@ private fun entityContent(
     emSize: TextUnit,
     width: TextUnit,
     onClick: (() -> Unit)?,
-    isLink: Boolean,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector?,
 ): androidx.compose.foundation.text.InlineTextContent = androidx.compose.foundation.text.InlineTextContent(
     placeholder = androidx.compose.ui.text.Placeholder(
         width = width,
@@ -419,9 +420,9 @@ private fun entityContent(
                 softWrap = false,
                 overflow = TextOverflow.Clip,
             )
-            if (isLink) {
+            if (leadingIcon != null) {
                 Icon(
-                    AppIcons.Paperclip,
+                    leadingIcon,
                     contentDescription = null,
                     modifier = Modifier.align(Alignment.CenterStart).padding(start = 6.dp).size(iconSize),
                 )

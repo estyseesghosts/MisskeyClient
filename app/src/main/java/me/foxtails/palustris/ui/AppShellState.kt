@@ -12,8 +12,8 @@ import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.large.LargeNavTarget
 
 internal enum class Destination(@StringRes val labelRes: Int, val icon: ImageVector) {
-    Home(R.string.nav_home, AppIcons.Home), Search(R.string.nav_search, AppIcons.Search),
-    Notifications(R.string.nav_notifications, AppIcons.Notifications), Profile(R.string.nav_profile, AppIcons.Person),
+    Home(R.string.nav_home, AppIcons.HoneyHome), Search(R.string.nav_search, AppIcons.SearchBeeline),
+    Notifications(R.string.nav_notifications, AppIcons.Mail), Profile(R.string.nav_profile, AppIcons.DefaultUser),
 }
 
 internal enum class NotificationsPanel { Notifications, DirectMessages }
