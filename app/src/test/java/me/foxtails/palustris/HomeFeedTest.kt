@@ -27,7 +27,7 @@ import me.foxtails.palustris.ui.feed.FeedState
 import me.foxtails.palustris.ui.feed.HomeFeed
 import me.foxtails.palustris.ui.LocalMutedHashtags
 import me.foxtails.palustris.ui.PalustrisApp
-import me.foxtails.palustris.ui.SearchScreen
+import me.foxtails.palustris.ui.search.SearchScreen
 import me.foxtails.palustris.ui.feed.AccountSearchState
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.profile.ProfileUiState

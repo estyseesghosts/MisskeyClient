@@ -34,7 +34,7 @@ import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
 import me.foxtails.palustris.ui.photogrid.PhotoGridController
 import me.foxtails.palustris.ui.photogrid.PhotoGridFeed
-import me.foxtails.palustris.ui.SearchController
+import me.foxtails.palustris.ui.search.SearchController
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
 import me.foxtails.palustris.ui.requiresSignIn

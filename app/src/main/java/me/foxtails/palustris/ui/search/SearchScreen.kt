@@ -1,4 +1,4 @@
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.search
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
@@ -68,6 +68,11 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.isExactHashtag
+import me.foxtails.palustris.ui.ActionIcon
+import me.foxtails.palustris.ui.AppIcons
+import me.foxtails.palustris.ui.EmptyState
+import me.foxtails.palustris.ui.PostInteractionPresentation
+import me.foxtails.palustris.ui.PostRow
 import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.components.CategoryChips
 import me.foxtails.palustris.ui.feed.AccountSearchState

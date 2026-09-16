@@ -1,4 +1,4 @@
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.search
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -12,6 +12,7 @@ import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.isExactHashtag
 import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.ui.feed.AccountSearchState
+import me.foxtails.palustris.ui.sourceErrorMessage
 
 internal class SearchController(
     private val source: SocialSource,
