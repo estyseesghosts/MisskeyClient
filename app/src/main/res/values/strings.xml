@@ -4,7 +4,7 @@
     <string name="nav_notifications">Notifications</string>
     <string name="nav_profile">Profile</string>
     <string name="nav_photo_grid">Photo grid</string>
-    <string name="nav_direct_messages">Private messages</string>
+    <string name="nav_direct_messages">Direct messages</string>
     <string name="nav_switch_account">Switch account</string>
     <string name="search_clear">Clear search</string>
     <string name="search_ready_when_you_are">Search is ready when you are</string>

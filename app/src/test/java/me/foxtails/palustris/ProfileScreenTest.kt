@@ -278,6 +278,7 @@ class ProfileScreenTest {
             )
         }
         compose.onNodeWithText("Following").assertIsDisplayed().performClick()
+        compose.onNodeWithText("unfollow?").assertIsDisplayed().performClick()
         assertEquals(1, unfollows)
     }
 
