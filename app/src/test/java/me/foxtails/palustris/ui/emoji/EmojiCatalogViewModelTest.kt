@@ -1,4 +1,4 @@
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.emoji
 
 import java.time.Clock
 import java.time.Instant
@@ -6,11 +6,13 @@ import java.time.ZoneOffset
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
@@ -21,14 +23,13 @@ import me.foxtails.palustris.domain.EmojiPickerGroupIds
 import me.foxtails.palustris.domain.EmojiPickerPreferences
 import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
 import me.foxtails.palustris.domain.Page
+import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.ValidatedUrl
-import me.foxtails.palustris.domain.Post
-import me.foxtails.palustris.ui.emoji.EmojiCatalogViewModel
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -41,6 +42,8 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class EmojiCatalogViewModelTest {
     private val account = AccountId(Connection("https://example.org", Protocol.MISSKEY), "account")
+    private val cancellationAccount =
+        AccountId(Connection("https://example.org", Protocol.MASTODON), "owner")
     private val oldEmoji = emoji("old")
     private val newEmoji = emoji("new")
     private val now = 2 * DAY
@@ -163,15 +166,66 @@ class EmojiCatalogViewModelTest {
         assertEquals(initial, preferences.preferences)
     }
 
+    @Test
+    fun cancelledReadNeverRefreshes() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = GatedCatalogRepository()
+            repository.readGate = CompletableDeferred()
+            val model = cancellationModel(repository)
+
+            model.loadIfNeeded()
+            advanceUntilIdle()
+            // The cached read is in flight. Stopping cancels it. Cancellation stays
+            // cancellation: no refresh follows and no error is reported.
+            model.stop()
+            advanceUntilIdle()
+
+            assertTrue(repository.refreshCalls.isEmpty())
+            assertFalse(model.state.value.initialLoading)
+            assertFalse(model.state.value.refreshing)
+            assertNull(model.state.value.error)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun failedReadFallsBackToRefresh() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = GatedCatalogRepository()
+            repository.readGate = CompletableDeferred<EmojiCatalogSnapshot?>().apply {
+                completeExceptionally(java.io.IOException("cache down"))
+            }
+            val model = cancellationModel(repository)
+
+            model.loadIfNeeded()
+            advanceUntilIdle()
+
+            assertEquals(listOf(cancellationAccount), repository.refreshCalls)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private fun model(
         repository: EmojiCatalogRepository,
         preferences: FakePreferencesRepository = FakePreferencesRepository(),
     ) = EmojiCatalogViewModel(
         accountId = account,
-        source = Source(),
+        source = CatalogSource(),
         repository = repository,
         clock = Clock.fixed(Instant.ofEpochMilli(now), ZoneOffset.UTC),
         preferencesRepository = preferences,
+    )
+
+    private fun cancellationModel(repository: GatedCatalogRepository) = EmojiCatalogViewModel(
+        accountId = cancellationAccount,
+        source = EmptySource,
+        repository = repository,
+        clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+        preferencesRepository = InertPreferencesRepository(),
     )
 
     private fun emoji(shortcode: String) = CustomEmoji(
@@ -211,8 +265,33 @@ class EmojiCatalogViewModelTest {
         )
     }
 
-    private class Source : SocialSource {
+    private class GatedCatalogRepository : EmojiCatalogRepository {
+        var readGate: CompletableDeferred<EmojiCatalogSnapshot?>? = null
+        var readResult: EmojiCatalogSnapshot? = null
+        val refreshCalls = mutableListOf<AccountId>()
+
+        override suspend fun read(accountId: AccountId): EmojiCatalogSnapshot? {
+            val gate = readGate
+            if (gate != null) return gate.await()
+            return readResult
+        }
+
+        override suspend fun refresh(accountId: AccountId, source: SocialSource): EmojiCatalogSnapshot {
+            refreshCalls += accountId
+            return EmojiCatalogSnapshot(emptyList(), 0L)
+        }
+
+        override suspend fun remove(accountId: AccountId) = Unit
+    }
+
+    private class CatalogSource : SocialSource {
         override val capabilities = ServerCapabilities()
+        override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
+    }
+
+    private object EmptySource : SocialSource {
+        override val capabilities = ServerCapabilities()
+
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
     }
 
@@ -228,6 +307,21 @@ class EmojiCatalogViewModelTest {
             transform: (EmojiPickerPreferences) -> EmojiPickerPreferences,
         ) {
             preferences = transform(preferences)
+        }
+
+        override suspend fun remove(accountId: AccountId) = Unit
+    }
+
+    private class InertPreferencesRepository : EmojiPickerPreferencesRepository {
+        private val state = MutableStateFlow(EmojiPickerPreferences())
+
+        override fun observe(accountId: AccountId): Flow<EmojiPickerPreferences> = state
+
+        override suspend fun update(
+            accountId: AccountId,
+            transform: (EmojiPickerPreferences) -> EmojiPickerPreferences,
+        ) {
+            state.value = transform(state.value)
         }
 
         override suspend fun remove(accountId: AccountId) = Unit
