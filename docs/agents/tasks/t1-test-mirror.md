@@ -22,28 +22,33 @@ This task is larger than one safe implementation slice. It divides into T1a thro
   - `app/src/test/java/me/foxtails/palustris/ui/posts/PostActionOwnerTest.kt` with package `me.foxtails.palustris.ui.posts`.
 - Keep all existing test methods. The root `EmojiCatalogViewModelTest` holds 2 cancellation and failure tests. The `ui` copy holds 6 catalog behavior tests. The merged class holds 8 tests. The root `PostActionOwnerTest` holds 3 retire authority tests. The `ui/posts` copy holds 2 session and mute tests. The merged class holds 5 tests.
 - Batch the remaining flat tests by owner after the merges. Do not move 100 files in one commit.
+- T1c homes follow the production owner package. `ui.notifications` owns the three notification tests. `ui.settings` owns `SettingsRouteRestorationTest`. `ui.posts` owns the two post tests. `ui.shell` owns `PostProjectionCoordinatorTest` and `ShellCharacterizationTest`. `ui.feed` owns `HomePagingDemandTest` and `HomeFeedTest`. `ui.navigation` owns `NavigationTest`. Flat `ui` owns `SignInScreenTest` and `DetailActionPolicyTest` because their production owners are `ui/SignInScreen.kt` and `ui/DetailActionPolicy.kt`. `ui.composer`, `ui.search`, and `ui.large` own `ReplyComposerTest`, `SearchPanelRestorationTest`, and `WideNavigationTest`.
+- `RichTextModelTest` belongs to `domain`, not `ui`. It exercises only domain classes: `MediaRequestPolicy`, `PostReactionReducer`, `PostInteractionCounts`, and `CustomEmoji`. The task file grouped it with the UI subjects, but test homes mirror production homes, so the code evidence wins.
 
 # Completed
 
 - T1a — Merged the two duplicate test classes into mirrored packages. Commit `7018105`. `ui/emoji/EmojiCatalogViewModelTest.kt` holds 8 tests. `ui/posts/PostActionOwnerTest.kt` holds 5 tests. Focused tests, `test assembleRelease`, and `ktlintCheck` pass.
 - T1b — Moved 43 data and domain owner tests into mirrored packages. Commit `f65a10a`. Each move changes the package line only. The moves exposed pre-existing style debt under new paths, so the slice also regenerates `app/ktlint-baseline.xml` (old root paths out, new mirrored paths in, zero `no-wildcard-imports` entries). `test assembleRelease` and `ktlintCheck` pass. UI subjects (`NotificationLaunchHost`, `NotificationRouteResolver`, `NotificationSettingsStorageReset`, `SettingsRouteRestoration`, `PostInteractionExecutionAuthority`) stay in root for T1c. Multi-adapter contracts stay in root for T1d.
+- T1c — Moved 17 UI feature tests into mirrored packages. Commit `42e85e7`. Physical file moves plus the package line. The 8 fixture users also gain `AppShellFixtures`, `ComposerFeatureFixtures` or `HomeFeatureFixtures`, and `MainActivity` imports because those declarations stay in the root package. The slice regenerates `app/ktlint-baseline.xml` (old root paths out, new mirrored paths in, zero `no-wildcard-imports` entries). Focused tests, `test assembleRelease`, and `ktlintCheck` pass.
 
 # Current slice
 
-T1c is next. Move UI feature tests into mirrored packages.
+T1d is next. Move the remaining root tests and fixtures into mirrored packages.
 
 # Files involved
 
-T1c moves UI-subject tests. Verified UI subjects: `NotificationLaunchHostTest`,
-`NotificationRouteResolverTest`, `NotificationSettingsStorageResetTest`,
-`SettingsRouteRestorationTest`, `PostInteractionExecutionAuthorityTest`,
-`PostInteractionMutationOwnerTest`, `PostProjectionCoordinatorTest`,
-`HomePagingDemandTest`, `RichTextModelTest`. Fixture users that need new
-fixture imports after a move: `HomeFeedTest`, `NavigationTest`,
-`SignInScreenTest`, `DetailActionPolicyTest`, `ReplyComposerTest`,
-`SearchPanelRestorationTest`, `ShellCharacterizationTest`,
-`WideNavigationTest`. Remaining root tests need per-file owner mapping
-before the move. T1c may split further if the fixture moves prove large.
+T1d moves the remaining flat and root tests after per-file owner mapping, plus
+the shared fixtures. The root package still holds `AppShellFixtures.kt`,
+`ComposerFeatureFixtures.kt`, and `HomeFeatureFixtures.kt`. Treat the fixture
+move as its own slice part because every fixture user needs a fixture import.
+Examples of remaining unmapped root tests: `AppLocaleControllerTest`,
+`ComposerOwnerTest`, `DirectMessageScreenTest`, `FeedViewModelReactionTest`,
+`LanguageSettingsScreenTest`, `LargeLayoutModeTest`, `MediaViewerScreenTest`,
+`ModerationViewModelTest`, `NotificationsScreenTest`, `PhotoGridScreenTest`,
+`ProfileScreenTest`, `SavedPostsScreenTest`, `SettingsDisplayTest`,
+`SinglePostScreenTest`, `ShellBackPolicyTest`, `ShellNavigatorTest`, and the
+multi-adapter contracts (`MastodonIntegrationTest`, `SocialSourceContractTest`,
+`NotificationContractTest`, `ProtocolFixtureValidationTest`).
 
 # Verification
 
@@ -72,8 +77,8 @@ Close standard input. Set an explicit timeout for each Gradle call.
 - No emulator or device is reachable. Connected instrumentation stays unverified.
 - Live-server and signed-release behavior stay unverified.
 - The Android 15 system-bar instrumentation failure stays in `logs/BUGS.txt`.
-- The ktlint baseline holds 435 entries across 219 files. Moved files may expose new findings outside the baseline. Keep merged files import-clean and ordered.
+- The ktlint baseline holds 432 entries across 216 files. Moved files may expose new findings outside the baseline. Keep merged files import-clean and ordered.
 
 # Last safe commit
 
-`f65a10a` "Move data and domain owner tests into mirrored packages".
+`42e85e7` "Move UI owner tests into mirrored packages".
