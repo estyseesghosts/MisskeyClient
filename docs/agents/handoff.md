@@ -7,14 +7,16 @@ Plans 01, 02, and 03 is `docs/decomposition_3/03_corrected.md` (git-ignored plan
 do not force-add). The durable record for the completed S1 work is
 `docs/agents/tasks/palustrisapp-decomposition.md`. The durable record for
 the completed P1 work is `docs/agents/tasks/ui-package-migration.md`. The
-durable record for the active Q1 work is `docs/agents/tasks/q1-static-analysis.md`.
+durable record for the completed Q1 work is
+`docs/agents/tasks/q1-static-analysis.md`. The durable record for the
+active T1 work is `docs/agents/tasks/t1-test-mirror.md`.
 
 ## Where To Start
 
 Read these in order. Treat the repository as the authority.
 
 1. `AGENTS.md`.
-2. `docs/agents/tasks/q1-static-analysis.md`.
+2. `docs/agents/tasks/t1-test-mirror.md`.
 3. `docs/decomposition_3/03_corrected.md`.
 4. `docs/agents/app-shell-ownership.md` and `docs/agents/protocol-and-session-ownership.md`.
 5. `docs/agents/decomposition-01-02-acceptance-matrix.md`.
@@ -71,24 +73,31 @@ Read these in order. Treat the repository as the authority.
   The durable record is `docs/agents/tasks/q1-static-analysis.md`.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
+- T1a (merge the duplicate test classes into mirrored packages) is
+  committed and test verified. `ui/emoji/EmojiCatalogViewModelTest`
+  holds 8 tests and `ui/posts/PostActionOwnerTest` holds 5 tests. The
+  two root copies and the misplaced `ui/EmojiCatalogViewModelTest` are
+  gone. Focused tests, `test assembleRelease`, and `ktlintCheck` pass.
+  The slice commit is `7018105`.
 
 ## Next Slice
 
-T1 — Mirror test packages to production packages and merge the two
-duplicate-named test classes (`EmojiCatalogViewModelTest`,
-`PostActionOwnerTest`). Then V1 and the Plan 04 rebase. The
-fully-qualified-name cleanup stays deferred to its own task.
+T1b — Move data and domain owner tests into mirrored packages. Then T1c
+and T1d for the remaining root tests and fixtures, then V1 and the Plan
+04 rebase. The fully-qualified-name cleanup stays deferred to its own
+task.
 
 ## Remaining Migration Queue
 
-The S1 and P1 series are complete. Do these in order. Each needs its own
-task-state file and verification.
+The S1, P1, and Q1 series are complete. T1 is in progress. Do these in
+order. Each needs its own task-state file and verification.
 
-1. Q1 — Add ktlint or detekt with a baseline. Fix the wildcard imports
-   and the fully-qualified names. Smallest change with the broadest payoff.
-2. T1 — Mirror test packages to production packages. Merge the two
-   duplicate-named test classes (`EmojiCatalogViewModelTest`,
-   `PostActionOwnerTest`).
+1. Q1 — Done. ktlint gate with a baseline. Wildcard imports are gone.
+2. T1 — In progress. T1a is done. Next: T1b data and domain owner
+    tests, T1c UI feature tests, T1d remaining root tests and fixtures.
+    Merge of the two duplicate-named test classes
+    (`EmojiCatalogViewModelTest`, `PostActionOwnerTest`) is done in
+    `7018105`.
 3. V1 — Repair `RoomNotificationStoreInstrumentedTest` and de-flake the
    two known timing tests. The `Api29StartupInstrumentedTest` repair is
    already done in `b62f8c6`. Record blocked device checks honestly.
