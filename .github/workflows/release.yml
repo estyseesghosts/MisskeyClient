@@ -82,6 +82,9 @@ jobs:
       - name: Run lint
         run: ./gradlew :app:lintDebug
 
+      - name: Run ktlint
+        run: ./gradlew :app:ktlintCheck
+
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug
 

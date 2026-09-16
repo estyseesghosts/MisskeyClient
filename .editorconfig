@@ -1,0 +1,32 @@
+root = true
+
+[*.{kt,kts}]
+ktlint_code_style = android_studio
+# Wildcard imports are never allowed. This clears the editor defaults that
+# permit java.util.* and kotlinx.android.synthetic.*.
+ij_kotlin_packages_to_use_import_on_demand = nothing
+# Compose uses PascalCase for composable functions. Only annotated functions
+# keep that name.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# The project uses a compact wrapping style. The ktlint wrapping and signature
+# rules would rewrite nearly every file, so they stay off. They can be enabled
+# again after a repository-wide format pass.
+ktlint_standard_argument-list-wrapping = disabled
+ktlint_standard_binary-expression-wrapping = disabled
+ktlint_standard_chain-method-continuation = disabled
+ktlint_standard_class-signature = disabled
+ktlint_standard_condition-wrapping = disabled
+ktlint_standard_function-literal = disabled
+ktlint_standard_function-signature = disabled
+ktlint_standard_indent = disabled
+ktlint_standard_max-line-length = disabled
+ktlint_standard_multiline-expression-wrapping = disabled
+ktlint_standard_multiline-if-else = disabled
+ktlint_standard_parameter-list-wrapping = disabled
+ktlint_standard_parameter-wrapping = disabled
+ktlint_standard_property-wrapping = disabled
+ktlint_standard_statement-wrapping = disabled
+ktlint_standard_trailing-comma-on-call-site = disabled
+ktlint_standard_trailing-comma-on-declaration-site = disabled
+ktlint_standard_wrapping = disabled

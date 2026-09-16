@@ -20,6 +20,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.2.10"
     id("org.jetbrains.kotlin.kapt")
     id("com.google.dagger.hilt.android")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 android {
@@ -124,4 +125,12 @@ kapt {
         // Reproducible Room schema history. Required before a schema version change.
         arg("room.schemaLocation", "$projectDir/schemas")
     }
+}
+
+ktlint {
+    android.set(true)
+    // Pin the tool version so a plugin patch release cannot change the rules.
+    version.set("1.5.0")
+    // Existing style debt is recorded once. New code must not add to it.
+    baseline.set(file("ktlint-baseline.xml"))
 }

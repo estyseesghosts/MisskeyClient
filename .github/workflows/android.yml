@@ -35,6 +35,8 @@ jobs:
         run: ./gradlew :app:testDebugUnitTest
       - name: Run lint
         run: ./gradlew :app:lintDebug
+      - name: Run ktlint
+        run: ./gradlew :app:ktlintCheck
       - name: Assemble debug
         run: ./gradlew :app:assembleDebug
       - name: Assemble unsigned release
