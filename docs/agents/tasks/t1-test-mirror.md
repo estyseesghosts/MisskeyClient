@@ -26,18 +26,24 @@ This task is larger than one safe implementation slice. It divides into T1a thro
 # Completed
 
 - T1a — Merged the two duplicate test classes into mirrored packages. Commit `7018105`. `ui/emoji/EmojiCatalogViewModelTest.kt` holds 8 tests. `ui/posts/PostActionOwnerTest.kt` holds 5 tests. Focused tests, `test assembleRelease`, and `ktlintCheck` pass.
+- T1b — Moved 43 data and domain owner tests into mirrored packages. Commit `f65a10a`. Each move changes the package line only. The moves exposed pre-existing style debt under new paths, so the slice also regenerates `app/ktlint-baseline.xml` (old root paths out, new mirrored paths in, zero `no-wildcard-imports` entries). `test assembleRelease` and `ktlintCheck` pass. UI subjects (`NotificationLaunchHost`, `NotificationRouteResolver`, `NotificationSettingsStorageReset`, `SettingsRouteRestoration`, `PostInteractionExecutionAuthority`) stay in root for T1c. Multi-adapter contracts stay in root for T1d.
 
 # Current slice
 
-T1b is next. Move data and domain owner tests into mirrored packages.
+T1c is next. Move UI feature tests into mirrored packages.
 
 # Files involved
 
-- `app/src/test/java/me/foxtails/palustris/EmojiCatalogViewModelTest.kt` (delete after merge).
-- `app/src/test/java/me/foxtails/palustris/ui/EmojiCatalogViewModelTest.kt` (delete after merge).
-- `app/src/test/java/me/foxtails/palustris/ui/emoji/EmojiCatalogViewModelTest.kt` (new merged home).
-- `app/src/test/java/me/foxtails/palustris/PostActionOwnerTest.kt` (delete after merge).
-- `app/src/test/java/me/foxtails/palustris/ui/posts/PostActionOwnerTest.kt` (merged home).
+T1c moves UI-subject tests. Verified UI subjects: `NotificationLaunchHostTest`,
+`NotificationRouteResolverTest`, `NotificationSettingsStorageResetTest`,
+`SettingsRouteRestorationTest`, `PostInteractionExecutionAuthorityTest`,
+`PostInteractionMutationOwnerTest`, `PostProjectionCoordinatorTest`,
+`HomePagingDemandTest`, `RichTextModelTest`. Fixture users that need new
+fixture imports after a move: `HomeFeedTest`, `NavigationTest`,
+`SignInScreenTest`, `DetailActionPolicyTest`, `ReplyComposerTest`,
+`SearchPanelRestorationTest`, `ShellCharacterizationTest`,
+`WideNavigationTest`. Remaining root tests need per-file owner mapping
+before the move. T1c may split further if the fixture moves prove large.
 
 # Verification
 
@@ -70,4 +76,4 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 # Last safe commit
 
-`7018105` "Merge duplicate test classes into mirrored packages".
+`f65a10a` "Move data and domain owner tests into mirrored packages".

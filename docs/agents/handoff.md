@@ -79,13 +79,19 @@ Read these in order. Treat the repository as the authority.
   two root copies and the misplaced `ui/EmojiCatalogViewModelTest` are
   gone. Focused tests, `test assembleRelease`, and `ktlintCheck` pass.
   The slice commit is `7018105`.
+- T1b (move 43 data and domain owner tests into mirrored packages) is
+  committed and test verified. Each move changes the package line only.
+  The slice also regenerates `app/ktlint-baseline.xml` because the moves
+  exposed pre-existing style debt under new paths. `test assembleRelease`
+  and `ktlintCheck` pass. The slice commit is `f65a10a`.
 
 ## Next Slice
 
-T1b — Move data and domain owner tests into mirrored packages. Then T1c
-and T1d for the remaining root tests and fixtures, then V1 and the Plan
-04 rebase. The fully-qualified-name cleanup stays deferred to its own
-task.
+T1b — Done. T1c is next: move UI feature tests into mirrored packages.
+Fixture users need new fixture imports after the move, so T1c may split
+further. Then T1d for contracts, fixtures, and remaining root tests,
+then V1 and the Plan 04 rebase. The fully-qualified-name cleanup stays
+deferred to its own task.
 
 ## Remaining Migration Queue
 
@@ -93,11 +99,11 @@ The S1, P1, and Q1 series are complete. T1 is in progress. Do these in
 order. Each needs its own task-state file and verification.
 
 1. Q1 — Done. ktlint gate with a baseline. Wildcard imports are gone.
-2. T1 — In progress. T1a is done. Next: T1b data and domain owner
-    tests, T1c UI feature tests, T1d remaining root tests and fixtures.
-    Merge of the two duplicate-named test classes
-    (`EmojiCatalogViewModelTest`, `PostActionOwnerTest`) is done in
-    `7018105`.
+2. T1 — In progress. T1a and T1b are done. Next: T1c UI feature tests,
+    T1d contracts, fixtures, and remaining root tests. Merge of the two
+    duplicate-named test classes (`EmojiCatalogViewModelTest`,
+    `PostActionOwnerTest`) is done in `7018105`. Data and domain owner
+    moves are done in `f65a10a`.
 3. V1 — Repair `RoomNotificationStoreInstrumentedTest` and de-flake the
    two known timing tests. The `Api29StartupInstrumentedTest` repair is
    already done in `b62f8c6`. Record blocked device checks honestly.
