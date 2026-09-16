@@ -25,6 +25,12 @@ jobs:
           cache: gradle
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install Android packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest
       - name: Run lint
@@ -60,6 +66,12 @@ jobs:
           cache: gradle
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+      - name: Install Android packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"
       - name: Run API 29 smoke test
         uses: reactivecircus/android-emulator-runner@v2
         with:
