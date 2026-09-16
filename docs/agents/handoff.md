@@ -50,8 +50,10 @@ Read these in order. Treat the repository as the authority.
 - P1 (finish the `ui/` package migration and group the destination
   callbacks) is complete. Every slice P1a through P1f is committed and
   test verified. The durable record is
-  `docs/agents/tasks/ui-package-migration.md`. The last safe commit is
-  `138a404`.
+  `docs/agents/tasks/ui-package-migration.md`.
+- Home timeline tab capsule fix (task log `logs/260915-220618.txt`) is
+  committed and test verified. The slice commit is `966dbf5`. The last
+  safe commit is `966dbf5`.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
 
