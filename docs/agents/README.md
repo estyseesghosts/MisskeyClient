@@ -45,8 +45,8 @@ Rebuild the TODO list from these items.
 
 ## Current tasks
 
-No long task is active. The S1 split of `PalustrisApp.kt` is approved as the
-next implementation task. It has no task-state file yet.
+- [Plan 04 utility ownership and retention](tasks/plan04-utility-retention.md) is in progress. 04-A through 04-D and 04-E1 through 04-E3 are complete.
+- [Localization string extraction](tasks/localization-string-extraction.md) is paused after slice 3.
 
 ## Historical tasks
 

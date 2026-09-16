@@ -17,6 +17,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
+import me.foxtails.palustris.domain.ConversationIdentity
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
 import me.foxtails.palustris.domain.DirectThreadRequest
@@ -50,11 +51,17 @@ class DirectMessageViewModelTest {
         audience = Audience.Direct,
     )
 
-    private fun conversation(id: String, lastId: String, author: Account = recipientA) = DirectConversation(
+    private fun conversation(
+        id: String,
+        lastId: String,
+        author: Account = recipientA,
+        identity: ConversationIdentity = ConversationIdentity.Verified,
+    ) = DirectConversation(
         id = ConversationId(connection.origin, id),
         participants = listOf(owner, author),
         lastPost = post(lastId, author),
         unread = false,
+        identity = identity,
     )
 
     /** A source whose DM requests wait for an explicit release that survives cancellation. */
@@ -63,6 +70,7 @@ class DirectMessageViewModelTest {
         val inboxRequests = mutableListOf<String?>()
         val threadRequests = mutableListOf<DirectThreadRequest>()
         val sendRequests = mutableListOf<DirectMessageRequest>()
+        var markReadCalls = 0
         private val inboxPending = ArrayDeque<CompletableDeferred<Page<DirectConversation>>>()
         private val threadPending = ArrayDeque<CompletableDeferred<List<Post>>>()
         private val sendPending = ArrayDeque<CompletableDeferred<Post>>()
@@ -91,7 +99,9 @@ class DirectMessageViewModelTest {
             return withContext(NonCancellable) { gate.await() }
         }
 
-        override suspend fun markConversationRead(id: ConversationId) = Unit
+        override suspend fun markConversationRead(id: ConversationId) {
+            markReadCalls += 1
+        }
 
         fun completeInbox(index: Int, page: Page<DirectConversation>) { inboxPending[index].complete(page) }
         fun failInbox(index: Int, error: Exception) { inboxPending[index].completeExceptionally(error) }
@@ -485,6 +495,76 @@ class DirectMessageViewModelTest {
             assertEquals("", model.state.value.editorText)
             assertFalse(model.state.value.sending)
             assertNull(model.state.value.error)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun provisionalConversationSendsNoServerMarkRead() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedDirectSource()
+            val store = InMemoryDirectMessageStore()
+            val authority = DirectMessageWriteAuthority()
+            val generation = authority.activate(accountId)
+            val model = DirectMessageViewModel(
+                accountId = accountId,
+                source = source,
+                writeGeneration = generation,
+                store = store,
+                ioDispatcher = StandardTestDispatcher(testScheduler),
+                writeAuthority = authority,
+            )
+            advanceUntilIdle()
+            val provisional = conversation(
+                "sent-post",
+                "sent-post",
+                recipientA,
+                ConversationIdentity.Provisional,
+            ).copy(unread = true)
+            store.save(accountId, provisional)
+
+            model.openConversation(provisional)
+            advanceUntilIdle()
+            source.completeThread(0, listOf(post("sent-post", recipientA)))
+            advanceUntilIdle()
+
+            // A provisional identifier must not reach a server mark-read.
+            assertEquals(0, source.markReadCalls)
+            assertEquals(false, store.conversation(accountId, provisional.id)?.unread)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun verifiedConversationSendsTheServerMarkRead() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedDirectSource()
+            val store = InMemoryDirectMessageStore()
+            val authority = DirectMessageWriteAuthority()
+            val generation = authority.activate(accountId)
+            val model = DirectMessageViewModel(
+                accountId = accountId,
+                source = source,
+                writeGeneration = generation,
+                store = store,
+                ioDispatcher = StandardTestDispatcher(testScheduler),
+                writeAuthority = authority,
+            )
+            advanceUntilIdle()
+            val verified = conversation("conversation", "last", recipientA).copy(unread = true)
+            store.save(accountId, verified)
+
+            model.openConversation(verified)
+            advanceUntilIdle()
+            source.completeThread(0, listOf(post("last", recipientA)))
+            advanceUntilIdle()
+
+            assertEquals(1, source.markReadCalls)
+            assertEquals(false, store.conversation(accountId, verified.id)?.unread)
         } finally {
             Dispatchers.resetMain()
         }

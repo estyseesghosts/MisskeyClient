@@ -10,8 +10,8 @@
 
 **Started:** 2026-09-16.
 
-**Status:** in progress. 04-A through 04-D, 04-E1, and 04-E2 are complete.
-04-E3 and 04-F through 04-K remain. The cleanup-window audit added 04-K and
+**Status:** in progress. 04-A through 04-D, 04-E1, 04-E2, and 04-E3 are
+complete. 04-F through 04-K remain. The cleanup-window audit added 04-K and
 prerequisites to 04-E, 04-H, and 04-J.
 
 **This task is larger than one safe implementation slice.**
@@ -125,9 +125,9 @@ first edit of the slice.
 1. **04-E thread anchor.** Choose the typed request that carries a validated post
    anchor plus a separate conversation identity. Coordinate with Plan 02's DM
    contracts. Do not treat a conversation ID as a status ID.
-2. **04-E provisional identity.** Decide whether the stored provisional
-   conversation value needs an explicit identity field and a migration, or stays
-   as local-only state. Do not reinterpret legacy values by string shape.
+2. **04-E provisional identity.** Decided. See "04-E3 Decision" below. The
+   stored value gains an explicit identity field with a Room migration. Do not
+   reinterpret legacy values by string shape.
 3. **04-H capability key.** Include session revision in the cache key, or remove
    cross-session reuse. Do not let a late old-session probe publish into a
    current-session entry.
@@ -195,6 +195,35 @@ normalizes 403, 404, and 410 to the same unsupported error and rejects a
 non-direct anchor. The Misskey adapter keeps `conversationId.value` as the reply
 root and does not adopt Mastodon conversation identity. Remove `directLastPosts`
 and its send-path insertion.
+
+### 04-E3 Decision (recorded 2026-09-16 before implementation)
+
+1. **Explicit identity field.** Add `ConversationIdentity { Verified,
+   Provisional }` to `domain/DirectMessageModels.kt`. `DirectConversation` gains
+   a required `identity: ConversationIdentity`. Verified is a server conversation
+   identity. Provisional is a local placeholder that a send creates from the sent
+   post value. Do not infer identity from the identifier string shape.
+2. **Migration.** `DirectConversationEntity` gains `identity TEXT NOT NULL
+   DEFAULT 'PROVISIONAL'` and `DirectMessageDatabase` moves to version 2 with an
+   exported schema. `MIGRATION_1_2` adds the column with that default. The
+   database exports its schema starting at version 2 and the released version-1
+   schema is exported as `1.json`.
+3. **Legacy rows.** A legacy row decodes as `Provisional`. Its identity cannot be
+   proven from the stored value, so it must not reach a server mark-read. The
+   next server conversation list rewrites the same row through the adapter, which
+   emits `Verified`, so the upgrade is self-healing.
+4. **Unknown stored value.** A stored identity that is not `Verified` decodes as
+   `Provisional`. A decode failure never widens server write authority.
+5. **Adapters.** The Mastodon mapper and the Misskey conversation service emit
+   `Verified` because the server supplied the conversation identity.
+6. **Send.** `DirectMessageRepository.send` marks the conversation `Provisional`
+   only when it builds the identifier from the sent post value. It keeps the
+   stored identity when the identifier identifies an existing conversation. The
+   `DirectMessageViewModel` mirrors that rule for its local state.
+7. **Mark read.** `DirectMessageRepository.markRead` resolves the stored identity.
+   It calls `source.markConversationRead` only for a `Verified` conversation. The
+   local read write always runs through the write authority. A provisional
+   conversation clears local unread state and sends no server request.
 
 ## Slice Plan
 
@@ -380,6 +409,41 @@ Committed in the same commit as this record.
   `DirectMessageScreenTest` pass. `test assembleRelease` passes after the
   temporary localization test relaxation. `:app:ktlintCheck` passes.
   `:app:lintDebug` passes. Live-server behavior stays unverified.
+
+### 04-E3 Explicit Provisional Identity
+
+Committed in the same commit as this record.
+
+- `domain/DirectMessageModels.kt` adds `ConversationIdentity { Verified,
+  Provisional }`. `DirectConversation` gains a required `identity`.
+- `DirectConversationEntity` gains `identity TEXT NOT NULL DEFAULT
+  'PROVISIONAL'`. `DirectMessageDatabase` is version 2 and exports its schema to
+  `app/schemas`. The released version-1 schema is exported as `1.json`, and
+  `2.json` records the installed schema.
+- `MIGRATION_1_2` adds the column with the provisional default. `AppModule`
+  registers `DIRECT_MESSAGE_MIGRATIONS`.
+- The Mastodon mapper and the Misskey conversation service emit `Verified`.
+  `DirectMessageRepository.send` and `DirectMessageViewModel.send` mark a new
+  compose `Provisional` and keep the stored identity for an existing
+  conversation.
+- `DirectMessageRepository.markRead` resolves the stored identity and calls
+  `source.markConversationRead` only for a `Verified` conversation. The local
+  read write stays inside the write authority. A legacy or unrecognized identity
+  decodes as `Provisional`, so no unproven value reaches a server mark-read.
+- Tests: `DirectMessageRepositoryTest` gains the provisional local-only mark-read,
+  the verified server mark-read, the new-compose provisional send, and stored
+  identity retention. `DirectMessageViewModelTest` gains the provisional
+  no-server-request and verified server-request cases.
+  `DirectMessageDatabaseSchemaTest` is new and covers the exported schema, the
+  migration list, and a legacy row that migrates to `PROVISIONAL`.
+- `docs/agents/protocol-and-session-ownership.md` and
+  `docs/wiki/notifications-and-direct-messages.md` record the boundary.
+- No ktlint baseline change is expected. The new test file uses imports.
+- Verification: `DirectMessageRepositoryTest` (15 tests),
+  `DirectMessageDatabaseSchemaTest` (3 tests), `DirectMessageViewModelTest`,
+  `DirectMessageScreenTest`, and `DirectMessageSourceTest` pass. The full
+  `test assembleRelease`, `:app:ktlintCheck`, and `:app:lintDebug` gate is
+  recorded below after the run. Device and live-server behavior stay unverified.
 
 ### 04-A Complete External-Link Ownership
 
@@ -572,7 +636,6 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
 
 - No emulator or device is reachable. Connected instrumentation stays unverified.
 - Live-server and signed-release behavior stay unverified.
-- 04-E3 needs the provisional-identity decision and a migration.
 - 04-H and 04-J need Plan 02 and Plan 03 coordination before shared contract changes.
 - 04-J needs the authority key-release decision. 04-K needs the cursor-bound decision.
 - The 04.md limits are proposals, not measured bounds. Release approval needs measurements.

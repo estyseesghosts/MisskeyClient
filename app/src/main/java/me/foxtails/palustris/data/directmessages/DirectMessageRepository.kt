@@ -8,6 +8,7 @@ import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.ConversationId
+import me.foxtails.palustris.domain.ConversationIdentity
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
 import me.foxtails.palustris.domain.DirectMessageSource
@@ -101,12 +102,18 @@ class DirectMessageRepository(
             val root = previous?.rootPostId ?: request.replyTo ?: post.id
             val participants = (previous?.participants.orEmpty() + recipientAccounts + post.author)
                 .distinctBy(Account::id)
+            // A new compose builds the identifier from the sent post value, so its
+            // server identity is unproven. Keep the stored identity when the
+            // identifier already names a conversation.
+            val identity = previous?.identity
+                ?: if (conversationId == null) ConversationIdentity.Provisional else ConversationIdentity.Verified
             val conversation = DirectConversation(
                 id = id,
                 participants = participants,
                 lastPost = post,
                 unread = false,
                 rootPostId = root,
+                identity = identity,
             )
             val thread = (store.thread(accountId, id) + post).distinctBy { it.id }
             store.save(accountId, conversation, thread)
@@ -115,7 +122,15 @@ class DirectMessageRepository(
     }
 
     suspend fun markRead(id: ConversationId) {
-        withContext(ioDispatcher) { source.markConversationRead(id) }
+        // A server mark-read needs a verified server conversation identity. A
+        // provisional conversation only has a local placeholder, so it clears
+        // local unread state without a guessed server request.
+        val verified = withContext(ioDispatcher) {
+            store.conversation(accountId, id)?.identity == ConversationIdentity.Verified
+        }
+        if (verified) {
+            withContext(ioDispatcher) { source.markConversationRead(id) }
+        }
         // Route the local write through the same serialized boundary as every other write.
         authority.commitIfCurrent(accountId, writeGeneration) {
             store.markRead(accountId, id)

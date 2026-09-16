@@ -16,6 +16,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
+import me.foxtails.palustris.domain.ConversationIdentity
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
 import me.foxtails.palustris.domain.DirectMessageSource
@@ -44,11 +45,17 @@ class DirectMessageRepositoryTest {
         audience = Audience.Direct,
     )
 
-    private fun conversation(id: String, lastId: String, unread: Boolean = false) = DirectConversation(
+    private fun conversation(
+        id: String,
+        lastId: String,
+        unread: Boolean = false,
+        identity: ConversationIdentity = ConversationIdentity.Verified,
+    ) = DirectConversation(
         id = ConversationId(connection.origin, id),
         participants = listOf(owner, recipient),
         lastPost = post(lastId),
         unread = unread,
+        identity = identity,
     )
 
     private class GatedSource : DirectMessageSource {
@@ -313,6 +320,110 @@ class DirectMessageRepositoryTest {
 
         assertEquals(1, source.markReadCalls)
         assertEquals(true, store.conversation(accountId, id)?.unread)
+    }
+
+    @Test
+    fun provisionalConversationClearsLocalUnreadWithoutAServerRequest() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val authority = DirectMessageWriteAuthority()
+        val store = InMemoryDirectMessageStore()
+        val source = GatedSource()
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
+        val id = ConversationId(connection.origin, "sent-post")
+        store.save(
+            accountId,
+            conversation("sent-post", "sent-post", unread = true, identity = ConversationIdentity.Provisional),
+        )
+
+        repository.markRead(id)
+        advanceUntilIdle()
+
+        // A provisional identifier is not a server conversation. Never guess one.
+        assertEquals(0, source.markReadCalls)
+        assertEquals(false, store.conversation(accountId, id)?.unread)
+    }
+
+    @Test
+    fun verifiedConversationSendsTheServerMarkRead() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val authority = DirectMessageWriteAuthority()
+        val store = InMemoryDirectMessageStore()
+        val source = GatedSource()
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
+        val id = ConversationId(connection.origin, "conversation")
+        store.save(accountId, conversation("conversation", "last", unread = true))
+
+        repository.markRead(id)
+        advanceUntilIdle()
+
+        assertEquals(1, source.markReadCalls)
+        assertEquals(false, store.conversation(accountId, id)?.unread)
+    }
+
+    @Test
+    fun sendWithoutAConversationStoresAProvisionalIdentity() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val authority = DirectMessageWriteAuthority()
+        val store = InMemoryDirectMessageStore()
+        val source = GatedSource()
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
+
+        val sending = async { repository.send(DirectMessageRequest(listOf(recipient.id), "hello")) }
+        advanceUntilIdle()
+        source.completeSend(0, post("sent", owner))
+        sending.await()
+        advanceUntilIdle()
+
+        assertEquals(ConversationIdentity.Provisional, store.conversations(accountId).single().identity)
+    }
+
+    @Test
+    fun sendIntoAStoredConversationKeepsItsIdentity() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val authority = DirectMessageWriteAuthority()
+        val store = InMemoryDirectMessageStore()
+        val source = GatedSource()
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
+        val provisionalId = ConversationId(connection.origin, "sent-post")
+        val verifiedId = ConversationId(connection.origin, "conversation")
+        store.save(
+            accountId,
+            conversation("sent-post", "sent-post", identity = ConversationIdentity.Provisional),
+        )
+        store.save(accountId, conversation("conversation", "last"))
+
+        val first = async {
+            repository.send(
+                DirectMessageRequest(listOf(recipient.id), "one"),
+                conversationId = provisionalId,
+                recipientAccounts = listOf(recipient),
+            )
+        }
+        advanceUntilIdle()
+        source.completeSend(0, post("next", owner))
+        first.await()
+        advanceUntilIdle()
+
+        val second = async {
+            repository.send(
+                DirectMessageRequest(listOf(recipient.id), "two"),
+                conversationId = verifiedId,
+                recipientAccounts = listOf(recipient),
+            )
+        }
+        advanceUntilIdle()
+        source.completeSend(1, post("later", owner))
+        second.await()
+        advanceUntilIdle()
+
+        assertEquals(
+            ConversationIdentity.Provisional,
+            store.conversation(accountId, provisionalId)?.identity,
+        )
+        assertEquals(
+            ConversationIdentity.Verified,
+            store.conversation(accountId, verifiedId)?.identity,
+        )
     }
 
     @Test

@@ -52,6 +52,7 @@ import me.foxtails.palustris.data.notifications.push.UnifiedPushRegistrationMana
 import me.foxtails.palustris.data.notifications.db.NotificationDatabase
 import me.foxtails.palustris.data.notifications.db.NOTIFICATION_MIGRATIONS
 import me.foxtails.palustris.data.directmessages.DirectMessageDatabase
+import me.foxtails.palustris.data.directmessages.DIRECT_MESSAGE_MIGRATIONS
 import me.foxtails.palustris.data.directmessages.DirectMessageStore
 import me.foxtails.palustris.data.directmessages.RoomDirectMessageStore
 import me.foxtails.palustris.data.emoji.EmojiCacheDatabase
@@ -176,7 +177,9 @@ object StorageModule {
             context,
             DirectMessageDatabase::class.java,
             File(context.noBackupFilesDir, "directmessages.db").absolutePath,
-        ).build()
+        )
+            .addMigrations(*DIRECT_MESSAGE_MIGRATIONS)
+            .build()
 
     @Provides
     @Singleton

@@ -13,6 +13,7 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
+import me.foxtails.palustris.domain.ConversationIdentity
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
 import me.foxtails.palustris.domain.DirectThreadRequest
@@ -302,6 +303,7 @@ class DirectMessageSourceTest {
             lastPost = lastPost,
             unread = true,
             rootPostId = lastPost.id,
+            identity = ConversationIdentity.Verified,
         )
         val source = object : me.foxtails.palustris.domain.DirectMessageSource {
             override suspend fun conversations(cursor: String?) = Page(listOf(conversation))

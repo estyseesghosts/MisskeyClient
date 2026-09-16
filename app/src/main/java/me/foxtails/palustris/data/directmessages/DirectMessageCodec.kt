@@ -5,6 +5,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
+import me.foxtails.palustris.domain.ConversationIdentity
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Post
@@ -28,6 +29,7 @@ internal object DirectMessageCodec {
             threadJson = thread.toString(),
             lastUpdatedEpochMillis = value.lastPost.publishedAtEpochMillis,
             unread = value.unread,
+            identity = value.identity.name,
         )
     }
 
@@ -39,6 +41,9 @@ internal object DirectMessageCodec {
         rootPostId = value.rootPostConnection?.let { connection ->
             value.rootPostId?.let { id -> EntityId(connection, id) }
         },
+        // An unreadable identity must not widen server write authority.
+        identity = runCatching { ConversationIdentity.valueOf(value.identity) }
+            .getOrDefault(ConversationIdentity.Provisional),
     )
 
     fun decodeThread(value: DirectConversationEntity): List<Post> = JSONArray(value.threadJson).let { values ->

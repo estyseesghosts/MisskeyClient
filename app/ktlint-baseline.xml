@@ -53,7 +53,7 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/data/directmessages/DirectMessageRepository.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="15" column="1" source="standard:no-unused-imports" />
+        <error line="16" column="1" source="standard:no-unused-imports" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/data/directmessages/DirectMessageStore.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -77,19 +77,16 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/data/mastodon/MastodonMapper.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="14" column="1" source="standard:no-unused-imports" />
         <error line="15" column="1" source="standard:no-unused-imports" />
         <error line="16" column="1" source="standard:no-unused-imports" />
         <error line="17" column="1" source="standard:no-unused-imports" />
         <error line="18" column="1" source="standard:no-unused-imports" />
         <error line="19" column="1" source="standard:no-unused-imports" />
-        <error line="349" column="17" source="standard:string-template" />
+        <error line="20" column="1" source="standard:no-unused-imports" />
+        <error line="351" column="17" source="standard:string-template" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/data/mastodon/MastodonModerationService.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/data/mastodon/MastodonNotificationMapper.kt">
-        <error line="144" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/data/mastodon/MastodonNotificationService.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -162,9 +159,6 @@
         <error line="4" column="1" source="standard:no-unused-imports" />
         <error line="8" column="1" source="standard:no-unused-imports" />
     </file>
-    <file name="src/main/java/me/foxtails/palustris/data/notifications/NotificationJsonCodec.kt">
-        <error line="510" column="89" source="standard:no-multi-spaces" />
-    </file>
     <file name="src/main/java/me/foxtails/palustris/data/notifications/NotificationRepository.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="18" column="1" source="standard:no-unused-imports" />
@@ -215,7 +209,7 @@
     <file name="src/main/java/me/foxtails/palustris/di/AppModule.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="34" column="1" source="standard:no-unused-imports" />
-        <error line="183" column="93" source="standard:function-expression-body" />
+        <error line="186" column="93" source="standard:function-expression-body" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/domain/EmojiPickerPreferences.kt">
         <error line="10" column="15" source="standard:property-naming" />
@@ -784,7 +778,6 @@
     </file>
     <file name="src/test/java/me/foxtails/palustris/ui/session/SessionViewModelTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="297" column="1" source="standard:spacing-between-declarations-with-annotations" />
     </file>
     <file name="src/test/java/me/foxtails/palustris/ui/settings/ModerationViewModelTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />

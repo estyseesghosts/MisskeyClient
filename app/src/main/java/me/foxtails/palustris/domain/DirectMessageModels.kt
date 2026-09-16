@@ -22,10 +22,22 @@ data class DirectThreadRequest(
     val anchor: EntityId,
 )
 
+/**
+ * Provenance of a conversation identifier.
+ *
+ * [Verified] means the server issued the identity in a conversation response.
+ * [Provisional] means the client built a local placeholder from a sent post value
+ * because no server conversation was known yet. Only [Verified] identity may
+ * reach a server mark-read request. Do not infer identity from the identifier
+ * string shape.
+ */
+enum class ConversationIdentity { Verified, Provisional }
+
 data class DirectConversation(
     val id: ConversationId,
     val participants: List<Account>,
     val lastPost: Post,
     val unread: Boolean,
     val rootPostId: EntityId? = null,
+    val identity: ConversationIdentity,
 )

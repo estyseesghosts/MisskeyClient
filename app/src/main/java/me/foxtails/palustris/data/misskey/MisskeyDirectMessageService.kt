@@ -6,6 +6,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
+import me.foxtails.palustris.domain.ConversationIdentity
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
 import me.foxtails.palustris.domain.DirectThreadRequest
@@ -35,7 +36,14 @@ internal class MisskeyDirectMessageService(
         val byId = posts.associateBy { it.id }
         val items = posts.groupBy { rootFor(it, byId) }.map { (root, thread) ->
             val latest = thread.maxByOrNull(Post::publishedAtEpochMillis) ?: thread.first()
-            DirectConversation(ConversationId(origin, root.value), (thread.map(Post::author) + localAccount(account)).distinctBy { it.id }, latest, latest.author.id != account, root)
+            DirectConversation(
+                id = ConversationId(origin, root.value),
+                participants = (thread.map(Post::author) + localAccount(account)).distinctBy { it.id },
+                lastPost = latest,
+                unread = latest.author.id != account,
+                rootPostId = root,
+                identity = ConversationIdentity.Verified,
+            )
         }.sortedByDescending { it.lastPost.publishedAtEpochMillis }
         return Page(items, posts.minByOrNull(Post::publishedAtEpochMillis)?.id?.value?.let { encodeCursor(account, it) })
     }

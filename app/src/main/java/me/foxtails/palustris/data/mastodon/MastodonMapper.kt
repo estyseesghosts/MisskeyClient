@@ -6,6 +6,7 @@ import me.foxtails.palustris.domain.Attachment
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
+import me.foxtails.palustris.domain.ConversationIdentity
 import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.EditableProfile
@@ -44,6 +45,7 @@ object MastodonMapper {
             lastPost = post(lastStatus, origin),
             unread = json.optBoolean("unread"),
             rootPostId = null,
+            identity = ConversationIdentity.Verified,
         )
     }
 

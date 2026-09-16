@@ -10,8 +10,8 @@ the completed P1 work is `docs/agents/tasks/ui-package-migration.md`. The
 durable record for the completed Q1 work is
 `docs/agents/tasks/q1-static-analysis.md`. The durable record for the
 completed T1 work is `docs/agents/tasks/t1-test-mirror.md`. The active Plan 04
-work is `docs/agents/tasks/plan04-utility-retention.md` (04-A through 04-D,
-04-E1, and 04-E2 are complete; 04-E3 and 04-F through 04-K remain). A
+work is `docs/agents/tasks/plan04-utility-retention.md` (04-A through 04-D and
+04-E1 through 04-E3 are complete; 04-F through 04-K remain). A
 cleanup-window audit added 04-K and prerequisites to 04-E, 04-H, and 04-J. The
 Plan 04 source is
 `docs/decomposition_3/04.md` (git-ignored planning material, do not force-add).
@@ -175,25 +175,28 @@ Read these in order. Treat the repository as the authority.
   Misskey adapter keeps its reply-rooted root. `directLastPosts` and the
   send-path insertion are gone. Its slice and this record share one
   commit.
+- 04-E3 (give provisional conversations an explicit identity and send mark read
+  only for verified server identity) is committed and test verified.
+  `ConversationIdentity { Verified, Provisional }` is in the domain.
+  `DirectConversation` carries a required `identity`. The Room entity adds
+  `identity TEXT NOT NULL DEFAULT 'PROVISIONAL'`; the database is version 2,
+  exports its schema, registers `MIGRATION_1_2`, and keeps the released version-1
+  schema as `1.json`. The repository calls `markConversationRead` only for a
+  verified conversation, so no guessed identity reaches the server. A legacy or
+  unrecognized identity decodes as provisional. Its slice and this record share
+  one commit.
 
 ## Next Slice
 
-Localization string extraction is active. The durable record is
-`docs/agents/tasks/localization-string-extraction.md`. Slices 1, 2, and 3 are
-complete and committed. Start slice 4 (data layer error messages) next. It
-covers `FileAppPreferencesRepository`, `NotificationSyncOrchestrator`,
-`DraftActions`, the auth expiry messages, `MisskeyApi`, and `MisskeySource`.
-Those owners have no `Context`. Decide the mechanism first: a `@StringRes` code
-on the error, or a `Context`-backed resolver. Slice 4 also decides the remaining
-protocol feature codes that `sourceErrorMessage` still interpolates.
+Localization string extraction is paused after slice 3. The durable record is
+`docs/agents/tasks/localization-string-extraction.md`. Slice 4 (data layer error
+messages) remains planned. Resume it when the user directs localization work.
 
-Plan 04 resumes after the localization task. 04-E2 is Done. Start 04-E3 (give
-provisional conversations an explicit identity
-and send mark read only for verified server identity) next. It needs the
-provisional-identity decision and a Room migration. Then continue through 04-K
-in the recorded order. 04-K removes the dead profile paging authority and bounds
-the cursor sets. 04-J runs last and depends on 04-F through 04-I and 04-K. The
-last safe commit is the commit that contains this handoff (`git log -1`).
+Plan 04 continues at 04-F (bound idle Misskey thread continuations). 04-E3 is
+Done. Then implement 04-G through 04-K in the recorded order. 04-K removes the
+dead profile paging authority and bounds the cursor sets. 04-J runs last and
+depends on 04-F through 04-I and 04-K. The last safe commit is the commit that
+contains this handoff (`git log -1`).
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The
@@ -221,13 +224,13 @@ verification.
 4. Plan 04 — In progress. Rebase recorded as a slice plan in
    `docs/agents/tasks/plan04-utility-retention.md`. 04-A is complete at
    `ee52ba9`, 04-B at `6a87c76`, 04-C at `633cd7a`, 04-D at `f0735df`,
-   04-E1 at `b04b2e8`, and 04-E2 with this handoff. A cleanup-window audit
-   added 04-K and prerequisites to 04-E, 04-H, and 04-J: private DM
-   write-authority construction, private registration-cache construction,
-   unreleased authority maps, an unremoved `writeLocks` map, and dead profile
-   paging members. 04-E1 corrected the write-authority finding: production
-   already shared the singleton. Implement slices 04-E3 and 04-F through 04-K in
-   the recorded order. Decisions gate 04-E3, 04-H, 04-J, and 04-K.
+   04-E1 at `b04b2e8`, 04-E2 at `92490d1`, and 04-E3 with this handoff. A
+   cleanup-window audit added 04-K and prerequisites to 04-E, 04-H, and 04-J:
+   private DM write-authority construction, private registration-cache
+   construction, unreleased authority maps, an unremoved `writeLocks` map, and
+   dead profile paging members. 04-E1 corrected the write-authority finding:
+   production already shared the singleton. Implement slices 04-F through 04-K
+   in the recorded order. Decisions gate 04-H, 04-J, and 04-K.
 5. Device, live-server, and signed-release verification when a device and
    signing inputs exist.
 
@@ -256,8 +259,9 @@ verification.
   force-add `01.md`, `02.md`, `03.md`, `03_corrected.md`, or `04.md`. The Plan
   04 slice plan lives in the tracked `docs/agents/tasks/plan04-utility-retention.md`.
 - The worktree holds the untracked `appsvg/` directory. Do not commit it.
-- No code slice is in progress for Plan 04. Localization slices 1, 2, and 3 are
-  complete. The last safe commit is the current `HEAD` (`git log -1`).
+- The last Plan 04 slice is 04-E3, and no Plan 04 slice is in progress. The
+  localization task has slices 1, 2, and 3 complete, and slice 4 is paused. The
+  last safe commit is the current `HEAD` (`git log -1`).
 - All non-English string catalogs are removed from the app for now. Two
   localization tests were relaxed to tolerate missing catalogs and must be
   tightened again when the catalogs return:

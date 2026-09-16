@@ -21,6 +21,7 @@ import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.ConversationId
+import me.foxtails.palustris.domain.ConversationIdentity
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
 import me.foxtails.palustris.domain.DirectMessageSource
@@ -304,12 +305,17 @@ class DirectMessageViewModel @AssistedInject constructor(
                 if (selectedId == null && (latest.recipient?.id != target?.id || compose != composeGeneration)) return@launch
                 val id = selectedId ?: ConversationId(accountId.connection.origin, post.id.value)
                 val existing = latest.selectedConversation
+                // A new compose has no server identity yet. Its identifier is the
+                // sent post value, so it stays provisional in local state too.
+                val identity = existing?.identity
+                    ?: if (selectedId == null) ConversationIdentity.Provisional else ConversationIdentity.Verified
                 val conversation = DirectConversation(
                     id = id,
                     participants = (recipients + post.author).distinctBy { it.id },
                     lastPost = post,
                     unread = false,
                     rootPostId = existing?.rootPostId ?: request.replyTo ?: post.id,
+                    identity = identity,
                 )
                 val conversations = (latest.conversations.filterNot { it.id == id } + conversation)
                     .sortedByDescending { it.lastPost.publishedAtEpochMillis }

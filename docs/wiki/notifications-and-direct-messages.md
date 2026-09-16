@@ -23,6 +23,9 @@ Source: `data/directmessages/DirectMessageRepository.kt`,
 
 - A conversation thread loads from a known post anchor in the stored conversation. The client
   does not guess a conversation identity from a post value.
+- A conversation keeps an explicit identity. A server-issued identity may receive a server
+  mark-read. A provisional local conversation clears unread state on this device and sends no
+  server request until the server confirms the conversation.
 - The Mastodon adapter loads the anchor through supported status endpoints. It never calls an
   undocumented individual conversation endpoint.
 - Direct messages are federated private posts. They are not encrypted messaging.

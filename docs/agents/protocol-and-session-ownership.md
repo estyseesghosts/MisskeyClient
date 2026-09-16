@@ -4,9 +4,10 @@
 
 **Status:** current. Source verified. Completion slices C-01, C-03, and C-06c are implemented and
 test verified. C-01 closed the connected-identity gap. C-03 closed the direct-message write gap.
-C-06c closed the draft removal gap.
+C-06c closed the draft removal gap. Slice 04-E3 added the direct-message conversation identity and
+the verified-only server mark-read.
 
-**Last reviewed:** 2026-09-15.
+**Last reviewed:** 2026-09-16.
 
 **Source baseline:** `b629a2c` (planning). Status refreshed against `c9e06c8`.
 
@@ -125,7 +126,7 @@ capability evidence instead of re-probing. A successful probe clears the window.
 | Pending authentication | `noBackupFilesDir/accounts/pending.enc` | Encrypted. Expires after 15 minutes. |
 | Drafts | `noBackupFilesDir/drafts` | Same encrypted account storage key as sessions. |
 | Notifications | Room `notifications.db` | Explicit migrations. |
-| Direct messages | Room `directmessages.db` in `noBackupFilesDir` | Application database. |
+| Direct messages | Room `directmessages.db` in `noBackupFilesDir` | Explicit migrations. Schema version 2. |
 | Emoji catalog | `EmojiCacheDatabase` | Cache. |
 | Preferences | File-backed repositories | Application, post, emoji-picker, and Photo Grid stores. |
 
@@ -246,6 +247,29 @@ same unsupported error and rejects a non-direct anchor. The Misskey adapter keep
 
 Slice 04-E2 removed the adapter `directLastPosts` map and the send-path insertion. The adapter
 retains no conversation post cache. The repository owns account-scoped conversation state.
+
+## Direct-Message Conversation Identity
+
+`domain/DirectMessageModels.kt` defines `ConversationIdentity`. `Verified` means the server issued
+the identity in a conversation response. `Provisional` means the client built a local placeholder
+from a sent post value because no server conversation was known. Do not infer identity from the
+identifier string shape.
+
+- The Mastodon mapper and the Misskey conversation service emit `Verified`, because the server
+  supplied the conversation identity.
+- `DirectMessageRepository.send` marks a conversation `Provisional` only when it builds the
+  identifier from the sent post value. It keeps the stored identity when the identifier names an
+  existing conversation.
+- `DirectMessageRepository.markRead` resolves the stored identity. It calls
+  `source.markConversationRead` only for a `Verified` conversation. A provisional conversation
+  clears local unread state and sends no server request. A server mark-read never uses a guessed
+  conversation identity.
+- `DirectConversationEntity` stores `identity TEXT NOT NULL DEFAULT 'PROVISIONAL'`.
+  `DirectMessageDatabase` is version 2 and exports its schema to `app/schemas`. `MIGRATION_1_2`
+  adds the column. A legacy row decodes as `Provisional` because the stored value cannot prove a
+  server identity. The next conversation list rewrites the row as `Verified`. An unrecognized
+  stored value also decodes as `Provisional`, so a decode failure never widens server write
+  authority.
 
 ## Account Removal Coverage
 

@@ -1,5 +1,6 @@
 package me.foxtails.palustris.data.directmessages
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 
 @Entity(
@@ -18,4 +19,8 @@ data class DirectConversationEntity(
     val threadJson: String,
     val lastUpdatedEpochMillis: Long,
     val unread: Boolean,
+    // Legacy rows have no provenance. A provisional default keeps an unproven
+    // identity away from a server mark-read. A conversation list rewrites the
+    // row with the server identity.
+    @ColumnInfo(defaultValue = "'PROVISIONAL'") val identity: String,
 )

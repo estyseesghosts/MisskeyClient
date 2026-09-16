@@ -18,6 +18,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
+import me.foxtails.palustris.domain.ConversationIdentity
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Post
@@ -50,6 +51,7 @@ class DirectMessageScreenTest {
         lastPost = post("last", recipient, "A private message"),
         unread = true,
         rootPostId = EntityId(connection.origin, "root"),
+        identity = ConversationIdentity.Verified,
     )
 
     @Test

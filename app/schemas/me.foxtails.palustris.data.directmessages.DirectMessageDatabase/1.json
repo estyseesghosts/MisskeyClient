@@ -1,0 +1,91 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "0a643d3649022927b6bcffaecb8713ba",
+    "entities": [
+      {
+        "tableName": "direct_conversations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountKey` TEXT NOT NULL, `conversationConnection` TEXT NOT NULL, `conversationId` TEXT NOT NULL, `protocol` TEXT NOT NULL, `rootPostConnection` TEXT, `rootPostId` TEXT, `participantJson` TEXT NOT NULL, `lastPostJson` TEXT NOT NULL, `threadJson` TEXT NOT NULL, `lastUpdatedEpochMillis` INTEGER NOT NULL, `unread` INTEGER NOT NULL, PRIMARY KEY(`accountKey`, `conversationConnection`, `conversationId`))",
+        "fields": [
+          {
+            "fieldPath": "accountKey",
+            "columnName": "accountKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "conversationConnection",
+            "columnName": "conversationConnection",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "conversationId",
+            "columnName": "conversationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "protocol",
+            "columnName": "protocol",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rootPostConnection",
+            "columnName": "rootPostConnection",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rootPostId",
+            "columnName": "rootPostId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "participantJson",
+            "columnName": "participantJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastPostJson",
+            "columnName": "lastPostJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "threadJson",
+            "columnName": "threadJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUpdatedEpochMillis",
+            "columnName": "lastUpdatedEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unread",
+            "columnName": "unread",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountKey",
+            "conversationConnection",
+            "conversationId"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0a643d3649022927b6bcffaecb8713ba')"
+    ]
+  }
+}
