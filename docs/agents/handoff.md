@@ -9,14 +9,17 @@ do not force-add). The durable record for the completed S1 work is
 the completed P1 work is `docs/agents/tasks/ui-package-migration.md`. The
 durable record for the completed Q1 work is
 `docs/agents/tasks/q1-static-analysis.md`. The durable record for the
-active T1 work is `docs/agents/tasks/t1-test-mirror.md`.
+completed T1 work is `docs/agents/tasks/t1-test-mirror.md`. The active Plan 04
+work is `docs/agents/tasks/plan04-utility-retention.md` (slice plan only, no
+code change yet). The Plan 04 source is `docs/decomposition_3/04.md` (git-ignored
+planning material, do not force-add).
 
 ## Where To Start
 
 Read these in order. Treat the repository as the authority.
 
 1. `AGENTS.md`.
-2. `docs/agents/tasks/t1-test-mirror.md`.
+2. `docs/agents/tasks/plan04-utility-retention.md`.
 3. `docs/decomposition_3/03_corrected.md`.
 4. `docs/agents/app-shell-ownership.md` and `docs/agents/protocol-and-session-ownership.md`.
 5. `docs/agents/decomposition-01-02-acceptance-matrix.md`.
@@ -124,11 +127,16 @@ Read these in order. Treat the repository as the authority.
 
 ## Next Slice
 
-T1 — Done. The next unrelated task is V1: repair
-`RoomNotificationStoreInstrumentedTest` and de-flake the two known timing
-tests. The `Api29StartupInstrumentedTest` repair is already done in
-`b62f8c6`. Record blocked device checks honestly. Then the Plan 04 rebase.
-The fully-qualified-name cleanup stays deferred to its own task.
+T1 — Done. The Plan 04 rebase is recorded as a slice plan in
+`docs/agents/tasks/plan04-utility-retention.md`. Implement slices 04-A through
+04-J in the recorded order. 04-A and 04-B are independent structural moves and
+are safe to start first. The last safe code commit is `aecab82`.
+
+V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
+de-flake the two known timing tests when a device or emulator exists. The
+`Api29StartupInstrumentedTest` repair is already done in `b62f8c6`. Record
+blocked device checks honestly. The fully-qualified-name cleanup stays deferred
+to its own task.
 
 ## Remaining Migration Queue
 
@@ -142,10 +150,14 @@ order. Each needs its own task-state file and verification.
     are in `f65a10a`. UI feature moves are in `42e85e7`. Fixture moves
     are in `404b356`. Single-owner root test moves are in `00a49ff`.
     Adapter-specific source test moves are in `aecab82`.
-3. V1 — Repair `RoomNotificationStoreInstrumentedTest` and de-flake the
-   two known timing tests. The `Api29StartupInstrumentedTest` repair is
-   already done in `b62f8c6`. Record blocked device checks honestly.
-4. Plan 04 rebase (`docs/decomposition_3/04.md`), then implementation.
+3. V1 — Blocked on a device or emulator. Repair
+   `RoomNotificationStoreInstrumentedTest` and de-flake the two known timing
+   tests. The `Api29StartupInstrumentedTest` repair is already done in
+   `b62f8c6`. Record blocked device checks honestly.
+4. Plan 04 — Rebase recorded as a slice plan in
+   `docs/agents/tasks/plan04-utility-retention.md`. Implement slices 04-A
+   through 04-J in the recorded order. Five decisions gate 04-E, 04-H, and
+   04-J.
 5. Device, live-server, and signed-release verification when a device and
    signing inputs exist.
 
@@ -168,11 +180,10 @@ order. Each needs its own task-state file and verification.
 - No emulator or device is reachable. Connected instrumentation stays unverified.
 - Live-server and signed-release behavior stay unverified.
 - The Android 15 system-bar instrumentation failure stays in `logs/BUGS.txt`.
-- The worktree holds another author's uncommitted drafts (`docs/archive/`,
-  wiki stubs, `documentation-inventory.md`, `gradle-no-daemon.md`, images).
-  Do not commit them under S1. The S1 audit files from this task
-  (`03_corrected.md`, inventory rows, index updates, README line) are also
-  uncommitted for the same reason; `03_corrected.md` is git-ignored and
-  must not be force-added.
+- The planning material under `docs/decomposition_3/` is git-ignored. Do not
+  force-add `01.md`, `02.md`, `03.md`, `03_corrected.md`, or `04.md`. The Plan
+  04 slice plan lives in the tracked `docs/agents/tasks/plan04-utility-retention.md`.
+- The worktree holds the untracked `appsvg/` directory. Do not commit it.
+- No code slice is in progress. The last code commit is `aecab82`.
 - The residual 03-G ordering risk (disk write after revocation, before row
   deletion) stays in the Plan 03 task state.
