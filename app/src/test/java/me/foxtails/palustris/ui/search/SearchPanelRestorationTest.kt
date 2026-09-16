@@ -5,8 +5,8 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import me.foxtails.palustris.AppShellFixtures
 import me.foxtails.palustris.ui.PalustrisApp
+import me.foxtails.palustris.ui.shell.AppShellFixtures
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

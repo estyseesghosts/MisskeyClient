@@ -1,6 +1,5 @@
 package me.foxtails.palustris.ui
 
-import me.foxtails.palustris.AppShellFixtures
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
@@ -9,6 +8,7 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.ui.DetailActions
 import me.foxtails.palustris.ui.LargePostOrigin
 import me.foxtails.palustris.ui.detailActionsFor
+import me.foxtails.palustris.ui.shell.AppShellFixtures
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

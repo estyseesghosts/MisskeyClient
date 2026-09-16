@@ -21,8 +21,7 @@ import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
-import me.foxtails.palustris.AppShellFixtures
-import me.foxtails.palustris.HomeFeatureFixtures
+import me.foxtails.palustris.ui.shell.AppShellFixtures
 import me.foxtails.palustris.MainActivity
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId

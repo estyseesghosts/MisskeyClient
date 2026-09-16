@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.ui.shell
 
 import android.content.Context
 import androidx.compose.runtime.Composable

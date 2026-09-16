@@ -6,8 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import me.foxtails.palustris.AppShellFixtures
-import me.foxtails.palustris.ComposerFeatureFixtures
+import me.foxtails.palustris.ui.shell.AppShellFixtures
 import me.foxtails.palustris.MainActivity
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId

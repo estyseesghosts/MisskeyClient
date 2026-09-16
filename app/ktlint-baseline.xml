@@ -643,12 +643,6 @@
         <error line="33" column="1" source="standard:no-unused-imports" />
         <error line="192" column="9" source="standard:keyword-spacing" />
     </file>
-    <file name="src/test/java/me/foxtails/palustris/AppShellFixtures.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-    </file>
-    <file name="src/test/java/me/foxtails/palustris/ComposerFeatureFixtures.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-    </file>
     <file name="src/test/java/me/foxtails/palustris/ConnectedSessionContextTest.kt">
         <error line="38" column="1" source="standard:no-unused-imports" />
         <error line="40" column="1" source="standard:no-unused-imports" />
@@ -822,16 +816,19 @@
     <file name="src/test/java/me/foxtails/palustris/ui/components/PillActionTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
     </file>
+    <file name="src/test/java/me/foxtails/palustris/ui/composer/ComposerFeatureFixtures.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+    </file>
     <file name="src/test/java/me/foxtails/palustris/ui/composer/ReplyComposerTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="22" column="1" source="standard:no-unused-imports" />
+        <error line="21" column="1" source="standard:no-unused-imports" />
     </file>
     <file name="src/test/java/me/foxtails/palustris/ui/emoji/EmojiGridScrollbarTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
     </file>
     <file name="src/test/java/me/foxtails/palustris/ui/feed/HomeFeedTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="46" column="1" source="standard:no-unused-imports" />
+        <error line="45" column="1" source="standard:no-unused-imports" />
     </file>
     <file name="src/test/java/me/foxtails/palustris/ui/large/WideNavigationTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -859,7 +856,10 @@
         <error line="3" column="1" source="standard:import-ordering" />
     </file>
     <file name="src/test/java/me/foxtails/palustris/ui/search/SearchPanelRestorationTest.kt">
-        <error line="9" column="1" source="standard:no-unused-imports" />
+        <error line="8" column="1" source="standard:no-unused-imports" />
+    </file>
+    <file name="src/test/java/me/foxtails/palustris/ui/shell/AppShellFixtures.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
     </file>
     <file name="src/test/java/me/foxtails/palustris/ui/shell/ShellCharacterizationTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />

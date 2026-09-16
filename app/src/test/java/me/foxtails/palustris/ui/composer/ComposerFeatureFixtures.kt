@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.ui.composer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect

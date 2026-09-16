@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.ui.feed
 
 import androidx.compose.runtime.Composable
 import me.foxtails.palustris.domain.Account
@@ -7,6 +7,7 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.ui.feed.FeedState
 import me.foxtails.palustris.ui.feed.HomeFeed
+import me.foxtails.palustris.ui.shell.AppShellFixtures
 
 /**
  * Feature-level Home feed harness. It composes the Home feed presenter directly,

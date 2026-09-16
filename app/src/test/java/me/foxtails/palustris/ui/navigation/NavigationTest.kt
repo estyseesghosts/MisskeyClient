@@ -38,7 +38,7 @@ import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
-import me.foxtails.palustris.AppShellFixtures
+import me.foxtails.palustris.ui.shell.AppShellFixtures
 import me.foxtails.palustris.MainActivity
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.Account

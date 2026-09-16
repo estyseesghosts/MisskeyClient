@@ -19,8 +19,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import me.foxtails.palustris.AppShellFixtures
-import me.foxtails.palustris.HomeFeatureFixtures
+import me.foxtails.palustris.ui.feed.HomeFeatureFixtures
+import me.foxtails.palustris.ui.shell.AppShellFixtures
 import me.foxtails.palustris.MainActivity
 import me.foxtails.palustris.ui.PalustrisTheme
 import me.foxtails.palustris.ui.SetupIntroductionPreview
