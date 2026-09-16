@@ -44,20 +44,20 @@ Read these in order. Treat the repository as the authority.
 - S1 (split `PalustrisApp.kt`) is complete. The shell is 622 lines and
   owns navigation and placement. Feature state lives in the overlay
   holder, the destination content, and the overlay host.
-- P1d (move the saved group into `ui/saved/` and `DraftsScreen` into
-  `ui/composer/`) is committed and test verified. The slice commit is
-  `c54e7cb`. The P1 task-state file names P1e as the current slice. The
-  last safe commit is `c54e7cb`.
+- P1e (`AccountManager` with `SessionUi` into `ui/session/`) is
+  committed and test verified. The slice commit is `f18bc45`. The P1
+  task-state file names P1f as the current slice. The last safe commit
+  is `f18bc45`.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
 
 ## Next Slice
 
-P1e — Move `AccountManager` into `ui/session/`. Behavior-neutral. Keep
-test files in place and update import paths only. `ui/saved/
-SavedCollectionsHost.kt` imports `ui.AccountManager` after P1d and
-needs the rewrite. Run the six shell suites plus the full gate. Commit
-only when green. Full scope, files, and verification commands are in
+P1f — Group the `ShellDestinationContent` branch callbacks into
+post, draft, and navigation bundles to replace the 37-parameter
+signature. Behavior-neutral. Keep the overlay host's three explicit
+action params. Run the six shell suites plus the full gate. Commit only
+when green. Full scope, files, and verification commands are in
 `docs/agents/tasks/ui-package-migration.md`. Do not duplicate that file
 here.
 

@@ -66,13 +66,17 @@ safe implementation slice. It divides into P1a through P1f below.
   pass. The P1d table row already named all five files; the slice now
   matches it.
 
+- P1e — `AccountManager` (with `SessionUi`) lives in `ui/session/`.
+  Commit `f18bc45`. The six shell suites, the full `test
+  assembleRelease` gate, and `lintDebug` pass.
+
 # Current slice
 
-P1e — Move `AccountManager` into `ui/session/`. Update the package
-declaration and every importing file in `main` and `test`. `ui/session/`
-already owns `ConnectedSessionHost` and the entry store, so most
-references stay in-package. Check `ui/saved/SavedCollectionsHost.kt`,
-which imports `ui.AccountManager` after P1d.
+P1f — Group the destination callbacks into post, draft, and navigation
+bundles. `ShellDestinationContent` keeps its 37 parameters until this
+slice replaces them with three narrow data classes defined beside the
+destination content. Update `PalustrisApp.kt` and every call site. Keep
+the overlay host's three explicit action params.
 
 # Files involved
 
@@ -102,10 +106,8 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Next
 
-1. P1e as defined in Current slice above.
-2. P1f — Group the destination callbacks into post, draft, and
-   navigation bundles.
-3. After P1: Q1 (ktlint/detekt with baseline; fix wildcard imports and
+1. P1f as defined in Current slice above.
+2. After P1: Q1 (ktlint/detekt with baseline; fix wildcard imports and
    fully-qualified names), T1 (mirror test packages; merge duplicate
    test classes), V1 (repair instrumentation tests), then the Plan 04
    rebase. See the handoff.
@@ -120,4 +122,4 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Last safe commit
 
-`c54e7cb` "Move saved group into ui.saved and drafts into ui.composer".
+`f18bc45` "Move AccountManager into ui.session".
