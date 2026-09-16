@@ -44,7 +44,6 @@ import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
-import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.saved.SavedPostsUiState
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
@@ -268,7 +267,6 @@ internal object AppShellFixtures {
         draftsContract: DraftsContract = DraftsContract.Empty,
         emojiPresentation: EmojiPresentation = EmojiPresentation.Empty,
         bookmarks: BookmarksContract = BookmarksContract.Empty,
-        likes: LikesContract = LikesContract.Empty,
         notifications: NotificationsContract = NotificationsContract.Empty,
         directMessages: DirectMessagesContract = DirectMessagesContract.Empty,
         initialNotificationRoute: AppRoute? = null,
@@ -289,7 +287,6 @@ internal object AppShellFixtures {
             draftsContract = draftsContract,
             emojiPresentation = emojiPresentation,
             bookmarks = bookmarks,
-            likes = likes,
             notifications = notifications,
             directMessages = directMessages,
             initialNotificationRoute = initialNotificationRoute,
@@ -387,23 +384,6 @@ internal object AppShellFixtures {
             override fun loadMore() = onLoadMore()
             override fun remove(post: OwnedPost) = onRemove(post)
             override fun upgradePermissions() = onUpgradePermissions()
-            override fun react(post: OwnedPost, choice: EmojiChoice) = onReact(post, choice)
-        },
-    )
-
-    /** Test-only like collection with recorder hooks. */
-    fun likes(
-        state: SavedPostsUiState? = null,
-        onRefresh: () -> Unit = {},
-        onLoadMore: () -> Unit = {},
-        onToggle: (OwnedPost) -> Unit = {},
-        onReact: (OwnedPost, EmojiChoice) -> Unit = { _, _ -> },
-    ): LikesContract = LikesContract(
-        state = state,
-        actions = object : LikesContract.Actions {
-            override fun refresh() = onRefresh()
-            override fun loadMore() = onLoadMore()
-            override fun toggle(post: OwnedPost) = onToggle(post)
             override fun react(post: OwnedPost, choice: EmojiChoice) = onReact(post, choice)
         },
     )

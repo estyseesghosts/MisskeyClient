@@ -17,20 +17,18 @@ import me.foxtails.palustris.ui.session.AccountManager
 import me.foxtails.palustris.ui.feed.Feed
 import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.shell.BookmarksContract
-import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
 
 /**
- * Owns the saved and liked collection presentation for one connected session.
+ * Owns the saved collection presentation for one connected session.
  *
- * The two collection models, their state, their actions, and their projection sinks stay beside
- * the collection screens. The session host receives only the narrow [SavedCollections] contracts.
- * A reaction on a liked row routes through the shared feed-backed interaction owner so every
+ * The collection model, its state, its actions, and its projection sink stay beside the
+ * collection screen. The session host receives only the narrow [SavedCollections] contract.
+ * A reaction on a saved row routes through the shared feed-backed interaction owner so every
  * surface keeps the same mutation result.
  */
 data class SavedCollections(
     val bookmarks: BookmarksContract,
-    val likes: LikesContract,
 )
 
 @Composable
@@ -42,27 +40,17 @@ fun SavedCollectionsHost(
     account: Account,
     accountManager: AccountManager,
     coordinator: PostProjectionCoordinator,
-    react: (OwnedPost, EmojiChoice) -> Unit,
     entryStore: ConnectedEntryStore,
 ): SavedCollections {
     val savedPostsModel = hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
         key = "saved-posts-$accountId-$sessionGeneration",
         creationCallback = { factory ->
-            factory.create(accountId, source, SavedPostsCollection.Bookmarks, sessionRevision)
+            factory.create(accountId, source, sessionRevision)
         },
     )
-    val likedPostsModel = hiltViewModel<SavedPostsViewModel, SavedPostsViewModel.Factory>(
-        key = "liked-posts-$accountId-$sessionGeneration",
-        creationCallback = { factory ->
-            factory.create(accountId, source, SavedPostsCollection.Likes, sessionRevision)
-        },
-    )
-    LaunchedEffect(entryStore, sessionGeneration, savedPostsModel, likedPostsModel) {
+    LaunchedEffect(entryStore, sessionGeneration, savedPostsModel) {
         entryStore.register(sessionGeneration, "saved-posts-$accountId-$sessionGeneration") {
             savedPostsModel.stop()
-        }
-        entryStore.register(sessionGeneration, "liked-posts-$accountId-$sessionGeneration") {
-            likedPostsModel.stop()
         }
     }
     val savedSink = remember(savedPostsModel) {
@@ -71,18 +59,11 @@ fun SavedCollectionsHost(
             override fun applyPublishedPost(request: CreatePostRequest) { savedPostsModel.applyPublishedPost(request) }
         }
     }
-    val likedSink = remember(likedPostsModel) {
-        object : PostProjectionCoordinator.Sink {
-            override fun applyExternalPost(updated: OwnedPost) { likedPostsModel.applyExternalPost(updated) }
-            override fun applyPublishedPost(request: CreatePostRequest) { likedPostsModel.applyPublishedPost(request) }
-        }
-    }
-    DisposableEffect(coordinator, savedSink, likedSink) {
-        listOf(savedSink, likedSink).forEach(coordinator::register)
-        onDispose { listOf(savedSink, likedSink).forEach(coordinator::unregister) }
+    DisposableEffect(coordinator, savedSink) {
+        coordinator.register(savedSink)
+        onDispose { coordinator.unregister(savedSink) }
     }
     val savedPostsState by savedPostsModel.state.collectAsStateWithLifecycle()
-    val likedPostsState by likedPostsModel.state.collectAsStateWithLifecycle()
     val bookmarksActions = remember(savedPostsModel, accountManager, account) {
         object : BookmarksContract.Actions {
             override fun refresh() { savedPostsModel.refresh() }
@@ -95,16 +76,5 @@ fun SavedCollectionsHost(
     val bookmarks = remember(savedPostsState, bookmarksActions) {
         BookmarksContract(state = savedPostsState, actions = bookmarksActions)
     }
-    val likesActions = remember(likedPostsModel, react) {
-        object : LikesContract.Actions {
-            override fun refresh() { likedPostsModel.refresh() }
-            override fun loadMore() { likedPostsModel.loadMore() }
-            override fun toggle(post: OwnedPost) { likedPostsModel.toggleFavourite(post) }
-            override fun react(post: OwnedPost, choice: EmojiChoice) { react(post, choice) }
-        }
-    }
-    val likes = remember(likedPostsState, likesActions) {
-        LikesContract(state = likedPostsState, actions = likesActions)
-    }
-    return remember(bookmarks, likes) { SavedCollections(bookmarks = bookmarks, likes = likes) }
+    return remember(bookmarks) { SavedCollections(bookmarks = bookmarks) }
 }

@@ -52,7 +52,7 @@ internal fun AppLargeDetailPane(
         ownedPost = selected,
         presentation = origin.singlePostPresentation(),
         onClose = onClose,
-        availableActions = availableActions + if (origin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
+        availableActions = availableActions,
         onReact = onReact,
         onReply = onReply,
         onReshare = onReshare,

@@ -346,15 +346,6 @@ class MastodonSource(
         )
     }
 
-    override suspend fun likedPosts(cursor: String?): Page<Post> = request {
-        val response = pageClient.getPage("v1/favourites?limit=40", cursor)
-        val statuses = JSONArray(response.body)
-        Page(
-            items = (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) },
-            nextCursor = response.linkHeaderCursor(),
-        )
-    }
-
     override suspend fun notifications(cursor: String?): Page<me.foxtails.palustris.domain.Notification> = request { notificationService.notifications(cursor) }
 
     override suspend fun notifications(query: NotificationQuery, cursor: NotificationCursor?): NotificationPage = request {

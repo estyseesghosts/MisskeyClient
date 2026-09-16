@@ -19,13 +19,13 @@ internal enum class Destination(@StringRes val labelRes: Int, val icon: ImageVec
 }
 
 internal enum class NotificationsPanel { Notifications, DirectMessages }
-internal enum class LocalPage { SavedPosts, Likes, Drafts, About }
+internal enum class LocalPage { SavedPosts, Drafts, About }
 enum class SearchPanel { Search, PhotoGrid }
-internal enum class LargePostOrigin { Home, Search, PhotoGrid, Profile, Saved, Liked, Notification, Other }
+internal enum class LargePostOrigin { Home, Search, PhotoGrid, Profile, Saved, Notification, Other }
 
 internal fun LargePostOrigin.supportsComments(): Boolean = this == LargePostOrigin.Home ||
     this == LargePostOrigin.Search || this == LargePostOrigin.PhotoGrid || this == LargePostOrigin.Profile ||
-    this == LargePostOrigin.Saved || this == LargePostOrigin.Liked || this == LargePostOrigin.Notification
+    this == LargePostOrigin.Saved || this == LargePostOrigin.Notification
 
 internal fun LargePostOrigin.singlePostPresentation(): SinglePostPresentation =
     if (this == LargePostOrigin.PhotoGrid) SinglePostPresentation.PhotoGrid else SinglePostPresentation.Standard
@@ -51,9 +51,6 @@ internal fun savedCollectionTitle(kind: SavedPostsKind?): Int = when (kind) {
     SavedPostsKind.Favourites -> R.string.collection_favourites
     SavedPostsKind.Bookmarks, null -> R.string.collection_bookmarks
 }
-
-@StringRes
-internal fun likedCollectionTitle(): Int = R.string.collection_likes
 
 @StringRes
 internal fun timelineLabelRes(timeline: Timeline): Int = when (timeline) {

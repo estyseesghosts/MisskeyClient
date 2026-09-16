@@ -533,48 +533,6 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         }
     }
 
-    @Test fun misskeyLikedPostsUsesAuthenticatedReactionHistoryAndReactionCursor() = runBlocking {
-        MockWebServer().use { server ->
-            server.enqueue(
-                MockResponse().setBody(
-                    JSONArray().put(
-                        JSONObject()
-                            .put("id", "reaction-1")
-                            .put("createdAt", "2026-09-06T10:00:00Z")
-                            .put("note", JSONObject(note("liked-1"))),
-                    ).toString(),
-                ),
-            )
-            server.enqueue(
-                MockResponse().setBody(
-                    JSONArray().put(
-                        JSONObject()
-                            .put("id", "reaction-2")
-                            .put("createdAt", "2026-09-05T10:00:00Z")
-                            .put("note", JSONObject(note("liked-2"))),
-                    ).toString(),
-                ),
-            )
-            val origin = server.url("/").toString().removeSuffix("/")
-            val source = MisskeySource(
-                origin = origin,
-                token = "test-token",
-                api = MisskeyApi(),
-                accountId = AccountId(Connection(origin, Protocol.MISSKEY), "user-a"),
-            )
-
-            val first = source.likedPosts()
-            val second = source.likedPosts(first.nextCursor)
-
-            assertEquals("liked-1", first.items.single().id.value)
-            assertEquals("liked-2", second.items.single().id.value)
-            val firstBody = JSONObject(server.takeRequest().body.readUtf8())
-            val secondBody = JSONObject(server.takeRequest().body.readUtf8())
-            assertEquals("user-a", firstBody.getString("userId"))
-            assertEquals("reaction-1", secondBody.getString("untilId"))
-        }
-    }
-
     @Test fun capabilityRefreshPreservesAccountPublishPermission() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("""{"version":"2026.1.0"}"""))

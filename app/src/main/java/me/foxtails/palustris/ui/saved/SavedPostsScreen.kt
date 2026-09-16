@@ -60,9 +60,7 @@ fun SavedPostsScreen(
     onOpenUsername: ((String) -> Unit)? = null,
     largeLayout: Boolean = false,
 ) {
-    val likes = state.collection == SavedPostsCollection.Likes
     val title = when {
-        likes -> stringResource(R.string.collection_likes)
         state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites -> stringResource(R.string.collection_favourites)
         else -> stringResource(R.string.collection_bookmarks)
     }
@@ -97,13 +95,12 @@ fun SavedPostsScreen(
                 onAction = if (state.needsSignIn) onSignIn else onRefresh,
             )
             state.posts.isEmpty() -> EmptyState(
-                if (likes) AppIcons.FilledHeart else AppIcons.HollowBookmark,
+                AppIcons.HollowBookmark,
                 when {
-                    likes -> stringResource(R.string.liked_posts_empty_title)
                     state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites -> stringResource(R.string.saved_posts_empty_favourites)
                     else -> stringResource(R.string.saved_posts_empty_bookmarks)
                 },
-                if (likes) stringResource(R.string.liked_posts_empty_subtitle) else stringResource(R.string.saved_posts_empty_saved_subtitle),
+                stringResource(R.string.saved_posts_empty_saved_subtitle),
             )
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),

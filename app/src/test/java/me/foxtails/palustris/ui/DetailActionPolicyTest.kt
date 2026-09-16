@@ -30,25 +30,6 @@ class DetailActionPolicyTest {
     }
 
     @Test
-    fun likedOriginUsesLikeToggleForFavorite() {
-        var toggled = 0
-        val recorder = Recorder()
-        val actions = detailActionsFor(
-            origin = LargePostOrigin.Liked,
-            threadActive = false,
-            thread = AppShellFixtures.thread(),
-            profile = AppShellFixtures.profileContract(),
-            bookmarks = AppShellFixtures.bookmarks(),
-            likes = AppShellFixtures.likes(onToggle = { toggled++ }),
-            fallback = recorder.fallback(),
-        )
-
-        actions.favorite(post)
-        assertEquals(1, toggled)
-        assertEquals(0, recorder.favorite)
-    }
-
-    @Test
     fun profileAndSavedOriginsOwnTheirReaction() {
         var profileReactions = 0
         var bookmarkReactions = 0
@@ -56,8 +37,8 @@ class DetailActionPolicyTest {
         val profile = AppShellFixtures.profileContract(onReact = { _, _ -> profileReactions++ })
         val bookmarks = AppShellFixtures.bookmarks(onReact = { _, _ -> bookmarkReactions++ })
 
-        detailActionsFor(LargePostOrigin.Profile, false, AppShellFixtures.thread(), profile, bookmarks, AppShellFixtures.likes(), recorder.fallback()).react(post, choice)
-        detailActionsFor(LargePostOrigin.Saved, false, AppShellFixtures.thread(), profile, bookmarks, AppShellFixtures.likes(), recorder.fallback()).react(post, choice)
+        detailActionsFor(LargePostOrigin.Profile, false, AppShellFixtures.thread(), profile, bookmarks, recorder.fallback()).react(post, choice)
+        detailActionsFor(LargePostOrigin.Saved, false, AppShellFixtures.thread(), profile, bookmarks, recorder.fallback()).react(post, choice)
 
         assertEquals(1, profileReactions)
         assertEquals(1, bookmarkReactions)
@@ -73,7 +54,6 @@ class DetailActionPolicyTest {
             thread = AppShellFixtures.thread(),
             profile = AppShellFixtures.profileContract(),
             bookmarks = AppShellFixtures.bookmarks(),
-            likes = AppShellFixtures.likes(),
             fallback = recorder.fallback(),
         ).react(post, choice)
 
@@ -98,7 +78,6 @@ class DetailActionPolicyTest {
             ),
             profile = AppShellFixtures.profileContract(),
             bookmarks = AppShellFixtures.bookmarks(),
-            likes = AppShellFixtures.likes(),
             fallback = recorder.fallback(),
         )
 

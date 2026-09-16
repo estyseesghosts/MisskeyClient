@@ -38,7 +38,7 @@ Focused feature hosts own their model, state, actions, and projection registrati
 | Host | Owner | Contract |
 | --- | --- | --- |
 | `ui/feed/FeedHost.kt` | Home and Photo Grid `FeedViewModel` | `HomeContract`, `SearchContract`, `PhotoGridContract`, `PostInteractions` |
-| `ui/saved/SavedCollectionsHost.kt` | bookmark and like `SavedPostsViewModel` | `SavedCollections` |
+| `ui/saved/SavedCollectionsHost.kt` | bookmark `SavedPostsViewModel` | `SavedCollections` |
 | `ui/profile/ProfileHost.kt` | `ProfileViewModel` | `ProfileContract` |
 | `ui/thread/ThreadHost.kt` | `PostThreadViewModel` | `ThreadContract` |
 | `ui/notifications/NotificationsHost.kt` | `NotificationsViewModel` | `NotificationsContract` |
@@ -89,7 +89,6 @@ Test code binds test-only recorders in `app/src/test/java/me/foxtails/palustris/
 | `EmojiPresentation` | `EmojiCatalogViewModel` | Catalog and capabilities | Load, retry, group and pin preferences |
 | `NotificationSettingsContract` | `NotificationSettingsViewModel` | One target account and settings | Eleven settings commands |
 | `BookmarksContract` | bookmark `SavedPostsViewModel` | Bookmark collection | Refresh, paging, remove, permissions, react |
-| `LikesContract` | like `SavedPostsViewModel` | Like collection | Refresh, paging, toggle, react |
 | `NotificationsContract` | `NotificationsViewModel` | Notification inbox | Refresh, paging, read, dismiss, follow, query |
 | `DirectMessagesContract` | `DirectMessageViewModel` | Inbox, selection, send, composer editor | Refresh, paging, open, close, start, update editor, send |
 | `ProfileContract` | `ProfileViewModel` | Target, categories, relationship, editor | Open, category, paging, follow, react, editor |

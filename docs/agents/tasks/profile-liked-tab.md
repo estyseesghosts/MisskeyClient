@@ -1,12 +1,12 @@
 # Task State: Profile Liked Tab
 
-**Status:** in progress. The Liked timeline tab is implemented. Removing the
-orphaned global Likes page and its model remains.
+**Status:** complete. The Liked timeline tab is implemented and the orphaned
+global Likes page and its model are removed.
 
 **Started:** 2026-09-16.
 
-**This task is larger than one safe implementation slice.** It splits into the
-tab slice and the removal slice.
+**This task is larger than one safe implementation slice.** It split into the
+tab slice and the removal slice. Both are complete.
 
 ## Objective
 
@@ -39,9 +39,8 @@ Posts. Replace the separate global Likes page with the tab.
    returns false for Liked, because liked posts are authored by other accounts.
 4. **Capability.** The Liked tab is gated by `ServerCapabilities.likedPosts` for
    self and by the session protocol for another account.
-5. **Global Likes page.** The profile Likes chip is removed. The global
-   `LocalPage.Likes` page, the `LikesContract`, the liked `SavedPostsViewModel`
-   instance, and `LargePostOrigin.Liked` are orphaned and must be removed.
+5. **Global Likes page.** The profile Likes chip is removed. The removal slice
+   deletes the orphaned global page and model instead of keeping a dead surface.
 
 ## Progress
 
@@ -56,7 +55,8 @@ Committed in the same commit as this record.
   `profileChipEntries` takes `likedAvailable` instead of `includeLikes`.
 - `ProfileUiState` gains `likedAvailable`. `ProfileViewModel` computes it from
   the target and the session protocol.
-- `ProfileTimelinePager` gates Liked on `likedPosts`, not `profile.timelines`.
+- `ProfileTimelinePager` gates Liked on `ServerCapabilities.likedPosts`, not
+  `profile.timelines`.
 - `ProfileScreen`, `ProfileTimelineList`, and `ProfileLargePresentation` render
   the tab from the state flag. The profile Likes chip is gone.
 - The Liked tab reuses `R.string.profile_action_likes` as its label, so the
@@ -70,9 +70,27 @@ Committed in the same commit as this record.
 
 ### Remove The Global Likes Page
 
-Planned. Remove `LocalPage.Likes`, the `LikesContract`, the liked
-`SavedPostsViewModel` creation, `LargePostOrigin.Liked`, and the orphaned
-`likedPosts` source surface. Update the shell fixtures and navigation tests.
+Committed in the same commit as this record.
+
+- `LocalPage` no longer has `Likes`. `LargePostOrigin` no longer has `Liked`.
+  `likedCollectionTitle` is gone.
+- `LikesContract` and its empty actions are gone. `SavedCollections` carries
+  only the bookmarks contract. `SavedCollectionsHost` creates one bookmarks
+  `SavedPostsViewModel`.
+- `SavedPostsCollection` and the collection branch are gone.
+  `SavedPostsViewModel` owns bookmarks only. `SavedPostsState.kt` is renamed to
+  `SavedPostsUiState.kt` and `SavedCollections.kt` to `BookmarksContract.kt`, so
+  the ktlint `standard:filename` rule stays clean.
+- `SocialSource.likedPosts` and the Mastodon and Misskey overrides are gone. The
+  Liked profile tab uses `profileTimeline` with `ProfileTimelineTab.Liked`.
+- The save-only rows keep `saved = true`. The removed like rows are no longer
+  special-cased.
+- Tests: the two adapter `likedPosts` tests are removed because
+  `ProfileSourceContractTest`, `MastodonIntegrationTest`, and
+  `MisskeyIntegrationTest` already cover the Liked profile timeline. The
+  collection test cases are rewritten for the single bookmarks collection.
+- The `ServerCapabilities.likedPosts` flag stays: it gates the Liked tab.
+  `AccessScope.LikedPostsRead` stays for the Mastodon favourites request.
 
 ## Verification
 

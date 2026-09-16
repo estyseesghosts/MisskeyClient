@@ -105,7 +105,6 @@ import me.foxtails.palustris.ui.shell.DirectMessagesContract
 import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
 import me.foxtails.palustris.ui.shell.HomeContract
-import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.PhotoGridContract
@@ -158,7 +157,6 @@ fun PalustrisApp(
     draftsContract: DraftsContract,
     emojiPresentation: EmojiPresentation,
     bookmarks: BookmarksContract,
-    likes: LikesContract,
     notifications: NotificationsContract,
     directMessages: DirectMessagesContract,
     initialNotificationRoute: AppRoute?,
@@ -323,16 +321,14 @@ fun PalustrisApp(
         val homePosts = home?.state?.ownedPosts.orEmpty()
         val photoGridPosts = photoGrid.state.posts
         val savedPosts = bookmarks.state?.posts.orEmpty()
-        val likedPosts = likes.state?.posts.orEmpty()
         val profilePosts = profile.state.pinnedPosts +
             profile.state.pages.values.flatMap { it.posts }
         val candidates = when (navigator.singlePostOrigin) {
-            LargePostOrigin.Home -> homePosts + photoGridPosts + savedPosts + likedPosts + profilePosts
-            LargePostOrigin.PhotoGrid -> photoGridPosts + homePosts + savedPosts + likedPosts + profilePosts
-            LargePostOrigin.Saved -> savedPosts + homePosts + photoGridPosts + likedPosts + profilePosts
-            LargePostOrigin.Liked -> likedPosts + homePosts + photoGridPosts + savedPosts + profilePosts
-            LargePostOrigin.Profile -> profilePosts + homePosts + photoGridPosts + savedPosts + likedPosts
-            else -> homePosts + photoGridPosts + savedPosts + likedPosts + profilePosts
+            LargePostOrigin.Home -> homePosts + photoGridPosts + savedPosts + profilePosts
+            LargePostOrigin.PhotoGrid -> photoGridPosts + homePosts + savedPosts + profilePosts
+            LargePostOrigin.Saved -> savedPosts + homePosts + photoGridPosts + profilePosts
+            LargePostOrigin.Profile -> profilePosts + homePosts + photoGridPosts + savedPosts
+            else -> homePosts + photoGridPosts + savedPosts + profilePosts
         }
         return candidates.firstOrNull {
             it.fetchedBy == selected.fetchedBy &&
@@ -442,7 +438,6 @@ fun PalustrisApp(
                                 profile = profile,
                                 search = search,
                                 bookmarks = bookmarks,
-                                likes = likes,
                                 notifications = notifications,
                                 directMessages = directMessages,
                                 accountSwitcher = accountSwitcher,
@@ -459,7 +454,6 @@ fun PalustrisApp(
                                  thread = thread,
                                  profile = profile,
                                  bookmarks = bookmarks,
-                                 likes = likes,
                                  fallback = DetailActions(onReact, handleReply, onReshare, onBookmark, onReaction),
                              )
                              AppLargeDetailPane(
@@ -509,7 +503,6 @@ fun PalustrisApp(
                         profile = profile,
                         search = search,
                         bookmarks = bookmarks,
-                        likes = likes,
                         notifications = notifications,
                         directMessages = directMessages,
                         accountSwitcher = accountSwitcher,
@@ -607,15 +600,13 @@ fun PalustrisApp(
                      thread = thread,
                      profile = profile,
                      bookmarks = bookmarks,
-                     likes = likes,
                      fallback = DetailActions(onReact, handleReply, onReshare, onBookmark, onReaction),
                  )
                   SinglePostScreen(
                       ownedPost = post,
                       presentation = navigator.singlePostOrigin.singlePostPresentation(),
                       onClose = { navigator.clearSelectedPost() },
-                      availableActions = availableActions +
-                           if (navigator.singlePostOrigin == LargePostOrigin.Liked) setOf(PostAction.Favorite) else emptySet(),
+                      availableActions = availableActions,
                        onReact = detail.favorite,
                       onReply = detail.reply,
                       onReshare = detail.reshare,

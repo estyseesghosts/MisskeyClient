@@ -194,7 +194,11 @@ Read these in order. Treat the repository as the authority.
   and `ProfileCategory.Liked` exist. The category order is Posts, Replies, Media,
   Reposts, Liked. The Liked tab is available for the signed-in account on either
   protocol, for another Misskey account, and not for another Mastodon account.
-  The durable record is `docs/agents/tasks/profile-liked-tab.md`.
+  The orphaned global Likes page and its model are removed: `LocalPage.Likes`,
+  `LikesContract`, `SavedPostsCollection`, the liked `SavedPostsViewModel`
+  instance, `LargePostOrigin.Liked`, and `SocialSource.likedPosts` are gone.
+  `SavedPostsViewModel` owns bookmarks only. The durable record is
+  `docs/agents/tasks/profile-liked-tab.md`.
 - The Profile Featured tab is committed and test verified. `ProfileCategory.Featured`
   leads the category row only when the profile has more than one pinned post. A
   single pinned post shows at the top of the Posts feed with no Featured tab.
@@ -204,18 +208,11 @@ Read these in order. Treat the repository as the authority.
 
 ## Next Slice
 
-1. Remove the orphaned global Likes page and model. The profile Likes chip is
-   gone, so `LocalPage.Likes`, the `LikesContract`, the liked
-   `SavedPostsViewModel` creation, `LargePostOrigin.Liked`, and the `likedPosts`
-   source surface are unreachable. Remove them and update the shell fixtures and
-   navigation tests. The durable record is
-   `docs/agents/tasks/profile-liked-tab.md`.
-
-Plan 04 continues at 04-F (bound idle Misskey thread continuations) after the
-profile tabs, unless the user directs otherwise. Then implement 04-G through
-04-K in the recorded order. 04-K removes the dead profile paging authority and
-bounds the cursor sets. 04-J runs last and depends on 04-F through 04-I and 04-K.
-The last safe commit is the commit that contains this handoff (`git log -1`).
+1. Resume Plan 04 at 04-F (bound idle Misskey thread continuations). Then
+   implement 04-G through 04-K in the recorded order. 04-K removes the dead
+   profile paging authority and bounds the cursor sets. 04-J runs last and
+   depends on 04-F through 04-I and 04-K. The durable record is
+   `docs/agents/tasks/plan04-utility-retention.md`.
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The

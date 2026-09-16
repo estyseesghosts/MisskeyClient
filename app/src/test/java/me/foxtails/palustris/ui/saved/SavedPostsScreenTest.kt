@@ -18,7 +18,6 @@ import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Reaction
 import me.foxtails.palustris.ui.saved.SavedPostsScreen
-import me.foxtails.palustris.ui.saved.SavedPostsCollection
 import me.foxtails.palustris.ui.saved.SavedPostsUiState
 import org.junit.Rule
 import org.junit.Test
@@ -63,24 +62,6 @@ class SavedPostsScreenTest {
 
         compose.onNodeWithContentDescription("Link example.org").assertIsDisplayed()
         compose.onNodeWithText(url, substring = true).assertDoesNotExist()
-    }
-
-    @Test
-    fun likesUseTheirOwnEmptyState() {
-        compose.activity.runOnUiThread {
-            compose.activity.setContent {
-                SavedPostsScreen(
-                    state = SavedPostsUiState(collection = SavedPostsCollection.Likes),
-                    onRefresh = {},
-                    onLoadMore = {},
-                    onUnsave = {},
-                )
-            }
-        }
-        compose.waitForIdle()
-
-        compose.onNodeWithText("No likes yet").assertIsDisplayed()
-        compose.onNodeWithText("Posts you like will appear here.").assertIsDisplayed()
     }
 
     @Test

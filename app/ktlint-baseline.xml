@@ -143,8 +143,8 @@
         <error line="39" column="1" source="standard:no-unused-imports" />
         <error line="53" column="1" source="standard:no-unused-imports" />
         <error line="59" column="1" source="standard:no-unused-imports" />
-        <error line="695" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="745" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="678" column="9" source="standard:spacing-between-declarations-with-comments" />
+        <error line="728" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/data/misskey/MisskeyThreadAcquisition.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -232,7 +232,7 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/domain/SocialSource.kt">
         <error line="9" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="70" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="69" column="5" source="standard:spacing-between-declarations-with-comments" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/AppIcons.kt">
         <error line="17" column="23" source="standard:property-naming" />
@@ -314,12 +314,12 @@
         <error line="84" column="1" source="standard:no-unused-imports" />
         <error line="85" column="1" source="standard:no-unused-imports" />
         <error line="86" column="1" source="standard:no-unused-imports" />
-        <error line="121" column="1" source="standard:no-unused-imports" />
+        <error line="120" column="1" source="standard:no-unused-imports" />
+        <error line="124" column="1" source="standard:no-unused-imports" />
         <error line="125" column="1" source="standard:no-unused-imports" />
         <error line="126" column="1" source="standard:no-unused-imports" />
-        <error line="127" column="1" source="standard:no-unused-imports" />
-        <error line="131" column="1" source="standard:no-unused-imports" />
-        <error line="135" column="1" source="standard:no-unused-imports" />
+        <error line="130" column="1" source="standard:no-unused-imports" />
+        <error line="134" column="1" source="standard:no-unused-imports" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/PostActionBubbles.kt">
         <error line="5" column="1" source="standard:import-ordering" />
@@ -615,7 +615,7 @@
     <file name="src/test/java/me/foxtails/palustris/data/mastodon/MastodonIntegrationTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="36" column="1" source="standard:no-unused-imports" />
-        <error line="253" column="70" source="standard:paren-spacing" />
+        <error line="228" column="70" source="standard:paren-spacing" />
     </file>
     <file name="src/test/java/me/foxtails/palustris/data/mastodon/MastodonMapperTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />

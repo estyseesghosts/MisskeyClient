@@ -125,7 +125,6 @@ fun ConnectedSessionHost(
         account = account,
         accountManager = accountManager,
         coordinator = projectionCoordinator,
-        react = feed.react,
         entryStore = entryStore,
     )
     val profile = ProfileHost(
@@ -238,7 +237,6 @@ fun ConnectedSessionHost(
             draftsContract = draftsContract,
             postInteractions = feed.postInteractions,
             bookmarks = savedCollections.bookmarks,
-            likes = savedCollections.likes,
             notifications = notifications,
             directMessages = directMessages,
             initialNotificationRoute = initialNotificationRoute,

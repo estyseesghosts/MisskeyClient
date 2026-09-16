@@ -77,31 +77,6 @@ class MastodonIntegrationTest {
     }
 
     @Test
-    fun likedPostsUsesMastodonFavouritesEndpointAndOpaqueLinkCursor() = runBlocking {
-        val next = "$origin/api/v1/favourites?limit=40&max_id=favourite-1"
-        server.enqueue(
-            MockResponse()
-                .setBody("[${status("favourite-1")}]")
-                .addHeader("Link", "<$next>; rel=\"next\""),
-        )
-        server.enqueue(MockResponse().setBody("[${status("favourite-2")}]"))
-        val source = MastodonSource(
-            origin = origin,
-            token = "test-token",
-            api = MisskeyApi(),
-            accountId = AccountId(Connection(origin, Protocol.MASTODON), "local-user"),
-        )
-
-        val first = source.likedPosts()
-        val second = source.likedPosts(first.nextCursor)
-
-        assertEquals("favourite-1", first.items.single().id.value)
-        assertEquals("favourite-2", second.items.single().id.value)
-        assertEquals("/api/v1/favourites?limit=40", server.takeRequest().path)
-        assertEquals("/api/v1/favourites?limit=40&max_id=favourite-1", server.takeRequest().path)
-    }
-
-    @Test
     fun mapperConvertsHtmlVisibilityMediaPollAndActions() {
         val post = MastodonMapper.post(status("status-1").apply {
             put("content", "<p>Hello <span class=\"h-card\"><a href=\"https://example.org/@bob\">@bob</a></span><br>Tea &amp; cake</p>")

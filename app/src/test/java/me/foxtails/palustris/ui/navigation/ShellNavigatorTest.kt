@@ -159,7 +159,7 @@ class ShellNavigatorTest {
         navigator.destination = Destination.Search
         navigator.destinationTransitionDirection = -1
         navigator.timeline = Timeline.Federated
-        navigator.page = LocalPage.Likes
+        navigator.page = LocalPage.Drafts
         navigator.sheet = "Accounts"
         navigator.openEditProfileOverlay()
         navigator.searchPanelName = SearchPanel.PhotoGrid.name
@@ -173,7 +173,7 @@ class ShellNavigatorTest {
         assertEquals(Destination.Search, restored.destination)
         assertEquals(-1, restored.destinationTransitionDirection)
         assertEquals(Timeline.Federated, restored.timeline)
-        assertEquals(LocalPage.Likes, restored.page)
+        assertEquals(LocalPage.Drafts, restored.page)
         assertEquals("Accounts", restored.sheet)
         assertEquals(Overlay.EditProfile, restored.overlay)
         assertEquals(SearchPanel.PhotoGrid, restored.searchPanel)

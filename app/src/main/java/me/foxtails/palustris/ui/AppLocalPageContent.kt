@@ -17,25 +17,18 @@ import me.foxtails.palustris.ui.saved.SavedPostsUiState
 internal fun AppLocalPageContent(
     page: LocalPage?,
     savedPostsState: SavedPostsUiState?,
-    likedPostsState: SavedPostsUiState?,
     drafts: List<PostDraft>,
     onLoadDraft: (PostDraft) -> Unit,
     onDeleteDraft: (PostDraft) -> Unit,
     onRefreshSavedPosts: () -> Unit,
     onLoadMoreSavedPosts: () -> Unit,
     onUnsaveSavedPost: (OwnedPost) -> Unit,
-    onRefreshLikedPosts: () -> Unit,
-    onLoadMoreLikedPosts: () -> Unit,
-    onUnsaveLikedPost: (OwnedPost) -> Unit,
     onUpgradeSavedPermissions: () -> Unit,
     onReact: (OwnedPost) -> Unit,
     onReply: (OwnedPost) -> Unit,
     onReshare: (OwnedPost) -> Unit,
-    onBookmark: (OwnedPost) -> Unit,
     onSavedPostReaction: (OwnedPost, EmojiChoice) -> Unit,
-    onLikedPostReaction: (OwnedPost, EmojiChoice) -> Unit,
     onOpenSavedReactionBubble: (OwnedPost, Rect) -> Unit,
-    onOpenLikedReactionBubble: (OwnedPost, Rect) -> Unit,
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onOpenMedia: (MediaOpenRequest) -> Unit,
     onOpenPost: (OwnedPost, LargePostOrigin) -> Unit,
@@ -71,31 +64,6 @@ internal fun AppLocalPageContent(
                 largeLayout = largeLayout,
             )
         } ?: EmptyState(AppIcons.HollowBookmark, androidx.compose.ui.res.stringResource(R.string.saved_posts_empty_title), androidx.compose.ui.res.stringResource(R.string.saved_posts_empty_subtitle))
-        LocalPage.Likes -> likedPostsState?.let { state ->
-            SavedPostsScreen(
-                state = state,
-                onRefresh = onRefreshLikedPosts,
-                onLoadMore = onLoadMoreLikedPosts,
-                onUnsave = onUnsaveLikedPost,
-                onBookmark = onBookmark,
-                onSignIn = onUpgradeSavedPermissions,
-                onUpgradePermissions = onUpgradeSavedPermissions,
-                onReact = onUnsaveLikedPost,
-                onReply = onReply,
-                onReshare = onReshare,
-                onReaction = onLikedPostReaction,
-                onOpenReactionBubble = onOpenLikedReactionBubble,
-                onOpenReactionPicker = onOpenReactionPicker,
-                onOpenMedia = onOpenMedia,
-                onOpenPost = { post -> onOpenPost(post, LargePostOrigin.Liked) },
-                availableActions = availableActions + PostAction.Favorite,
-                onOpenProfile = onOpenProfile,
-                onSearchHashtag = onSearchHashtag,
-                onOpenHashtagBubble = onOpenHashtagBubble,
-                onOpenUsername = onOpenUsername,
-                largeLayout = largeLayout,
-            )
-        } ?: EmptyState(AppIcons.HollowHeart, androidx.compose.ui.res.stringResource(R.string.liked_posts_empty_title), androidx.compose.ui.res.stringResource(R.string.liked_posts_empty_subtitle))
         LocalPage.Drafts -> DraftsScreen(drafts, onLoadDraft, onDeleteDraft)
         LocalPage.About -> EmptyState(AppIcons.Globe, androidx.compose.ui.res.stringResource(R.string.about_empty_title), androidx.compose.ui.res.stringResource(R.string.about_empty_subtitle))
         null -> Unit

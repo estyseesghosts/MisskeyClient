@@ -31,12 +31,11 @@ import me.foxtails.palustris.ui.requiresSignIn
 class SavedPostsViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
     @Assisted private val source: SocialSource,
-    @Assisted private val collection: SavedPostsCollection = SavedPostsCollection.Bookmarks,
     @Assisted private val sessionRevision: Long = 0L,
     private val executionAuthority: PostInteractionExecutionAuthority = PostInteractionExecutionAuthority(),
     private val uiStrings: UiStrings = UiStrings.Default,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(SavedPostsUiState(collection = collection))
+    private val _state = MutableStateFlow(SavedPostsUiState())
     val state = _state.asStateFlow()
     private var refreshJob: Job? = null
     private var pageJob: Job? = null
@@ -79,24 +78,20 @@ class SavedPostsViewModel @AssistedInject constructor(
         refreshJob = viewModelScope.launch {
             val capability = source.capabilities.savedPosts
             val kind = capability?.kind ?: SavedPostsKind.Bookmarks
-            val status = when (collection) {
-                SavedPostsCollection.Bookmarks -> capability?.status
-                SavedPostsCollection.Likes -> source.capabilities.likedPosts
-            }
+            val status = capability?.status
             if (status == CapabilityStatus.Unsupported) {
                 _state.value = SavedPostsUiState(
-                    collection,
                     kind,
-                    error = uiStrings.savedPostsUnsupported(collection == SavedPostsCollection.Likes),
+                    error = uiStrings.savedPostsUnsupported(false),
                 )
                 return@launch
             }
             if (status == CapabilityStatus.Denied) {
-                _state.value = SavedPostsUiState(collection = collection, kind = kind, permissionRequired = true)
+                _state.value = SavedPostsUiState(kind = kind, permissionRequired = true)
                 return@launch
             }
             // Reserve the refresh slot synchronously. A queued page cannot start behind it.
-            _state.value = SavedPostsUiState(collection = collection, kind = kind, loading = true)
+            _state.value = SavedPostsUiState(kind = kind, loading = true)
             load(kind, null, replace = true, epoch)
         }
     }
@@ -117,15 +112,7 @@ class SavedPostsViewModel @AssistedInject constructor(
     }
 
     fun unsave(ownedPost: OwnedPost) {
-        if (collection != SavedPostsCollection.Bookmarks) return
         interactionMutations.bookmark(ownedPost) { result ->
-            if (result.selected == false) removeMembership(ownedPost.post.id)
-        }
-    }
-
-    fun toggleFavourite(ownedPost: OwnedPost) {
-        if (collection != SavedPostsCollection.Likes) return
-        interactionMutations.favorite(ownedPost) { result ->
             if (result.selected == false) removeMembership(ownedPost.post.id)
         }
     }
@@ -208,10 +195,7 @@ class SavedPostsViewModel @AssistedInject constructor(
 
     private suspend fun load(kind: SavedPostsKind, cursor: String?, replace: Boolean, epoch: Long) {
         try {
-            val page = when (collection) {
-                SavedPostsCollection.Bookmarks -> source.savedPosts(cursor)
-                SavedPostsCollection.Likes -> source.likedPosts(cursor)
-            }
+            val page = source.savedPosts(cursor)
             if (epoch != collectionEpoch || stopped) return
             // A paged request must still own the current continuation. A newer page
             // that advanced the cursor first makes this page stale in the same epoch.
@@ -220,10 +204,7 @@ class SavedPostsViewModel @AssistedInject constructor(
             val rows = page.items.map { post ->
                 OwnedPost(
                     accountId,
-                    post.copy(
-                        saved = collection == SavedPostsCollection.Bookmarks,
-                        favourited = post.favourited || collection == SavedPostsCollection.Likes,
-                    ),
+                    post.copy(saved = true),
                     sessionRevision,
                 )
             }.filterNot { it.post.id in confirmedRemovals }
@@ -271,7 +252,6 @@ class SavedPostsViewModel @AssistedInject constructor(
         fun create(
             accountId: AccountId,
             source: SocialSource,
-            collection: SavedPostsCollection,
             sessionRevision: Long,
         ): SavedPostsViewModel
     }

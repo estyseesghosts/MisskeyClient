@@ -3,7 +3,6 @@ package me.foxtails.palustris.ui
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.ui.shell.BookmarksContract
-import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.ProfileContract
 import me.foxtails.palustris.ui.shell.ThreadContract
 
@@ -29,7 +28,6 @@ internal fun detailActionsFor(
     thread: ThreadContract,
     profile: ProfileContract,
     bookmarks: BookmarksContract,
-    likes: LikesContract,
     fallback: DetailActions,
 ): DetailActions {
     if (threadActive) {
@@ -42,14 +40,13 @@ internal fun detailActionsFor(
         )
     }
     return DetailActions(
-        favorite = if (origin == LargePostOrigin.Liked) likes.actions::toggle else fallback.favorite,
+        favorite = fallback.favorite,
         reply = fallback.reply,
         reshare = fallback.reshare,
         bookmark = fallback.bookmark,
         react = when (origin) {
             LargePostOrigin.Profile -> profile.actions::react
             LargePostOrigin.Saved -> bookmarks.actions::react
-            LargePostOrigin.Liked -> likes.actions::react
             else -> fallback.react
         },
     )

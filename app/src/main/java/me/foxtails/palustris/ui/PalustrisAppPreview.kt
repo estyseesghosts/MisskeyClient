@@ -9,7 +9,6 @@ import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.DirectMessagesContract
 import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
-import me.foxtails.palustris.ui.shell.LikesContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.PhotoGridContract
@@ -39,7 +38,6 @@ private fun AppPreview() {
         draftsContract = DraftsContract.Empty,
         emojiPresentation = EmojiPresentation.Empty,
         bookmarks = BookmarksContract.Empty,
-        likes = LikesContract.Empty,
         notifications = NotificationsContract.Empty,
         directMessages = DirectMessagesContract.Empty,
         initialNotificationRoute = null,

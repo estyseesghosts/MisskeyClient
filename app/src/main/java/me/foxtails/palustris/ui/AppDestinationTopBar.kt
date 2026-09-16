@@ -22,7 +22,6 @@ internal fun AppDestinationTopBar(
                 Text(
                     when (page) {
                         LocalPage.SavedPosts -> stringResource(savedTitle)
-                        LocalPage.Likes -> stringResource(likedCollectionTitle())
                         LocalPage.Drafts -> stringResource(R.string.drafts_page_title)
                         LocalPage.About -> stringResource(R.string.about_page_title)
                     },
