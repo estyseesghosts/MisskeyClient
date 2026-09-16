@@ -89,6 +89,9 @@
     <string name="profile_action_bookmarks">书签</string>
     <string name="profile_action_drafts">草稿</string>
     <string name="profile_action_likes">点赞</string>
+    <string name="profile_count_followers">%1$s 名关注者</string>
+    <string name="profile_count_following">正在关注 %1$s 人</string>
+    <string name="profile_count_posts">%1$s 帖子</string>
     <string name="profile_edit">修改个人资料</string>
     <string name="profile_edit_description">修改个人资料</string>
     <string name="profile_editor_add_field">添加字段</string>
@@ -97,6 +100,7 @@
     <string name="profile_editor_save">保存</string>
     <string name="profile_editor_title">修改个人资料</string>
     <string name="profile_follow">关注</string>
+    <string name="profile_following">正在关注</string>
     <string name="profile_message">消息</string>
     <string name="profile_redirect_go_to_profile">前往个人资料页</string>
     <string name="profile_tab_media">媒体</string>

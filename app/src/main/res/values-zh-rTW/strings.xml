@@ -88,6 +88,9 @@
     <string name="profile_action_drafts">草稿</string>
     <string name="profile_action_likes">按讚</string>
     <string name="profile_banner">封面圖片</string>
+    <string name="profile_count_followers">%1$s 個跟隨者</string>
+    <string name="profile_count_following">%1$s 個跟隨中</string>
+    <string name="profile_count_posts">%1$s 貼文</string>
     <string name="profile_edit">編輯個人檔案</string>
     <string name="profile_edit_description">編輯個人檔案</string>
     <string name="profile_editor_add_field">新增欄位</string>
@@ -98,6 +101,7 @@
     <string name="profile_editor_save">儲存</string>
     <string name="profile_editor_title">編輯個人檔案</string>
     <string name="profile_follow">追蹤</string>
+    <string name="profile_following">正在跟隨</string>
     <string name="profile_message">訊息</string>
     <string name="profile_redirect_go_to_profile">前往個人檔案</string>
     <string name="profile_tab_media">媒體</string>

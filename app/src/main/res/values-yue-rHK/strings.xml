@@ -51,7 +51,11 @@
     <string name="post_share_heading">分享</string>
     <string name="post_share_system">分享</string>
     <string name="profile_action_likes">讚好</string>
+    <string name="profile_count_followers">%1$s 追蹤者</string>
+    <string name="profile_count_following">正在追蹤 %1$s</string>
+    <string name="profile_count_posts">%1$s 貼文</string>
     <string name="profile_follow">追蹤</string>
+    <string name="profile_following">正在追蹤</string>
     <string name="profile_tab_posts">貼文</string>
     <string name="profile_tab_replies">回覆</string>
     <string name="profile_tab_reposts">轉發</string>
