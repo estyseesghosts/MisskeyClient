@@ -1,6 +1,7 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.data.misskey
 
 import kotlinx.coroutines.runBlocking
+import me.foxtails.palustris.MisskeySourceContractTest
 import me.foxtails.palustris.data.auth.AuthCallback
 import me.foxtails.palustris.data.auth.MastodonAuth
 import me.foxtails.palustris.data.auth.MisskeyAuth

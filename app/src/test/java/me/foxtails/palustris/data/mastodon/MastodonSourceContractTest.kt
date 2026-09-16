@@ -1,5 +1,6 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.data.mastodon
 
+import me.foxtails.palustris.SocialSourceContractTest
 import me.foxtails.palustris.data.mastodon.MastodonSource
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.domain.AccountId

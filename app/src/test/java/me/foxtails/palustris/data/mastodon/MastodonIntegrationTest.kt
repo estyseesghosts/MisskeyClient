@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.data.mastodon
 
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.flow.first

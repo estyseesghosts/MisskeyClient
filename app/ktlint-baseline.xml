@@ -647,16 +647,6 @@
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="360" column="1" source="standard:spacing-between-declarations-with-annotations" />
     </file>
-    <file name="src/test/java/me/foxtails/palustris/MastodonIntegrationTest.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="36" column="1" source="standard:no-unused-imports" />
-        <error line="253" column="70" source="standard:paren-spacing" />
-    </file>
-    <file name="src/test/java/me/foxtails/palustris/MisskeyIntegrationTest.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="493" column="77" source="standard:paren-spacing" />
-        <error line="494" column="76" source="standard:paren-spacing" />
-    </file>
     <file name="src/test/java/me/foxtails/palustris/ModerationServiceTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
     </file>
@@ -685,6 +675,11 @@
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="10" column="1" source="standard:no-unused-imports" />
     </file>
+    <file name="src/test/java/me/foxtails/palustris/data/mastodon/MastodonIntegrationTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="36" column="1" source="standard:no-unused-imports" />
+        <error line="253" column="70" source="standard:paren-spacing" />
+    </file>
     <file name="src/test/java/me/foxtails/palustris/data/mastodon/MastodonMapperTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
     </file>
@@ -693,6 +688,11 @@
     </file>
     <file name="src/test/java/me/foxtails/palustris/data/media/MediaImageLoaderTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
+    </file>
+    <file name="src/test/java/me/foxtails/palustris/data/misskey/MisskeyIntegrationTest.kt">
+        <error line="3" column="1" source="standard:import-ordering" />
+        <error line="494" column="77" source="standard:paren-spacing" />
+        <error line="495" column="76" source="standard:paren-spacing" />
     </file>
     <file name="src/test/java/me/foxtails/palustris/data/misskey/MisskeyNotificationServiceTest.kt">
         <error line="12" column="1" source="standard:no-unused-imports" />

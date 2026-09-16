@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.data.mastodon
 
 import kotlinx.coroutines.runBlocking
 import me.foxtails.palustris.data.mastodon.MastodonSource
