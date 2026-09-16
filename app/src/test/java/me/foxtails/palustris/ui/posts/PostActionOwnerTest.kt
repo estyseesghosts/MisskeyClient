@@ -50,7 +50,7 @@ class PostActionOwnerTest {
     fun mutationUsesTheEffectivePostAuthorAndPublishesTheConfirmedState() = runTest {
         var changed = 0
         val source = FakeSource()
-        val owner = PostActionOwner(sessionOwnerId, 2L, source, this) { changed++ }
+        val owner = PostActionOwner(sessionOwnerId, 2L, source, this, onRelationshipChanged = { changed++ })
         val owned = OwnedPost(sessionOwnerId, post(), sessionRevision = 2L)
 
         owner.open(owned, Rect.Zero)

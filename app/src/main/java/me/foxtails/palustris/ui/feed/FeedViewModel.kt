@@ -2,43 +2,43 @@ package me.foxtails.palustris.ui.feed
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
+import kotlinx.coroutines.launch
+import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
 import me.foxtails.palustris.data.preferences.InMemoryPhotoGridPreferencesRepository
+import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
 import me.foxtails.palustris.domain.AccountId
-import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
+import me.foxtails.palustris.domain.PhotoGridPreferencesRepository
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PostPreferencesRepository
-import me.foxtails.palustris.domain.PhotoGridPreferencesRepository
 import me.foxtails.palustris.domain.PrimaryFavouriteMode
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.mergeExternalActionFields
-import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
+import me.foxtails.palustris.ui.UiStrings
 import me.foxtails.palustris.ui.photogrid.PhotoGridController
 import me.foxtails.palustris.ui.photogrid.PhotoGridFeed
-import me.foxtails.palustris.ui.search.SearchController
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
 import me.foxtails.palustris.ui.requiresSignIn
-import me.foxtails.palustris.ui.sourceErrorMessage
+import me.foxtails.palustris.ui.search.SearchController
 
 @HiltViewModel(assistedFactory = FeedViewModel.Factory::class)
 class FeedViewModel @AssistedInject constructor(
@@ -49,6 +49,7 @@ class FeedViewModel @AssistedInject constructor(
     private val photoGridPreferencesRepository: PhotoGridPreferencesRepository,
     @Assisted private val sessionRevision: Long,
     private val executionAuthority: PostInteractionExecutionAuthority = PostInteractionExecutionAuthority(),
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) : ViewModel() {
     constructor(
         accountId: AccountId,
@@ -72,8 +73,10 @@ class FeedViewModel @AssistedInject constructor(
     private var preferencesJob: Job? = null
     private var favouriteEmoji = DEFAULT_FAVOURITE_EMOJI
     private var stopped = false
+
     /** Advances on refresh, timeline replacement, and stop. Binds publication authority. */
     private var feedEpoch = 0L
+
     /** Accepted page cursors for the active epoch. Protects against source cursor cycles. */
     private val acceptedCursors = mutableSetOf<String>()
     private val postProjectionListeners = mutableSetOf<(OwnedPost) -> Unit>()
@@ -95,6 +98,7 @@ class FeedViewModel @AssistedInject constructor(
         scope = viewModelScope,
         preferencesRepository = photoGridPreferencesRepository,
         applyFavouritePreference = ::applyFavouritePreference,
+        uiStrings = uiStrings,
     )
     val photoGridFeed = photoGridController.state
     private val searchController = SearchController(
@@ -102,6 +106,7 @@ class FeedViewModel @AssistedInject constructor(
         scope = viewModelScope,
         applyFavouritePreference = ::applyFavouritePreference,
         onStateChanged = { search -> _feed.value = _feed.value.copy(accountSearch = search) },
+        uiStrings = uiStrings,
     )
 
     init {
@@ -172,7 +177,7 @@ class FeedViewModel @AssistedInject constructor(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 if (epoch != feedEpoch || stopped) return@launch
-                val error = sourceErrorMessage(e)
+                val error = uiStrings.sourceError(e)
                 val needsSignIn = requiresSignIn(e)
                 _feed.value = if (timelineChanged) {
                     // A failed timeline change restores the previous timeline and its rows so old
@@ -463,7 +468,7 @@ class FeedViewModel @AssistedInject constructor(
         _feed.value = _feed.value.copy(
             loading = false,
             loadingMore = false,
-            error = sourceErrorMessage(e),
+            error = uiStrings.sourceError(e),
             needsSignIn = requiresSignIn(e),
         )
     }

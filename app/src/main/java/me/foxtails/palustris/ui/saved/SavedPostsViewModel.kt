@@ -11,23 +11,21 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.AccountId
-import me.foxtails.palustris.domain.adjustedBy
+import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.DEFAULT_FAVOURITE_EMOJI
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.mergeExternalActionFields
-import me.foxtails.palustris.ui.feed.Feed
-import me.foxtails.palustris.ui.feed.FeedViewModel
+import me.foxtails.palustris.ui.UiStrings
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
 import me.foxtails.palustris.ui.requiresSignIn
-import me.foxtails.palustris.ui.sourceErrorMessage
 
 @HiltViewModel(assistedFactory = SavedPostsViewModel.Factory::class)
 class SavedPostsViewModel @AssistedInject constructor(
@@ -36,15 +34,19 @@ class SavedPostsViewModel @AssistedInject constructor(
     @Assisted private val collection: SavedPostsCollection = SavedPostsCollection.Bookmarks,
     @Assisted private val sessionRevision: Long = 0L,
     private val executionAuthority: PostInteractionExecutionAuthority = PostInteractionExecutionAuthority(),
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SavedPostsUiState(collection = collection))
     val state = _state.asStateFlow()
     private var refreshJob: Job? = null
     private var pageJob: Job? = null
+
     /** Advances on refresh and stop. Binds paging publication authority. */
     private var collectionEpoch = 0L
+
     /** Accepted page cursors for the active epoch. Protects against cursor cycles. */
     private val acceptedCursors = mutableSetOf<String?>()
+
     /**
      * Rows with a confirmed membership removal. A refresh never reinserts them from an
      * older page. Entries leave the overlay once a fresh page stops returning them.
@@ -82,8 +84,11 @@ class SavedPostsViewModel @AssistedInject constructor(
                 SavedPostsCollection.Likes -> source.capabilities.likedPosts
             }
             if (status == CapabilityStatus.Unsupported) {
-                val label = if (collection == SavedPostsCollection.Likes) "Likes" else "Saved posts"
-                _state.value = SavedPostsUiState(collection, kind, error = "$label are not supported by this server.")
+                _state.value = SavedPostsUiState(
+                    collection,
+                    kind,
+                    error = uiStrings.savedPostsUnsupported(collection == SavedPostsCollection.Likes),
+                )
                 return@launch
             }
             if (status == CapabilityStatus.Denied) {
@@ -167,7 +172,7 @@ class SavedPostsViewModel @AssistedInject constructor(
 
     private fun mutationFailure(error: Exception) {
         if (stopped) return
-        _state.value = _state.value.copy(error = sourceErrorMessage(error), needsSignIn = requiresSignIn(error))
+        _state.value = _state.value.copy(error = uiStrings.sourceError(error), needsSignIn = requiresSignIn(error))
     }
 
     private fun updatePostByTarget(id: EntityId, transform: (me.foxtails.palustris.domain.Post) -> me.foxtails.palustris.domain.Post) {
@@ -249,7 +254,7 @@ class SavedPostsViewModel @AssistedInject constructor(
             _state.value = _state.value.copy(
                 loading = false,
                 loadingMore = false,
-                error = sourceErrorMessage(error),
+                error = uiStrings.sourceError(error),
                 needsSignIn = requiresSignIn(error),
                 permissionRequired = permission,
             )

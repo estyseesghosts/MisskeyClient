@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
-import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.EditableProfile
 import me.foxtails.palustris.domain.EditableProfileCapabilities
@@ -30,13 +29,14 @@ import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.domain.mergeInto
-import me.foxtails.palustris.ui.requiresSignIn
-import me.foxtails.palustris.ui.sourceErrorMessage
+import me.foxtails.palustris.ui.UiStrings
 import me.foxtails.palustris.ui.posts.PostActionFamily
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
+import me.foxtails.palustris.ui.requiresSignIn
 
 @HiltViewModel(assistedFactory = ProfileViewModel.Factory::class)
 class ProfileViewModel @AssistedInject constructor(
@@ -44,6 +44,7 @@ class ProfileViewModel @AssistedInject constructor(
     @Assisted private val source: SocialSource,
     @Assisted private val sessionRevision: Long = 0L,
     private val executionAuthority: PostInteractionExecutionAuthority = PostInteractionExecutionAuthority(),
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ProfileUiState())
     val state = _state.asStateFlow()
@@ -53,6 +54,7 @@ class ProfileViewModel @AssistedInject constructor(
         scope = viewModelScope,
         sessionRevision = sessionRevision,
         onPagesChanged = { pages -> if (!stopped) _state.value = _state.value.copy(pages = pages) },
+        uiStrings = uiStrings,
     )
 
     private var generation = 0L
@@ -205,7 +207,7 @@ class ProfileViewModel @AssistedInject constructor(
                 if (isEditorCurrent(targetEditorGeneration, accountId)) {
                     _state.value = _state.value.copy(
                         savingProfile = false,
-                        editError = sourceErrorMessage(error),
+                        editError = uiStrings.sourceError(error),
                     )
                 }
             }
@@ -317,7 +319,7 @@ class ProfileViewModel @AssistedInject constructor(
                 if (isEditorCurrent(targetEditorGeneration, accountId)) {
                     _state.value = _state.value.copy(
                         editableLoading = false,
-                        editableError = sourceErrorMessage(error),
+                        editableError = uiStrings.sourceError(error),
                     )
                 }
             }
@@ -360,7 +362,7 @@ class ProfileViewModel @AssistedInject constructor(
             if (isCurrent(targetGeneration, target)) {
                 _state.value = _state.value.copy(
                     detailLoading = false,
-                    detailError = sourceErrorMessage(SourceError.Unsupported("profile.details")),
+                    detailError = uiStrings.profileDetailsUnsupported(),
                     staleDetails = true,
                 )
             }
@@ -385,7 +387,7 @@ class ProfileViewModel @AssistedInject constructor(
                 if (isCurrent(targetGeneration, target)) {
                     _state.value = _state.value.copy(
                         detailLoading = false,
-                        detailError = sourceErrorMessage(error),
+                        detailError = uiStrings.sourceError(error),
                         detailNeedsSignIn = requiresSignIn(error),
                         staleDetails = true,
                     )
@@ -433,7 +435,7 @@ class ProfileViewModel @AssistedInject constructor(
                     _state.value = _state.value.copy(
                         relationshipLoading = false,
                         relationshipSupported = if (error is SourceError.Unsupported) false else null,
-                        relationshipError = sourceErrorMessage(error),
+                        relationshipError = uiStrings.sourceError(error),
                     )
                 }
             }
@@ -465,7 +467,7 @@ class ProfileViewModel @AssistedInject constructor(
                 if (isCurrent(targetGeneration, target)) {
                     _state.value = _state.value.copy(
                         pinnedLoading = false,
-                        pinnedError = sourceErrorMessage(error),
+                        pinnedError = uiStrings.sourceError(error),
                     )
                 }
             }
@@ -550,7 +552,7 @@ class ProfileViewModel @AssistedInject constructor(
                 initialLoading = false,
                 refreshing = false,
                 loadingMore = false,
-                error = sourceErrorMessage(error),
+                error = uiStrings.sourceError(error),
                 needsSignIn = requiresSignIn(error),
                 // Refresh failures keep the existing rows and cursor usable.
                 nextCursor = current.nextCursor,
@@ -584,7 +586,7 @@ class ProfileViewModel @AssistedInject constructor(
                     _state.value = _state.value.copy(
                         relationship = relationship,
                         relationshipMutation = false,
-                        relationshipError = sourceErrorMessage(error),
+                        relationshipError = uiStrings.sourceError(error),
                         relationshipSupported = if (error is SourceError.Unsupported) false else current.relationshipSupported,
                     )
                 }

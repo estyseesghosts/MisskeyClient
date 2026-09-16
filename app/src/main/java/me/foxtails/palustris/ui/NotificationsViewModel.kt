@@ -15,11 +15,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.data.notifications.NotificationRepository
 import me.foxtails.palustris.data.notifications.NotificationStorageHealth
-import me.foxtails.palustris.data.notifications.NotificationSynchronizer
 import me.foxtails.palustris.data.notifications.NotificationSyncIntents
+import me.foxtails.palustris.data.notifications.NotificationSynchronizer
 import me.foxtails.palustris.data.notifications.SourceBackedNotificationSyncIntents
 import me.foxtails.palustris.domain.AccountId
-import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActionState
@@ -29,8 +28,9 @@ import me.foxtails.palustris.domain.NotificationSyncToken
 import me.foxtails.palustris.domain.NotificationUnreadState
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
-import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.SocialSource
+import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.domain.adjustedBy
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.mergeExternalActionFields
 
@@ -52,6 +52,7 @@ data class NotificationsUiState(
 ) {
     val isEmpty: Boolean get() = items.isEmpty() && !loading && !refreshing
 }
+
 @HiltViewModel(assistedFactory = NotificationsViewModel.Factory::class)
 class NotificationsViewModel @AssistedInject constructor(
     @Assisted val accountId: AccountId,
@@ -59,6 +60,7 @@ class NotificationsViewModel @AssistedInject constructor(
     @Assisted private val sessionRevision: Long,
     private val repository: NotificationRepository,
     private val syncIntents: NotificationSyncIntents,
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) : ViewModel() {
     constructor(
         accountId: AccountId,
@@ -83,6 +85,7 @@ class NotificationsViewModel @AssistedInject constructor(
     private var acknowledgementJob: Job? = null
     private var stopped = false
     private val query = MutableStateFlow(NotificationQuery())
+
     /**
      * Request identity for visible refresh and paging state. The epoch advances on every
      * refresh and page request, so two same-query requests with a null or unchanged
@@ -167,7 +170,7 @@ class NotificationsViewModel @AssistedInject constructor(
                 _state.value = _state.value.copy(
                     loading = false,
                     refreshing = false,
-                    error = sourceErrorMessage(error),
+                    error = uiStrings.sourceError(error),
                 )
             }
         }
@@ -190,7 +193,7 @@ class NotificationsViewModel @AssistedInject constructor(
                 throw error
             } catch (error: Exception) {
                 if (epoch != requestEpoch || stopped) return@launch
-                _state.value = _state.value.copy(loadingMore = false, error = sourceErrorMessage(error))
+                _state.value = _state.value.copy(loadingMore = false, error = uiStrings.sourceError(error))
             }
         }
     }
@@ -204,7 +207,7 @@ class NotificationsViewModel @AssistedInject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                _state.value = _state.value.copy(error = sourceErrorMessage(error))
+                _state.value = _state.value.copy(error = uiStrings.sourceError(error))
             }
         }
     }
@@ -298,7 +301,7 @@ class NotificationsViewModel @AssistedInject constructor(
                 if (stopped) return@launch
                 _state.value = _state.value.copy(
                     actionStates = _state.value.actionStates + (id to NotificationActionState.Failed),
-                    actionErrors = _state.value.actionErrors + (id to sourceErrorMessage(error)),
+                    actionErrors = _state.value.actionErrors + (id to uiStrings.sourceError(error)),
                 )
             } finally {
                 actionJobs.remove(id)

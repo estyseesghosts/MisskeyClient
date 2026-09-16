@@ -6,19 +6,20 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.SocialSource
-import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.isExactHashtag
 import me.foxtails.palustris.domain.mergeExternalActionFields
+import me.foxtails.palustris.ui.UiStrings
 import me.foxtails.palustris.ui.feed.AccountSearchState
-import me.foxtails.palustris.ui.sourceErrorMessage
 
 internal class SearchController(
     private val source: SocialSource,
     private val scope: CoroutineScope,
     private val applyFavouritePreference: (Post) -> Post,
     private val onStateChanged: (AccountSearchState) -> Unit,
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) {
     private var searchJob: Job? = null
     private var generation = 0L
@@ -66,7 +67,7 @@ internal class SearchController(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 if (stopped || requestGeneration != generation) return@launch
-                publish(_state.value.copy(loadingMore = false, error = sourceErrorMessage(e)))
+                publish(_state.value.copy(loadingMore = false, error = uiStrings.sourceError(e)))
             }
         }
     }
@@ -106,7 +107,7 @@ internal class SearchController(
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             if (stopped || requestGeneration != generation) return
-            publish(AccountSearchState(query = normalized, error = sourceErrorMessage(e)))
+            publish(AccountSearchState(query = normalized, error = uiStrings.sourceError(e)))
         }
     }
 
@@ -124,7 +125,7 @@ internal class SearchController(
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             if (stopped || requestGeneration != generation) return
-            publish(AccountSearchState(query = normalized, tagQuery = tag, error = sourceErrorMessage(e)))
+            publish(AccountSearchState(query = normalized, tagQuery = tag, error = uiStrings.sourceError(e)))
         }
     }
 

@@ -21,34 +21,34 @@ import me.foxtails.palustris.data.auth.DraftWriteAuthority
 import me.foxtails.palustris.data.auth.InMemoryDraftStore
 import me.foxtails.palustris.data.auth.PendingLogin
 import me.foxtails.palustris.data.auth.SessionStore
+import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.data.directmessages.DirectMessageStore
 import me.foxtails.palustris.data.directmessages.DirectMessageWriteAuthority
 import me.foxtails.palustris.data.directmessages.InMemoryDirectMessageStore
 import me.foxtails.palustris.data.emoji.InMemoryEmojiCatalogRepository
-import me.foxtails.palustris.data.preferences.InMemoryEmojiPickerPreferencesRepository
-import me.foxtails.palustris.data.auth.toAccount
 import me.foxtails.palustris.data.misskey.HttpClientPool
-import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
-import me.foxtails.palustris.data.preferences.InMemoryPhotoGridPreferencesRepository
+import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
+import me.foxtails.palustris.data.notifications.NoOpNotificationSyncController
+import me.foxtails.palustris.data.notifications.NotificationStreamController
+import me.foxtails.palustris.data.notifications.NotificationSyncController
 import me.foxtails.palustris.data.notifications.push.NoOpPushRegistrationManager
 import me.foxtails.palustris.data.notifications.push.PushRegistrationManager
-import me.foxtails.palustris.data.notifications.NoOpNotificationStreamController
-import me.foxtails.palustris.data.notifications.NotificationStreamController
+import me.foxtails.palustris.data.preferences.InMemoryEmojiPickerPreferencesRepository
+import me.foxtails.palustris.data.preferences.InMemoryPhotoGridPreferencesRepository
+import me.foxtails.palustris.data.preferences.InMemoryPostPreferencesRepository
 import me.foxtails.palustris.di.IoDispatcher
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EmojiCatalogRepository
 import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
-import me.foxtails.palustris.data.notifications.NotificationSyncController
-import me.foxtails.palustris.data.notifications.NoOpNotificationSyncController
 import me.foxtails.palustris.domain.NotificationSyncToken
-import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.domain.PhotoGridPreferencesRepository
+import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.domain.PushSessionState
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
-import me.foxtails.palustris.ui.sourceErrorMessage
+import me.foxtails.palustris.ui.UiStrings
 import org.json.JSONObject
 
 data class SessionUi(
@@ -80,6 +80,7 @@ class AccountManager @Inject constructor(
     private val emojiPickerPreferencesRepository: EmojiPickerPreferencesRepository,
     private val draftStore: DraftStore,
     private val draftWriteAuthority: DraftWriteAuthority,
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) : ViewModel() {
     constructor(
         store: SessionStore,
@@ -87,6 +88,7 @@ class AccountManager @Inject constructor(
         ioDispatcher: CoroutineDispatcher,
         draftStore: DraftStore = InMemoryDraftStore(),
         draftWriteAuthority: DraftWriteAuthority = DraftWriteAuthority(),
+        uiStrings: UiStrings = UiStrings.Default,
     ) : this(
         store,
         auth,
@@ -103,6 +105,7 @@ class AccountManager @Inject constructor(
         InMemoryEmojiPickerPreferencesRepository(),
         draftStore,
         draftWriteAuthority,
+        uiStrings,
     )
     private val _session = MutableStateFlow(SessionUi())
     val session = _session.asStateFlow()
@@ -154,7 +157,7 @@ class AccountManager @Inject constructor(
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _session.value = SessionUi(starting = false, error = "Saved sign-in could not be restored. Please sign in again.")
+                _session.value = SessionUi(starting = false, error = uiStrings.sessionRestoreFailed())
             }
         }
     }
@@ -184,7 +187,7 @@ class AccountManager @Inject constructor(
     /** Starts a permission upgrade without allowing a different account to replace the target. */
     fun upgradePermissions(accountId: AccountId) {
         if (_accountIndex.value.accounts.none { it.accountId == accountId }) {
-            _session.value = _session.value.copy(error = "That account is no longer available on this device.")
+            _session.value = _session.value.copy(error = uiStrings.sessionAccountUnavailable())
             return
         }
         signIn(accountId.connection.origin, replacingAccountId = accountId)
@@ -195,7 +198,7 @@ class AccountManager @Inject constructor(
     fun browserFailed() {
         _session.value = _session.value.copy(
             browserUrl = null,
-            error = "No browser could be opened. Install or enable a browser and try again.",
+            error = uiStrings.sessionNoBrowser(),
         )
     }
 
@@ -237,7 +240,7 @@ class AccountManager @Inject constructor(
             pending = request.copy(authorizationCode = AuthCallback.authorizationCode(value))
             finishSignIn()
         } else {
-            _session.value = _session.value.copy(error = "This sign-in callback is invalid or expired. Please try again.")
+            _session.value = _session.value.copy(error = uiStrings.sessionCallbackInvalid())
         }
     }
 
@@ -297,7 +300,7 @@ class AccountManager @Inject constructor(
                     }
                 }
                 if (switched == null) {
-                    _session.value = _session.value.copy(error = "That account is no longer available on this device.")
+                    _session.value = _session.value.copy(error = uiStrings.sessionAccountUnavailable())
                 } else {
                     val (index, session) = switched
                     _accountIndex.value = index
@@ -455,7 +458,7 @@ class AccountManager @Inject constructor(
         _session.value = _session.value.copy(busy = false, error = message(e), browserUrl = null)
     }
 
-    private fun message(e: Exception): String = sourceErrorMessage(e)
+    private fun message(e: Exception): String = uiStrings.sourceError(e)
 }
 
 private data class RestoredAccounts(

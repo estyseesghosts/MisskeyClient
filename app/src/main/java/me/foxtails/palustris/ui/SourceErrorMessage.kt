@@ -1,18 +1,21 @@
 package me.foxtails.palustris.ui
 
+import android.content.Context
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.SourceError
 
-internal fun sourceErrorMessage(error: Exception): String = when (error) {
-    is SourceError.Unauthorized -> "Access was denied. Sign in again and allow access to your account and timeline."
-    is SourceError.AccountMismatch -> "The signed-in account did not match the account being upgraded. Nothing was changed."
-    is SourceError.RateLimited -> "This instance is busy. Wait a moment and try again."
-    is SourceError.Unsupported -> "This instance doesn't support ${error.feature}."
-    is SourceError.AccessDenied -> "Access to ${error.feature} was denied by this account's server policy."
-    is SourceError.ResourceLimit -> "The instance returned too much data for ${error.feature}."
-    is SourceError.ForeignOrigin -> "The instance returned content from an unexpected origin."
-    is SourceError.NetworkUnavailable -> "Could not reach the instance. Check your connection and try again."
-    is SourceError.ServerError -> error.detail ?: "Could not complete the request. Please try again."
-    else -> "Could not complete the request. Please try again."
+/** Maps a normalized source failure to a localized message. */
+internal fun sourceErrorMessage(context: Context, error: Exception): String = when (error) {
+    is SourceError.Unauthorized -> context.getString(R.string.error_source_unauthorized)
+    is SourceError.AccountMismatch -> context.getString(R.string.error_source_account_mismatch)
+    is SourceError.RateLimited -> context.getString(R.string.error_source_rate_limited)
+    is SourceError.Unsupported -> context.getString(R.string.error_source_unsupported, error.feature)
+    is SourceError.AccessDenied -> context.getString(R.string.error_source_access_denied, error.feature)
+    is SourceError.ResourceLimit -> context.getString(R.string.error_source_resource_limit, error.feature)
+    is SourceError.ForeignOrigin -> context.getString(R.string.error_source_foreign_origin)
+    is SourceError.NetworkUnavailable -> context.getString(R.string.error_source_network)
+    is SourceError.ServerError -> error.detail ?: context.getString(R.string.error_source_server)
+    else -> context.getString(R.string.error_source_server)
 }
 
 internal fun requiresSignIn(error: Exception): Boolean = error is SourceError.Unauthorized

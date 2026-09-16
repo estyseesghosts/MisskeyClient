@@ -386,7 +386,7 @@ class CrossCuttingTest {
             me.foxtails.palustris.domain.SourceError.NetworkUnavailable,
             me.foxtails.palustris.domain.SourceError.ServerError(null),
         )
-        errors.forEach { assertTrue(sourceErrorMessage(it).isNotBlank()) }
+        errors.forEach { assertTrue(sourceErrorMessage(ApplicationProvider.getApplicationContext(), it).isNotBlank()) }
         assertTrue(requiresSignIn(me.foxtails.palustris.domain.SourceError.Unauthorized))
     }
 

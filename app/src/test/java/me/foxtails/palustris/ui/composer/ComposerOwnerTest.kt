@@ -12,6 +12,7 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.PostPreferences
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.ui.UiStrings
 import me.foxtails.palustris.ui.composer.ComposerEditorState
 import me.foxtails.palustris.ui.composer.ComposerNavigation
 import me.foxtails.palustris.ui.composer.ComposerOwner
@@ -23,7 +24,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class ComposerOwnerTest {
     private val connection = Connection("https://example.org", Protocol.MASTODON)
     private val accountId = AccountId(connection, "owner")
@@ -106,7 +112,10 @@ class ComposerOwnerTest {
         composerOpen: Boolean = false,
         overlayOpen: Boolean = false,
     ): ComposerOwner {
-        val owner = ComposerOwner(mutableStateOf(ComposerEditorState()))
+        val owner = ComposerOwner(
+            mutableStateOf(ComposerEditorState()),
+            UiStrings.from(androidx.test.core.app.ApplicationProvider.getApplicationContext()),
+        )
         owner.context = ComposerOwnerContext(
             account = account,
             contract = contract(composer),

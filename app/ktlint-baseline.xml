@@ -276,11 +276,6 @@
         <error line="18" column="1" source="standard:no-unused-imports" />
         <error line="45" column="19" source="standard:property-naming" />
     </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/NotificationsViewModel.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="55" column="1" source="standard:spacing-between-declarations-with-annotations" />
-        <error line="86" column="5" source="standard:spacing-between-declarations-with-comments" />
-    </file>
     <file name="src/main/java/me/foxtails/palustris/ui/PalustrisApp.kt">
         <error line="9" column="1" source="standard:import-ordering" />
         <error line="10" column="1" source="standard:no-unused-imports" />
@@ -363,21 +358,12 @@
     <file name="src/main/java/me/foxtails/palustris/ui/components/PillAction.kt">
         <error line="3" column="1" source="standard:import-ordering" />
     </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/composer/ComposerOwner.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="74" column="5" source="standard:spacing-between-declarations-with-comments" />
-    </file>
     <file name="src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessageConversationScreen.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="31" column="1" source="standard:no-unused-imports" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessageInboxScreen.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessageViewModel.kt">
-        <error line="53" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="55" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="57" column="5" source="standard:spacing-between-declarations-with-comments" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/emoji/EmojiGridScrollbar.kt">
         <error line="1" column="1" source="standard:filename" />
@@ -391,11 +377,6 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/emoji/InlineEmojiText.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/feed/FeedViewModel.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="75" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="77" column="5" source="standard:spacing-between-declarations-with-comments" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/feed/HomeFeed.kt">
         <error line="9" column="1" source="standard:import-ordering" />
@@ -482,9 +463,6 @@
         <error line="8" column="1" source="standard:import-ordering" />
         <error line="12" column="1" source="standard:no-unused-imports" />
     </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/photogrid/PhotoGridController.kt">
-        <error line="24" column="1" source="standard:no-unused-imports" />
-    </file>
     <file name="src/main/java/me/foxtails/palustris/ui/photogrid/PhotoGridScreen.kt">
         <error line="5" column="1" source="standard:import-ordering" />
         <error line="50" column="1" source="standard:import-ordering" />
@@ -497,9 +475,6 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/posts/ContentWarningPresentation.kt">
         <error line="6" column="1" source="standard:no-unused-imports" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/posts/PostActionOwner.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/posts/PostRow.kt">
         <error line="9" column="1" source="standard:import-ordering" />
@@ -553,12 +528,6 @@
     <file name="src/main/java/me/foxtails/palustris/ui/profile/ProfileTimelineList.kt">
         <error line="5" column="1" source="standard:import-ordering" />
     </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/profile/ProfileTimelinePager.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/profile/ProfileViewModel.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-    </file>
     <file name="src/main/java/me/foxtails/palustris/ui/saved/SavedCollectionsHost.kt">
         <error line="1" column="1" source="standard:filename" />
         <error line="3" column="1" source="standard:import-ordering" />
@@ -566,17 +535,6 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/saved/SavedPostsScreen.kt">
         <error line="5" column="1" source="standard:import-ordering" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/saved/SavedPostsViewModel.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="25" column="1" source="standard:no-unused-imports" />
-        <error line="26" column="1" source="standard:no-unused-imports" />
-        <error line="44" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="46" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="48" column="5" source="standard:spacing-between-declarations-with-comments" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/search/SearchController.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/search/SearchScreen.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -586,12 +544,6 @@
         <error line="25" column="1" source="standard:no-unused-imports" />
         <error line="61" column="1" source="standard:no-unused-imports" />
     </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/session/AccountManager.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/session/ConnectedSessionHost.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-    </file>
     <file name="src/main/java/me/foxtails/palustris/ui/settings/ContentWarningSettingsScreen.kt">
         <error line="3" column="1" source="standard:import-ordering" />
     </file>
@@ -600,11 +552,6 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/settings/ModerationListScreen.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/settings/ModerationViewModel.kt">
-        <error line="3" column="1" source="standard:import-ordering" />
-        <error line="54" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="56" column="5" source="standard:spacing-between-declarations-with-comments" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/settings/MutedHashtagsScreen.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -620,8 +567,6 @@
         <error line="3" column="1" source="standard:no-unused-imports" />
         <error line="4" column="1" source="standard:no-unused-imports" />
         <error line="5" column="1" source="standard:no-unused-imports" />
-        <error line="13" column="1" source="standard:import-ordering" />
-        <error line="13" column="1" source="standard:no-unused-imports" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/setup/SetupScreens.kt">
         <error line="3" column="1" source="standard:import-ordering" />

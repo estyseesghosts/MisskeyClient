@@ -51,30 +51,49 @@ Notes:
 
 Verification: `assembleDebug`, full `testDebugUnitTest`, and `ktlintCheck` pass.
 
-### Slice 2 — ViewModels and controllers (in progress)
+### Slice 2 — ViewModels and controllers (complete)
 
-Decision: option 1. Inject `@ApplicationContext Context` into the owning Hilt
-classes and pass it into the plain owners and controllers. Resolve text with
-`context.getString(...)`. This matches the existing
-`NotificationSettingsViewModel` and `SavedPostsViewModel` precedent.
+Decision: option 1. The owning classes stay free of `Context`. Localized copy
+lives in the `UiStrings` seam.
 
-Targets:
-- `ui/SourceErrorMessage.kt`: change `sourceErrorMessage` to take a `Context`.
-  Update all call sites.
-- `ui/session/AccountManager.kt`: five session messages.
-- `ui/composer/ComposerOwner.kt`: three errors and `Quoted post`.
-- `ui/posts/PostActionOwner.kt`: `Relationship actions are unavailable.`
-- `ui/saved/SavedPostsViewModel.kt`: the collection labels and the unsupported
-  message.
-- `ui/settings/ModerationViewModel.kt`: two messages.
-- `ui/directmessages/DirectMessageViewModel.kt`: the `direct messages` feature
-  name that feeds `sourceErrorMessage` for `SourceError.Unsupported`.
+- `ui/UiStrings.kt` is new. It is an interface with the localized text that
+  view models and non-composable owners need. `UiStrings.from(context)` builds
+  the Android-backed implementation. `UiStrings.Default` carries no
+  user-facing copy and serves tests and direct construction. It is not for
+  production.
+- `di/UiStringsModule.kt` is new. It binds the Android-backed implementation
+  with `@ApplicationContext`.
+- `sourceErrorMessage` now takes a `Context`. `UiStrings` owns the one
+  production call.
+- Owning classes gained `private val uiStrings: UiStrings = UiStrings.Default`
+  at the end of the constructor: `FeedViewModel`, `NotificationsViewModel`,
+  `ProfileViewModel`, `ProfileTimelinePager`, `SearchController`,
+  `PhotoGridController`, `EmojiCatalogViewModel`, `DirectMessageViewModel`,
+  `SavedPostsViewModel`, `ModerationViewModel`, `AccountManager`,
+  `ComposerOwner`, and `PostActionOwner`.
+- `ComposerHost` and `ConnectedSessionHost` build `UiStrings.from(context)` from
+  the composition because those owners are not Hilt-created.
+- The `direct messages` and `profile.details` feature codes no longer reach the
+  user. `UiStrings.directMessagesUnsupported` and `profileDetailsUnsupported`
+  resolve them.
 
-Owning classes that need a `Context`: `FeedViewModel`, `NotificationsViewModel`,
-`ProfileViewModel`, `ProfileTimelinePager`, `SearchController`,
-`PhotoGridController`, `EmojiCatalogViewModel`, `DirectMessageViewModel`,
-`SavedPostsViewModel`, `ModerationViewModel`, `AccountManager`, `ComposerOwner`,
-and `PostActionOwner`.
+Tests:
+- `ComposerOwnerTest` becomes Robolectric and passes a real `UiStrings` because
+  it asserts the audience message.
+- `SessionViewModelTest.permissionUpgradeDoesNotReplaceAccountWhenReturnedIdentityDiffers`
+  passes a real `UiStrings` to the `AccountManager` convenience constructor.
+- `CrossCuttingTest.everySourceErrorHasHumanReadableUiMessage` passes a
+  `Context`.
+- `PostActionOwnerTest` names the `onRelationshipChanged` argument.
+
+The `AccountManager` convenience constructor gained a defaulted `uiStrings`
+parameter.
+
+`app/ktlint-baseline.xml` is regenerated. The `UiStrings` files add no entries.
+The removed entries belong to the touched files whose style debt is now fixed.
+
+Verification: `assembleDebug`, full `testDebugUnitTest` (1070 tests),
+`assembleRelease`, and `ktlintCheck` pass. Source audit: zero unused resources.
 
 ### Slice 3 — Domain and data fallback text (planned)
 
@@ -83,7 +102,9 @@ and `PostActionOwner`.
 `"Notification sync failed"`. The data layer has no `Context`. Decide the
 mechanism before this slice. Options: a stable code that presentation maps to a
 resource, or a `@StringRes` value carried on the model. Do not add `Context` to
-the data layer.
+the data layer. Also decide the remaining protocol feature codes
+(`timeline:Home`, `direct.pagination`, `notifications.followRequest`) that
+`sourceErrorMessage` still interpolates.
 
 ## Not In Scope
 

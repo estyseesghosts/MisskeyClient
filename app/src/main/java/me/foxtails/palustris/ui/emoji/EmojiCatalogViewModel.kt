@@ -21,7 +21,7 @@ import me.foxtails.palustris.domain.EmojiPickerGroupIds
 import me.foxtails.palustris.domain.EmojiPickerPreferencesRepository
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
-import me.foxtails.palustris.ui.sourceErrorMessage
+import me.foxtails.palustris.ui.UiStrings
 
 /**
  * Account-scoped emoji catalog backed only by [SocialSource]. The catalog loads lazily
@@ -34,6 +34,7 @@ class EmojiCatalogViewModel @AssistedInject constructor(
     private val repository: EmojiCatalogRepository,
     private val clock: Clock,
     private val preferencesRepository: EmojiPickerPreferencesRepository,
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) : ViewModel() {
     private val _state = MutableStateFlow(EmojiCatalogState())
     val state = _state.asStateFlow()
@@ -143,7 +144,7 @@ class EmojiCatalogViewModel @AssistedInject constructor(
             _state.value = _state.value.copy(
                 initialLoading = false,
                 refreshing = false,
-                error = if (e is SourceError.Unsupported) null else sourceErrorMessage(e),
+                error = if (e is SourceError.Unsupported) null else uiStrings.sourceError(e),
                 unsupported = e is SourceError.Unsupported,
                 items = if (e is SourceError.Unsupported) emptyList() else _state.value.items,
                 hasSnapshot = if (e is SourceError.Unsupported) false else _state.value.hasSnapshot,

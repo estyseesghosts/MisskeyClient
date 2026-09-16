@@ -25,8 +25,7 @@ import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
 import me.foxtails.palustris.domain.DirectMessageSource
 import me.foxtails.palustris.domain.SocialSource
-import me.foxtails.palustris.domain.SourceError
-import me.foxtails.palustris.ui.sourceErrorMessage
+import me.foxtails.palustris.ui.UiStrings
 
 @HiltViewModel(assistedFactory = DirectMessageViewModel.Factory::class)
 class DirectMessageViewModel @AssistedInject constructor(
@@ -39,6 +38,7 @@ class DirectMessageViewModel @AssistedInject constructor(
     // AccountManager.removeAccount invalidates is required here and passed to the
     // repository, so a revoked writer cannot publish a conversation state change.
     private val writeAuthority: DirectMessageWriteAuthority,
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) : ViewModel() {
     private val directSource = source as? DirectMessageSource
     private val repository = directSource?.let {
@@ -50,10 +50,13 @@ class DirectMessageViewModel @AssistedInject constructor(
     private var threadJob: Job? = null
     private var sendJob: Job? = null
     private var stopped = false
+
     /** Binds inbox publication authority. Advances on refresh and stop. */
     private var inboxEpoch = 0L
+
     /** Binds selection publication authority. Advances on open, start, close, and stop. */
     private var selectionEpoch = 0L
+
     /** Distinguishes two new conversations that both have a null conversation ID. */
     private var composeGeneration = 0L
     private var composeTarget: Account? = null
@@ -78,7 +81,7 @@ class DirectMessageViewModel @AssistedInject constructor(
         if (repo == null) {
             _state.value = _state.value.copy(
                 loading = false,
-                error = sourceErrorMessage(SourceError.Unsupported("direct messages")),
+                error = uiStrings.directMessagesUnsupported(),
             )
             return
         }
@@ -107,7 +110,7 @@ class DirectMessageViewModel @AssistedInject constructor(
                 throw error
             } catch (error: Exception) {
                 if (epoch != inboxEpoch || stopped) return@launch
-                _state.value = _state.value.copy(loading = false, error = sourceErrorMessage(error))
+                _state.value = _state.value.copy(loading = false, error = uiStrings.sourceError(error))
             }
         }
     }
@@ -116,7 +119,7 @@ class DirectMessageViewModel @AssistedInject constructor(
         if (stopped) return
         val repo = repository
         if (repo == null) {
-            _state.value = _state.value.copy(error = sourceErrorMessage(SourceError.Unsupported("direct messages")))
+            _state.value = _state.value.copy(error = uiStrings.directMessagesUnsupported())
             return
         }
         val current = _state.value
@@ -148,7 +151,7 @@ class DirectMessageViewModel @AssistedInject constructor(
                 throw error
             } catch (error: Exception) {
                 if (epoch != inboxEpoch || stopped) return@launch
-                _state.value = _state.value.copy(loadingMore = false, error = sourceErrorMessage(error))
+                _state.value = _state.value.copy(loadingMore = false, error = uiStrings.sourceError(error))
             }
         }
     }
@@ -177,7 +180,7 @@ class DirectMessageViewModel @AssistedInject constructor(
         if (repo == null) {
             _state.value = _state.value.copy(
                 loadingThread = false,
-                error = sourceErrorMessage(SourceError.Unsupported("direct messages")),
+                error = uiStrings.directMessagesUnsupported(),
             )
             return
         }
@@ -209,7 +212,7 @@ class DirectMessageViewModel @AssistedInject constructor(
             } catch (error: Exception) {
                 if (selection != selectionEpoch || stopped) return@launch
                 if (_state.value.selectedConversationId != id) return@launch
-                _state.value = _state.value.copy(loadingThread = false, error = sourceErrorMessage(error))
+                _state.value = _state.value.copy(loadingThread = false, error = uiStrings.sourceError(error))
             }
         }
     }
@@ -268,7 +271,7 @@ class DirectMessageViewModel @AssistedInject constructor(
         if (repo == null) {
             _state.value = _state.value.copy(
                 sending = false,
-                error = sourceErrorMessage(SourceError.Unsupported("direct messages")),
+                error = uiStrings.directMessagesUnsupported(),
             )
             return
         }
@@ -328,7 +331,7 @@ class DirectMessageViewModel @AssistedInject constructor(
                 if (selection != selectionEpoch || stopped) return@launch
                 if (_state.value.selectedConversationId != selectedId) return@launch
                 if (selectedId == null && compose != composeGeneration) return@launch
-                _state.value = _state.value.copy(sending = false, error = sourceErrorMessage(error))
+                _state.value = _state.value.copy(sending = false, error = uiStrings.sourceError(error))
             }
         }
     }

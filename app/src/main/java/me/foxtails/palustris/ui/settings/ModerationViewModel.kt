@@ -19,10 +19,11 @@ import me.foxtails.palustris.domain.ModerationAccount
 import me.foxtails.palustris.domain.ModerationCursor
 import me.foxtails.palustris.domain.ModerationListKind
 import me.foxtails.palustris.domain.MutedHashtag
+import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
-import me.foxtails.palustris.domain.PostPreferencesRepository
 import me.foxtails.palustris.domain.normalizeLocalMutedHashtags
+import me.foxtails.palustris.ui.UiStrings
 
 data class ModerationUiState(
     val accountId: AccountId? = null,
@@ -45,14 +46,17 @@ class ModerationViewModel @AssistedInject constructor(
     @Assisted private val kind: ModerationListKind,
     private val sourceRegistry: AccountSourceRegistry,
     private val postPreferencesRepository: PostPreferencesRepository,
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ModerationUiState(accountId = accountId, kind = kind))
     val state = _state.asStateFlow()
     private var loadJob: Job? = null
     private var loadMoreJob: Job? = null
     private val removalJobs = mutableMapOf<String, Job>()
+
     /** List epoch. Refresh advances it. Removal ownership lives in removal tokens. */
     private var listEpoch = 0L
+
     /** Removal tokens are keyed by entry. A refresh never invalidates them. */
     private var removalEpoch = 0L
     private val removalTokens = mutableMapOf<String, Long>()
@@ -276,7 +280,7 @@ class ModerationViewModel @AssistedInject constructor(
     }
 
     private fun ensureCurrent() {
-        check(sourceRegistry.isCurrent(accountId, source)) { "This account session is no longer available." }
+        check(sourceRegistry.isCurrent(accountId, source)) { uiStrings.accountSessionUnavailable() }
     }
 
     private fun isSessionCurrent(): Boolean = try {
@@ -291,7 +295,7 @@ class ModerationViewModel @AssistedInject constructor(
             loading = false,
             loadingMore = loadingMore,
             removing = removing?.let { _state.value.removing - it } ?: _state.value.removing,
-            error = error.message ?: "The moderation list could not be loaded.",
+            error = error.message ?: uiStrings.moderationLoadFailed(),
             unsupported = error is me.foxtails.palustris.domain.SourceError.Unsupported,
         )
     }

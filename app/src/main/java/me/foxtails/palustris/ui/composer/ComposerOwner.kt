@@ -5,6 +5,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import java.util.UUID
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
@@ -17,9 +18,9 @@ import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.PostDraftQuotePreview
 import me.foxtails.palustris.domain.PostingVisibilityPolicy
 import me.foxtails.palustris.domain.ServerCapabilities
+import me.foxtails.palustris.ui.UiStrings
 import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.DraftsContract
-import java.util.UUID
 
 /** A composer transition that the shell applies by placing the composer overlay. */
 sealed interface ComposerNavigation {
@@ -52,6 +53,7 @@ data class ComposerOwnerContext(
 @Stable
 class ComposerOwner internal constructor(
     private val editorState: MutableState<ComposerEditorState>,
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) {
     internal var context: ComposerOwnerContext = ComposerOwnerContext()
     internal var draftsContract: DraftsContract = DraftsContract.Empty
@@ -71,6 +73,7 @@ class ComposerOwner internal constructor(
 
     /** Advances on each editor change. An obsolete save callback cannot act on a newer version. */
     private var editorRevision = 0L
+
     /** Durable session revision captured from the host. */
     internal var sessionRevision = 0L
     private var submission: ComposerSubmission? = null
@@ -228,7 +231,7 @@ class ComposerOwner internal constructor(
                 onSaved()
             },
             onError = {
-                editorState.value = editor.copy(error = "Draft could not be saved. Keep editing and try again.")
+                editorState.value = editor.copy(error = uiStrings.composerDraftSaveFailed())
                 closing = false
             },
         )
@@ -258,7 +261,7 @@ class ComposerOwner internal constructor(
             }.getOrNull()
         }
         if (submittedAudience == null) {
-            editorState.value = editor.copy(error = "This audience is not available on this server.")
+            editorState.value = editor.copy(error = uiStrings.composerAudienceUnavailable())
             return
         }
         val request = CreatePostRequest(
@@ -304,7 +307,7 @@ class ComposerOwner internal constructor(
             },
             onError = {
                 submission = null
-                editorState.value = editor.copy(error = "Draft could not be saved. Keep the composer open and try again.")
+                editorState.value = editor.copy(error = uiStrings.composerDraftSaveFailedOpen())
             },
         )
     }
@@ -373,8 +376,8 @@ class ComposerOwner internal constructor(
         if (item.accountId != owner.id || targetId.connection != owner.id.connection.origin) return null
         val author = Account(
             id = AccountId(Connection(targetId.connection, owner.id.connection.protocol), "draft-quote-author"),
-            displayName = preview.authorDisplayName.ifBlank { preview.authorHandle.ifBlank { "Quoted post" } },
-            handle = preview.authorHandle.ifBlank { "Quoted post" },
+                displayName = preview.authorDisplayName.ifBlank { preview.authorHandle.ifBlank { uiStrings.composerQuotedPost() } },
+                handle = preview.authorHandle.ifBlank { uiStrings.composerQuotedPost() },
         )
         return OwnedPost(
             owner.id,

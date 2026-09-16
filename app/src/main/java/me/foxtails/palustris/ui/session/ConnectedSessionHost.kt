@@ -21,18 +21,19 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostPreferences
-import me.foxtails.palustris.ui.feed.FeedHost
 import me.foxtails.palustris.ui.PalustrisApp
-import me.foxtails.palustris.ui.saved.SavedCollectionsHost
+import me.foxtails.palustris.ui.UiStrings
 import me.foxtails.palustris.ui.composer.asDraftsContract
 import me.foxtails.palustris.ui.directmessages.DirectMessagesHost
 import me.foxtails.palustris.ui.emoji.EmojiHost
+import me.foxtails.palustris.ui.feed.FeedHost
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.notifications.NotificationSettingsHost
 import me.foxtails.palustris.ui.notifications.NotificationsHost
 import me.foxtails.palustris.ui.posts.LocalPostActionOwner
 import me.foxtails.palustris.ui.posts.PostActionOwner
 import me.foxtails.palustris.ui.profile.ProfileHost
+import me.foxtails.palustris.ui.saved.SavedCollectionsHost
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.ComposerContract
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
@@ -197,6 +198,7 @@ fun ConnectedSessionHost(
             source = sharedSource,
             scope = settingsScope,
             onRelationshipChanged = { latestProfileActions.refresh() },
+            uiStrings = UiStrings.from(context),
         )
     }
     LaunchedEffect(entryStore, sessionGeneration, postActionOwner) {

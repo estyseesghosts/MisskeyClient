@@ -1,6 +1,7 @@
 package me.foxtails.palustris.ui.session
 
 import androidx.lifecycle.ViewModelStore
+import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,6 +36,7 @@ import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.ui.UiStrings
 import me.foxtails.palustris.ui.session.AccountManager
 import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
 import me.foxtails.palustris.ui.feed.FeedViewModel
@@ -294,6 +296,7 @@ class SessionViewModelTest {
         override fun getAll(): Map<String, *> = values.toMap()
         override fun getString(key: String?, defValue: String?): String? = values[key] as? String ?: defValue
         override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? = defValues
+
         @Suppress("UNCHECKED_CAST")
         override fun getInt(key: String?, defValue: Int): Int = values[key] as? Int ?: defValue
         override fun getLong(key: String?, defValue: Long): Long = values[key] as? Long ?: defValue
@@ -661,7 +664,12 @@ class SessionViewModelTest {
                 JSONObject("""{"id":"other","username":"other"}"""),
             )
             val store = MemoryStore(existingSession, login.account)
-            val model = AccountManager(store, auth(mismatched), StandardTestDispatcher(testScheduler))
+            val model = AccountManager(
+                store,
+                auth(mismatched),
+                StandardTestDispatcher(testScheduler),
+                uiStrings = UiStrings.from(ApplicationProvider.getApplicationContext()),
+            )
             owner.put("upgrade", model)
             advanceUntilIdle()
 

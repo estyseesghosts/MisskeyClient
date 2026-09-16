@@ -21,9 +21,8 @@ import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.domain.timelineDisplayOrder
 import me.foxtails.palustris.domain.timelineStatus
 import me.foxtails.palustris.domain.validateExactHashtag
-import me.foxtails.palustris.ui.feed.Feed
+import me.foxtails.palustris.ui.UiStrings
 import me.foxtails.palustris.ui.requiresSignIn
-import me.foxtails.palustris.ui.sourceErrorMessage
 
 internal class PhotoGridController(
     private val accountId: AccountId,
@@ -32,6 +31,7 @@ internal class PhotoGridController(
     private val scope: CoroutineScope,
     private val preferencesRepository: PhotoGridPreferencesRepository,
     private val applyFavouritePreference: (Post) -> Post,
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) {
     private var preferencesJob: Job? = null
     private var loadingJob: Job? = null
@@ -247,7 +247,7 @@ internal class PhotoGridController(
                 _state.value = _state.value.copy(
                     loading = false,
                     loadingMore = false,
-                    error = sourceErrorMessage(e),
+                    error = uiStrings.sourceError(e),
                     needsSignIn = requiresSignIn(e),
                 )
             }

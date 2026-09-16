@@ -2,8 +2,8 @@ package me.foxtails.palustris.ui.posts
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Rect
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -14,7 +14,7 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.ProfileRelationship
 import me.foxtails.palustris.domain.ReportRequest
 import me.foxtails.palustris.domain.SocialSource
-import me.foxtails.palustris.ui.sourceErrorMessage
+import me.foxtails.palustris.ui.UiStrings
 
 data class PostActionTarget(
     val ownedPost: OwnedPost,
@@ -74,6 +74,7 @@ class PostActionOwner(
     private val source: SocialSource?,
     private val scope: CoroutineScope,
     private val onRelationshipChanged: () -> Unit = {},
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) : PostPopupPresentation {
     override var target by mutableStateOf<PostActionTarget?>(null)
         private set
@@ -106,7 +107,7 @@ class PostActionOwner(
         relationship = PostRelationshipState(target = ownedPost.post.author.id, loading = true)
         report = PostReportState()
         val relationshipSource = source ?: run {
-            relationship = relationship.copy(loading = false, error = "Relationship actions are unavailable.")
+            relationship = relationship.copy(loading = false, error = uiStrings.relationshipUnavailable())
             return
         }
         if (ownedPost.post.author.id == accountId) {
@@ -132,7 +133,7 @@ class PostActionOwner(
                 if (isCurrent(generation, ownedPost.post.author.id)) {
                     relationship = PostRelationshipState(
                         target = ownedPost.post.author.id,
-                        error = sourceErrorMessage(error),
+                        error = uiStrings.sourceError(error),
                     )
                 }
             }
@@ -175,7 +176,7 @@ class PostActionOwner(
                 throw error
             } catch (error: Exception) {
                 if (isCurrent(generation, authorId)) {
-                    relationship = relationship.copy(mutation = null, error = sourceErrorMessage(error))
+                    relationship = relationship.copy(mutation = null, error = uiStrings.sourceError(error))
                 }
             }
         }
@@ -201,7 +202,7 @@ class PostActionOwner(
                 throw error
             } catch (error: Exception) {
                 if (isCurrent(generation, currentTarget.author.id)) {
-                    report = PostReportState(error = sourceErrorMessage(error))
+                    report = PostReportState(error = uiStrings.sourceError(error))
                 }
             }
         }

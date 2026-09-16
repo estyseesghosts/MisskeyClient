@@ -1,8 +1,8 @@
 package me.foxtails.palustris.ui.profile
 
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CapabilityStatus
@@ -11,8 +11,8 @@ import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.ProfileTimelineTab
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
+import me.foxtails.palustris.ui.UiStrings
 import me.foxtails.palustris.ui.requiresSignIn
-import me.foxtails.palustris.ui.sourceErrorMessage
 
 internal class ProfileTimelinePager(
     private val accountId: AccountId,
@@ -20,6 +20,7 @@ internal class ProfileTimelinePager(
     private val scope: CoroutineScope,
     private val sessionRevision: Long,
     private val onPagesChanged: (Map<ProfileTimelineTab, ProfilePageState>) -> Unit,
+    private val uiStrings: UiStrings = UiStrings.Default,
 ) {
     private val pageJobs = mutableMapOf<ProfileTimelineTab, Job>()
     private val requestedCursors = mutableMapOf<ProfileTimelineTab, MutableSet<String>>()
@@ -146,7 +147,7 @@ internal class ProfileTimelinePager(
             initialLoading = false,
             refreshing = false,
             loadingMore = false,
-            error = sourceErrorMessage(error),
+            error = uiStrings.sourceError(error),
             needsSignIn = requiresSignIn(error),
             nextCursor = current.nextCursor,
         )))
