@@ -4,7 +4,7 @@ package me.foxtails.palustris.domain
 interface DirectMessageSource {
     suspend fun conversations(cursor: String? = null): Page<DirectConversation>
 
-    suspend fun conversationThread(id: ConversationId): List<Post>
+    suspend fun conversationThread(request: DirectThreadRequest): List<Post>
 
     suspend fun sendDirectMessage(request: DirectMessageRequest): Post
 

@@ -19,6 +19,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
+import me.foxtails.palustris.domain.DirectThreadRequest
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
@@ -60,7 +61,7 @@ class DirectMessageViewModelTest {
     private class GatedDirectSource : SocialSource, me.foxtails.palustris.domain.DirectMessageSource {
         override val capabilities = ServerCapabilities()
         val inboxRequests = mutableListOf<String?>()
-        val threadRequests = mutableListOf<ConversationId>()
+        val threadRequests = mutableListOf<DirectThreadRequest>()
         val sendRequests = mutableListOf<DirectMessageRequest>()
         private val inboxPending = ArrayDeque<CompletableDeferred<Page<DirectConversation>>>()
         private val threadPending = ArrayDeque<CompletableDeferred<List<Post>>>()
@@ -76,8 +77,8 @@ class DirectMessageViewModelTest {
             return withContext(NonCancellable) { gate.await() }
         }
 
-        override suspend fun conversationThread(id: ConversationId): List<Post> {
-            threadRequests += id
+        override suspend fun conversationThread(request: DirectThreadRequest): List<Post> {
+            threadRequests += request
             val gate = CompletableDeferred<List<Post>>()
             threadPending += gate
             return withContext(NonCancellable) { gate.await() }

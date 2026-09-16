@@ -1,5 +1,6 @@
 package me.foxtails.palustris.data.mastodon
 
+import me.foxtails.palustris.data.misskey.ApiFailure
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
@@ -7,6 +8,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
+import me.foxtails.palustris.domain.DirectThreadRequest
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
@@ -26,8 +28,6 @@ internal class MastodonDirectMessageService(
     private val accountId: AccountId,
     private val profileService: MastodonProfileService,
 ) {
-    private val directLastPosts = mutableMapOf<String, Post>()
-
     suspend fun conversations(cursor: String?): Page<DirectConversation> {
         val response = if (cursor == null) {
             api.getUrl(directConversationsUrl().toString(), token)
@@ -38,32 +38,47 @@ internal class MastodonDirectMessageService(
         val items = (0 until values.length()).mapNotNull { index ->
             MastodonMapper.directConversation(values.getJSONObject(index), origin)
                 ?.takeIf { it.lastPost.audience == Audience.Direct }
-                ?.also { conversation -> directLastPosts[conversation.id.value] = conversation.lastPost }
         }
         return Page(items, response.linkHeaderCursor())
     }
 
-    suspend fun conversationThread(id: ConversationId): List<Post> {
-        validateConversationId(id, "direct.thread")
-        val lastStatus = directLastPosts[id.value] ?: run {
-            val conversation = MastodonMapper.directConversation(
-                api.get(origin, "v1/conversations/${id.value.encodePathSegment()}", token).body.toJson(),
-                origin,
-            ) ?: throw SourceError.ServerError("Mastodon conversation had no last status")
-            directLastPosts[id.value] = conversation.lastPost
-            if (conversation.lastPost.audience != Audience.Direct) throw SourceError.Unsupported("direct.thread")
-            conversation.lastPost
-        }
+    suspend fun conversationThread(request: DirectThreadRequest): List<Post> {
+        validateConversationId(request.conversationId, "direct.thread")
+        val anchor = loadAnchor(request.anchor)
         val context = JSONObject(api.get(
             origin,
-            "v1/statuses/${lastStatus.id.value.encodePathSegment()}/context",
+            "v1/statuses/${anchor.id.value.encodePathSegment()}/context",
             token,
         ).body)
         val ancestors = context.optJSONArray("ancestors").toPostList(origin)
         val descendants = context.optJSONArray("descendants").toPostList(origin)
-        return (ancestors + listOf(lastStatus) + descendants)
+        return (ancestors + listOf(anchor) + descendants)
             .filter { it.audience == Audience.Direct }
             .distinctBy { it.id }
+    }
+
+    /**
+     * Loads the requested anchor through a supported status endpoint. The
+     * account token scopes visibility, so a deleted, foreign, or filtered status
+     * is a normalized unsupported result. A non-direct anchor is rejected rather
+     * than substituted with an unrelated conversation.
+     */
+    private suspend fun loadAnchor(anchor: EntityId): Post {
+        if (anchor.connection != origin || anchor.value.isBlank()) {
+            throw SourceError.Unsupported("direct.thread")
+        }
+        val body = try {
+            api.get(origin, "v1/statuses/${anchor.value.encodePathSegment()}", token).body
+        } catch (error: ApiFailure) {
+            if (error.status == 403 || error.status == 404 || error.status == 410) {
+                throw SourceError.Unsupported("direct.thread")
+            }
+            throw error
+        }
+        val post = runCatching { MastodonMapper.post(body.toJson(), origin) }
+            .getOrElse { throw SourceError.Unsupported("direct.thread") }
+        if (post.audience != Audience.Direct) throw SourceError.Unsupported("direct.thread")
+        return post
     }
 
     suspend fun sendDirectMessage(request: DirectMessageRequest): Post {
@@ -75,9 +90,7 @@ internal class MastodonDirectMessageService(
             add("visibility" to "direct")
             request.replyTo?.let { add("in_reply_to_id" to it.value) }
         }
-        val post = MastodonMapper.post(api.postForm(origin, "api/v1/statuses", fields, token).body.toJson(), origin)
-        directLastPosts[post.id.value] = post
-        return post
+        return MastodonMapper.post(api.postForm(origin, "api/v1/statuses", fields, token).body.toJson(), origin)
     }
 
     suspend fun markConversationRead(id: ConversationId) {

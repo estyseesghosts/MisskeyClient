@@ -11,9 +11,11 @@ import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
 import me.foxtails.palustris.domain.DirectMessageSource
+import me.foxtails.palustris.domain.DirectThreadRequest
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
+import me.foxtails.palustris.domain.SourceError
 
 /** Thrown when a revoked writer reaches the storage boundary. Surfaces as cancellation. */
 private class StaleDirectMessageWriter : CancellationException("Direct-message writer is stale")
@@ -65,7 +67,11 @@ class DirectMessageRepository(
         // Capture the local preview before the request. A send accepted during the request is
         // newer than the response and must win the preview merge.
         val beforeLastPostId = store.conversation(accountId, id)?.lastPost?.id
-        val remote = source.conversationThread(id)
+        // The anchor is a known post in the conversation. Without persisted conversation state
+        // there is no identity to load, so the result is a normalized unsupported error instead
+        // of a guessed conversation lookup.
+        val anchor = beforeLastPostId ?: throw SourceError.Unsupported("direct.thread")
+        val remote = source.conversationThread(DirectThreadRequest(id, anchor))
         authority.commitIfCurrent(accountId, writeGeneration) {
             val current = store.conversation(accountId, id) ?: return@commitIfCurrent remote
             val storedThread = store.thread(accountId, id)

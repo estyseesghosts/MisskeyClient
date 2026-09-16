@@ -15,6 +15,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
+import me.foxtails.palustris.domain.DirectThreadRequest
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
@@ -90,7 +91,7 @@ class DirectMessageSourceTest {
     }
 
     @Test
-    fun mastodonConversationUsesLastStatusAndStatusContext() = runBlocking {
+    fun mastodonConversationListFiltersNonDirectConversations() = runBlocking {
         MockWebServer().use { server ->
             val origin = server.url("/").toString().removeSuffix("/")
             val conversation = JSONObject()
@@ -98,35 +99,116 @@ class DirectMessageSourceTest {
                 .put("unread", true)
                 .put("accounts", org.json.JSONArray().put(mastodonAccount("remote", "alice", "alice@example.org")))
                 .put("last_status", mastodonStatus("last", "direct", "Latest"))
-            val context = JSONObject()
-                .put("ancestors", org.json.JSONArray().put(mastodonStatus("first", "direct", "First")))
-                .put("descendants", org.json.JSONArray()
-                    .put(mastodonStatus("reply", "direct", "Reply"))
-                    .put(mastodonStatus("public-reply", "public", "Do not expose")))
             val publicConversation = JSONObject()
                 .put("id", "public-conversation")
                 .put("accounts", org.json.JSONArray().put(mastodonAccount("public-user", "public", "public@example.org")))
                 .put("last_status", mastodonStatus("public-last", "public", "Do not expose"))
             server.enqueue(MockResponse().setBody(org.json.JSONArray().put(conversation).put(publicConversation).toString()))
-            server.enqueue(MockResponse().setBody(context.toString()))
-            val source = MastodonSource(
-                origin,
-                "token",
-                MisskeyApi(),
-                AccountId(Connection(origin, Protocol.MASTODON), "owner"),
-                initialCapabilities = ServerCapabilities(),
-            )
+            val source = mastodonSource(origin)
 
             val page = source.conversations()
-            val thread = source.conversationThread(ConversationId(origin, "conversation"))
 
             assertEquals(1, page.items.size)
             assertEquals(true, page.items.single().unread)
-            assertEquals(listOf("first", "last", "reply"), thread.map { it.id.value })
             assertEquals("/api/v1/conversations?limit=40", server.takeRequest().path)
-            assertEquals("/api/v1/statuses/last/context", server.takeRequest().path)
         }
     }
+
+    @Test
+    fun mastodonThreadLoadsTheAnchorStatusWithoutListingFirst() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val context = JSONObject()
+                .put("ancestors", org.json.JSONArray().put(mastodonStatus("first", "direct", "First")))
+                .put("descendants", org.json.JSONArray()
+                    .put(mastodonStatus("reply", "direct", "Reply"))
+                    .put(mastodonStatus("public-reply", "public", "Do not expose")))
+            server.enqueue(MockResponse().setBody(mastodonStatus("last", "direct", "Latest").toString()))
+            server.enqueue(MockResponse().setBody(context.toString()))
+            val source = mastodonSource(origin)
+
+            val thread = source.conversationThread(
+                DirectThreadRequest(ConversationId(origin, "conversation"), EntityId(origin, "last")),
+            )
+
+            assertEquals(listOf("first", "last", "reply"), thread.map { it.id.value })
+            assertEquals("/api/v1/statuses/last", server.takeRequest().path)
+            assertEquals("/api/v1/statuses/last/context", server.takeRequest().path)
+            assertEquals(2, server.requestCount)
+        }
+    }
+
+    @Test
+    fun mastodonThreadRejectsAnInaccessibleAnchor() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            server.enqueue(MockResponse().setResponseCode(404))
+            val source = mastodonSource(origin)
+
+            var unsupported = false
+            try {
+                source.conversationThread(
+                    DirectThreadRequest(ConversationId(origin, "conversation"), EntityId(origin, "deleted")),
+                )
+            } catch (_: me.foxtails.palustris.domain.SourceError.Unsupported) {
+                unsupported = true
+            }
+
+            assertTrue(unsupported)
+            assertEquals(1, server.requestCount)
+        }
+    }
+
+    @Test
+    fun mastodonThreadRejectsAPublicAnchor() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            server.enqueue(MockResponse().setBody(mastodonStatus("last", "public", "Not direct").toString()))
+            val source = mastodonSource(origin)
+
+            var unsupported = false
+            try {
+                source.conversationThread(
+                    DirectThreadRequest(ConversationId(origin, "conversation"), EntityId(origin, "last")),
+                )
+            } catch (_: me.foxtails.palustris.domain.SourceError.Unsupported) {
+                unsupported = true
+            }
+
+            assertTrue(unsupported)
+        }
+    }
+
+    @Test
+    fun mastodonThreadRejectsAForeignAnchorWithoutARequest() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val source = mastodonSource(origin)
+
+            var unsupported = false
+            try {
+                source.conversationThread(
+                    DirectThreadRequest(
+                        ConversationId(origin, "conversation"),
+                        EntityId("https://other.example.org", "last"),
+                    ),
+                )
+            } catch (_: me.foxtails.palustris.domain.SourceError.Unsupported) {
+                unsupported = true
+            }
+
+            assertTrue(unsupported)
+            assertEquals(0, server.requestCount)
+        }
+    }
+
+    private fun mastodonSource(origin: String): MastodonSource = MastodonSource(
+        origin,
+        "token",
+        MisskeyApi(),
+        AccountId(Connection(origin, Protocol.MASTODON), "owner"),
+        initialCapabilities = ServerCapabilities(),
+    )
 
     @Test
     fun mastodonRepliesMentionAllSuppliedParticipantsAndMarksServerConversationRead() = runBlocking {
@@ -193,7 +275,7 @@ class DirectMessageSourceTest {
         val message = Account(first, "First", "@first@example.org")
         val source = object : me.foxtails.palustris.domain.DirectMessageSource {
             override suspend fun conversations(cursor: String?) = Page<DirectConversation>(emptyList())
-            override suspend fun conversationThread(id: ConversationId) = emptyList<Post>()
+            override suspend fun conversationThread(request: DirectThreadRequest) = emptyList<Post>()
             override suspend fun sendDirectMessage(request: DirectMessageRequest) =
                 post(EntityId(origin, "post"), message)
             override suspend fun markConversationRead(id: ConversationId) = Unit
@@ -223,7 +305,7 @@ class DirectMessageSourceTest {
         )
         val source = object : me.foxtails.palustris.domain.DirectMessageSource {
             override suspend fun conversations(cursor: String?) = Page(listOf(conversation))
-            override suspend fun conversationThread(id: ConversationId) = listOf(lastPost)
+            override suspend fun conversationThread(request: DirectThreadRequest) = listOf(lastPost)
             override suspend fun sendDirectMessage(request: DirectMessageRequest) = lastPost
             override suspend fun markConversationRead(id: ConversationId) = Unit
         }

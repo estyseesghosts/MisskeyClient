@@ -231,6 +231,22 @@ C-06c closed the draft gap. `DraftWriteAuthority` mirrors the direct-message aut
 A revoked writer writes nothing. Removal revokes the draft writer before it deletes rows
 (commit `4454bae`).
 
+## Direct-Message Thread Anchor
+
+`DirectMessageSource.conversationThread` takes
+`DirectThreadRequest(conversationId, anchor)`. The conversation identity and the post anchor are
+separate identity spaces. The repository fills the anchor from the account-scoped stored
+conversation `lastPost.id`. It throws `SourceError.Unsupported("direct.thread")` when no stored
+conversation exists.
+
+The Mastodon adapter loads the anchor through `GET /api/v1/statuses/:id` and its context through
+`/context`. It never calls `GET /api/v1/conversations/:id`. It normalizes 403, 404, and 410 to the
+same unsupported error and rejects a non-direct anchor. The Misskey adapter keeps
+`conversationId.value` as the reply root and does not adopt Mastodon conversation identity.
+
+Slice 04-E2 removed the adapter `directLastPosts` map and the send-path insertion. The adapter
+retains no conversation post cache. The repository owns account-scoped conversation state.
+
 ## Account Removal Coverage
 
 `AccountManager.removeAccount` stops the notification stream, disables push, removes sync, removes

@@ -10,8 +10,8 @@ the completed P1 work is `docs/agents/tasks/ui-package-migration.md`. The
 durable record for the completed Q1 work is
 `docs/agents/tasks/q1-static-analysis.md`. The durable record for the
 completed T1 work is `docs/agents/tasks/t1-test-mirror.md`. The active Plan 04
-work is `docs/agents/tasks/plan04-utility-retention.md` (04-A through 04-D and
-04-E1 are complete, 04-E2, 04-E3, and 04-F through 04-K remain). A
+work is `docs/agents/tasks/plan04-utility-retention.md` (04-A through 04-D,
+04-E1, and 04-E2 are complete; 04-E3 and 04-F through 04-K remain). A
 cleanup-window audit added 04-K and prerequisites to 04-E, 04-H, and 04-J. The
 Plan 04 source is
 `docs/decomposition_3/04.md` (git-ignored planning material, do not force-add).
@@ -165,18 +165,25 @@ Read these in order. Treat the repository as the authority.
   private defaults only fired on direct construction. The slice removes
   both. `DirectMessageViewModelTest.revokedSharedAuthorityStopsThe
   ViewModelWrite` covers the revoked path. The ownership page records the
-  rule. The slice commit is `b04b2e8`. Chunk 04-E is split into 04-E1,
-  04-E2 (thread anchor, remove `directLastPosts`), and 04-E3 (provisional
-  identity with a migration).
+  rule. The slice commit is `b04b2e8`.
+- 04-E2 (carry a validated thread anchor and remove the DM last-post cache)
+  is committed and test verified. `DirectThreadRequest` carries the
+  conversation identity and a separate post anchor. The repository fills
+  the anchor from the stored conversation. The Mastodon adapter loads the
+  anchor through `GET /api/v1/statuses/:id` and its context, never the
+  undocumented conversation GET, and normalizes 403, 404, and 410. The
+  Misskey adapter keeps its reply-rooted root. `directLastPosts` and the
+  send-path insertion are gone. Its slice and this record share one
+  commit.
 
 ## Next Slice
 
-04-E1 — Done. Start 04-E2 (carry a validated thread anchor and remove the DM
-last-post cache) next. It depends on 04-E1 and coordinates with Plan 02. Then
-04-E3 (provisional identity), then continue through 04-K in the recorded order.
-04-K removes the dead profile paging authority and bounds the cursor sets.
-04-J runs last and depends on 04-F through 04-I and 04-K. The last safe code
-commit is `b04b2e8`.
+04-E2 — Done. Start 04-E3 (give provisional conversations an explicit identity
+and send mark read only for verified server identity) next. It needs the
+provisional-identity decision and a Room migration. Then continue through 04-K
+in the recorded order. 04-K removes the dead profile paging authority and bounds
+the cursor sets. 04-J runs last and depends on 04-F through 04-I and 04-K. The
+last safe commit is the commit that contains this handoff (`git log -1`).
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The
@@ -203,21 +210,23 @@ verification.
    `b62f8c6`. Record blocked device checks honestly.
 4. Plan 04 — In progress. Rebase recorded as a slice plan in
    `docs/agents/tasks/plan04-utility-retention.md`. 04-A is complete at
-   `ee52ba9`, 04-B at `6a87c76`, 04-C at `633cd7a`, 04-D at `f0735df`, and
-   04-E1 at `b04b2e8`. A cleanup-window audit added 04-K and prerequisites to
-   04-E, 04-H, and 04-J: private DM write-authority construction, private
-   registration-cache construction, unreleased authority maps, an unremoved
-   `writeLocks` map, and dead profile paging members. 04-E1 corrected the
-   write-authority finding: production already shared the singleton. Implement
-   slices 04-E2, 04-E3, and 04-F through 04-K in the recorded order. Decisions
-   gate 04-E2, 04-E3, 04-H, 04-J, and 04-K.
+   `ee52ba9`, 04-B at `6a87c76`, 04-C at `633cd7a`, 04-D at `f0735df`,
+   04-E1 at `b04b2e8`, and 04-E2 with this handoff. A cleanup-window audit
+   added 04-K and prerequisites to 04-E, 04-H, and 04-J: private DM
+   write-authority construction, private registration-cache construction,
+   unreleased authority maps, an unremoved `writeLocks` map, and dead profile
+   paging members. 04-E1 corrected the write-authority finding: production
+   already shared the singleton. Implement slices 04-E3 and 04-F through 04-K in
+   the recorded order. Decisions gate 04-E3, 04-H, 04-J, and 04-K.
 5. Device, live-server, and signed-release verification when a device and
    signing inputs exist.
 
 ## Process Rules
 
-- One slice, one behavior, one commit. Then a record commit. Do not commit a
-  slice whose tests are not green, and do not leave a green slice uncommitted.
+- One slice, one behavior, one commit. Include the task-state file, the task
+  log, the handoff, and the affected documentation in that commit. Do not make a
+  separate record commit. Do not commit a slice whose tests are not green, and do
+  not leave a green slice uncommitted.
 - Rewrite this handoff after each completed slice, per `AGENTS.md`.
 - Keep the ownership pages current in the same slice.
 - Stage only files that belong to the slice. Preserve unrelated worktree changes.
@@ -237,7 +246,12 @@ verification.
   force-add `01.md`, `02.md`, `03.md`, `03_corrected.md`, or `04.md`. The Plan
   04 slice plan lives in the tracked `docs/agents/tasks/plan04-utility-retention.md`.
 - The worktree holds the untracked `appsvg/` directory. Do not commit it.
-- No code slice is in progress. 04-E1 is complete. The last code commit is
-  `b04b2e8`.
+- No code slice is in progress. 04-E2 is complete and committed with this
+  handoff. The last safe commit is the current `HEAD` (`git log -1`).
+- All non-English string catalogs are removed from the app for now. Two
+  localization tests were relaxed to tolerate missing catalogs and must be
+  tightened again when the catalogs return:
+  `AppLocaleControllerTest.everyLocaleResolvesATranslatedValueOrFallback` and
+  `LocalizationResourceTest.localeCatalogMatchesResourcesEnumAndAndroidConfig`.
 - The residual 03-G ordering risk (disk write after revocation, before row
   deletion) stays in the Plan 03 task state.

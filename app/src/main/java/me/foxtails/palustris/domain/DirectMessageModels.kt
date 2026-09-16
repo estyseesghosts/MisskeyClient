@@ -12,6 +12,16 @@ data class DirectMessageRequest(
     val replyTo: EntityId? = null,
 )
 
+/**
+ * A neutral thread lookup. [conversationId] identifies the conversation.
+ * [anchor] is a known post in that conversation. The two are separate identity
+ * spaces: a conversation ID is never treated as a status ID.
+ */
+data class DirectThreadRequest(
+    val conversationId: ConversationId,
+    val anchor: EntityId,
+)
+
 data class DirectConversation(
     val id: ConversationId,
     val participants: List<Account>,

@@ -19,10 +19,12 @@ import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
 import me.foxtails.palustris.domain.DirectMessageSource
+import me.foxtails.palustris.domain.DirectThreadRequest
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
+import me.foxtails.palustris.domain.SourceError
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -53,6 +55,7 @@ class DirectMessageRepositoryTest {
         private val inboxPending = ArrayDeque<CompletableDeferred<Page<DirectConversation>>>()
         private val threadPending = ArrayDeque<CompletableDeferred<List<Post>>>()
         private val sendPending = ArrayDeque<CompletableDeferred<Post>>()
+        val threadRequests = mutableListOf<DirectThreadRequest>()
         var markReadCalls = 0
 
         override suspend fun conversations(cursor: String?): Page<DirectConversation> {
@@ -61,7 +64,8 @@ class DirectMessageRepositoryTest {
             return withContext(NonCancellable) { gate.await() }
         }
 
-        override suspend fun conversationThread(id: ConversationId): List<Post> {
+        override suspend fun conversationThread(request: DirectThreadRequest): List<Post> {
+            threadRequests += request
             val gate = CompletableDeferred<List<Post>>()
             threadPending += gate
             return withContext(NonCancellable) { gate.await() }
@@ -309,5 +313,66 @@ class DirectMessageRepositoryTest {
 
         assertEquals(1, source.markReadCalls)
         assertEquals(true, store.conversation(accountId, id)?.unread)
+    }
+
+    @Test
+    fun threadWithoutStoredConversationIsUnsupported() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val authority = DirectMessageWriteAuthority()
+        val store = InMemoryDirectMessageStore()
+        val source = GatedSource()
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
+
+        var unsupported = false
+        try {
+            repository.thread(ConversationId(connection.origin, "missing"))
+        } catch (_: SourceError.Unsupported) {
+            unsupported = true
+        }
+
+        assertTrue(unsupported)
+        assertTrue(source.threadRequests.isEmpty())
+    }
+
+    @Test
+    fun threadAnchorComesFromTheSelectedConversation() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val authority = DirectMessageWriteAuthority()
+        val store = InMemoryDirectMessageStore()
+        val source = GatedSource()
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
+        val id = ConversationId(connection.origin, "a")
+        store.save(accountId, conversation("a", "a-last"))
+
+        val loading = async { repository.thread(id) }
+        advanceUntilIdle()
+        source.completeThread(0, listOf(post("a-last")))
+        loading.await()
+        advanceUntilIdle()
+
+        val request = source.threadRequests.single()
+        assertEquals(id, request.conversationId)
+        assertEquals(EntityId(connection.origin, "a-last"), request.anchor)
+    }
+
+    @Test
+    fun equalConversationAndPostValuesStaySeparateIdentities() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val authority = DirectMessageWriteAuthority()
+        val store = InMemoryDirectMessageStore()
+        val source = GatedSource()
+        val repository = repository(authority, store, source, authority.activate(accountId), dispatcher)
+        val id = ConversationId(connection.origin, "same")
+        store.save(accountId, conversation("same", "same"))
+
+        val loading = async { repository.thread(id) }
+        advanceUntilIdle()
+        source.completeThread(0, listOf(post("same")))
+        loading.await()
+        advanceUntilIdle()
+
+        val request = source.threadRequests.single()
+        assertEquals(ConversationId(connection.origin, "same"), request.conversationId)
+        assertEquals(EntityId(connection.origin, "same"), request.anchor)
     }
 }

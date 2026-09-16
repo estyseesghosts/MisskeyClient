@@ -8,6 +8,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.ConversationId
 import me.foxtails.palustris.domain.DirectConversation
 import me.foxtails.palustris.domain.DirectMessageRequest
+import me.foxtails.palustris.domain.DirectThreadRequest
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Page
 import me.foxtails.palustris.domain.Post
@@ -39,9 +40,12 @@ internal class MisskeyDirectMessageService(
         return Page(items, posts.minByOrNull(Post::publishedAtEpochMillis)?.id?.value?.let { encodeCursor(account, it) })
     }
 
-    suspend fun conversationThread(id: ConversationId): List<Post> {
-        validateConversationId(id, "direct.thread")
-        return postLoader(EntityId(origin, id.value)).let { root ->
+    suspend fun conversationThread(request: DirectThreadRequest): List<Post> {
+        validateConversationId(request.conversationId, "direct.thread")
+        // Misskey conversation identity is reply-rooted: the conversation value is
+        // the root post id. The anchor stays unused so Misskey keeps its own
+        // semantics instead of adopting Mastodon conversation identity rules.
+        return postLoader(EntityId(origin, request.conversationId.value)).let { root ->
             val ancestors = mutableListOf<Post>(); val visited = mutableSetOf(root.id); var current = root
             while (current.replyTo != null && visited.add(current.replyTo!!)) {
                 val parent = postLoader(current.replyTo!!); ancestors += parent; current = parent

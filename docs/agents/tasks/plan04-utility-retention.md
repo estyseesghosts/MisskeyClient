@@ -10,8 +10,8 @@
 
 **Started:** 2026-09-16.
 
-**Status:** in progress. 04-A through 04-D and 04-E1 are complete. 04-E2, 04-E3,
-and 04-F through 04-K remain. The cleanup-window audit added 04-K and
+**Status:** in progress. 04-A through 04-D, 04-E1, and 04-E2 are complete.
+04-E3 and 04-F through 04-K remain. The cleanup-window audit added 04-K and
 prerequisites to 04-E, 04-H, and 04-J.
 
 **This task is larger than one safe implementation slice.**
@@ -55,9 +55,9 @@ test-package mirroring. Recheck every finding at implementation start.
 - 04-D is complete. The emoji store bounds URL mappings at 4,096 and inactive
   content at 128 MiB, and it holds a closeable lease across a decode. The byte
   budget is now a constructor parameter, not a constant. This finding is closed.
-- `MastodonDirectMessageService.directLastPosts` is still a
-  `mutableMapOf<String, Post>` at `data/mastodon/MastodonDirectMessageService.kt:29`,
-  written at `:41`, `:53`, and `:79`. Chunk 04-E is still required.
+- 04-E2 is complete. `MastodonDirectMessageService` has no `directLastPosts`
+  map. The thread request carries a separate conversation identity and post
+  anchor. This finding is closed.
 - `HttpClientPool.clients` is still an unbounded `ConcurrentHashMap` at
   `data/misskey/HttpClientPool.kt:18`. Chunk 04-G is still required.
 - `CapabilityCache` is still declared at the end of
@@ -184,6 +184,17 @@ Decision for 04-E1. Use an explicit required constructor argument. The
 Hilt-assisted factory already injects the singleton into the ViewModel, so
 production wiring is shared. The defaults only fire on direct construction. Do
 not construct a private authority.
+
+Decision for 04-E2. Add `DirectThreadRequest(conversationId: ConversationId,
+anchor: EntityId)` to the domain. The repository derives the anchor from the
+account-scoped stored conversation `lastPost.id` and throws
+`SourceError.Unsupported("direct.thread")` when no stored conversation exists.
+The Mastodon adapter loads the anchor through `GET /api/v1/statuses/:id` and its
+context through `/context`. It never calls `GET /api/v1/conversations/:id`. It
+normalizes 403, 404, and 410 to the same unsupported error and rejects a
+non-direct anchor. The Misskey adapter keeps `conversationId.value` as the reply
+root and does not adopt Mastodon conversation identity. Remove `directLastPosts`
+and its send-path insertion.
 
 ## Slice Plan
 
@@ -337,6 +348,38 @@ Committed. The slice commit is `b04b2e8`.
   `ConnectedSessionContextTest` pass. `test assembleRelease` passes.
   `:app:ktlintCheck` passes. `:app:lintDebug` passes. Device behavior stays
   device-unverified.
+
+### 04-E2 Thread Anchor
+
+Committed in the same commit as this record.
+
+- `DirectMessageSource.conversationThread` takes
+  `DirectThreadRequest(conversationId, anchor)`. The conversation identity and
+  the post anchor are separate identity spaces.
+- `DirectMessageRepository.thread` derives the anchor from the account-scoped
+  stored conversation `lastPost.id`. It throws
+  `SourceError.Unsupported("direct.thread")` when no stored conversation exists.
+- The Mastodon adapter loads the anchor through `GET /api/v1/statuses/:id` and
+  its context through `/context`. It never calls
+  `GET /api/v1/conversations/:id`. It normalizes 403, 404, and 410 to the same
+  unsupported error and rejects a non-direct anchor.
+- The Misskey adapter keeps `conversationId.value` as the reply root and does
+  not adopt Mastodon conversation identity.
+- `directLastPosts` and the send-path insertion are gone. The adapter keeps no
+  conversation post cache.
+- Tests: `DirectMessageSourceTest` gains cold-open anchor loading, inaccessible,
+  public, and foreign anchors, and a request-count check. `DirectMessageRepositoryTest`
+  gains a missing-state unsupported case, the selected-conversation anchor, and
+  equal conversation and post values kept separate.
+- `docs/agents/protocol-and-session-ownership.md` and
+  `docs/wiki/notifications-and-direct-messages.md` record the boundary.
+- `app/ktlint-baseline.xml` is regenerated for shifted entries. The
+  `MastodonDirectMessageService` unused-import finding is gone.
+- Verification: `DirectMessageSourceTest` (11 tests),
+  `DirectMessageRepositoryTest` (11 tests), `DirectMessageViewModelTest`, and
+  `DirectMessageScreenTest` pass. `test assembleRelease` passes after the
+  temporary localization test relaxation. `:app:ktlintCheck` passes.
+  `:app:lintDebug` passes. Live-server behavior stays unverified.
 
 ### 04-A Complete External-Link Ownership
 
@@ -529,11 +572,11 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
 
 - No emulator or device is reachable. Connected instrumentation stays unverified.
 - Live-server and signed-release behavior stay unverified.
-- 04-E2 needs the threaded-request decision. 04-E3 needs the provisional-identity decision and a migration.
+- 04-E3 needs the provisional-identity decision and a migration.
 - 04-H and 04-J need Plan 02 and Plan 03 coordination before shared contract changes.
 - 04-J needs the authority key-release decision. 04-K needs the cursor-bound decision.
 - The 04.md limits are proposals, not measured bounds. Release approval needs measurements.
 
 ## Last safe commit
 
-`b04b2e8` "Require the shared direct-message write authority".
+The commit that contains this record. Run `git log -1 --oneline`.

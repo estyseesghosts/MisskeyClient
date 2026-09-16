@@ -234,8 +234,8 @@ Use this order at every slice boundary:
 1. Implement.
 2. Test.
 3. Inspect the diff.
-4. Update the task-state file.
-5. Commit.
+4. Update the task-state file, the task log, the handoff, and any affected documentation.
+5. Commit the slice and those documentation updates together.
 6. Start the next slice.
 
 - Update the task-state file before you move on. Record the last safe commit in it.
@@ -244,6 +244,8 @@ Use this order at every slice boundary:
 - Review the slice for regression risk.
 - Update the task logs.
 - Commit the completed slice. Start the next slice only after the commit.
+- Include the documentation, task-state, and handoff updates in the slice commit. Do not make a
+  separate documentation or record commit.
 
 ### State Recovery
 
@@ -258,6 +260,7 @@ Read these items at the start of a session, after compaction, and when you are u
 ### Handoff
 
 - Rewrite `docs/agents/handoff.md` after each completed slice.
+- Include the handoff rewrite in the same commit as the slice.
 - Keep it as the continuation pointer for the next session or agent.
 - Name the durable task-state file. Do not duplicate it.
 - Record where to start, the current position, the next slice, and known blockers.
@@ -269,6 +272,8 @@ Read these items at the start of a session, after compaction, and when you are u
 
 - Use commits as the permanent work record.
 - Make one commit for each completed slice.
+- Include the slice documentation, the task-state file, and the handoff rewrite in that commit.
+- Do not make a separate documentation or record commit for the same slice.
 - Do not combine several independent slices into one commit.
 - Do not leave completed slices uncommitted.
 - Do not squash slice commits unless the user requests it.

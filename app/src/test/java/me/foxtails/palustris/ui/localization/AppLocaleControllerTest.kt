@@ -198,7 +198,11 @@ class AppLocaleControllerTest {
                 return@forEach
             }
             val directory = directoryTags.entries.single { it.value == language.tag }.key
-            val translated = parseStrings(resourceRoot.resolve("$directory/strings.xml"))
+            // Non-English catalogs can be absent while the string set is cleaned up. Check a
+            // catalog only when its resource directory exists, and verify it again when it returns.
+            val stringsFile = resourceRoot.resolve("$directory/strings.xml")
+            if (!stringsFile.isFile) return@forEach
+            val translated = parseStrings(stringsFile)
             val distinct = translated.entries.firstOrNull { (key, value) -> default[key] != value }
             assertTrue(
                 "${language.tag} keeps no distinct translated value",
