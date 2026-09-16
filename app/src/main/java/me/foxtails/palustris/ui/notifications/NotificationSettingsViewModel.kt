@@ -32,6 +32,7 @@ import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.ProductIdentity
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.NotificationSettings
 import me.foxtails.palustris.data.auth.SessionStore
 import me.foxtails.palustris.domain.withCategoryEnabled
@@ -136,7 +137,7 @@ class NotificationSettingsViewModel @AssistedInject constructor(
         viewModelScope.launch {
             if (!repository.reset(accountId)) {
                 _state.value = _state.value.copy(
-                    error = "Local notification data could not be reset. Try again.",
+                    error = context.getString(R.string.notifications_storage_reset_failed),
                 )
             }
         }
@@ -177,7 +178,7 @@ class NotificationSettingsViewModel @AssistedInject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                _state.value = _state.value.copy(error = error.message ?: "Delivery registration could not be retried.")
+                _state.value = _state.value.copy(error = error.message ?: context.getString(R.string.notifications_registration_retry_failed))
             }
         }
     }
@@ -216,16 +217,16 @@ class NotificationSettingsViewModel @AssistedInject constructor(
         val selected = current.settings.selectedDistributor
         val distributor = connector.acknowledgedDistributor()
         val message = when {
-            !current.permissionGranted -> "Android notification permission is required."
-            current.availableDistributors.isEmpty() -> "No notification distributor is installed."
-            selected != null && distributor != selected -> "The selected notification distributor is not connected."
+            !current.permissionGranted -> context.getString(R.string.notifications_test_permission_required)
+            current.availableDistributors.isEmpty() -> context.getString(R.string.notifications_test_no_distributor)
+            selected != null && distributor != selected -> context.getString(R.string.notifications_test_distributor_mismatch)
             session == null || session.pushState.publicKey.isNullOrBlank() || session.pushState.authSecret.isNullOrBlank() ->
-                "The push encryption keys are not available."
-            session.pushState.endpoint == null -> "The distributor endpoint is not available."
-            registration?.serverEndpoint == null -> "The server endpoint is not registered."
+                context.getString(R.string.notifications_test_no_keys)
+            session.pushState.endpoint == null -> context.getString(R.string.notifications_test_no_endpoint)
+            registration?.serverEndpoint == null -> context.getString(R.string.notifications_test_no_server_endpoint)
             registration.state != NotificationPushRegistrationState.Connected ->
-                "The push connection is not connected."
-            else -> "Push connection is connected."
+                context.getString(R.string.notifications_test_not_connected)
+            else -> context.getString(R.string.notifications_push_connected)
         }
         _state.value = _state.value.copy(localTestMessage = message)
     }
@@ -249,9 +250,9 @@ class NotificationSettingsViewModel @AssistedInject constructor(
         )
         _state.value = _state.value.copy(
             localTestMessage = if (presented) {
-                "Local test notification posted. This checks Android permission and channel delivery only."
+                context.getString(R.string.notifications_test_posted)
             } else {
-                "Local test could not post. Check Android notification permission and channel settings."
+                context.getString(R.string.notifications_test_post_failed)
             },
         )
     }
@@ -260,12 +261,12 @@ class NotificationSettingsViewModel @AssistedInject constructor(
         val previousSettings = _state.value.settings
         val request = ++saveRequest
         if (_state.value.storageUnavailable) {
-            _state.value = _state.value.copy(error = "Notification settings are unavailable until stored data is recovered.")
+            _state.value = _state.value.copy(error = context.getString(R.string.notifications_settings_unavailable))
             return
         }
         val token = repository.currentToken(accountId)
         if (token == null) {
-            _state.value = _state.value.copy(error = "This account is not ready for notification settings.")
+            _state.value = _state.value.copy(error = context.getString(R.string.notifications_settings_account_not_ready))
             return
         }
         viewModelScope.launch {
@@ -273,7 +274,7 @@ class NotificationSettingsViewModel @AssistedInject constructor(
                 if (request != saveRequest) return@withLock
                 _state.value = _state.value.copy(saving = true, error = null)
                 try {
-                    if (!settingsRepository.save(token, settings)) error("Account session changed; try again.")
+                    if (!settingsRepository.save(token, settings)) error(context.getString(R.string.notifications_settings_session_changed))
                     if (settings.periodicFallbackEnabled) workScheduler.schedulePeriodicFallback(accountId)
                     else workScheduler.cancelPeriodicFallback(accountId)
                     when {
@@ -291,7 +292,7 @@ class NotificationSettingsViewModel @AssistedInject constructor(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Exception) {
-                    _state.value = _state.value.copy(saving = false, error = error.message ?: "Settings could not be saved.")
+                    _state.value = _state.value.copy(saving = false, error = error.message ?: context.getString(R.string.settings_error_save_failed))
                 }
             }
         }

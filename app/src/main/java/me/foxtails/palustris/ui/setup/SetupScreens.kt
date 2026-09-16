@@ -105,6 +105,7 @@ internal fun SetupServerScreen(
     var server by rememberSaveable { mutableStateOf("") }
     var validationError by rememberSaveable { mutableStateOf<String?>(null) }
     val whitespaceError = stringResource(R.string.setup_server_whitespace_error)
+    val invalidServerError = stringResource(R.string.setup_invalid_server)
     val submit: () -> Unit = {
         if (state.pending) {
             onComplete()
@@ -114,7 +115,7 @@ internal fun SetupServerScreen(
                 validationError = null
                 onNext(normalized)
             } catch (error: IllegalArgumentException) {
-                validationError = error.message ?: "Enter a valid HTTPS server."
+                validationError = error.message ?: invalidServerError
             }
         }
     }

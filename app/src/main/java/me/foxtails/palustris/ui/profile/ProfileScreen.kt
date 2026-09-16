@@ -264,7 +264,7 @@ fun ProfileScreen(
                              )
                         }
                     },
-                    rowContentDescription = "Profile categories; swipe horizontally for more",
+                    rowContentDescription = stringResource(R.string.a11y_profile_categories),
                 )
             }
         }
@@ -347,9 +347,9 @@ internal fun ProfileRedirectBanner(
 @Composable
 internal fun ProfileStats(account: Account) {
     val stats = listOfNotNull(
-        account.postsCount?.let { "${formatProfileCount(it)} posts" },
-        account.followersCount?.let { "${formatProfileCount(it)} followers" },
-        account.followingCount?.let { "${formatProfileCount(it)} following" },
+        account.postsCount?.let { stringResource(R.string.profile_count_posts, formatProfileCount(it)) },
+        account.followersCount?.let { stringResource(R.string.profile_count_followers, formatProfileCount(it)) },
+        account.followingCount?.let { stringResource(R.string.profile_count_following, formatProfileCount(it)) },
     )
     if (stats.isNotEmpty()) {
         Row(

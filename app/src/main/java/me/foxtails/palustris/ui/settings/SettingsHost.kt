@@ -49,7 +49,7 @@ fun SettingsHost(
     onContentWarningRules: (me.foxtails.palustris.domain.ContentWarningRules) -> Unit = {},
     onHiddenContentPresentation: (me.foxtails.palustris.domain.HiddenContentPresentation) -> Unit = {},
     postPreferences: PostPreferences = PostPreferences(),
-    postPreferencesAccountLabel: String = "Current account",
+    postPreferencesAccountLabel: String? = null,
     onPostDefaultAudience: (Audience) -> Unit = {},
     onPostRepliesUnlisted: (Boolean) -> Unit = {},
     onPostContentWarningRules: (ContentWarningRules) -> Unit = {},

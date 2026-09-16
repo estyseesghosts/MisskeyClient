@@ -23,7 +23,7 @@ fun SettingsScreen(
     )
     SettingsRow(
         stringResource(R.string.settings_display),
-        "$colorSchemeLabel, ${preferences.textSize.name}",
+        "$colorSchemeLabel, ${appTextSizeLabel(preferences.textSize)}",
         onDisplay,
         "settings_display",
     )
@@ -34,6 +34,6 @@ fun SettingsScreen(
         SettingsRow(stringResource(R.string.settings_privacy), stringResource(R.string.settings_privacy_summary), onPrivacy, "settings_privacy")
     }
     SettingsSection(stringResource(R.string.settings_section_language)) {
-        SettingsRow(stringResource(R.string.settings_language), preferences.language.name, onLanguage, "settings_language")
+        SettingsRow(stringResource(R.string.settings_language), appLanguageLabel(preferences.language), onLanguage, "settings_language")
     }
 }

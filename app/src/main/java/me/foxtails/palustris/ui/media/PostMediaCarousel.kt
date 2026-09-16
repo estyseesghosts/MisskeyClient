@@ -275,7 +275,7 @@ private fun MediaPreviewTile(
                         visibleDecision is MediaRequestDecision.Request && previewPainter != null -> {
                             Image(
                                 painter = previewPainter,
-                                contentDescription = attachment.description ?: "Post attachment ${index + 1}",
+                                contentDescription = attachment.description ?: stringResource(R.string.media_attachment_fallback, index + 1),
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
                             )

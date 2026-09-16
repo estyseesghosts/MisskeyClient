@@ -28,7 +28,7 @@ fun ContentWarningSettingsScreen(
     onLocalChanged: (ContentWarningRules) -> Unit = {},
     hiddenPresentation: HiddenContentPresentation = HiddenContentPresentation.Placeholder,
     onHiddenPresentation: (HiddenContentPresentation) -> Unit = {},
-    localAccountLabel: String = "Current account",
+    localAccountLabel: String? = null,
 ) {
     var hideKeywords by remember(rules) { mutableStateOf(rules.hideKeywords.joinToString(", ")) }
     var hideHashtags by remember(rules) { mutableStateOf(rules.hideHashtags.joinToString(", ")) }
@@ -47,8 +47,8 @@ fun ContentWarningSettingsScreen(
         Text(stringResource(R.string.settings_content_warning_presentation), Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
         HiddenContentPresentation.entries.forEach { presentation ->
             ListItem(
-                headlineContent = { Text(if (presentation == HiddenContentPresentation.Remove) "Remove hidden entries" else "Show neutral placeholder") },
-                supportingContent = { Text(if (presentation == HiddenContentPresentation.Remove) "Hidden posts take no space in lists." else "Keep the entry with a neutral hidden message.") },
+                headlineContent = { Text(if (presentation == HiddenContentPresentation.Remove) stringResource(R.string.settings_content_warning_remove_entries) else stringResource(R.string.settings_content_warning_placeholder_entries)) },
+                supportingContent = { Text(if (presentation == HiddenContentPresentation.Remove) stringResource(R.string.settings_content_warning_remove_detail) else stringResource(R.string.settings_content_warning_placeholder_detail)) },
                 leadingContent = { androidx.compose.material3.RadioButton(presentation == hiddenPresentation, { onHiddenPresentation(presentation) }) },
             )
         }
@@ -58,10 +58,10 @@ fun ContentWarningSettingsScreen(
             trailingContent = { Switch(rules.expandAll, { onChanged(rules.copy(expandAll = it)) }) },
         )
         Text(stringResource(R.string.settings_content_warning_rules_summary), Modifier.padding(20.dp))
-        RuleField("Hide keywords", hideKeywords) { hideKeywords = it }
-        RuleField("Hide hashtags", hideHashtags) { hideHashtags = it }
-        RuleField("Expand keywords", expandKeywords) { expandKeywords = it }
-        RuleField("Expand hashtags", expandHashtags) { expandHashtags = it }
+        RuleField(stringResource(R.string.settings_content_warning_hide_keywords), hideKeywords) { hideKeywords = it }
+        RuleField(stringResource(R.string.settings_content_warning_hide_hashtags), hideHashtags) { hideHashtags = it }
+        RuleField(stringResource(R.string.settings_content_warning_expand_keywords), expandKeywords) { expandKeywords = it }
+        RuleField(stringResource(R.string.settings_content_warning_expand_hashtags), expandHashtags) { expandHashtags = it }
         Button(
             onClick = {
                 onChanged(
@@ -75,7 +75,7 @@ fun ContentWarningSettingsScreen(
             },
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         ) { Text(stringResource(R.string.settings_content_warning_save)) }
-        Text(stringResource(R.string.settings_content_warning_account_rules, localAccountLabel), Modifier.padding(horizontal = 20.dp, vertical = 12.dp), style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.settings_content_warning_account_rules, localAccountLabel ?: stringResource(R.string.settings_content_warning_current_account)), Modifier.padding(horizontal = 20.dp, vertical = 12.dp), style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
         ListItem(
             headlineContent = { Text(stringResource(R.string.settings_content_warning_account_hide_all)) },
             trailingContent = { Switch(localRules.hideAll, { onLocalChanged(localRules.copy(hideAll = it)) }) },
@@ -84,10 +84,10 @@ fun ContentWarningSettingsScreen(
             headlineContent = { Text(stringResource(R.string.settings_content_warning_account_expand_all)) },
             trailingContent = { Switch(localRules.expandAll, { onLocalChanged(localRules.copy(expandAll = it)) }) },
         )
-        RuleField("Account hide keywords", localHideKeywords) { localHideKeywords = it }
-        RuleField("Account hide hashtags", localHideHashtags) { localHideHashtags = it }
-        RuleField("Account expand keywords", localExpandKeywords) { localExpandKeywords = it }
-        RuleField("Account expand hashtags", localExpandHashtags) { localExpandHashtags = it }
+        RuleField(stringResource(R.string.settings_content_warning_account_hide_keywords), localHideKeywords) { localHideKeywords = it }
+        RuleField(stringResource(R.string.settings_content_warning_account_hide_hashtags), localHideHashtags) { localHideHashtags = it }
+        RuleField(stringResource(R.string.settings_content_warning_account_expand_keywords), localExpandKeywords) { localExpandKeywords = it }
+        RuleField(stringResource(R.string.settings_content_warning_account_expand_hashtags), localExpandHashtags) { localExpandHashtags = it }
         Button(
             onClick = {
                 onLocalChanged(localRules.copy(

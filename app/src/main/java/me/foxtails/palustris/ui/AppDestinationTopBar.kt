@@ -23,11 +23,12 @@ internal fun AppDestinationTopBar(
                     when (page) {
                         LocalPage.SavedPosts -> stringResource(savedTitle)
                         LocalPage.Likes -> stringResource(likedCollectionTitle())
-                        else -> page.name
+                        LocalPage.Drafts -> stringResource(R.string.drafts_page_title)
+                        LocalPage.About -> stringResource(R.string.about_page_title)
                     },
                 )
             },
-            navigationIcon = { ActionIcon(AppIcons.Back, "Back", onBack) },
+            navigationIcon = { ActionIcon(AppIcons.Back, stringResource(R.string.app_back), onBack) },
         )
         notificationRoute != null -> TopAppBar(
             title = { Text(stringResource(R.string.app_notification)) },

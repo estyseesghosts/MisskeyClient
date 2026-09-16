@@ -23,7 +23,7 @@ fun LanguageSettingsScreen(selected: AppLanguage, onSelected: (AppLanguage) -> U
         items(AppLanguage.entries, key = { it.name }) { language ->
             val headline =
                 if (language == AppLanguage.SystemDefault) stringResource(R.string.language_system_default)
-                else language.label()
+                else appLanguageLabel(language)
             val supporting =
                 language.tag ?: stringResource(R.string.language_system_default_description)
             ListItem(
@@ -46,23 +46,24 @@ fun LanguageSettingsScreen(selected: AppLanguage, onSelected: (AppLanguage) -> U
     }
 }
 
-private fun AppLanguage.label(): String = when (this) {
-    AppLanguage.SystemDefault -> "System default"
-    AppLanguage.English -> "English"
-    AppLanguage.German -> "Deutsch"
-    AppLanguage.Spanish -> "Español"
-    AppLanguage.SpanishSpain -> "Español (España)"
-    AppLanguage.SpanishLatinAmerica -> "Español (Latinoamérica)"
-    AppLanguage.French -> "Français"
-    AppLanguage.Hindi -> "हिन्दी"
-    AppLanguage.Japanese -> "日本語"
-    AppLanguage.Korean -> "한국어"
-    AppLanguage.PortugueseBrazil -> "Português (Brasil)"
-    AppLanguage.PortuguesePortugal -> "Português (Portugal)"
-    AppLanguage.CantoneseHongKong -> "粵語（香港）"
-    AppLanguage.Chinese -> "中文"
-    AppLanguage.ChineseMainland -> "简体中文（中国大陆）"
-    AppLanguage.ChineseTaiwan -> "繁體中文（臺灣）"
-    AppLanguage.Russian -> "Русский"
-    AppLanguage.Indonesian -> "Bahasa Indonesia"
+@Composable
+internal fun appLanguageLabel(language: AppLanguage): String = when (language) {
+    AppLanguage.SystemDefault -> stringResource(R.string.language_system_default)
+    AppLanguage.English -> stringResource(R.string.language_name_english)
+    AppLanguage.German -> stringResource(R.string.language_name_german)
+    AppLanguage.Spanish -> stringResource(R.string.language_name_spanish)
+    AppLanguage.SpanishSpain -> stringResource(R.string.language_name_spanish_spain)
+    AppLanguage.SpanishLatinAmerica -> stringResource(R.string.language_name_spanish_latin_america)
+    AppLanguage.French -> stringResource(R.string.language_name_french)
+    AppLanguage.Hindi -> stringResource(R.string.language_name_hindi)
+    AppLanguage.Japanese -> stringResource(R.string.language_name_japanese)
+    AppLanguage.Korean -> stringResource(R.string.language_name_korean)
+    AppLanguage.PortugueseBrazil -> stringResource(R.string.language_name_portuguese_brazil)
+    AppLanguage.PortuguesePortugal -> stringResource(R.string.language_name_portuguese_portugal)
+    AppLanguage.CantoneseHongKong -> stringResource(R.string.language_name_cantonese_hong_kong)
+    AppLanguage.Chinese -> stringResource(R.string.language_name_chinese)
+    AppLanguage.ChineseMainland -> stringResource(R.string.language_name_chinese_mainland)
+    AppLanguage.ChineseTaiwan -> stringResource(R.string.language_name_chinese_taiwan)
+    AppLanguage.Russian -> stringResource(R.string.language_name_russian)
+    AppLanguage.Indonesian -> stringResource(R.string.language_name_indonesian)
 }

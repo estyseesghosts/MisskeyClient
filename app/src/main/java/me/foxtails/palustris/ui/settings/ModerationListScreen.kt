@@ -55,7 +55,7 @@ fun ModerationListScreen(
                         TextButton(
                             enabled = entry.account.id.localId !in state.removing,
                             onClick = { pendingRemoval = entry },
-                        ) { Text(if (state.kind == ModerationListKind.Blocked) "Unblock" else "Unmute") }
+                        ) { Text(if (state.kind == ModerationListKind.Blocked) stringResource(R.string.post_share_unblock) else stringResource(R.string.post_share_unmute)) }
                     },
                 )
             }
@@ -70,7 +70,7 @@ fun ModerationListScreen(
     pendingRemoval?.let { entry ->
         AlertDialog(
             onDismissRequest = { pendingRemoval = null },
-            title = { Text(if (state.kind == ModerationListKind.Blocked) "Unblock account?" else "Unmute account?") },
+            title = { Text(if (state.kind == ModerationListKind.Blocked) stringResource(R.string.settings_moderation_unblock_title) else stringResource(R.string.settings_moderation_unmute_title)) },
             text = { Text(entry.account.handle) },
             confirmButton = {
                 TextButton(onClick = { pendingRemoval = null; onRemove(entry) }) { Text(stringResource(R.string.settings_moderation_confirm)) }

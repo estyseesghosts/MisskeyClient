@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.rememberTextMeasurer
 import coil.compose.AsyncImage
+import me.foxtails.palustris.R
 import me.foxtails.palustris.data.media.MediaImageLoader
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.CustomEmoji
@@ -83,7 +84,7 @@ fun InlineEmojiText(
     val bubbleTextStyle = MaterialTheme.typography.labelMedium
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val inlineContent = remember(model, style.fontSize, enableInlineEntities, onOpenUrl, onOpenUsername, onSearchHashtag) {
+    val inlineContent = remember(model, style.fontSize, enableInlineEntities, onOpenUrl, onOpenUsername, onSearchHashtag, context) {
         buildInlineContent(
             model = model,
             emSize = style.fontSize,
@@ -91,6 +92,7 @@ fun InlineEmojiText(
             textMeasurer = textMeasurer,
             density = density,
             bubbleTextStyle = bubbleTextStyle,
+            context = context,
             onOpenUrl = { url -> onOpenUrl?.invoke(url) ?: ExternalLinkHandler.open(context, url) },
             onOpenUsername = onOpenUsername,
             onSearchHashtag = onSearchHashtag,
@@ -310,6 +312,7 @@ private fun buildInlineContent(
     textMeasurer: TextMeasurer,
     density: androidx.compose.ui.unit.Density,
     bubbleTextStyle: TextStyle,
+    context: android.content.Context,
     onOpenUrl: (String) -> Unit,
     onOpenUsername: ((String) -> Unit)?,
     onSearchHashtag: ((String) -> Unit)?,
@@ -333,7 +336,7 @@ private fun buildInlineContent(
                             inlineContentId(segment),
                             entityContent(
                                 label = segment.displayLabel,
-                                description = "Link ${segment.displayLabel}",
+                                description = context.getString(R.string.a11y_link_description, segment.displayLabel),
                                 emSize = emSize,
                                 width = entityWidthEm(segment.displayLabel, true, emSize, textMeasurer, density, bubbleTextStyle),
                                 onClick = { onOpenUrl(segment.target) },
@@ -349,7 +352,7 @@ private fun buildInlineContent(
                         inlineContentId(segment),
                         entityContent(
                             label = segment.displayLabel,
-                            description = "Username ${segment.displayLabel}",
+                            description = context.getString(R.string.a11y_username_description, segment.displayLabel),
                             emSize = emSize,
                             width = entityWidthEm(segment.displayLabel, false, emSize, textMeasurer, density, bubbleTextStyle),
                             onClick = onOpenUsername?.let { callback -> { callback(segment.target) } },
@@ -363,7 +366,7 @@ private fun buildInlineContent(
                         inlineContentId(segment),
                         entityContent(
                             label = hashtagLabel,
-                            description = "Hashtag ${segment.displayLabel}",
+                            description = context.getString(R.string.a11y_hashtag_description, segment.displayLabel),
                             emSize = emSize,
                             width = entityWidthEm(hashtagLabel, true, emSize, textMeasurer, density, bubbleTextStyle),
                             onClick = onSearchHashtag?.let { callback -> { callback(segment.target) } },

@@ -113,7 +113,7 @@ fun SettingsOverlayHost(
     else remember { mutableStateOf(ModerationUiState()) }
     val accountLabel = accounts.firstOrNull { it.accountId == activeAccountId }?.handle
         ?: activeAccountId?.localId
-        ?: "Current account"
+        ?: stringResource(R.string.settings_content_warning_current_account)
     SettingsHost(
         state = appPreferences,
         accounts = accounts,

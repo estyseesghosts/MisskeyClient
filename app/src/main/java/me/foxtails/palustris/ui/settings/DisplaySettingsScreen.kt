@@ -70,12 +70,30 @@ fun DisplaySettingsScreen(
             },
         )
         HorizontalDivider()
-        ChoiceGroup("Background", AppBackground.entries, preferences.background, onBackground) { it.name.replace("PureBlack", "Pure black") }
+        ChoiceGroup(stringResource(R.string.settings_background), AppBackground.entries, preferences.background, onBackground) { background ->
+            stringResource(
+                when (background) {
+                    AppBackground.Default -> R.string.settings_background_default
+                    AppBackground.Dark -> R.string.settings_background_dark
+                    AppBackground.PureBlack -> R.string.settings_background_pure_black
+                },
+            )
+        }
         Text(stringResource(R.string.settings_pure_black_warning), Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
         HorizontalDivider()
-        ChoiceGroup("Text size", AppTextSize.entries, preferences.textSize, onTextSize) { it.name }
+        ChoiceGroup(stringResource(R.string.settings_text_size), AppTextSize.entries, preferences.textSize, onTextSize) { textSize ->
+            appTextSizeLabel(textSize)
+        }
         HorizontalDivider()
-        ChoiceGroup("Font", AppFont.entries, preferences.font, onFont) { it.name }
+        ChoiceGroup(stringResource(R.string.settings_font), AppFont.entries, preferences.font, onFont) { font ->
+            stringResource(
+                when (font) {
+                    AppFont.Device -> R.string.settings_display_device
+                    AppFont.Serif -> R.string.settings_font_serif
+                    AppFont.OpenDyslexic -> R.string.settings_font_open_dyslexic
+                },
+            )
+        }
         HorizontalDivider()
         ListItem(
             headlineContent = { Text(stringResource(R.string.settings_request_60hz)) },
@@ -146,3 +164,12 @@ private fun <T> ChoiceGroup(title: String, values: List<T>, selected: T, onSelec
         )
     }
 }
+
+@Composable
+internal fun appTextSizeLabel(textSize: AppTextSize): String = stringResource(
+    when (textSize) {
+        AppTextSize.Device -> R.string.settings_display_device
+        AppTextSize.Smaller -> R.string.settings_text_size_smaller
+        AppTextSize.Larger -> R.string.settings_text_size_larger
+    },
+)

@@ -45,9 +45,10 @@ fun PostingSettingsScreen(
     }
 }
 
+@Composable
 private fun Audience.label(): String = when (this) {
-    Audience.Public -> "Everyone"
-    Audience.Unlisted -> "Unlisted"
-    Audience.Followers -> "Followers only"
-    Audience.Direct -> "Direct"
+    Audience.Public -> stringResource(R.string.audience_everyone)
+    Audience.Unlisted -> stringResource(R.string.audience_unlisted)
+    Audience.Followers -> stringResource(R.string.audience_followers)
+    Audience.Direct -> stringResource(R.string.audience_direct)
 }

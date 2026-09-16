@@ -502,6 +502,7 @@ internal fun postTimestamp(post: Post): String? = if (post.publishedAtEpochMilli
 private fun FilteredHashtagSummary(hashtags: List<String>, onOpen: (Rect) -> Unit) {
     val label = if (hashtags.size == 1) hashtags.first() else "${hashtags.first()} +${hashtags.size - 1}"
     val collapsedDescription = stringResource(R.string.post_action_bubble_collapsed)
+    val hashtagDescription = hashtagSummaryDescription(hashtags)
     var bounds by remember { mutableStateOf(Rect.Zero) }
     val interactionSource = remember { MutableInteractionSource() }
     Box {
@@ -513,7 +514,7 @@ private fun FilteredHashtagSummary(hashtags: List<String>, onOpen: (Rect) -> Uni
                 .springPress(interactionSource, pressedScale = LocalPalustrisMotionScheme.current.compactPressedScale)
                 .clickable(interactionSource = interactionSource, indication = LocalIndication.current) { onOpen(bounds) }
                 .semantics {
-                    contentDescription = hashtagSummaryDescription(hashtags)
+                    contentDescription = hashtagDescription
                     role = Role.Button
                      stateDescription = collapsedDescription
                 },
@@ -532,9 +533,11 @@ private fun FilteredHashtagSummary(hashtags: List<String>, onOpen: (Rect) -> Uni
     }
 }
 
+@Composable
 private fun hashtagSummaryDescription(hashtags: List<String>): String {
-    if (hashtags.size == 1) return "1 hashtag: ${hashtags.first()}"
-    return "${hashtags.size} hashtags: " + hashtags.dropLast(1).joinToString(", ") + " and ${hashtags.last()}"
+    if (hashtags.size == 1) return stringResource(R.string.a11y_hashtag_summary_one, hashtags.first())
+    val joined = hashtags.dropLast(1).joinToString(", ") + " and " + hashtags.last()
+    return stringResource(R.string.a11y_hashtag_summary_many, hashtags.size, joined)
 }
 
 private val CircleShapeForReaction = RoundedCornerShape(50)

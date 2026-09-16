@@ -355,12 +355,13 @@ internal fun PhotoGridTile(
     modifier: Modifier = Modifier,
 ) {
     if (item.hiddenByRules) {
+        val hiddenMessage = stringResource(R.string.content_hidden_settings)
         Box(
             modifier.fillMaxWidth().aspectRatio(photoGridAspectRatio(item.attachment))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .semantics { contentDescription = "Content hidden by your settings" },
+                .semantics { contentDescription = hiddenMessage },
             contentAlignment = Alignment.Center,
-        ) { Text(stringResource(R.string.content_hidden_settings), Modifier.padding(12.dp)) }
+        ) { Text(hiddenMessage, Modifier.padding(12.dp)) }
         return
     }
     val context = LocalContext.current

@@ -8,9 +8,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import me.foxtails.palustris.data.auth.AccountRef
+import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.AccountId
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -25,7 +25,7 @@ fun PrivacyAccountsScreen(accounts: List<AccountRef>, onSelect: (AccountId, Mode
             ModerationKind.entries.forEach { kind ->
                 SettingsRow(
                     title = kind.label(),
-                    summary = "Manage this account's server list",
+                    summary = stringResource(R.string.settings_privacy_account_list_summary),
                     onClick = { onSelect(account.accountId, kind) },
                 )
             }
@@ -33,8 +33,9 @@ fun PrivacyAccountsScreen(accounts: List<AccountRef>, onSelect: (AccountId, Mode
     }
 }
 
+@Composable
 private fun ModerationKind.label(): String = when (this) {
-    ModerationKind.Blocked -> "Blocked users"
-    ModerationKind.Muted -> "Muted users"
-    ModerationKind.Hashtags -> "Muted hashtags"
+    ModerationKind.Blocked -> stringResource(R.string.settings_blocked_users)
+    ModerationKind.Muted -> stringResource(R.string.settings_muted_users)
+    ModerationKind.Hashtags -> stringResource(R.string.settings_muted_hashtags)
 }

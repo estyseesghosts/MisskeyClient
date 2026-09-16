@@ -281,7 +281,7 @@ internal fun ProfileCategoryChips(
                 )
             }
         },
-        rowContentDescription = PROFILE_CATEGORY_DESCRIPTION,
+        rowContentDescription = stringResource(R.string.a11y_profile_categories),
     )
 }
 
@@ -315,9 +315,9 @@ private fun LazyListScope.profilePinnedItems(
     }
     if (state.pinnedError != null) item(key = "profile-pinned-error") {
         ProfileMessage(
-            title = "Featured posts unavailable",
+            title = stringResource(R.string.profile_featured_posts_unavailable),
             message = state.pinnedError,
-            action = "Retry",
+            action = stringResource(R.string.notifications_retry),
             onAction = onRefresh,
         )
     }
@@ -394,9 +394,9 @@ private fun LazyListScope.profilePageItems(
         item(key = "profile-timeline-error") {
             AnimatedStatePane(stateKey = "error", modifier = Modifier.fillMaxWidth()) {
                 ProfileMessage(
-                    title = if (page.needsSignIn) "Sign-in required" else "Profile posts unavailable",
+                    title = if (page.needsSignIn) stringResource(R.string.sign_in_required) else stringResource(R.string.profile_posts_unavailable),
                     message = page.error,
-                    action = if (page.needsSignIn) "Try again" else "Retry",
+                    action = if (page.needsSignIn) stringResource(R.string.action_try_again) else stringResource(R.string.notifications_retry),
                     onAction = onRefresh,
                 )
             }
@@ -445,9 +445,9 @@ private fun LazyListScope.profilePageItems(
     }
     if (page.posts.isNotEmpty() && page.error != null && !page.loadingMore) item(key = "profile-timeline-inline-error") {
         ProfileMessage(
-            title = "Couldn’t load more posts",
+            title = stringResource(R.string.profile_timeline_load_error),
             message = page.error,
-            action = if (page.needsSignIn) "Try again" else "Retry",
+            action = if (page.needsSignIn) stringResource(R.string.profile_timeline_try_again) else stringResource(R.string.notifications_retry),
             onAction = if (page.needsSignIn) onRefresh else onLoadMore,
         )
     }
@@ -455,7 +455,7 @@ private fun LazyListScope.profilePageItems(
         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
             if (page.nextCursor != null) {
                 TextButton(onClick = onLoadMore) {
-                    Text(if (page.consecutiveEmptyPages > 0) "Continue browsing" else "Load older posts")
+                    Text(if (page.consecutiveEmptyPages > 0) stringResource(R.string.profile_timeline_continue_browsing) else stringResource(R.string.feed_load_older))
                 }
             } else {
                 Text(stringResource(R.string.feed_up_to_date), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -479,7 +479,6 @@ private fun ProfileMessage(
 }
 
 private const val MAX_AUTOMATIC_EMPTY_PAGES = 3
-private const val PROFILE_CATEGORY_DESCRIPTION = "Profile categories; swipe horizontally for more"
 
 private fun firstTimelineItemIndex(
     showHeader: Boolean,

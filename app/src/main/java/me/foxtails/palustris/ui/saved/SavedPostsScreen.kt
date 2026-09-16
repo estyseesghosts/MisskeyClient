@@ -85,25 +85,25 @@ fun SavedPostsScreen(
                 CircularProgressIndicator()
             }
             state.permissionRequired -> SavedPostsMessage(
-                title = "Reauthorization required",
-                body = "Allow access to your $title to view them here.",
-                action = "Reauthorize",
+                title = stringResource(R.string.saved_posts_reauthorization_required),
+                body = stringResource(R.string.saved_posts_reauthorize_body, title),
+                action = stringResource(R.string.saved_posts_reauthorize),
                 onAction = onUpgradePermissions,
             )
             state.error != null && state.posts.isEmpty() -> SavedPostsMessage(
-                title = "Couldn’t load $title",
+                title = stringResource(R.string.saved_posts_load_error, title),
                 body = state.error,
-                action = if (state.needsSignIn) "Sign in again" else "Retry",
+                action = if (state.needsSignIn) stringResource(R.string.feed_sign_in_again) else stringResource(R.string.notifications_retry),
                 onAction = if (state.needsSignIn) onSignIn else onRefresh,
             )
             state.posts.isEmpty() -> EmptyState(
                 if (likes) AppIcons.FilledHeart else AppIcons.HollowBookmark,
                 when {
                     likes -> stringResource(R.string.liked_posts_empty_title)
-                    state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites -> "No favourites yet"
-                    else -> "No bookmarks yet"
+                    state.kind == me.foxtails.palustris.domain.SavedPostsKind.Favourites -> stringResource(R.string.saved_posts_empty_favourites)
+                    else -> stringResource(R.string.saved_posts_empty_bookmarks)
                 },
-                if (likes) stringResource(R.string.liked_posts_empty_subtitle) else "Posts you save will appear here.",
+                if (likes) stringResource(R.string.liked_posts_empty_subtitle) else stringResource(R.string.saved_posts_empty_saved_subtitle),
             )
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),

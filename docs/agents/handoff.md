@@ -178,7 +178,16 @@ Read these in order. Treat the repository as the authority.
 
 ## Next Slice
 
-04-E2 — Done. Start 04-E3 (give provisional conversations an explicit identity
+Localization string extraction is active. The durable record is
+`docs/agents/tasks/localization-string-extraction.md`. Slice 1 is complete and
+committed with this handoff. Start slice 2 (ViewModels and controllers) next.
+Slice 2 uses option 1: inject `@ApplicationContext Context` into the owning
+Hilt classes, pass it into the plain owners and controllers, and change
+`sourceErrorMessage` to take a `Context`. Slice 3 handles the domain and data
+fallback text and needs a mechanism decision first.
+
+Plan 04 resumes after the localization task. 04-E2 is Done. Start 04-E3 (give
+provisional conversations an explicit identity
 and send mark read only for verified server identity) next. It needs the
 provisional-identity decision and a Room migration. Then continue through 04-K
 in the recorded order. 04-K removes the dead profile paging authority and bounds

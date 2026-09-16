@@ -292,11 +292,12 @@ private fun ReadOnlyReactions(target: EmojiPickerTarget.Reaction) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(post.reactions, key = { it.emoji }) { reaction ->
+            val reactionDescription = stringResource(R.string.post_reaction_accessibility, reaction.emoji, reaction.count)
             Box(
                 Modifier
                     .heightIn(min = 48.dp)
                     .semantics {
-                        contentDescription = "${reaction.emoji}, ${reaction.count}"
+                        contentDescription = reactionDescription
                         this.selected = reaction.selected
                     },
                 contentAlignment = Alignment.Center,
