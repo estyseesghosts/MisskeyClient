@@ -228,6 +228,7 @@ fun ProfileScreen(
                     entries = profileChipEntries(
                         isSelf = isSelf,
                         likedAvailable = profileState.likedAvailable,
+                        featuredAvailable = profileState.pinnedPosts.size > 1,
                     ).map { entry ->
                         when (entry) {
                             is ProfileChipEntry.Timeline -> FilterChipEntry(

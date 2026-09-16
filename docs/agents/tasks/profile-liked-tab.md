@@ -51,14 +51,18 @@ Committed in the same commit as this record.
 
 - `ProfileTimelineTab` gains `Liked`.
 - `ProfileCategory` order is Posts, Replies, Media, Reposts, Liked, ShowMore.
+  The later Featured tab adds a category before Posts; see
+  `docs/agents/tasks/profile-featured-tab.md`.
   `profileChipEntries` takes `likedAvailable` instead of `includeLikes`.
 - `ProfileUiState` gains `likedAvailable`. `ProfileViewModel` computes it from
   the target and the session protocol.
 - `ProfileTimelinePager` gates Liked on `likedPosts`, not `profile.timelines`.
 - `ProfileScreen`, `ProfileTimelineList`, and `ProfileLargePresentation` render
   the tab from the state flag. The profile Likes chip is gone.
-- `profile_action_likes` and `profile_action_likes_description` are removed.
-  `profile_tab_likes` is added.
+- The Liked tab reuses `R.string.profile_action_likes` as its label, so the
+  existing translated catalogs localize the tab. No `profile_tab_likes` string
+  was added. `R.string.profile_action_likes_description` is removed from the
+  default catalog; it was not present in any catalog, so no catalog test broke.
 - Tests: `ProfileScreenTest` chip order and availability.
   `ProfileViewModelTest` availability and Liked paging. `ProfileSourceContractTest`
   and `MastodonIntegrationTest` Liked endpoints. `MisskeyIntegrationTest` Liked

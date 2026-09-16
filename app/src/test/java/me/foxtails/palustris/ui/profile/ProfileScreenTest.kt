@@ -94,6 +94,17 @@ class ProfileScreenTest {
             ),
             profileChipEntries(isSelf = false, likedAvailable = true, includeShowMore = false, includeEditProfile = true),
         )
+        // The Featured tab leads when the profile has more than one pinned post.
+        assertEquals(
+            listOf(
+                ProfileChipEntry.Timeline(ProfileCategory.Featured),
+                ProfileChipEntry.Timeline(ProfileCategory.Posts),
+                ProfileChipEntry.Timeline(ProfileCategory.Replies),
+                ProfileChipEntry.Timeline(ProfileCategory.Media),
+                ProfileChipEntry.Timeline(ProfileCategory.Reposts),
+            ),
+            profileChipEntries(isSelf = false, featuredAvailable = true, includeShowMore = false, includeEditProfile = true),
+        )
     }
 
     @Test
@@ -701,6 +712,53 @@ class ProfileScreenTest {
         compose.onNodeWithTag("reaction_count_🎉", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("reaction_count_❤️", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("interaction_summary", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun pinnedPostsStayInFeaturedWhenMultipleAndLeadPostsWhenSingle() {
+        val profile = account("pinned", "Pinned")
+        val single = post("single-pin", profile)
+        val firstPin = post("first-pin", profile)
+        val secondPin = post("second-pin", profile)
+        val state = mutableStateOf(
+            profileState(profile, listOf(post("body", profile))).copy(
+                pinnedPosts = listOf(OwnedPost(self.id, single)),
+            ),
+        )
+
+        show {
+            ProfileScreen(
+                account = profile,
+                profileState = state.value,
+                compactLayout = false,
+                authenticatedAccountId = self.id,
+                onCategorySelected = { category -> state.value = state.value.copy(selectedTab = category) },
+            )
+        }
+
+        // Exactly one pinned post: no Featured tab, and the pin leads the Posts feed.
+        compose.onNodeWithText("Featured").assertDoesNotExist()
+        compose.onNodeWithTag("post_row_single-pin").assertIsDisplayed()
+        compose.onNodeWithTag("post_row_body").assertIsDisplayed()
+
+        compose.runOnIdle {
+            state.value = state.value.copy(
+                pinnedPosts = listOf(OwnedPost(self.id, firstPin), OwnedPost(self.id, secondPin)),
+                selectedTab = ProfileCategory.Posts,
+            )
+        }
+        compose.waitForIdle()
+
+        // Multiple pinned posts: a Featured tab appears and the pins leave the Posts feed.
+        compose.onNodeWithText("Featured").assertExists()
+        compose.onNodeWithTag("post_row_first-pin").assertDoesNotExist()
+        compose.onNodeWithTag("post_row_body").assertIsDisplayed()
+
+        compose.onNodeWithText("Featured").performScrollTo().performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("post_row_first-pin").assertExists()
+        compose.onNodeWithTag("post_row_second-pin").assertExists()
     }
 
     @Test

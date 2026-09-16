@@ -9,6 +9,8 @@ enum class ProfileCategory(
     @StringRes val labelRes: Int,
     val timelineTab: ProfileTimelineTab?,
 ) {
+    // Featured has no pager tab: it renders the pinned posts the profile already loaded.
+    Featured(R.string.profile_tab_featured, null),
     Posts(R.string.profile_tab_posts, ProfileTimelineTab.Posts),
     Replies(R.string.profile_tab_replies, ProfileTimelineTab.Replies),
     Media(R.string.profile_tab_media, ProfileTimelineTab.Media),
@@ -25,15 +27,18 @@ sealed interface ProfileChipEntry {
 }
 
 /**
- * Builds the profile category row. The timeline tabs stay in a fixed order: Posts, Replies,
- * Media, Reposts. The Liked tab follows Reposts when [likedAvailable] is true.
+ * Builds the profile category row. The Featured tab leads only when the profile has more than
+ * one pinned post. The timeline tabs stay in a fixed order: Posts, Replies, Media, Reposts. The
+ * Liked tab follows Reposts when [likedAvailable] is true.
  */
 fun profileChipEntries(
     isSelf: Boolean,
     likedAvailable: Boolean = false,
+    featuredAvailable: Boolean = false,
     includeShowMore: Boolean = true,
     includeEditProfile: Boolean = false,
 ): List<ProfileChipEntry> = buildList {
+    if (featuredAvailable) add(ProfileChipEntry.Timeline(ProfileCategory.Featured))
     addAll(
         listOf(
             ProfileChipEntry.Timeline(ProfileCategory.Posts),

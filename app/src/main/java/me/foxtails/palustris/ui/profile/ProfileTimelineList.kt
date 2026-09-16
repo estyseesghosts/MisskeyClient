@@ -111,14 +111,16 @@ internal fun ProfileTimelineList(
     }
 
     LaunchedEffect(selectedTab, firstPostId, state.pinnedPosts.size, showHeader, showInlineCategories, pendingTabReset) {
-        if (pendingTabReset == selectedTab && firstPostId != null && !state.pinnedLoading) {
+        if (pendingTabReset == selectedTab && firstPostId != null) {
+            // Only the Posts tab leads with a pinned row, and only when exactly one is pinned.
+            val pinnedInPosts = selectedTab == ProfileTimelineTab.Posts && state.pinnedPosts.size == 1
+            val pinnedError = selectedTab == ProfileTimelineTab.Posts && state.pinnedError != null
             list.scrollToItem(
                 firstTimelineItemIndex(
                     showHeader = showHeader,
                     showInlineCategories = showInlineCategories,
-                    pinnedLoading = state.pinnedLoading,
-                    pinnedError = state.pinnedError != null,
-                    pinnedPostCount = state.pinnedPosts.size,
+                    pinnedRowCount = if (pinnedInPosts) 1 else 0,
+                    pinnedError = pinnedError,
                     hasFirstPost = true,
                 ),
             )
@@ -167,44 +169,27 @@ internal fun ProfileTimelineList(
                         selected = state.selectedTab,
                         isSelf = isSelf,
                         likedAvailable = state.likedAvailable,
+                        featuredAvailable = state.pinnedPosts.size > 1,
                         onCategorySelected = onCategorySelected,
                         onOpenDrafts = onOpenDrafts,
                         onOpenBookmarks = onOpenBookmarks,
                     )
                 }
             }
-            profilePinnedItems(
-                state = state,
-                quoteEnabled = quoteEnabled,
-                onQuote = onQuote,
-                onRefresh = onRefresh,
-                availableActions = availableActions,
-                onReact = onReact,
-                onReply = onReply,
-                onReshare = onReshare,
-                onBookmark = onBookmark,
-                onReaction = onReaction,
-                onOpenReactionBubble = { ownedPost, bounds -> onOpenReactionBubble?.invoke(ownedPost, bounds) },
-                onOpenReactionPicker = onOpenReactionPicker,
-                onOpenProfile = onOpenProfile,
-                onSearchHashtag = onSearchHashtag,
-                 onOpenHashtagBubble = onOpenHashtagBubble,
-                      onOpenMedia = onOpenMedia,
-                      onOpenPost = onOpenPost,
-                      onOpenUrl = onOpenUrl,
-             onOpenUsername = onOpenUsername,
-                        largeLayout = largeLayout,
-             )
-            if (state.selectedTab == ProfileCategory.ShowMore) {
-                item(key = "profile-details") { details() }
-            } else {
-                profilePageItems(
-                    page = page,
+            val featuredSelected = state.selectedTab == ProfileCategory.Featured
+            val singlePinnedInPosts = state.selectedTab == ProfileCategory.Posts && state.pinnedPosts.size == 1
+            val pinnedErrorInPosts = state.selectedTab == ProfileCategory.Posts && state.pinnedError != null
+            when {
+                featuredSelected -> profilePinnedItems(
+                    state = state,
+                    posts = state.pinnedPosts,
+                    showTitle = true,
+                    showLoading = false,
+                    showError = false,
                     quoteEnabled = quoteEnabled,
                     onQuote = onQuote,
                     onRefresh = onRefresh,
-                    onLoadMore = onLoadMore,
-                    availableActions = availableActions.intersect(ClientReadyPostActions),
+                    availableActions = availableActions,
                     onReact = onReact,
                     onReply = onReply,
                     onReshare = onReshare,
@@ -214,13 +199,67 @@ internal fun ProfileTimelineList(
                     onOpenReactionPicker = onOpenReactionPicker,
                     onOpenProfile = onOpenProfile,
                     onSearchHashtag = onSearchHashtag,
-                     onOpenHashtagBubble = onOpenHashtagBubble,
-                      onOpenMedia = onOpenMedia,
-                      onOpenPost = onOpenPost,
-                      onOpenUrl = onOpenUrl,
-                      onOpenUsername = onOpenUsername,
+                    onOpenHashtagBubble = onOpenHashtagBubble,
+                    onOpenMedia = onOpenMedia,
+                    onOpenPost = onOpenPost,
+                    onOpenUrl = onOpenUrl,
+                    onOpenUsername = onOpenUsername,
                     largeLayout = largeLayout,
-              )
+                )
+                state.selectedTab == ProfileCategory.ShowMore -> item(key = "profile-details") { details() }
+                else -> {
+                    if (singlePinnedInPosts || pinnedErrorInPosts) {
+                        profilePinnedItems(
+                            state = state,
+                            posts = if (singlePinnedInPosts) state.pinnedPosts else emptyList(),
+                            showTitle = false,
+                            showLoading = false,
+                            showError = pinnedErrorInPosts,
+                            quoteEnabled = quoteEnabled,
+                            onQuote = onQuote,
+                            onRefresh = onRefresh,
+                            availableActions = availableActions,
+                            onReact = onReact,
+                            onReply = onReply,
+                            onReshare = onReshare,
+                            onBookmark = onBookmark,
+                            onReaction = onReaction,
+                            onOpenReactionBubble = { ownedPost, bounds -> onOpenReactionBubble?.invoke(ownedPost, bounds) },
+                            onOpenReactionPicker = onOpenReactionPicker,
+                            onOpenProfile = onOpenProfile,
+                            onSearchHashtag = onSearchHashtag,
+                            onOpenHashtagBubble = onOpenHashtagBubble,
+                            onOpenMedia = onOpenMedia,
+                            onOpenPost = onOpenPost,
+                            onOpenUrl = onOpenUrl,
+                            onOpenUsername = onOpenUsername,
+                            largeLayout = largeLayout,
+                        )
+                    }
+                    profilePageItems(
+                        page = page,
+                        quoteEnabled = quoteEnabled,
+                        onQuote = onQuote,
+                        onRefresh = onRefresh,
+                        onLoadMore = onLoadMore,
+                        availableActions = availableActions.intersect(ClientReadyPostActions),
+                        onReact = onReact,
+                        onReply = onReply,
+                        onReshare = onReshare,
+                        onBookmark = onBookmark,
+                        onReaction = onReaction,
+                        onOpenReactionBubble = { ownedPost, bounds -> onOpenReactionBubble?.invoke(ownedPost, bounds) },
+                        onOpenReactionPicker = onOpenReactionPicker,
+                        onOpenProfile = onOpenProfile,
+                        onSearchHashtag = onSearchHashtag,
+                        onOpenHashtagBubble = onOpenHashtagBubble,
+                        onOpenMedia = onOpenMedia,
+                        onOpenPost = onOpenPost,
+                        onOpenUrl = onOpenUrl,
+                        onOpenUsername = onOpenUsername,
+                        largeLayout = largeLayout,
+                    )
+                }
             }
         }
     }
@@ -231,6 +270,7 @@ internal fun ProfileCategoryChips(
     selected: ProfileCategory,
     isSelf: Boolean,
     likedAvailable: Boolean = false,
+    featuredAvailable: Boolean = false,
     onCategorySelected: (ProfileCategory) -> Unit,
     onOpenDrafts: () -> Unit,
     onOpenBookmarks: () -> Unit,
@@ -242,6 +282,7 @@ internal fun ProfileCategoryChips(
         entries = profileChipEntries(
             isSelf = isSelf,
             likedAvailable = likedAvailable,
+            featuredAvailable = featuredAvailable,
             includeShowMore = includeShowMore,
             includeEditProfile = includeEditProfile,
         ).map { entry ->
@@ -280,6 +321,10 @@ internal fun ProfileCategoryChips(
 
 private fun LazyListScope.profilePinnedItems(
     state: ProfileUiState,
+    posts: List<OwnedPost>,
+    showTitle: Boolean,
+    showLoading: Boolean,
+    showError: Boolean,
     onRefresh: () -> Unit,
     availableActions: Set<PostAction>,
     onReact: (OwnedPost) -> Unit,
@@ -300,13 +345,12 @@ private fun LazyListScope.profilePinnedItems(
     onQuote: (OwnedPost) -> Unit,
     largeLayout: Boolean,
 ) {
-    if (state.pinnedLoading) item(key = "profile-pinned-loading") {
-                Text(stringResource(R.string.profile_featured_posts), Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
+    if (showLoading && posts.isEmpty()) item(key = "profile-pinned-loading") {
         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(Modifier.size(24.dp))
         }
     }
-    if (state.pinnedError != null) item(key = "profile-pinned-error") {
+    if (showError && state.pinnedError != null) item(key = "profile-pinned-error") {
         ProfileMessage(
             title = stringResource(R.string.profile_featured_posts_unavailable),
             message = state.pinnedError,
@@ -314,11 +358,11 @@ private fun LazyListScope.profilePinnedItems(
             onAction = onRefresh,
         )
     }
-    if (state.pinnedPosts.isNotEmpty()) {
-        item(key = "profile-pinned-title") {
+    if (posts.isNotEmpty()) {
+        if (showTitle) item(key = "profile-pinned-title") {
             Text(stringResource(R.string.profile_featured_posts), Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
         }
-        items(state.pinnedPosts, key = { "pinned/${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
+        items(posts, key = { "pinned/${it.post.id.connection}/${it.post.id.value}" }) { ownedPost ->
             PostRow(
                 ownedPost = ownedPost,
                 availableActions = availableActions,
@@ -476,17 +520,15 @@ private const val MAX_AUTOMATIC_EMPTY_PAGES = 3
 private fun firstTimelineItemIndex(
     showHeader: Boolean,
     showInlineCategories: Boolean,
-    pinnedLoading: Boolean,
+    pinnedRowCount: Int,
     pinnedError: Boolean,
-    pinnedPostCount: Int,
     hasFirstPost: Boolean,
 ): Int {
     if (!hasFirstPost) return 0
     var index = 0
     if (showHeader) index++
     if (showInlineCategories) index++
-    if (pinnedLoading) index++
     if (pinnedError) index++
-    if (pinnedPostCount > 0) index += 1 + pinnedPostCount // title and pinned rows
+    index += pinnedRowCount
     return index
 }

@@ -104,6 +104,7 @@ internal fun ProfileLargePresentation(
                     selected = state.selectedTab,
                     isSelf = isSelf,
                     likedAvailable = state.likedAvailable,
+                    featuredAvailable = state.pinnedPosts.size > 1,
                     onCategorySelected = onCategorySelected,
                     onOpenDrafts = onOpenDrafts,
                     onOpenBookmarks = onOpenBookmarks,

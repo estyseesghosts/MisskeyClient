@@ -499,6 +499,7 @@
     <string name="profile_redirect_notice">%1$s has indicated that their new account is now:</string>
     <string name="profile_requested">Requested</string>
     <string name="profile_saved_details">Showing saved profile details. %1$s</string>
+    <string name="profile_tab_featured">Featured</string>
     <string name="profile_tab_media">Media</string>
     <string name="profile_tab_posts">Posts</string>
     <string name="profile_tab_replies">Replies</string>

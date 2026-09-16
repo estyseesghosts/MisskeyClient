@@ -195,6 +195,12 @@ Read these in order. Treat the repository as the authority.
   Reposts, Liked. The Liked tab is available for the signed-in account on either
   protocol, for another Misskey account, and not for another Mastodon account.
   The durable record is `docs/agents/tasks/profile-liked-tab.md`.
+- The Profile Featured tab is committed and test verified. `ProfileCategory.Featured`
+  leads the category row only when the profile has more than one pinned post. A
+  single pinned post shows at the top of the Posts feed with no Featured tab.
+  Pinned posts stay out of every other profile feed. Featured renders the pinned
+  posts the profile already loaded, so it adds no request and no pager tab. The
+  durable record is `docs/agents/tasks/profile-featured-tab.md`.
 
 ## Next Slice
 
@@ -204,11 +210,6 @@ Read these in order. Treat the repository as the authority.
    source surface are unreachable. Remove them and update the shell fixtures and
    navigation tests. The durable record is
    `docs/agents/tasks/profile-liked-tab.md`.
-2. Featured tab. Add a Featured profile tab to the left of the Posts tab. Show
-   it only when the account has more than one pinned post. With exactly one
-   pinned post, show that post at the top of the posts feed and no Featured tab.
-   With more than one pinned post, keep pinned posts out of every other profile
-   feed and show them only in Featured.
 
 Plan 04 continues at 04-F (bound idle Misskey thread continuations) after the
 profile tabs, unless the user directs otherwise. Then implement 04-G through
