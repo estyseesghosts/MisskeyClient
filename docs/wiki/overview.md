@@ -19,7 +19,7 @@ Beeline is one Android module in `:app`. Beeline uses Kotlin, Jetpack Compose, a
 - The compile SDK and the target SDK are 37. Source: `app/build.gradle.kts`.
 - The application ID is `me.foxtails.palustris`. Existing identifiers keep the internal codename. Do not change them as unrelated cleanup.
 - The product name is Beeline. Source: [`ProductIdentity.kt`](../../app/src/main/java/me/foxtails/palustris/ProductIdentity.kt).
-- The version name is 0.2.1 by default. Source: `app/build.gradle.kts`.
+- The version name is 0.2.7 by default. Source: `app/build.gradle.kts`.
 
 ## Supported Servers
 

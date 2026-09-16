@@ -7,7 +7,7 @@ class ProductIdentityTest {
     @Test
     fun generatedIdentityUsesBeelineVersion() {
         assertEquals("Beeline", BuildConfig.PRODUCT_NAME)
-        assertEquals("0.2.1", BuildConfig.PRODUCT_VERSION)
-        assertEquals("Beeline/0.2.1 (Android)", ProductIdentity.userAgent)
+        assertEquals("0.2.7", BuildConfig.PRODUCT_VERSION)
+        assertEquals("Beeline/0.2.7 (Android)", ProductIdentity.userAgent)
     }
 }

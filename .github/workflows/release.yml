@@ -145,14 +145,15 @@ jobs:
             gh release edit "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "Beeline $VERSION_NAME" \
-              --notes "Minimum viable client." \
+              --notes "Making the pain worth it." \
               --draft=false \
-              --prerelease=false
+              --prerelease=true
           else
             gh release create "$RELEASE_TAG" "$APK" \
               --repo "$GITHUB_REPOSITORY" \
               --title "Beeline $VERSION_NAME" \
-              --notes "Minimum viable client."
+              --notes "Making the pain worth it." \
+              --prerelease
           fi
 
       - name: Remove release keystore
