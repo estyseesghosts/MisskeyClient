@@ -45,7 +45,6 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/data/auth/MisskeyAuth.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="3" column="1" source="standard:no-wildcard-imports" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/data/auth/SessionStore.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -123,7 +122,6 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/data/misskey/MisskeyApi.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="7" column="1" source="standard:no-wildcard-imports" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/data/misskey/MisskeyCapabilityProbe.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -260,13 +258,6 @@
         <error line="7" column="1" source="standard:no-unused-imports" />
         <error line="8" column="1" source="standard:no-unused-imports" />
         <error line="9" column="1" source="standard:no-unused-imports" />
-        <error line="15" column="45" source="standard:enum-wrapping" />
-        <error line="16" column="72" source="standard:enum-wrapping" />
-        <error line="74" column="1" source="standard:no-consecutive-blank-lines" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/Components.kt">
-        <error line="3" column="1" source="standard:no-wildcard-imports" />
-        <error line="6" column="1" source="standard:no-wildcard-imports" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/ComposerScreen.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -304,44 +295,44 @@
         <error line="18" column="1" source="standard:no-unused-imports" />
         <error line="19" column="1" source="standard:no-unused-imports" />
         <error line="20" column="1" source="standard:no-unused-imports" />
-        <error line="22" column="1" source="standard:no-wildcard-imports" />
-        <error line="25" column="1" source="standard:no-unused-imports" />
-        <error line="26" column="1" source="standard:no-unused-imports" />
         <error line="27" column="1" source="standard:no-unused-imports" />
-        <error line="28" column="1" source="standard:no-wildcard-imports" />
-        <error line="29" column="1" source="standard:no-wildcard-imports" />
-        <error line="33" column="1" source="standard:no-unused-imports" />
-        <error line="34" column="1" source="standard:no-unused-imports" />
-        <error line="35" column="1" source="standard:no-unused-imports" />
-        <error line="36" column="1" source="standard:no-unused-imports" />
         <error line="37" column="1" source="standard:no-unused-imports" />
         <error line="38" column="1" source="standard:no-unused-imports" />
-        <error line="40" column="1" source="standard:no-unused-imports" />
+        <error line="39" column="1" source="standard:no-unused-imports" />
         <error line="41" column="1" source="standard:no-unused-imports" />
         <error line="42" column="1" source="standard:no-unused-imports" />
-        <error line="43" column="1" source="standard:no-unused-imports" />
-        <error line="45" column="1" source="standard:no-unused-imports" />
-        <error line="46" column="1" source="standard:no-unused-imports" />
-        <error line="47" column="1" source="standard:no-unused-imports" />
-        <error line="49" column="1" source="standard:no-unused-imports" />
         <error line="51" column="1" source="standard:no-unused-imports" />
         <error line="52" column="1" source="standard:no-unused-imports" />
+        <error line="53" column="1" source="standard:no-unused-imports" />
         <error line="54" column="1" source="standard:no-unused-imports" />
         <error line="55" column="1" source="standard:no-unused-imports" />
         <error line="56" column="1" source="standard:no-unused-imports" />
         <error line="58" column="1" source="standard:no-unused-imports" />
+        <error line="59" column="1" source="standard:no-unused-imports" />
+        <error line="60" column="1" source="standard:no-unused-imports" />
         <error line="61" column="1" source="standard:no-unused-imports" />
+        <error line="63" column="1" source="standard:no-unused-imports" />
         <error line="64" column="1" source="standard:no-unused-imports" />
         <error line="65" column="1" source="standard:no-unused-imports" />
-        <error line="66" column="1" source="standard:no-unused-imports" />
         <error line="67" column="1" source="standard:no-unused-imports" />
-        <error line="68" column="1" source="standard:no-unused-imports" />
-        <error line="103" column="1" source="standard:no-unused-imports" />
-        <error line="107" column="1" source="standard:no-unused-imports" />
-        <error line="108" column="1" source="standard:no-unused-imports" />
-        <error line="109" column="1" source="standard:no-unused-imports" />
-        <error line="113" column="1" source="standard:no-unused-imports" />
-        <error line="117" column="1" source="standard:no-unused-imports" />
+        <error line="69" column="1" source="standard:no-unused-imports" />
+        <error line="70" column="1" source="standard:no-unused-imports" />
+        <error line="72" column="1" source="standard:no-unused-imports" />
+        <error line="73" column="1" source="standard:no-unused-imports" />
+        <error line="74" column="1" source="standard:no-unused-imports" />
+        <error line="76" column="1" source="standard:no-unused-imports" />
+        <error line="79" column="1" source="standard:no-unused-imports" />
+        <error line="82" column="1" source="standard:no-unused-imports" />
+        <error line="83" column="1" source="standard:no-unused-imports" />
+        <error line="84" column="1" source="standard:no-unused-imports" />
+        <error line="85" column="1" source="standard:no-unused-imports" />
+        <error line="86" column="1" source="standard:no-unused-imports" />
+        <error line="121" column="1" source="standard:no-unused-imports" />
+        <error line="125" column="1" source="standard:no-unused-imports" />
+        <error line="126" column="1" source="standard:no-unused-imports" />
+        <error line="127" column="1" source="standard:no-unused-imports" />
+        <error line="131" column="1" source="standard:no-unused-imports" />
+        <error line="135" column="1" source="standard:no-unused-imports" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/PostActionBubbles.kt">
         <error line="5" column="1" source="standard:import-ordering" />
@@ -420,9 +411,6 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/large/LargeScreenShell.kt">
         <error line="5" column="1" source="standard:import-ordering" />
-    </file>
-    <file name="src/main/java/me/foxtails/palustris/ui/layout/CompactOverlayMetrics.kt">
-        <error line="5" column="1" source="standard:no-wildcard-imports" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/localization/AppLocaleController.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -517,35 +505,30 @@
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/posts/PostRow.kt">
         <error line="9" column="1" source="standard:import-ordering" />
-        <error line="18" column="1" source="standard:no-wildcard-imports" />
-        <error line="19" column="1" source="standard:no-unused-imports" />
-        <error line="20" column="1" source="standard:no-unused-imports" />
-        <error line="21" column="1" source="standard:no-unused-imports" />
-        <error line="22" column="1" source="standard:no-unused-imports" />
-        <error line="26" column="1" source="standard:no-wildcard-imports" />
+        <error line="32" column="1" source="standard:no-unused-imports" />
+        <error line="33" column="1" source="standard:no-unused-imports" />
+        <error line="34" column="1" source="standard:no-unused-imports" />
         <error line="35" column="1" source="standard:no-unused-imports" />
-        <error line="36" column="1" source="standard:no-unused-imports" />
-        <error line="37" column="1" source="standard:no-unused-imports" />
-        <error line="38" column="1" source="standard:no-wildcard-imports" />
-        <error line="42" column="1" source="standard:no-unused-imports" />
-        <error line="47" column="1" source="standard:no-unused-imports" />
-        <error line="64" column="1" source="standard:no-unused-imports" />
-        <error line="68" column="1" source="standard:no-unused-imports" />
-        <error line="69" column="1" source="standard:no-unused-imports" />
-        <error line="72" column="1" source="standard:no-unused-imports" />
-        <error line="73" column="1" source="standard:no-unused-imports" />
-        <error line="74" column="1" source="standard:no-unused-imports" />
-        <error line="75" column="1" source="standard:no-unused-imports" />
-        <error line="77" column="1" source="standard:no-wildcard-imports" />
-        <error line="83" column="1" source="standard:no-unused-imports" />
-        <error line="89" column="1" source="standard:no-unused-imports" />
-        <error line="100" column="5" source="standard:keyword-spacing" />
+        <error line="53" column="1" source="standard:no-unused-imports" />
+        <error line="54" column="1" source="standard:no-unused-imports" />
+        <error line="55" column="1" source="standard:no-unused-imports" />
+        <error line="66" column="1" source="standard:no-unused-imports" />
+        <error line="71" column="1" source="standard:no-unused-imports" />
+        <error line="88" column="1" source="standard:no-unused-imports" />
+        <error line="92" column="1" source="standard:no-unused-imports" />
+        <error line="93" column="1" source="standard:no-unused-imports" />
+        <error line="96" column="1" source="standard:no-unused-imports" />
+        <error line="97" column="1" source="standard:no-unused-imports" />
+        <error line="98" column="1" source="standard:no-unused-imports" />
+        <error line="99" column="1" source="standard:no-unused-imports" />
+        <error line="118" column="1" source="standard:no-unused-imports" />
+        <error line="124" column="1" source="standard:no-unused-imports" />
+        <error line="135" column="5" source="standard:keyword-spacing" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/posts/PostShareSheet.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="21" column="1" source="standard:no-unused-imports" />
         <error line="46" column="1" source="standard:no-unused-imports" />
-        <error line="284" column="1" source="standard:no-blank-line-before-rbrace" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/posts/ReactionPickerGesture.kt">
         <error line="3" column="1" source="standard:import-ordering" />
