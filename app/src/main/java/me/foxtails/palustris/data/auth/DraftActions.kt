@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import me.foxtails.palustris.data.AppMessages
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.PostDraft
 
@@ -24,6 +25,7 @@ class DraftActions(
     private val legacyPreferences: () -> SharedPreferences,
     private val writeGeneration: Long = 0L,
     private val writeAuthority: DraftWriteAuthority = DraftWriteAuthority(),
+    private val appMessages: AppMessages = AppMessages.Default,
 ) {
     fun load(onResult: (List<PostDraft>) -> Unit, onError: (String) -> Unit = {}) {
         scope.launch {
@@ -33,7 +35,7 @@ class DraftActions(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                onError(LOAD_ERROR)
+                onError(appMessages.draftsLoadFailed())
             }
         }
     }
@@ -62,7 +64,7 @@ class DraftActions(
                 throw cancelled
             } catch (_: Exception) {
                 // The list refreshes from storage, so a failed delete still reports completion.
-                onError(DELETE_ERROR)
+                onError(appMessages.draftDeleteFailed())
                 onDone()
             }
         }
@@ -77,9 +79,6 @@ class DraftActions(
     }
 
     companion object {
-        const val LOAD_ERROR = "Drafts could not be loaded."
-        const val DELETE_ERROR = "Draft could not be deleted."
-
         /** Production construction. The legacy preferences lookup stays in the data layer. */
         fun create(
             scope: CoroutineScope,
@@ -97,6 +96,7 @@ class DraftActions(
             },
             writeGeneration = writeGeneration,
             writeAuthority = writeAuthority,
+            appMessages = AppMessages.from(context),
         )
     }
 }

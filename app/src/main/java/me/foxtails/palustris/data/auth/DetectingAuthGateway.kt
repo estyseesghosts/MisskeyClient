@@ -1,5 +1,6 @@
 package me.foxtails.palustris.data.auth
 
+import me.foxtails.palustris.data.AppMessages
 import me.foxtails.palustris.data.misskey.ServerAddress
 import me.foxtails.palustris.domain.Protocol
 
@@ -7,10 +8,11 @@ import me.foxtails.palustris.domain.Protocol
 class DetectingAuthGateway(
     private val misskey: AuthGateway,
     private val mastodon: AuthGateway,
+    private val appMessages: AppMessages = AppMessages.Default,
     private val detectsMisskey: suspend (String) -> Boolean,
 ) : AuthGateway {
     override suspend fun prepare(input: String): PendingLogin {
-        val origin = ServerAddress.normalize(input)
+        val origin = ServerAddress.normalize(input, appMessages)
         val isMisskey = runCatching { detectsMisskey(origin) }.getOrDefault(false)
         return if (isMisskey) misskey.prepare(input) else mastodon.prepare(input)
     }

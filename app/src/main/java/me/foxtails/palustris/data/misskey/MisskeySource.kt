@@ -1,5 +1,6 @@
 package me.foxtails.palustris.data.misskey
 
+import me.foxtails.palustris.data.AppMessages
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Audience
@@ -81,6 +82,7 @@ class MisskeySource(
     private val clock: () -> Long = System::currentTimeMillis,
     private val sessionRevision: Long = 0L,
     private val onCapabilitiesUpdated: ((ServerCapabilities) -> Unit)? = null,
+    private val appMessages: AppMessages = AppMessages.Default,
 ) : SocialSource, DirectMessageSource {
     private val cacheKey = CapabilityCacheKey(origin, accountId ?: AccountId(Connection(origin, Protocol.MISSKEY), "anonymous"))
     private val _capabilities = MutableStateFlow(initialCapabilities)
@@ -137,7 +139,7 @@ class MisskeySource(
 
     override suspend fun searchAccounts(query: String): List<Account> = request {
         val parts = query.trim().removePrefix("@").split('@')
-        require(parts.size in 1..2 && parts[0].isNotBlank()) { "Enter a webfinger handle, such as @user@example.org." }
+        require(parts.size in 1..2 && parts[0].isNotBlank()) { appMessages.webfingerHandleInvalid() }
         val body = JSONObject().put("i", token).put("username", parts[0])
         parts.getOrNull(1)?.takeIf { it.isNotBlank() && !it.equals(java.net.URI(origin).host, ignoreCase = true) }
             ?.let { body.put("host", it) }

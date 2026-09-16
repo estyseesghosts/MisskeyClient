@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import me.foxtails.palustris.data.AppMessages
 import me.foxtails.palustris.domain.AppBackground
 import me.foxtails.palustris.domain.AppColorPalette
 import me.foxtails.palustris.domain.AppColorScheme
@@ -38,6 +39,7 @@ class FileAppPreferencesRepository(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : AppPreferencesRepository {
     private val file = File(context.noBackupFilesDir, "app-preferences.json")
+    private val messages = AppMessages.from(context)
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val mutex = Mutex()
     private val ready = CompletableDeferred<Unit>()
@@ -52,7 +54,7 @@ class FileAppPreferencesRepository(
                     AppPreferencesState(
                         loaded = true,
                         preferences = AppPreferences(),
-                        error = error.message ?: "Application preferences could not be loaded.",
+                        error = error.message ?: messages.preferencesLoadFailed(),
                     )
                 },
             )
@@ -75,7 +77,7 @@ class FileAppPreferencesRepository(
                 if (error is kotlinx.coroutines.CancellationException) throw error
                 values.value = values.value.copy(
                     loaded = true,
-                    error = error.message ?: "Application preferences could not be saved.",
+                    error = error.message ?: messages.preferencesSaveFailed(),
                 )
                 throw error
             }

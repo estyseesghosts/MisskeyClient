@@ -2,6 +2,7 @@ package me.foxtails.palustris.data.misskey
 
 import kotlinx.coroutines.Dispatchers
 import me.foxtails.palustris.ProductIdentity
+import me.foxtails.palustris.data.AppMessages
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.Call
@@ -30,28 +31,29 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 object ServerAddress {
-    fun normalize(input: String): String {
+    fun normalize(input: String, messages: AppMessages = AppMessages.Default): String {
         val value = input.trim()
         val url = (if ("://" in value) value else "https://$value").toHttpUrlOrNull()
         require(url != null && url.scheme == "https" && url.username.isEmpty() && url.password.isEmpty() &&
             url.encodedPath == "/" && url.query == null && url.fragment == null) {
-            "Enter an instance domain, such as misskey.io, using HTTPS."
+            messages.instanceDomainInvalid()
         }
         return url.toString().removeSuffix("/")
     }
 }
 
-class ApiFailure(val status: Int, val code: String? = null) : IOException(
-    "Server request failed ($status${code?.let { ":$it" }.orEmpty()})",
-)
+class ApiFailure(val status: Int, val code: String? = null, message: String = "") : IOException(message)
 
-class ResponseLimitExceeded : IOException("Server response exceeded the client limit")
+class ResponseLimitExceeded(message: String = "") : IOException(message)
 
 /** No redirects: an authenticated request must never forward its token to another host. */
-class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
-    .followRedirects(false).followSslRedirects(false)
-    .connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
-    .callTimeout(40, TimeUnit.SECONDS).build()) {
+class MisskeyApi(
+    private val client: OkHttpClient = OkHttpClient.Builder()
+        .followRedirects(false).followSslRedirects(false)
+        .connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
+        .callTimeout(40, TimeUnit.SECONDS).build(),
+    private val appMessages: AppMessages = AppMessages.Default,
+) {
     suspend fun post(
         origin: String,
         endpoint: String,
@@ -218,7 +220,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
                             val text = it.body?.let { body -> readBody(body, maxResponseBytes) }.orEmpty()
                             if (!it.isSuccessful) {
                                 val code = runCatching { JSONObject(text).optJSONObject("error")?.optString("code") }.getOrNull()
-                                throw ApiFailure(it.code, code)
+                                throw ApiFailure(it.code, code, appMessages.serverRequestFailed(it.code, code))
                             }
                             continuation.resume(HttpResponse(text, it.headers))
                         } catch (e: Exception) { if (!continuation.isCancelled) continuation.resumeWithException(e) }
@@ -238,7 +240,7 @@ class MisskeyApi(private val client: OkHttpClient = OkHttpClient.Builder()
                 val read = input.read(buffer)
                 if (read < 0) break
                 total += read
-                if (total > maxResponseBytes) throw ResponseLimitExceeded()
+                if (total > maxResponseBytes) throw ResponseLimitExceeded(appMessages.responseLimitExceeded())
                 output.write(buffer, 0, read)
             }
         }

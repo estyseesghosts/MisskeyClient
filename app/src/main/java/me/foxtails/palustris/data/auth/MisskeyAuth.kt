@@ -1,5 +1,6 @@
 package me.foxtails.palustris.data.auth
 
+import me.foxtails.palustris.data.AppMessages
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.misskey.MisskeyErrorMapper
@@ -23,16 +24,19 @@ interface AuthGateway {
     suspend fun complete(pending: PendingLogin): LoginSession
 }
 
-class MisskeyAuth(private val apiFor: (String) -> MisskeyApi) : AuthGateway {
-    constructor(api: MisskeyApi) : this({ api })
-    constructor(clientPool: HttpClientPool) : this({ origin ->
-        MisskeyApi(clientPool.clientFor(Connection(origin, Protocol.MISSKEY)))
-    })
+class MisskeyAuth(
+    private val apiFor: (String) -> MisskeyApi,
+    private val appMessages: AppMessages = AppMessages.Default,
+) : AuthGateway {
+    constructor(api: MisskeyApi, appMessages: AppMessages = AppMessages.Default) : this({ api }, appMessages)
+    constructor(clientPool: HttpClientPool, appMessages: AppMessages = AppMessages.Default) : this({ origin ->
+        MisskeyApi(clientPool.clientFor(Connection(origin, Protocol.MISSKEY)), appMessages = appMessages)
+    }, appMessages)
 
     override suspend fun prepare(input: String): PendingLogin = try {
-        val origin = ServerAddress.normalize(input)
+        val origin = ServerAddress.normalize(input, appMessages)
         val meta = JSONObject(apiFor(origin).post(origin, "meta", JSONObject().put("detail", false)).body)
-        require(!meta.nullableString("version").isNullOrBlank()) { "This server did not return Misskey-compatible information." }
+        require(!meta.nullableString("version").isNullOrBlank()) { appMessages.misskeyServerIncompatible() }
         PendingLogin(
             origin = origin,
             id = UUID.randomUUID().toString(),
@@ -51,9 +55,9 @@ class MisskeyAuth(private val apiFor: (String) -> MisskeyApi) : AuthGateway {
         .addQueryParameter("permission", MISSKEY_PERMISSIONS).build().toString()
 
     override suspend fun complete(pending: PendingLogin): LoginSession = try {
-        require(pending.isFresh(System.currentTimeMillis())) { "This sign-in has expired. Choose your instance again." }
+        require(pending.isFresh(System.currentTimeMillis())) { appMessages.signInExpired() }
         val result = JSONObject(apiFor(pending.origin).post(pending.origin, "miauth/${pending.id}/check").body)
-        if (!result.optBoolean("ok")) throw IllegalArgumentException("Access has not been approved yet. Finish signing in in your browser, then try again.")
+        if (!result.optBoolean("ok")) throw IllegalArgumentException(appMessages.signInNotApproved())
         val token = result.getString("token")
         require(token.isNotBlank())
         // The check response includes the authenticated user. Persist immediately: MiAuth

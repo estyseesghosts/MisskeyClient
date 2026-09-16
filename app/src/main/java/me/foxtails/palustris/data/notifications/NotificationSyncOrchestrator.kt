@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import me.foxtails.palustris.data.AccountSourceRegistry
+import me.foxtails.palustris.data.AppMessages
 import me.foxtails.palustris.data.notifications.work.NoOpNotificationDeliveryScheduler
 import me.foxtails.palustris.data.notifications.work.NotificationDeliveryScheduler
 import me.foxtails.palustris.domain.AccountId
@@ -91,6 +92,7 @@ class NotificationSyncOrchestrator @Inject constructor(
     private val synchronizer: NotificationSynchronizer,
     private val sourceRegistry: AccountSourceRegistry,
     private val deliveryScheduler: NotificationDeliveryScheduler,
+    private val appMessages: AppMessages = AppMessages.Default,
 ) : NotificationSyncController, NotificationSyncIntents, AutoCloseable {
     private constructor(dependencies: Dependencies) : this(
         dependencies.repository,
@@ -176,7 +178,7 @@ class NotificationSyncOrchestrator @Inject constructor(
                     throw error
                 } catch (error: Exception) {
                     if (!isCurrent(token)) break
-                    state.value = state.value.copy(error = error.message ?: "Notification sync failed")
+                    state.value = state.value.copy(error = error.message ?: appMessages.notificationSyncFailed())
                 }
                 if (isCurrent(token)) delay(POLL_INTERVAL_MILLIS)
             }

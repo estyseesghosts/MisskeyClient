@@ -16,12 +16,13 @@ class SocialSourceFactory @Inject constructor(
     private val clientPool: HttpClientPool,
     private val sessionStore: SessionStore? = null,
     private val capabilityCache: CapabilityCache = CapabilityCache(),
+    private val appMessages: AppMessages = AppMessages.Default,
 ) {
     fun create(session: Session): SocialSource = when (session.accountId.connection.protocol) {
         Protocol.MISSKEY -> MisskeySource(
             origin = session.accountId.connection.origin,
             token = session.token,
-            api = MisskeyApi(clientPool.clientFor(session.accountId.connection)),
+            api = MisskeyApi(clientPool.clientFor(session.accountId.connection), appMessages = appMessages),
             accountId = session.accountId,
             initialCapabilities = session.capabilities,
             capabilityCache = capabilityCache,
@@ -30,9 +31,10 @@ class SocialSourceFactory @Inject constructor(
                 // Persist only when the stored session still matches the source revision.
                 sessionStore?.updateCapabilities(session.accountId, session.sessionRevision) { capabilities }
             },
+            appMessages = appMessages,
         )
         Protocol.MASTODON -> {
-            val api = MisskeyApi(clientPool.clientFor(session.accountId.connection))
+            val api = MisskeyApi(clientPool.clientFor(session.accountId.connection), appMessages = appMessages)
             MastodonSource(
                 origin = session.accountId.connection.origin,
                 token = session.token,

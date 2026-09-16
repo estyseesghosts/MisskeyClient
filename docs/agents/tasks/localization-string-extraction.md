@@ -1,6 +1,7 @@
 # Localization String Extraction
 
-**Status:** active. Owner: agent. Last reviewed: 2026-09-16.
+**Status:** paused. Slices 1 through 4 are complete. Owner: agent. Last
+reviewed: 2026-09-16.
 
 Goal: no user-visible text is declared in code. Every user-visible string
 comes from `app/src/main/res/values/strings.xml`.
@@ -124,19 +125,46 @@ old string format.
 Verification: `assembleDebug`, full `testDebugUnitTest` (1071 tests),
 `assembleRelease`, and `ktlintCheck` pass. Source audit: zero unused resources.
 
-### Slice 4 — data layer error messages (planned)
+### Slice 4 — data layer error messages (complete)
 
-`data/` owns English fallbacks that reach the user:
-`FileAppPreferencesRepository` load and save failures, `NotificationSyncOrchestrator`
-`"Notification sync failed"`, `DraftActions` load and delete failures, the
-`MastodonAuth` and `MisskeyAuth` expiry and incompatible-server messages,
-`MisskeyApi` domain and request failures, and `MisskeySource` webfinger
-validation. The auth classes, orchestrator, and push repository have no
-`Context`. Decide the mechanism: a `@StringRes` code on the error, or a
-`Context`-backed resolver like `UiStrings`. Do not persist a resource id.
-Also decide the protocol feature codes (`timeline:Home`, `direct.pagination`,
-`notifications.followRequest`, `requested feature`) that `sourceErrorMessage`
-still interpolates.
+Decision: a Context-backed resolver. `data/AppMessages.kt` is new. It is the
+data-layer sibling of `ui.UiStrings`. It is an interface with empty default
+methods, an Android-backed `from(context)`, and a `Default` with no copy. Data
+owners keep no user-facing English and no `Context` in their signatures.
+
+- `FileAppPreferencesRepository` builds `AppMessages.from(context)` and uses the
+  load and save messages.
+- `DraftActions` takes `appMessages` and `create(context)` binds the Android
+  implementation. The `LOAD_ERROR` and `DELETE_ERROR` constants are gone.
+- `NotificationSyncOrchestrator` takes `appMessages` and uses the sync message.
+- `MastodonAuth` and `MisskeyAuth` take `appMessages`, resolve the expired,
+  authorization-missing, incompatible-server, and not-approved messages, and
+  pass the resolver to `ServerAddress.normalize`.
+- `MisskeyApi` takes `appMessages`. `ServerAddress.normalize` takes it, so the
+  instance-domain message comes from the catalog. `ApiFailure` and
+  `ResponseLimitExceeded` carry the resolved message.
+- `MisskeySource` takes `appMessages` and resolves the webfinger message.
+- `SocialSourceFactory`, `DetectingAuthGateway`, and `AppModule` pass the Hilt
+  `AppMessages` singleton.
+- `ui/SourceErrorMessage.kt` now resolves a feature identifier to a human label.
+  `timeline:*` uses `timelineLabelRes`, `audience:*` uses the audience labels,
+  and an unknown identifier uses a generic phrase. A raw protocol code never
+  reaches the user. A blank server detail uses the generic server message.
+- New strings: `error_preferences_load`, `error_preferences_save`,
+  `error_notification_sync`, `error_drafts_load`, `error_draft_delete`,
+  `sign_in_expired`, `sign_in_authorization_missing`, `sign_in_not_approved`,
+  `error_misskey_incompatible`, `error_webfinger_handle`,
+  `error_instance_domain`, `error_response_limit`, `error_server_request`, and
+  `error_feature_generic`.
+
+Tests: `AppMessagesTest` (3) pins every resolver method to its catalog value and
+pins the `Default` empty copy. `SourceErrorMessageTest` (4) covers the timeline
+and audience labels, the generic fallback, and the blank server detail.
+`DraftActionsTest` reads the resolved load and delete messages.
+
+Verification: full `testDebugUnitTest`, `assembleRelease`, `ktlintCheck`, and
+`lintDebug` pass. The ktlint baseline is regenerated; the file and rule set is
+unchanged. The source audit keeps zero unused resources.
 
 ## Not In Scope
 

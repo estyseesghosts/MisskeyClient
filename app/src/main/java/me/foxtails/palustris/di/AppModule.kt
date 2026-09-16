@@ -14,6 +14,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import me.foxtails.palustris.data.SocialSourceFactory
+import me.foxtails.palustris.data.AppMessages
 import me.foxtails.palustris.data.auth.AppRegistrationCache
 import me.foxtails.palustris.data.auth.AuthGateway
 import me.foxtails.palustris.data.auth.DetectingAuthGateway
@@ -93,12 +94,20 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideMisskeyAuth(clientPool: HttpClientPool): MisskeyAuth = MisskeyAuth(clientPool)
+    fun provideAppMessages(@ApplicationContext context: Context): AppMessages = AppMessages.from(context)
 
     @Provides
     @Singleton
-    fun provideMastodonAuth(clientPool: HttpClientPool, cache: AppRegistrationCache): MastodonAuth =
-        MastodonAuth(clientPool, cache)
+    fun provideMisskeyAuth(clientPool: HttpClientPool, appMessages: AppMessages): MisskeyAuth =
+        MisskeyAuth(clientPool, appMessages)
+
+    @Provides
+    @Singleton
+    fun provideMastodonAuth(
+        clientPool: HttpClientPool,
+        cache: AppRegistrationCache,
+        appMessages: AppMessages,
+    ): MastodonAuth = MastodonAuth(clientPool, cache, appMessages)
 
     @Provides
     @Singleton
@@ -106,10 +115,16 @@ object NetworkModule {
         misskey: MisskeyAuth,
         mastodon: MastodonAuth,
         clientPool: HttpClientPool,
-    ): AuthGateway = DetectingAuthGateway(misskey, mastodon) { origin ->
-        val probe = MisskeyApi(clientPool.clientFor(Connection(origin, Protocol.MISSKEY)))
-        JSONObject(probe.post(origin, "meta").body).optString("version").isNotBlank()
-    }
+        appMessages: AppMessages,
+    ): AuthGateway = DetectingAuthGateway(
+        misskey = misskey,
+        mastodon = mastodon,
+        detectsMisskey = { origin ->
+            val probe = MisskeyApi(clientPool.clientFor(Connection(origin, Protocol.MISSKEY)), appMessages = appMessages)
+            JSONObject(probe.post(origin, "meta").body).optString("version").isNotBlank()
+        },
+        appMessages = appMessages,
+    )
 }
 
 @Module
@@ -210,7 +225,8 @@ object SourceModule {
         clientPool: HttpClientPool,
         sessionStore: SessionStore,
         capabilityCache: CapabilityCache,
-    ): SocialSourceFactory = SocialSourceFactory(clientPool, sessionStore, capabilityCache)
+        appMessages: AppMessages,
+    ): SocialSourceFactory = SocialSourceFactory(clientPool, sessionStore, capabilityCache, appMessages)
 }
 
 @Module

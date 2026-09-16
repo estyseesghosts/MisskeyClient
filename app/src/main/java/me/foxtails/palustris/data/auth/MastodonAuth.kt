@@ -1,5 +1,6 @@
 package me.foxtails.palustris.data.auth
 
+import me.foxtails.palustris.data.AppMessages
 import me.foxtails.palustris.data.misskey.HttpClientPool
 import me.foxtails.palustris.data.misskey.MisskeyApi
 import me.foxtails.palustris.data.misskey.ServerAddress
@@ -24,15 +25,26 @@ import java.util.UUID
 class MastodonAuth(
     private val apiFor: (String) -> MisskeyApi,
     private val appRegistrationCache: AppRegistrationCache = AppRegistrationCache(),
+    private val appMessages: AppMessages = AppMessages.Default,
 ) : AuthGateway {
-    constructor(api: MisskeyApi, appRegistrationCache: AppRegistrationCache = AppRegistrationCache()) :
-        this({ api }, appRegistrationCache)
+    constructor(
+        api: MisskeyApi,
+        appRegistrationCache: AppRegistrationCache = AppRegistrationCache(),
+        appMessages: AppMessages = AppMessages.Default,
+    ) : this({ api }, appRegistrationCache, appMessages)
 
-    constructor(clientPool: HttpClientPool, appRegistrationCache: AppRegistrationCache = AppRegistrationCache()) :
-        this({ origin -> MisskeyApi(clientPool.clientFor(Connection(origin, Protocol.MASTODON))) }, appRegistrationCache)
+    constructor(
+        clientPool: HttpClientPool,
+        appRegistrationCache: AppRegistrationCache = AppRegistrationCache(),
+        appMessages: AppMessages = AppMessages.Default,
+    ) : this(
+        { origin -> MisskeyApi(clientPool.clientFor(Connection(origin, Protocol.MASTODON)), appMessages = appMessages) },
+        appRegistrationCache,
+        appMessages,
+    )
 
     override suspend fun prepare(input: String): PendingLogin = try {
-        val origin = ServerAddress.normalize(input)
+        val origin = ServerAddress.normalize(input, appMessages)
         val api = apiFor(origin)
         val registration = appRegistrationCache.getOrPut(origin, REQUIRED_APP_SCOPES) {
             registerApp(origin, api, REQUIRED_APP_SCOPES)
@@ -78,12 +90,12 @@ class MastodonAuth(
 
     override suspend fun complete(pending: PendingLogin): LoginSession = try {
         require(pending.protocol == Protocol.MASTODON && pending.isFresh(System.currentTimeMillis())) {
-            "This sign-in has expired. Choose your instance again."
+            appMessages.signInExpired()
         }
         val clientId = requireNotNull(pending.clientId)
         val clientSecret = requireNotNull(pending.clientSecret)
         val code = requireNotNull(pending.authorizationCode) {
-            "Authorization was not returned. Finish signing in in your browser, then try again."
+            appMessages.signInAuthorizationMissing()
         }
         val tokenResponse = apiFor(pending.origin).postForm(pending.origin, "oauth/token", mapOf(
             "client_id" to clientId,

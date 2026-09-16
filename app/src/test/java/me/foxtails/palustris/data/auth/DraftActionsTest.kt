@@ -14,6 +14,8 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import me.foxtails.palustris.R
+import me.foxtails.palustris.data.AppMessages
 import me.foxtails.palustris.data.auth.DraftActions
 import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.auth.DraftWriteAuthority
@@ -35,6 +37,7 @@ import org.robolectric.annotation.Config
 class DraftActionsTest {
     private val account = AccountId(Connection("https://drafts.example", Protocol.MISSKEY), "author")
     private val draft = PostDraft(accountId = account, text = "hello")
+    private val context = ApplicationProvider.getApplicationContext<Context>()
 
     @Test
     fun loadMigratesThenLists() = runTest {
@@ -59,7 +62,7 @@ class DraftActionsTest {
         advanceUntilIdle()
 
         assertTrue(results.isEmpty())
-        assertEquals(listOf(DraftActions.LOAD_ERROR), errors)
+        assertEquals(listOf(context.getString(R.string.error_drafts_load)), errors)
     }
 
     @Test
@@ -120,7 +123,7 @@ class DraftActionsTest {
         advanceUntilIdle()
 
         assertEquals(1, done)
-        assertEquals(listOf(DraftActions.DELETE_ERROR), errors)
+        assertEquals(listOf(context.getString(R.string.error_draft_delete)), errors)
     }
 
     @Test
@@ -140,8 +143,7 @@ class DraftActionsTest {
         assertTrue(errors.isEmpty())
     }
 
-    private fun preferences() = ApplicationProvider.getApplicationContext<Context>()
-        .getSharedPreferences("local_draft", Context.MODE_PRIVATE)
+    private fun preferences() = context.getSharedPreferences("local_draft", Context.MODE_PRIVATE)
 
     @Test
     fun saveAfterInvalidationWritesNothingAndReportsNothing() = runTest {
@@ -232,7 +234,11 @@ class DraftActionsTest {
         store = store,
         accountId = account,
         legacyPreferences = ::preferences,
+        appMessages = appMessages,
     )
+
+    private val appMessages: AppMessages
+        get() = AppMessages.from(context)
 
     private class GateDraftStore(
         var listResult: List<PostDraft> = emptyList(),

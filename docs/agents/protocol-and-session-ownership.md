@@ -71,6 +71,13 @@ account switching, same-account replacement, profile updates, and retired regist
 Keep unknown, denied, and unsupported states separate. Do not mark a feature unsupported after one
 failed request.
 
+Data-layer owners resolve user text through `data/AppMessages`. It is the Context-backed sibling
+of `ui.UiStrings`, so a transport, storage, or authentication owner keeps no user-facing English
+and no `Context` in its signature. `ui/SourceErrorMessage.kt` resolves a source failure and its
+feature identifier to a localized message. `timeline:*` uses the timeline label, `audience:*` uses
+the audience label, and an unknown identifier uses a generic phrase, so a raw protocol code never
+reaches the user.
+
 ## Origin Validation
 
 `domain/Connection.kt` requires an HTTPS origin. `isValid()` rejects credentials, paths, queries,

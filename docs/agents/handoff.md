@@ -185,18 +185,31 @@ Read these in order. Treat the repository as the authority.
   verified conversation, so no guessed identity reaches the server. A legacy or
   unrecognized identity decodes as provisional. Its slice and this record share
   one commit.
+- Localization string extraction is complete through slice 4 (data layer error
+  messages). `data/AppMessages.kt` is the Context-backed resolver for data-layer
+  owners. `ui/SourceErrorMessage.kt` localizes feature identifiers. The durable
+  record is `docs/agents/tasks/localization-string-extraction.md`. Its slice and
+  this record share one commit.
 
 ## Next Slice
 
-Localization string extraction is paused after slice 3. The durable record is
-`docs/agents/tasks/localization-string-extraction.md`. Slice 4 (data layer error
-messages) remains planned. Resume it when the user directs localization work.
+The user directed two profile feature slices after localization. Each needs its
+own task-state file and verification. Build the Liked tab first, then Featured.
 
-Plan 04 continues at 04-F (bound idle Misskey thread continuations). 04-E3 is
-Done. Then implement 04-G through 04-K in the recorded order. 04-K removes the
-dead profile paging authority and bounds the cursor sets. 04-J runs last and
-depends on 04-F through 04-I and 04-K. The last safe commit is the commit that
-contains this handoff (`git log -1`).
+1. Liked tab. Add a Liked profile tab for Mastodon favourites and Misskey
+   reacted posts. Place it to the right of the Reposts tab. Move the Replies tab
+   to the right of the Posts tab.
+2. Featured tab. Add a Featured profile tab to the left of the Posts tab. Show
+   it only when the account has more than one pinned post. With exactly one
+   pinned post, show that post at the top of the posts feed and no Featured tab.
+   With more than one pinned post, keep pinned posts out of every other profile
+   feed and show them only in Featured.
+
+Plan 04 continues at 04-F (bound idle Misskey thread continuations) after the
+profile tabs, unless the user directs otherwise. Then implement 04-G through
+04-K in the recorded order. 04-K removes the dead profile paging authority and
+bounds the cursor sets. 04-J runs last and depends on 04-F through 04-I and 04-K.
+The last safe commit is the commit that contains this handoff (`git log -1`).
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The
@@ -260,8 +273,8 @@ verification.
   04 slice plan lives in the tracked `docs/agents/tasks/plan04-utility-retention.md`.
 - The worktree holds the untracked `appsvg/` directory. Do not commit it.
 - The last Plan 04 slice is 04-E3, and no Plan 04 slice is in progress. The
-  localization task has slices 1, 2, and 3 complete, and slice 4 is paused. The
-  last safe commit is the current `HEAD` (`git log -1`).
+  localization task has slices 1 through 4 complete and is paused. The last safe
+  commit is the current `HEAD` (`git log -1`).
 - All non-English string catalogs are removed from the app for now. Two
   localization tests were relaxed to tolerate missing catalogs and must be
   tightened again when the catalogs return:

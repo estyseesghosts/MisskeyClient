@@ -45,11 +45,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.R
+import me.foxtails.palustris.data.AppMessages
 import me.foxtails.palustris.data.misskey.ServerAddress
 import me.foxtails.palustris.ui.session.SessionUi
 
@@ -104,6 +106,7 @@ internal fun SetupServerScreen(
 ) {
     var server by rememberSaveable { mutableStateOf("") }
     var validationError by rememberSaveable { mutableStateOf<String?>(null) }
+    val appMessages = AppMessages.from(LocalContext.current)
     val whitespaceError = stringResource(R.string.setup_server_whitespace_error)
     val invalidServerError = stringResource(R.string.setup_invalid_server)
     val submit: () -> Unit = {
@@ -111,7 +114,7 @@ internal fun SetupServerScreen(
             onComplete()
         } else {
             try {
-                val normalized = ServerAddress.normalize(server)
+                val normalized = ServerAddress.normalize(server, appMessages)
                 validationError = null
                 onNext(normalized)
             } catch (error: IllegalArgumentException) {
