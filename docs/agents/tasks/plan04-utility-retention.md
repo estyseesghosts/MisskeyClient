@@ -10,7 +10,7 @@
 
 **Started:** 2026-09-16.
 
-**Status:** in progress. 04-A is complete. 04-B through 04-J remain.
+**Status:** in progress. 04-A and 04-B are complete. 04-C through 04-J remain.
 
 **This task is larger than one safe implementation slice.**
 
@@ -149,6 +149,28 @@ Committed. The slice commit is `ee52ba9`. Source verified against `HEAD` at
 - Verification: focused tests pass. `test assembleRelease` passes.
   `:app:ktlintCheck` passes. `:app:lintDebug` passes. Physical launch behavior
   stays device-unverified.
+
+### 04-B Separate Unicode Data
+
+Committed. The slice commit is `6a87c76`.
+
+- `ui/emoji/DefaultUnicodeEmoji.kt` now holds the `internal val
+  DefaultUnicodeEmojis` declaration. `EmojiPicker.kt` loses only that
+  declaration and its following blank line.
+- Both consumers, `EmojiPicker.kt` and `EmojiPickerGrouping.kt`, stay in the
+  `ui.emoji` package, so no caller and no import changed. Picker behavior is
+  unchanged.
+- `DefaultUnicodeEmojiTest` compares the catalog to a fixed ordered snapshot in
+  `app/src/test/resources/emoji/default-unicode-emojis.txt`. The snapshot was
+  captured from the pre-move declaration and pins order, duplicates, variation
+  selectors, surrogates, and joiners. The test does not rebuild the expectation
+  at runtime.
+- Verification: `DefaultUnicodeEmojiTest`, `EmojiPickerTest`,
+  `EmojiCatalogViewModelTest`, `HomeFeedTest`, and `SignInScreenTest` pass.
+  `test assembleRelease` passes. `:app:ktlintCheck` passes. `:app:lintDebug`
+  passes. No baseline change is needed. Physical rendering stays
+  device-unverified.
+
 
 
 ### 04-A Complete External-Link Ownership
@@ -308,4 +330,4 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
 
 ## Last safe commit
 
-`ee52ba9` "Move generic browser handling into ExternalLinkHandler".
+`6a87c76` "Move the Unicode catalog out of EmojiPicker".
