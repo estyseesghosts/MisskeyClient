@@ -14,7 +14,7 @@ durable record for the active Q1 work is `docs/agents/tasks/q1-static-analysis.m
 Read these in order. Treat the repository as the authority.
 
 1. `AGENTS.md`.
-2. `docs/agents/tasks/ui-package-migration.md`.
+2. `docs/agents/tasks/q1-static-analysis.md`.
 3. `docs/decomposition_3/03_corrected.md`.
 4. `docs/agents/app-shell-ownership.md` and `docs/agents/protocol-and-session-ownership.md`.
 5. `docs/agents/decomposition-01-02-acceptance-matrix.md`.
