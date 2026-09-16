@@ -47,6 +47,7 @@ class ProfileSourceContractTest {
             server.enqueue(mastodonPage("media", media = true))
             server.enqueue(mastodonPage("repost", repost = true))
             server.enqueue(mastodonPage("reply", reply = true))
+            server.enqueue(mastodonPage("liked"))
 
             val firstPosts = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Posts))
             val olderPosts = source.profileTimeline(
@@ -58,6 +59,7 @@ class ProfileSourceContractTest {
                 ProfileTimelineTab.Media to source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Media)),
                 ProfileTimelineTab.Reposts to source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Reposts)),
                 ProfileTimelineTab.Replies to source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Replies)),
+                ProfileTimelineTab.Liked to source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Liked)),
             )
             ProfileSourceContract.assertCategoryResults(
                 pages = pages,
@@ -66,6 +68,7 @@ class ProfileSourceContractTest {
                     ProfileTimelineTab.Media to listOf("media"),
                     ProfileTimelineTab.Reposts to listOf("repost"),
                     ProfileTimelineTab.Replies to listOf("reply"),
+                    ProfileTimelineTab.Liked to listOf("liked"),
                 ),
             )
             ProfileSourceContract.assertOpaqueContinuation(firstPosts, olderPosts, "posts-first")
@@ -99,6 +102,7 @@ class ProfileSourceContractTest {
             server.enqueue(misskeyPage("media", media = true))
             server.enqueue(misskeyPage("repost", repost = true))
             server.enqueue(misskeyPage("reply", reply = true))
+            server.enqueue(misskeyLikedPage("liked"))
 
             val firstPosts = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Posts))
             val olderPosts = source.profileTimeline(
@@ -110,6 +114,7 @@ class ProfileSourceContractTest {
                 ProfileTimelineTab.Media to source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Media)),
                 ProfileTimelineTab.Reposts to source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Reposts)),
                 ProfileTimelineTab.Replies to source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Replies)),
+                ProfileTimelineTab.Liked to source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Liked)),
             )
             ProfileSourceContract.assertCategoryResults(
                 pages = pages,
@@ -118,6 +123,7 @@ class ProfileSourceContractTest {
                     ProfileTimelineTab.Media to listOf("media"),
                     ProfileTimelineTab.Reposts to listOf("repost"),
                     ProfileTimelineTab.Replies to listOf("reply"),
+                    ProfileTimelineTab.Liked to listOf("liked"),
                 ),
             )
             ProfileSourceContract.assertOpaqueContinuation(firstPosts, olderPosts, "posts-first")
@@ -247,6 +253,13 @@ private fun misskeyPage(
         reply -> note.put("replyId", "parent").put("replyUserId", "other-user")
     }
     return MockResponse().setBody(JSONArray().put(note).toString())
+}
+
+private fun misskeyLikedPage(id: String): MockResponse {
+    val note = misskeyNote(id, misskeyAccount("liked-author", "liked-author"))
+    return MockResponse().setBody(
+        JSONArray().put(JSONObject().put("id", id).put("note", note)).toString(),
+    )
 }
 
 private fun misskeyAccount(id: String, username: String) = JSONObject()

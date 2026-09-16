@@ -628,8 +628,8 @@
     </file>
     <file name="src/test/java/me/foxtails/palustris/data/misskey/MisskeyIntegrationTest.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="494" column="77" source="standard:paren-spacing" />
-        <error line="495" column="76" source="standard:paren-spacing" />
+        <error line="519" column="77" source="standard:paren-spacing" />
+        <error line="520" column="76" source="standard:paren-spacing" />
     </file>
     <file name="src/test/java/me/foxtails/palustris/data/misskey/MisskeyNotificationServiceTest.kt">
         <error line="12" column="1" source="standard:no-unused-imports" />

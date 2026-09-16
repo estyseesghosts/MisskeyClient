@@ -693,14 +693,17 @@ class MastodonIntegrationTest {
     @Test
     fun profileTimelineSendsCategoryHintsAndLimit() = runBlocking {
         val target = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user")
-        ProfileTimelineTab.entries.forEach { tab ->
+        val timelineTabs = ProfileTimelineTab.entries.filter { it != ProfileTimelineTab.Liked }
+        timelineTabs.forEach { tab ->
             server.enqueue(MockResponse().setBody("[${status("${tab.name}-row")} ]"))
         }
+        server.enqueue(MockResponse().setBody("[${status("liked-row")}]"))
         val source = source()
 
-        ProfileTimelineTab.entries.forEach { tab ->
+        timelineTabs.forEach { tab ->
             source.profileTimeline(ProfileTimelineQuery(target, tab))
         }
+        val liked = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Liked))
 
         val expected = mapOf(
             ProfileTimelineTab.Posts to mapOf("exclude_replies" to "true", "exclude_reblogs" to "true"),
@@ -708,12 +711,17 @@ class MastodonIntegrationTest {
             ProfileTimelineTab.Reposts to mapOf("exclude_replies" to "true", "exclude_reblogs" to "false"),
             ProfileTimelineTab.Replies to mapOf("exclude_replies" to "false", "exclude_reblogs" to "true"),
         )
-        ProfileTimelineTab.entries.forEach { tab ->
+        timelineTabs.forEach { tab ->
             val request = server.takeRequest()
             val url = request.requestUrl ?: error("Missing request URL")
             assertEquals("40", url.queryParameter("limit"))
             expected.getValue(tab).forEach { (name, value) -> assertEquals(value, url.queryParameter(name)) }
         }
+        // The Liked tab uses the favourites endpoint, not the account statuses endpoint.
+        val likedRequest = server.takeRequest()
+        assertEquals("/api/v1/favourites", likedRequest.requestUrl?.encodedPath)
+        assertEquals("40", likedRequest.requestUrl?.queryParameter("limit"))
+        assertEquals(listOf("liked-row"), liked.items.map { it.id.value })
     }
 
     @Test
@@ -745,6 +753,27 @@ class MastodonIntegrationTest {
             }
             assertEquals(2, server.requestCount)
         }
+    }
+
+    @Test
+    fun profileLikedTimelineUsesFavouritesForSelfAndRejectsAnotherAccount() = runBlocking {
+        val target = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "local-user")
+        server.enqueue(MockResponse().setBody("[${status("liked")}]"))
+        val source = source()
+
+        val page = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Liked))
+
+        assertEquals(listOf("liked"), page.items.map { it.id.value })
+        val request = server.takeRequest()
+        assertEquals("/api/v1/favourites", request.requestUrl?.encodedPath)
+        assertEquals("40", request.requestUrl?.queryParameter("limit"))
+
+        // Mastodon exposes favourites only for the signed-in account.
+        val other = AccountId(Connection(origin, me.foxtails.palustris.domain.Protocol.MASTODON), "other-user")
+        assertThrows(SourceError.Unsupported::class.java) {
+            runBlocking { source.profileTimeline(ProfileTimelineQuery(other, ProfileTimelineTab.Liked)) }
+        }
+        assertEquals(1, server.requestCount)
     }
 
     @Test

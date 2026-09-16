@@ -11,5 +11,8 @@ fun Post.matchesProfileTimeline(query: ProfileTimelineQuery): Boolean {
         ProfileTimelineTab.Reposts -> pureReshare && resharedBy?.id == query.profileId
         ProfileTimelineTab.Replies -> replyTo != null && replyToAuthorId != null &&
             replyToAuthorId != query.profileId && !pureReshare
+        // Liked posts are authored by other accounts, so the adapter resolves the tab
+        // directly and never classifies it by author.
+        ProfileTimelineTab.Liked -> false
     }
 }

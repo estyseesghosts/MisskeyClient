@@ -76,7 +76,7 @@ fun EditableProfile.mergeInto(account: Account): Account = account.copy(
     bot = bot,
 )
 
-enum class ProfileTimelineTab { Posts, Media, Reposts, Replies }
+enum class ProfileTimelineTab { Posts, Media, Reposts, Replies, Liked }
 
 data class ProfileTimelineQuery(
     val profileId: AccountId,

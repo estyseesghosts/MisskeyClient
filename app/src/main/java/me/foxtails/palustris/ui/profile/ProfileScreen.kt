@@ -72,7 +72,6 @@ fun ProfileScreen(
     onEditProfile: (() -> Unit)? = null,
     onOpenDrafts: () -> Unit = {},
     onOpenBookmarks: () -> Unit = {},
-    onOpenLikes: () -> Unit = {},
     onOpenProfile: (Account) -> Unit = {},
     onOpenProfileImage: (String) -> Unit = {},
     onSearchHashtag: (String) -> Unit = {},
@@ -138,7 +137,6 @@ fun ProfileScreen(
             onCategorySelected = onCategorySelected,
              onOpenDrafts = onOpenDrafts,
              onOpenBookmarks = onOpenBookmarks,
-             onOpenLikes = onOpenLikes,
             onRefresh = onRefresh,
             onLoadMore = onLoadMore,
             onFollow = onFollow,
@@ -227,7 +225,10 @@ fun ProfileScreen(
                     ),
             ) {
                 FilterChipRow(
-                    entries = profileChipEntries(isSelf).map { entry ->
+                    entries = profileChipEntries(
+                        isSelf = isSelf,
+                        likedAvailable = profileState.likedAvailable,
+                    ).map { entry ->
                         when (entry) {
                             is ProfileChipEntry.Timeline -> FilterChipEntry(
                                  label = stringResource(entry.category.labelRes),
@@ -247,13 +248,6 @@ fun ProfileScreen(
                                  contentDescription = stringResource(R.string.profile_action_bookmarks_description),
                                  role = Role.Button,
                                  testTag = "profile_bookmarks_chip",
-                             )
-                             ProfileChipEntry.Likes -> FilterChipEntry(
-                                 label = stringResource(R.string.profile_action_likes),
-                                 onClick = onOpenLikes,
-                                 contentDescription = stringResource(R.string.profile_action_likes_description),
-                                 role = Role.Button,
-                                 testTag = "profile_likes_chip",
                              )
                              ProfileChipEntry.EditProfile -> FilterChipEntry(
                                  label = stringResource(R.string.profile_edit),

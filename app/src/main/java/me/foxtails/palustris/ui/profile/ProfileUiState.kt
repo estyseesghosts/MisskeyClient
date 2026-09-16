@@ -39,6 +39,8 @@ data class ProfileUiState(
     val pinnedError: String? = null,
     val selectedTab: ProfileCategory = ProfileCategory.Posts,
     val pages: Map<ProfileTimelineTab, ProfilePageState> = emptyMap(),
+    /** Whether the Liked tab is offered for the current target on this source. */
+    val likedAvailable: Boolean = false,
     val savingProfile: Boolean = false,
     val editError: String? = null,
     /** Whether basic profile editing has any path on this account's source. */

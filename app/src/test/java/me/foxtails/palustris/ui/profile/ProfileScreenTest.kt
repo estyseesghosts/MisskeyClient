@@ -59,17 +59,17 @@ class ProfileScreenTest {
         assertEquals(
             listOf(
                 ProfileChipEntry.Timeline(ProfileCategory.Posts),
+                ProfileChipEntry.Timeline(ProfileCategory.Replies),
                 ProfileChipEntry.Timeline(ProfileCategory.Media),
                 ProfileChipEntry.Timeline(ProfileCategory.Reposts),
-                ProfileChipEntry.Timeline(ProfileCategory.Replies),
+                ProfileChipEntry.Timeline(ProfileCategory.Liked),
                 ProfileChipEntry.Drafts,
                 ProfileChipEntry.Bookmarks,
-                ProfileChipEntry.Likes,
                 ProfileChipEntry.EditProfile,
             ),
             profileChipEntries(
                 isSelf = true,
-                includeLikes = true,
+                likedAvailable = true,
                 includeShowMore = false,
                 includeEditProfile = true,
             ),
@@ -77,11 +77,22 @@ class ProfileScreenTest {
         assertEquals(
             listOf(
                 ProfileChipEntry.Timeline(ProfileCategory.Posts),
+                ProfileChipEntry.Timeline(ProfileCategory.Replies),
                 ProfileChipEntry.Timeline(ProfileCategory.Media),
                 ProfileChipEntry.Timeline(ProfileCategory.Reposts),
-                ProfileChipEntry.Timeline(ProfileCategory.Replies),
             ),
-            profileChipEntries(isSelf = false, includeLikes = true, includeShowMore = false, includeEditProfile = true),
+            profileChipEntries(isSelf = false, likedAvailable = false, includeShowMore = false, includeEditProfile = true),
+        )
+        // A remote Misskey profile keeps the Liked tab without the self-only actions.
+        assertEquals(
+            listOf(
+                ProfileChipEntry.Timeline(ProfileCategory.Posts),
+                ProfileChipEntry.Timeline(ProfileCategory.Replies),
+                ProfileChipEntry.Timeline(ProfileCategory.Media),
+                ProfileChipEntry.Timeline(ProfileCategory.Reposts),
+                ProfileChipEntry.Timeline(ProfileCategory.Liked),
+            ),
+            profileChipEntries(isSelf = false, likedAvailable = true, includeShowMore = false, includeEditProfile = true),
         )
     }
 
@@ -128,7 +139,7 @@ class ProfileScreenTest {
         compose.onNodeWithText("Locked").assertIsDisplayed()
         compose.onNodeWithText("Bot").assertIsDisplayed()
         compose.onNodeWithText("Posts").assertIsSelected()
-        listOf("Posts", "Media", "Reposts", "Replies", "Show more...").forEach { label ->
+        listOf("Posts", "Replies", "Media", "Reposts", "Show more...").forEach { label ->
             compose.onNodeWithText(label).assertExists()
         }
 
@@ -165,21 +176,24 @@ class ProfileScreenTest {
         }
 
         val categories = compose.onNodeWithContentDescription("Profile categories; swipe horizontally for more")
-        listOf("Posts", "Media", "Reposts", "Replies", "Drafts", "Bookmarks", "Show more...").forEach { label ->
+        listOf("Posts", "Replies", "Media", "Reposts", "Drafts", "Bookmarks", "Show more...").forEach { label ->
             categories.performScrollToNode(hasText(label))
             compose.onNodeWithText(label).assertExists()
         }
-        categories.performScrollToNode(hasText("Replies"))
-        val repliesRight = compose.onNodeWithText("Replies").fetchSemanticsNode().boundsInRoot.right
-        categories.performScrollToNode(hasText("Drafts"))
-        val draftsLeft = compose.onNodeWithText("Drafts").fetchSemanticsNode().boundsInRoot.left
-        categories.performScrollToNode(hasText("Bookmarks"))
-        val bookmarksLeft = compose.onNodeWithText("Bookmarks").fetchSemanticsNode().boundsInRoot.left
-        categories.performScrollToNode(hasText("Show more..."))
-        val showMoreLeft = compose.onNodeWithText("Show more...").fetchSemanticsNode().boundsInRoot.left
-        assertTrue(repliesRight <= draftsLeft)
-        assertTrue(draftsLeft <= bookmarksLeft)
-        assertTrue(bookmarksLeft <= showMoreLeft)
+        // The compact row order is fixed by the chip model. Row scrolling makes geometric
+        // comparisons between separately scrolled chips unreliable.
+        assertEquals(
+            listOf(
+                ProfileChipEntry.Timeline(ProfileCategory.Posts),
+                ProfileChipEntry.Timeline(ProfileCategory.Replies),
+                ProfileChipEntry.Timeline(ProfileCategory.Media),
+                ProfileChipEntry.Timeline(ProfileCategory.Reposts),
+                ProfileChipEntry.Drafts,
+                ProfileChipEntry.Bookmarks,
+                ProfileChipEntry.Timeline(ProfileCategory.ShowMore),
+            ),
+            profileChipEntries(isSelf = true),
+        )
 
         categories.performScrollToNode(hasText("Drafts"))
         compose.onNodeWithTag("profile_drafts_chip").performClick()
@@ -192,7 +206,6 @@ class ProfileScreenTest {
 
     @Test
     fun largeSummaryCentersSmallerAvatarAndMovesSelfActionsToDock() {
-        var likes = 0
         var edits = 0
 
         show {
@@ -203,7 +216,6 @@ class ProfileScreenTest {
                 largeLayout = true,
                 largeShowSummary = true,
                 authenticatedAccountId = self.id,
-                onOpenLikes = { likes++ },
                 onEditProfile = { edits++ },
             )
         }
@@ -214,11 +226,8 @@ class ProfileScreenTest {
         assertEquals(header.center.x, avatar.center.x, 0.5f)
         compose.onNodeWithTag("profile_edit_action").assertDoesNotExist()
         val categories = compose.onNodeWithContentDescription("Profile categories; swipe horizontally for more")
-        categories.performScrollToNode(hasText("Likes"))
-        compose.onNodeWithTag("profile_likes_chip").assertIsDisplayed().performClick()
         categories.performScrollToNode(hasText("Edit profile"))
         compose.onNodeWithTag("profile_edit_profile_chip").assertIsDisplayed().performClick()
-        assertEquals(1, likes)
         assertEquals(1, edits)
     }
 
@@ -236,6 +245,28 @@ class ProfileScreenTest {
         compose.onNodeWithText("Drafts").assertDoesNotExist()
         compose.onNodeWithText("Bookmarks").assertDoesNotExist()
         compose.onNodeWithText("Show more...").assertIsDisplayed()
+    }
+
+    @Test
+    fun likedTabFollowsTheAvailableFlag() {
+        val profile = account("remote-liked", "Remote liked")
+        val state = mutableStateOf(profileState(profile, emptyList()))
+
+        show {
+            ProfileScreen(
+                account = profile,
+                profileState = state.value,
+                compactLayout = false,
+                authenticatedAccountId = self.id,
+            )
+        }
+        compose.onNodeWithText("Likes").assertDoesNotExist()
+
+        compose.runOnIdle {
+            state.value = state.value.copy(likedAvailable = true)
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("Likes").assertExists()
     }
 
     @Test

@@ -97,6 +97,51 @@ class ProfileViewModelTest {
         assertEquals(ProfileTimelineTab.Media, source.timelineCalls.last().first.tab)
     }
 
+    @Test fun likedTabAvailabilityFollowsSelfAndProtocol() = runProfileTest {
+        val source = FakeSource()
+        val model = model(source)
+
+        model.open(self)
+        advanceUntilIdle()
+        assertTrue(model.state.value.likedAvailable)
+
+        // Another Mastodon account has no liked tab: favourites are private to the session.
+        model.open(remote)
+        advanceUntilIdle()
+        assertFalse(model.state.value.likedAvailable)
+    }
+
+    @Test fun likedTabIsOfferedForAnotherMisskeyAccount() = runProfileTest {
+        val protocol = me.foxtails.palustris.domain.Protocol.MISSKEY
+        val misskeySelf = Account(AccountId(Connection(origin, protocol), "self"), "Self", "@self@example.org")
+        val misskeyRemote = Account(AccountId(Connection(origin, protocol), "remote"), "Remote", "@remote@example.org")
+        val model = ProfileViewModel(misskeySelf.id, FakeSource())
+
+        model.open(misskeyRemote)
+        advanceUntilIdle()
+
+        assertTrue(model.state.value.likedAvailable)
+    }
+
+    @Test fun selectingLikedTabLoadsTheLikedTimeline() = runProfileTest {
+        val source = FakeSource().apply {
+            timelineResults[ProfileTimelineTab.Liked] =
+                mutableListOf(Page(listOf(post("liked-1", remote)), null))
+        }
+        val model = model(source)
+        model.open(self)
+        advanceUntilIdle()
+
+        model.selectCategory(ProfileCategory.Liked)
+        advanceUntilIdle()
+
+        assertEquals(ProfileTimelineTab.Liked, source.timelineCalls.last().first.tab)
+        assertEquals(
+            listOf("liked-1"),
+            model.state.value.pages.getValue(ProfileTimelineTab.Liked).posts.map { it.post.id.value },
+        )
+    }
+
     @Test fun oldTargetCannotPublishAfterOpeningAnotherTarget() = runProfileTest {
         val alice = account("alice", "Alice")
         val bob = account("bob", "Bob")

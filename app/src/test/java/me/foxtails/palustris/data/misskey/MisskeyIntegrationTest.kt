@@ -414,6 +414,31 @@ class MisskeyIntegrationTest : MisskeySourceContractTest() {
         }
     }
 
+    @Test fun misskeyProfileLikedTimelineReadsReactionsForTheViewedUser() = runBlocking {
+        MockWebServer().use { server ->
+            val origin = server.url("/").toString().removeSuffix("/")
+            val target = AccountId(Connection(origin, Protocol.MISSKEY), "user-a")
+            val liked = JSONObject(note("liked-note")).put(
+                "user",
+                JSONObject().put("id", "other-user").put("username", "other").put("host", JSONObject.NULL),
+            )
+            server.enqueue(MockResponse().setBody(
+                JSONArray().put(JSONObject().put("id", "cursor-liked").put("note", liked)).toString(),
+            ))
+            val source = MisskeySource(origin, "test-token", MisskeyApi())
+
+            val page = source.profileTimeline(ProfileTimelineQuery(target, ProfileTimelineTab.Liked))
+
+            assertEquals(listOf("liked-note"), page.items.map { it.id.value })
+            assertEquals("cursor-liked", page.nextCursor)
+            val request = server.takeRequest()
+            assertEquals("/api/users/reactions", request.path)
+            val body = JSONObject(request.body.readUtf8())
+            assertEquals("user-a", body.getString("userId"))
+            assertEquals(40, body.getInt("limit"))
+        }
+    }
+
     @Test fun misskeyProfileRelationshipFollowUnfollowRereadsState() = runBlocking {
         MockWebServer().use { server ->
             val origin = server.url("/").toString().removeSuffix("/")

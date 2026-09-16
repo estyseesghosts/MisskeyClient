@@ -96,8 +96,16 @@ internal class ProfileTimelinePager(
             }
             return
         }
-        if (source.capabilities.profile.timelines == CapabilityStatus.Unsupported) {
-            publishPageFailure(target, tab, requestGeneration, SourceError.Unsupported("profile.timeline"))
+        // The Liked tab depends on the liked-posts capability, not the profile-timeline
+        // capability, because Mastodon and Misskey resolve it through a dedicated endpoint.
+        val unsupported = if (tab == ProfileTimelineTab.Liked) {
+            source.capabilities.likedPosts == CapabilityStatus.Unsupported
+        } else {
+            source.capabilities.profile.timelines == CapabilityStatus.Unsupported
+        }
+        if (unsupported) {
+            val feature = if (tab == ProfileTimelineTab.Liked) "profile.liked" else "profile.timeline"
+            publishPageFailure(target, tab, requestGeneration, SourceError.Unsupported(feature))
             return
         }
         pageJobs[tab]?.cancel()

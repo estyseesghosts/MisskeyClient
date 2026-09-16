@@ -28,6 +28,7 @@ class MisskeyProfileService(
 
     suspend fun timeline(query: ProfileTimelineQuery, cursor: String? = null): Page<Post> {
         validateTarget(query.profileId, "profile.timeline")
+        if (query.tab == ProfileTimelineTab.Liked) return likedTimeline(query.profileId, cursor)
         val body = JSONObject()
             .put("i", token)
             .put("userId", query.profileId.localId)
@@ -38,6 +39,7 @@ class MisskeyProfileService(
             ProfileTimelineTab.Media -> body.put("withFiles", true).put("withRenotes", false)
             ProfileTimelineTab.Reposts -> body.put("withReplies", false).put("withRenotes", true)
             ProfileTimelineTab.Replies -> body.put("withReplies", true).put("withRenotes", false)
+            ProfileTimelineTab.Liked -> Unit
         }
         val notes = JSONArray(api.post(origin, "users/notes", body).body)
         val nextCursor = notes.optJSONObject(notes.length() - 1)?.optString("id")
@@ -45,6 +47,28 @@ class MisskeyProfileService(
         val items = (0 until notes.length())
             .map { MisskeyMapper.post(notes.getJSONObject(it), origin) }
             .filter { it.matchesProfileTimeline(query) }
+        return Page(items = items, nextCursor = nextCursor)
+    }
+
+    /**
+     * Resolves the Liked tab. Misskey publishes a user's reactions through `users/reactions`,
+     * so another user's liked posts stay available. The current user's reaction state comes
+     * from the mapped note and is never overridden here.
+     */
+    private suspend fun likedTimeline(profileId: AccountId, cursor: String?): Page<Post> {
+        val body = JSONObject()
+            .put("i", token)
+            .put("userId", profileId.localId)
+            .put("limit", PROFILE_PAGE_SIZE)
+        cursor?.let { body.put("untilId", it) }
+        val values = JSONArray(api.post(origin, "users/reactions", body).body)
+        val items = (0 until values.length()).mapNotNull { index ->
+            val wrapper = values.optJSONObject(index) ?: return@mapNotNull null
+            val note = wrapper.optJSONObject("note") ?: return@mapNotNull null
+            runCatching { MisskeyMapper.post(note, origin) }.getOrNull()
+        }
+        val nextCursor = values.optJSONObject(values.length() - 1)?.optString("id")
+            ?.takeIf { it.isNotBlank() }
         return Page(items = items, nextCursor = nextCursor)
     }
 

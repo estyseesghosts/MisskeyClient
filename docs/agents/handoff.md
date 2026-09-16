@@ -190,15 +190,20 @@ Read these in order. Treat the repository as the authority.
   owners. `ui/SourceErrorMessage.kt` localizes feature identifiers. The durable
   record is `docs/agents/tasks/localization-string-extraction.md`. Its slice and
   this record share one commit.
+- The Profile Liked tab is committed and test verified. `ProfileTimelineTab.Liked`
+  and `ProfileCategory.Liked` exist. The category order is Posts, Replies, Media,
+  Reposts, Liked. The Liked tab is available for the signed-in account on either
+  protocol, for another Misskey account, and not for another Mastodon account.
+  The durable record is `docs/agents/tasks/profile-liked-tab.md`.
 
 ## Next Slice
 
-The user directed two profile feature slices after localization. Each needs its
-own task-state file and verification. Build the Liked tab first, then Featured.
-
-1. Liked tab. Add a Liked profile tab for Mastodon favourites and Misskey
-   reacted posts. Place it to the right of the Reposts tab. Move the Replies tab
-   to the right of the Posts tab.
+1. Remove the orphaned global Likes page and model. The profile Likes chip is
+   gone, so `LocalPage.Likes`, the `LikesContract`, the liked
+   `SavedPostsViewModel` creation, `LargePostOrigin.Liked`, and the `likedPosts`
+   source surface are unreachable. Remove them and update the shell fixtures and
+   navigation tests. The durable record is
+   `docs/agents/tasks/profile-liked-tab.md`.
 2. Featured tab. Add a Featured profile tab to the left of the Posts tab. Show
    it only when the account has more than one pinned post. With exactly one
    pinned post, show that post at the top of the posts feed and no Featured tab.

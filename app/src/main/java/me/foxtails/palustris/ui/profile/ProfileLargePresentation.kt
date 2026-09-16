@@ -31,7 +31,6 @@ internal fun ProfileLargePresentation(
     onCategorySelected: (ProfileCategory) -> Unit,
     onOpenDrafts: () -> Unit,
     onOpenBookmarks: () -> Unit,
-    onOpenLikes: () -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onFollow: () -> Unit,
@@ -104,12 +103,11 @@ internal fun ProfileLargePresentation(
                 ProfileCategoryChips(
                     selected = state.selectedTab,
                     isSelf = isSelf,
+                    likedAvailable = state.likedAvailable,
                     onCategorySelected = onCategorySelected,
                     onOpenDrafts = onOpenDrafts,
                     onOpenBookmarks = onOpenBookmarks,
-                    onOpenLikes = onOpenLikes,
                     onEditProfile = onEditProfile ?: {},
-                    includeLikes = true,
                     includeShowMore = false,
                     includeEditProfile = true,
                 )

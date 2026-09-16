@@ -440,7 +440,6 @@
     <string name="profile_action_drafts">Drafts</string>
     <string name="profile_action_drafts_description">Open drafts</string>
     <string name="profile_action_likes">Likes</string>
-    <string name="profile_action_likes_description">Open likes</string>
     <string name="profile_banner">Profile banner</string>
     <string name="profile_bot">Bot</string>
     <string name="profile_cancel_request_action">Cancel follow request</string>

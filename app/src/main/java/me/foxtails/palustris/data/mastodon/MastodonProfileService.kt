@@ -31,6 +31,7 @@ class MastodonProfileService(
 
     suspend fun timeline(query: ProfileTimelineQuery, cursor: String? = null): Page<Post> {
         validateTarget(query.profileId, "profile.timeline")
+        if (query.tab == ProfileTimelineTab.Liked) return likedTimeline(query.profileId, cursor)
         val response = if (cursor == null) {
             api.getUrl(timelineUrl(query.profileId, query).toString(), token)
         } else {
@@ -40,6 +41,22 @@ class MastodonProfileService(
         val items = (0 until statuses.length())
             .map { MastodonMapper.post(statuses.getJSONObject(it), origin) }
             .filter { it.matchesProfileTimeline(query) }
+        return Page(items = items, nextCursor = response.linkHeaderCursor())
+    }
+
+    /**
+     * Resolves the Liked tab. Mastodon exposes favourites only for the signed-in account,
+     * so another account's liked posts are unsupported instead of guessed.
+     */
+    private suspend fun likedTimeline(profileId: AccountId, cursor: String?): Page<Post> {
+        if (profileId != authenticatedAccountId) throw SourceError.Unsupported("profile.liked")
+        val response = if (cursor == null) {
+            api.get(origin, "v1/favourites?limit=$PROFILE_PAGE_SIZE", token)
+        } else {
+            api.getUrl(validateFavouritesPaginationUrl(cursor).toString(), token)
+        }
+        val statuses = JSONArray(response.body)
+        val items = (0 until statuses.length()).map { MastodonMapper.post(statuses.getJSONObject(it), origin) }
         return Page(items = items, nextCursor = response.linkHeaderCursor())
     }
 
@@ -95,6 +112,18 @@ class MastodonProfileService(
         return page
     }
 
+    private fun validateFavouritesPaginationUrl(cursor: String): HttpUrl {
+        val page = cursor.toHttpUrlOrNull() ?: throw SourceError.Unsupported("profile.pagination")
+        val authenticatedOrigin = origin.toHttpUrl()
+        if (page.scheme != authenticatedOrigin.scheme || page.host != authenticatedOrigin.host ||
+            page.port != authenticatedOrigin.port || page.username.isNotEmpty() ||
+            page.password.isNotEmpty() || page.fragment != null || page.encodedPath != "/api/v1/favourites"
+        ) {
+            throw SourceError.Unsupported("profile.pagination")
+        }
+        return page
+    }
+
     private fun accountUrl(id: AccountId): HttpUrl = origin.toHttpUrl().newBuilder()
         .addPathSegment("api")
         .addPathSegment("v1")
@@ -127,6 +156,8 @@ class MastodonProfileService(
                         addQueryParameter("exclude_replies", "false")
                         addQueryParameter("exclude_reblogs", "true")
                     }
+                    // Liked never reaches this builder; it uses the favourites endpoint.
+                    ProfileTimelineTab.Liked -> Unit
                 }
             }
             .build()

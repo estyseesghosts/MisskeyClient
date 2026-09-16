@@ -338,10 +338,6 @@ internal fun ShellDestinationContent(
                                     if (largePresentation) navigator.clearSelectedPost()
                                     if (account != null && displayedProfile?.id == account.id) navigator.page = LocalPage.SavedPosts
                                 },
-                                onOpenLikes = {
-                                    if (largePresentation) navigator.clearSelectedPost()
-                                    if (account != null && displayedProfile?.id == account.id) navigator.page = LocalPage.Likes
-                                },
                                 onOpenProfile = navigator::openProfile,
                                 onSearchHashtag = navigator::openHashtagSearch,
                                 onOpenHashtagBubble = overlay::openHashtagBubble,

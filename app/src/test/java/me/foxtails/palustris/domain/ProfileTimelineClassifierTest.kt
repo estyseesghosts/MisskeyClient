@@ -54,6 +54,19 @@ class ProfileTimelineClassifierTest {
     }
 
     @Test
+    fun likedIsResolvedByTheAdapterAndNeverClassifiedByAuthor() {
+        // Liked posts are authored by other accounts, so the classifier must not claim them.
+        assertNotMatches(root(), ProfileTimelineTab.Liked)
+        assertNotMatches(Post(
+            id = EntityId(connection.origin, "liked-author-post"),
+            author = otherAccount,
+            text = "Liked content",
+            publishedAtEpochMillis = 0,
+            audience = Audience.Public,
+        ), ProfileTimelineTab.Liked)
+    }
+
+    @Test
     fun classifierScopesOrdinaryPostsToTheRequestedAccount() {
         val foreign = Post(
             id = EntityId(connection.origin, "foreign"),

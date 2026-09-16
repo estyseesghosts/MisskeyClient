@@ -25,6 +25,7 @@ import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PostReactionReducer
 import me.foxtails.palustris.domain.ProfileTimelineQuery
 import me.foxtails.palustris.domain.ProfileTimelineTab
+import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ReactionSelectionMode
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
@@ -75,6 +76,7 @@ class ProfileViewModel @AssistedInject constructor(
             _state.value = current.copy(
                 seedAccount = seed,
                 account = current.account ?: seed,
+                likedAvailable = likedAvailable(seed.id),
             )
             cancelProfileRequests()
             loadDetails(seed.id, generation)
@@ -93,6 +95,7 @@ class ProfileViewModel @AssistedInject constructor(
             seedAccount = seed,
             account = seed,
             editableSupported = editableSupported(source.capabilities.profile.editable),
+            likedAvailable = likedAvailable(seed.id),
         )
         timelinePager.setTarget(seed.id, targetGeneration)
         loadDetails(seed.id, targetGeneration)
@@ -610,6 +613,18 @@ class ProfileViewModel @AssistedInject constructor(
 
     private fun isCurrent(targetGeneration: Long, target: AccountId): Boolean =
         !stopped && generation == targetGeneration && _state.value.targetId == target
+
+    /**
+     * The Liked tab is offered for the signed-in account on either protocol, and for another
+     * account only on Misskey, where `users/reactions` accepts the viewed user id. Mastodon
+     * exposes favourites only for the signed-in account, so another account has no Liked tab.
+     */
+    private fun likedAvailable(target: AccountId): Boolean =
+        if (target == accountId) {
+            source.capabilities.likedPosts != CapabilityStatus.Unsupported
+        } else {
+            accountId.connection.protocol == Protocol.MISSKEY
+        }
 
     private fun isEditorCurrent(targetEditorGeneration: Long, target: AccountId): Boolean =
         !stopped && editorGeneration == targetEditorGeneration && _state.value.targetId == target

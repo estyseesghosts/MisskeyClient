@@ -47,6 +47,7 @@ Rebuild the TODO list from these items.
 
 - [Plan 04 utility ownership and retention](tasks/plan04-utility-retention.md) is in progress. 04-A through 04-D and 04-E1 through 04-E3 are complete.
 - [Localization string extraction](tasks/localization-string-extraction.md) is complete through slice 4.
+- [Profile Liked tab](tasks/profile-liked-tab.md) is in progress. The tab is done; the global Likes page removal remains.
 
 ## Historical tasks
 
