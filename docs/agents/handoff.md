@@ -44,22 +44,26 @@ Read these in order. Treat the repository as the authority.
 - S1 (split `PalustrisApp.kt`) is complete. The shell is 622 lines and
   owns navigation and placement. Feature state lives in the overlay
   holder, the destination content, and the overlay host.
-- P1e (`AccountManager` with `SessionUi` into `ui/session/`) is
-  committed and test verified. The slice commit is `f18bc45`. The P1
-  task-state file names P1f as the current slice. The last safe commit
-  is `f18bc45`.
+- P1f (group the destination callbacks into post, draft, and
+  navigation bundles) is committed and test verified. `ShellDestinationContent`
+  takes 27 parameters instead of 38. The slice commit is `138a404`.
+- P1 (finish the `ui/` package migration and group the destination
+  callbacks) is complete. Every slice P1a through P1f is committed and
+  test verified. The durable record is
+  `docs/agents/tasks/ui-package-migration.md`. The last safe commit is
+  `138a404`.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
 
 ## Next Slice
 
-P1f — Group the `ShellDestinationContent` branch callbacks into
-post, draft, and navigation bundles to replace the 37-parameter
-signature. Behavior-neutral. Keep the overlay host's three explicit
-action params. Run the six shell suites plus the full gate. Commit only
-when green. Full scope, files, and verification commands are in
-`docs/agents/tasks/ui-package-migration.md`. Do not duplicate that file
-here.
+Q1 — Add ktlint or detekt with a baseline. Fix the wildcard imports
+and the fully-qualified names left behind by the S1 and P1 moves (12
+wildcard imports and several fully-qualified names, including the
+`ui.*` path/package mismatches found in P1b-P1d). Smallest change with
+the broadest payoff. Open a dedicated task-state file with its own
+verification before implementation. Then T1, V1, and the Plan 04 rebase
+in order.
 
 ## After S1
 

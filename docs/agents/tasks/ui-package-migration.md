@@ -69,14 +69,26 @@ safe implementation slice. It divides into P1a through P1f below.
 - P1e — `AccountManager` (with `SessionUi`) lives in `ui/session/`.
   Commit `f18bc45`. The six shell suites, the full `test
   assembleRelease` gate, and `lintDebug` pass.
+- P1f — `ShellDestinationContent` takes 27 parameters instead of 38.
+  `DestinationPostCallbacks`, `DestinationDraftCallbacks`, and
+  `DestinationNavigationCallbacks` live beside the destination content
+  in `ui/shell/DestinationCallbacks.kt`. `PalustrisApp` builds each
+  bundle once above the large and compact branches. Commit `138a404`.
+  The six shell suites, the full `test assembleRelease` gate, and
+  `lintDebug` pass.
+
+P1 is complete. Every slice is committed and test verified. The `ui/`
+root keeps only the shell entry, shared presentation, and feature
+stubs whose packages own the rest.
 
 # Current slice
 
-P1f — Group the destination callbacks into post, draft, and navigation
-bundles. `ShellDestinationContent` keeps its 37 parameters until this
-slice replaces them with three narrow data classes defined beside the
-destination content. Update `PalustrisApp.kt` and every call site. Keep
-the overlay host's three explicit action params.
+None. P1 is complete. The next work is Q1 as defined below.
+
+# Next
+
+1. Q1 — Add ktlint or detekt with a baseline. Fix the wildcard imports
+   and the fully-qualified names.
 
 # Files involved
 
@@ -106,11 +118,8 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Next
 
-1. P1f as defined in Current slice above.
-2. After P1: Q1 (ktlint/detekt with baseline; fix wildcard imports and
-   fully-qualified names), T1 (mirror test packages; merge duplicate
-   test classes), V1 (repair instrumentation tests), then the Plan 04
-   rebase. See the handoff.
+1. Q1 — Add ktlint or detekt with a baseline. Fix the wildcard imports
+   and the fully-qualified names.
 
 # Blockers
 
@@ -122,4 +131,4 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Last safe commit
 
-`f18bc45` "Move AccountManager into ui.session".
+`138a404` "Group destination callbacks into post, draft, and navigation bundles".
