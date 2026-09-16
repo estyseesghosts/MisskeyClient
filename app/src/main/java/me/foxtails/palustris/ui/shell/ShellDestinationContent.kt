@@ -20,10 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.Account
-import me.foxtails.palustris.domain.EmojiChoice
-import me.foxtails.palustris.domain.OwnedPost
-import me.foxtails.palustris.domain.PostAction
-import me.foxtails.palustris.domain.PostDraft
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.AppDestinationTopBar
 import me.foxtails.palustris.ui.AppIcons
@@ -57,7 +53,9 @@ import me.foxtails.palustris.ui.timelineLabelRes
  * notifications, and profile. It owns no state. Navigation and overlay
  * holders, scroll states, contracts, and callbacks arrive as parameters.
  * Saveable holders and scroll states stay with the shell and pass through
- * unchanged, so restoration keys and scroll positions stay stable.
+ * unchanged, so restoration keys and scroll positions stay stable. Post,
+ * draft, and navigation callbacks travel as three bundles so the branch
+ * wiring stays reviewable.
  */
 @Composable
 internal fun ShellDestinationContent(
@@ -75,8 +73,6 @@ internal fun ShellDestinationContent(
     savedTitle: Int,
     notificationAccountIdentity: String,
     availableTimelines: Set<Timeline>,
-    availableActions: Set<PostAction>,
-    quoteEnabled: Boolean,
     sessionRevision: Long,
     home: HomeContract?,
     photoGrid: PhotoGridContract,
@@ -87,18 +83,9 @@ internal fun ShellDestinationContent(
     notifications: NotificationsContract,
     directMessages: DirectMessagesContract,
     accountSwitcher: AccountSwitcher,
-    drafts: List<PostDraft>,
-    onLoadDraft: (PostDraft) -> Unit,
-    onDeleteDraft: (PostDraft) -> Unit,
-    onReact: (OwnedPost) -> Unit,
-    onReply: (OwnedPost) -> Unit,
-    onReshare: (OwnedPost) -> Unit,
-    onBookmark: (OwnedPost) -> Unit,
-    onReaction: (OwnedPost, EmojiChoice) -> Unit,
-    onQuote: (OwnedPost) -> Unit,
-    onOpenPost: (OwnedPost, LargePostOrigin) -> Unit,
-    onOpenNotificationTarget: (AppRoute) -> Unit,
-    onEditProfile: () -> Unit,
+    postCallbacks: DestinationPostCallbacks,
+    draftCallbacks: DestinationDraftCallbacks,
+    navigationCallbacks: DestinationNavigationCallbacks,
 ) {
     Scaffold(
         modifier = paneModifier.fillMaxSize(),
@@ -138,19 +125,19 @@ internal fun ShellDestinationContent(
                                 items = notifications.state.items,
                                 onSearchHashtag = navigator::openHashtagSearch,
                                 onOpenHashtagBubble = overlay::openHashtagBubble,
-                                onOpenPost = { post -> onOpenPost(post, LargePostOrigin.Notification) },
+                                onOpenPost = { post -> navigationCallbacks.onOpenPost(post, LargePostOrigin.Notification) },
                                 onOpenTarget = (navigator.notificationRoute as? AppRoute.Profile)?.let { route ->
-                                    { onOpenNotificationTarget(route) }
+                                    { navigationCallbacks.onOpenNotificationTarget(route) }
                                 },
-                                availableActions = availableActions,
-                                onReact = onReact,
-                                onReply = onReply,
-                                onReshare = onReshare,
-                                onBookmark = onBookmark,
-                                onReaction = onReaction,
-                                onQuote = onQuote,
-                                quoteEnabled = quoteEnabled,
-                                onOpenReactionBubble = { post, bounds -> overlay.openReactionBubble(post, bounds, onReaction) },
+                                availableActions = postCallbacks.availableActions,
+                                onReact = postCallbacks.onReact,
+                                onReply = postCallbacks.onReply,
+                                onReshare = postCallbacks.onReshare,
+                                onBookmark = postCallbacks.onBookmark,
+                                onReaction = postCallbacks.onReaction,
+                                onQuote = postCallbacks.onQuote,
+                                quoteEnabled = postCallbacks.quoteEnabled,
+                                onOpenReactionBubble = { post, bounds -> overlay.openReactionBubble(post, bounds, postCallbacks.onReaction) },
                                 sessionRevision = sessionRevision,
                                 largeLayout = largePresentation,
                             )
@@ -159,9 +146,9 @@ internal fun ShellDestinationContent(
                                 page = navigator.page,
                                 savedPostsState = bookmarks.state,
                                 likedPostsState = likes.state,
-                                drafts = drafts,
-                                onLoadDraft = onLoadDraft,
-                                onDeleteDraft = onDeleteDraft,
+                                drafts = draftCallbacks.drafts,
+                                onLoadDraft = draftCallbacks.onLoadDraft,
+                                onDeleteDraft = draftCallbacks.onDeleteDraft,
                                 onRefreshSavedPosts = bookmarks.actions::refresh,
                                 onLoadMoreSavedPosts = bookmarks.actions::loadMore,
                                 onUnsaveSavedPost = bookmarks.actions::remove,
@@ -169,22 +156,22 @@ internal fun ShellDestinationContent(
                                 onLoadMoreLikedPosts = likes.actions::loadMore,
                                 onUnsaveLikedPost = likes.actions::toggle,
                                 onUpgradeSavedPermissions = bookmarks.actions::upgradePermissions,
-                                onReact = onReact,
-                                onReply = onReply,
-                                onReshare = onReshare,
-                                onBookmark = onBookmark,
+                                onReact = postCallbacks.onReact,
+                                onReply = postCallbacks.onReply,
+                                onReshare = postCallbacks.onReshare,
+                                onBookmark = postCallbacks.onBookmark,
                                 onSavedPostReaction = bookmarks.actions::react,
                                 onLikedPostReaction = likes.actions::react,
                                 onOpenSavedReactionBubble = { post, bounds -> overlay.openReactionBubble(post, bounds, bookmarks.actions::react) },
                                 onOpenLikedReactionBubble = { post, bounds -> overlay.openReactionBubble(post, bounds, likes.actions::react) },
                                 onOpenReactionPicker = overlay::expandReactionPicker,
                                 onOpenMedia = overlay::openMedia,
-                                onOpenPost = onOpenPost,
+                                onOpenPost = navigationCallbacks.onOpenPost,
                                 onOpenProfile = navigator::openProfile,
                                 onSearchHashtag = navigator::openHashtagSearch,
                                 onOpenHashtagBubble = overlay::openHashtagBubble,
                                 onOpenUsername = navigator::openAccountSearch,
-                                availableActions = availableActions,
+                                availableActions = postCallbacks.availableActions,
                                 largeLayout = largePresentation,
                             )
                         } else when (animatedDestination) {
@@ -194,22 +181,22 @@ internal fun ShellDestinationContent(
                                 onRefresh = { home.actions.refresh(navigator.timeline) },
                                 onLoadMore = { home.actions.loadMore(navigator.timeline) },
                                 onSignIn = accountSwitcher.actions::signOut,
-                                availableActions = availableActions,
-                                quoteEnabled = quoteEnabled,
+                                availableActions = postCallbacks.availableActions,
+                                quoteEnabled = postCallbacks.quoteEnabled,
                                 onScrollDirectionChanged = { if (navigator.destination == Destination.Home && animatedDestination == Destination.Home) navigator.navigationVisible = it },
-                                onReact = onReact,
-                                onReply = onReply,
-                                onReshare = onReshare,
-                                onBookmark = onBookmark,
-                                onReaction = onReaction,
-                                onOpenReactionBubble = { ownedPost, bounds -> overlay.openReactionBubble(ownedPost, bounds, onReaction) },
+                                onReact = postCallbacks.onReact,
+                                onReply = postCallbacks.onReply,
+                                onReshare = postCallbacks.onReshare,
+                                onBookmark = postCallbacks.onBookmark,
+                                onReaction = postCallbacks.onReaction,
+                                onOpenReactionBubble = { ownedPost, bounds -> overlay.openReactionBubble(ownedPost, bounds, postCallbacks.onReaction) },
                                 onOpenReactionPicker = overlay::expandReactionPicker,
-                                onQuote = onQuote,
+                                onQuote = postCallbacks.onQuote,
                                 onOpenProfile = navigator::openProfile,
                                 onSearchHashtag = navigator::openHashtagSearch,
                                 onOpenHashtagBubble = overlay::openHashtagBubble,
                                 onOpenMedia = overlay::openMedia,
-                                onOpenPost = { post -> onOpenPost(post, LargePostOrigin.Home) },
+                                onOpenPost = { post -> navigationCallbacks.onOpenPost(post, LargePostOrigin.Home) },
                                 onOpenUsername = navigator::openAccountSearch,
                                 listState = homeListState,
                                 topContentPadding = if (largePresentation) 16.dp else null,
@@ -245,18 +232,18 @@ internal fun ShellDestinationContent(
                                         accountSearch = search.state,
                                         onSearchAccounts = search.actions::search,
                                         onAccountClick = navigator::openProfile,
-                                        availableActions = availableActions,
-                                        onReact = onReact,
-                                        onReply = onReply,
-                                        onReshare = onReshare,
-                                        onBookmark = onBookmark,
-                                        onReaction = onReaction,
+                                        availableActions = postCallbacks.availableActions,
+                                        onReact = postCallbacks.onReact,
+                                        onReply = postCallbacks.onReply,
+                                        onReshare = postCallbacks.onReshare,
+                                        onBookmark = postCallbacks.onBookmark,
+                                        onReaction = postCallbacks.onReaction,
                                         onOpenReactionBubble = { ownedPost, bounds ->
-                                            overlay.openReactionBubble(ownedPost, bounds, onReaction)
+                                            overlay.openReactionBubble(ownedPost, bounds, postCallbacks.onReaction)
                                         },
                                         onOpenReactionPicker = overlay::expandReactionPicker,
-                                        quoteEnabled = quoteEnabled,
-                                        onQuote = onQuote,
+                                        quoteEnabled = postCallbacks.quoteEnabled,
+                                        onQuote = postCallbacks.onQuote,
                                         onSearchHashtag = navigator::openHashtagSearch,
                                         onOpenHashtagBubble = overlay::openHashtagBubble,
                                         onLoadMoreSearch = search.actions::loadMore,
@@ -272,7 +259,7 @@ internal fun ShellDestinationContent(
                                         mediaOwner = account?.id,
                                         sessionRevision = sessionRevision,
                                         onOpenMedia = overlay::openMedia,
-                                        onOpenPost = { post -> onOpenPost(post, LargePostOrigin.Search) },
+                                        onOpenPost = { post -> navigationCallbacks.onOpenPost(post, LargePostOrigin.Search) },
                                         onOpenUsername = navigator::openAccountSearch,
                                     )
                                     SearchPanel.PhotoGrid -> PhotoGridScreen(
@@ -282,7 +269,7 @@ internal fun ShellDestinationContent(
                                         onSelectFeed = photoGrid.actions::selectFeed,
                                         onAddHashtag = photoGrid.actions::addHashtag,
                                         onClearPreferenceError = photoGrid.actions::clearPreferenceError,
-                                        onOpenPost = { post -> onOpenPost(post, LargePostOrigin.PhotoGrid) },
+                                        onOpenPost = { post -> navigationCallbacks.onOpenPost(post, LargePostOrigin.PhotoGrid) },
                                         compactLayout = !largePresentation,
                                         compactNavigationVisible = !largePresentation,
                                         gridState = photoGridScrollState,
@@ -342,7 +329,7 @@ internal fun ShellDestinationContent(
                                 onUnfollow = profile.actions::unfollow,
                                 onMessage = navigator::openDirectMessage,
                                 onOpenProfileImage = { url -> overlay.openProfileImage(url, navigator.viewedProfile?.id ?: account?.id) },
-                                onEditProfile = onEditProfile,
+                                onEditProfile = navigationCallbacks.onEditProfile,
                                 onOpenDrafts = {
                                     if (largePresentation) navigator.clearSelectedPost()
                                     if (account != null && displayedProfile?.id == account.id) navigator.page = LocalPage.Drafts
@@ -358,21 +345,21 @@ internal fun ShellDestinationContent(
                                 onOpenProfile = navigator::openProfile,
                                 onSearchHashtag = navigator::openHashtagSearch,
                                 onOpenHashtagBubble = overlay::openHashtagBubble,
-                                availableActions = availableActions,
-                                onReact = onReact,
-                                onReply = onReply,
-                                onReshare = onReshare,
-                                onBookmark = onBookmark,
+                                availableActions = postCallbacks.availableActions,
+                                onReact = postCallbacks.onReact,
+                                onReply = postCallbacks.onReply,
+                                onReshare = postCallbacks.onReshare,
+                                onBookmark = postCallbacks.onBookmark,
                                 onReaction = profile.actions::react,
                                 onOpenReactionBubble = { ownedPost, bounds ->
                                     overlay.openReactionBubble(ownedPost, bounds, profile.actions::react)
                                 },
                                 onOpenReactionPicker = overlay::expandReactionPicker,
                                 onOpenMedia = overlay::openMedia,
-                                onOpenPost = { post -> onOpenPost(post, LargePostOrigin.Profile) },
+                                onOpenPost = { post -> navigationCallbacks.onOpenPost(post, LargePostOrigin.Profile) },
                                 onOpenUsername = navigator::openAccountSearch,
-                                quoteEnabled = quoteEnabled,
-                                onQuote = onQuote,
+                                quoteEnabled = postCallbacks.quoteEnabled,
+                                onQuote = postCallbacks.onQuote,
                             )
                         }
                     }

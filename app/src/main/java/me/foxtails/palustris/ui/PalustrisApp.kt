@@ -80,6 +80,9 @@ import me.foxtails.palustris.ui.composer.rememberComposerOwner
 import me.foxtails.palustris.ui.shell.AccountSwitcher
 import me.foxtails.palustris.ui.shell.BookmarksContract
 import me.foxtails.palustris.ui.shell.ComposerContract
+import me.foxtails.palustris.ui.shell.DestinationDraftCallbacks
+import me.foxtails.palustris.ui.shell.DestinationNavigationCallbacks
+import me.foxtails.palustris.ui.shell.DestinationPostCallbacks
 import me.foxtails.palustris.ui.shell.DirectMessagesContract
 import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.EmojiPresentation
@@ -368,6 +371,26 @@ fun PalustrisApp(
             ),
         ) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
+                val postCallbacks = DestinationPostCallbacks(
+                    availableActions = availableActions,
+                    quoteEnabled = quoteEnabled,
+                    onReact = onReact,
+                    onReply = handleReply,
+                    onReshare = onReshare,
+                    onBookmark = onBookmark,
+                    onReaction = onReaction,
+                    onQuote = handleQuote,
+                )
+                val draftCallbacks = DestinationDraftCallbacks(
+                    drafts = composerOwner.drafts,
+                    onLoadDraft = { item -> overlay.clearPostActionBubble(); composerOwner.requestDraft(item) },
+                    onDeleteDraft = { item -> composerOwner.deleteDraft(item) },
+                )
+                val navigationCallbacks = DestinationNavigationCallbacks(
+                    onOpenPost = ::openSinglePost,
+                    onOpenNotificationTarget = ::openNotificationTarget,
+                    onEditProfile = ::openProfileEditor,
+                )
                 if (largePresentation) {
                     LargeScreenShell(
                         windowWidth = windowWidth,
@@ -395,8 +418,6 @@ fun PalustrisApp(
                                 savedTitle = savedTitle,
                                 notificationAccountIdentity = notificationAccountIdentity,
                                 availableTimelines = availableTimelines,
-                                availableActions = availableActions,
-                                quoteEnabled = quoteEnabled,
                                 sessionRevision = sessionRevision,
                                 home = home,
                                 photoGrid = photoGrid,
@@ -407,18 +428,9 @@ fun PalustrisApp(
                                 notifications = notifications,
                                 directMessages = directMessages,
                                 accountSwitcher = accountSwitcher,
-                                drafts = composerOwner.drafts,
-                                onLoadDraft = { item -> overlay.clearPostActionBubble(); composerOwner.requestDraft(item) },
-                                onDeleteDraft = { item -> composerOwner.deleteDraft(item) },
-                                onReact = onReact,
-                                onReply = handleReply,
-                                onReshare = onReshare,
-                                onBookmark = onBookmark,
-                                onReaction = onReaction,
-                                onQuote = handleQuote,
-                                onOpenPost = ::openSinglePost,
-                                onOpenNotificationTarget = ::openNotificationTarget,
-                                onEditProfile = ::openProfileEditor,
+                                postCallbacks = postCallbacks,
+                                draftCallbacks = draftCallbacks,
+                                navigationCallbacks = navigationCallbacks,
                             )
                         },
                          detailContent = { paneModifier ->
@@ -473,8 +485,6 @@ fun PalustrisApp(
                         savedTitle = savedTitle,
                         notificationAccountIdentity = notificationAccountIdentity,
                         availableTimelines = availableTimelines,
-                        availableActions = availableActions,
-                        quoteEnabled = quoteEnabled,
                         sessionRevision = sessionRevision,
                         home = home,
                         photoGrid = photoGrid,
@@ -485,18 +495,9 @@ fun PalustrisApp(
                         notifications = notifications,
                         directMessages = directMessages,
                         accountSwitcher = accountSwitcher,
-                        drafts = composerOwner.drafts,
-                        onLoadDraft = { item -> overlay.clearPostActionBubble(); composerOwner.requestDraft(item) },
-                        onDeleteDraft = { item -> composerOwner.deleteDraft(item) },
-                        onReact = onReact,
-                        onReply = handleReply,
-                        onReshare = onReshare,
-                        onBookmark = onBookmark,
-                        onReaction = onReaction,
-                        onQuote = handleQuote,
-                        onOpenPost = ::openSinglePost,
-                        onOpenNotificationTarget = ::openNotificationTarget,
-                        onEditProfile = ::openProfileEditor,
+                        postCallbacks = postCallbacks,
+                        draftCallbacks = draftCallbacks,
+                        navigationCallbacks = navigationCallbacks,
                     )
                 }
                  if (!largePresentation && navigator.page == null && !modalOverlayOpen) {
