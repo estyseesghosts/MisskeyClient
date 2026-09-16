@@ -10,9 +10,10 @@ the completed P1 work is `docs/agents/tasks/ui-package-migration.md`. The
 durable record for the completed Q1 work is
 `docs/agents/tasks/q1-static-analysis.md`. The durable record for the
 completed T1 work is `docs/agents/tasks/t1-test-mirror.md`. The active Plan 04
-work is `docs/agents/tasks/plan04-utility-retention.md` (04-A through 04-D are
-complete, 04-E through 04-K remain). A cleanup-window audit added 04-K and
-prerequisites to 04-E, 04-H, and 04-J. The Plan 04 source is
+work is `docs/agents/tasks/plan04-utility-retention.md` (04-A through 04-D and
+04-E1 are complete, 04-E2, 04-E3, and 04-F through 04-K remain). A
+cleanup-window audit added 04-K and prerequisites to 04-E, 04-H, and 04-J. The
+Plan 04 source is
 `docs/decomposition_3/04.md` (git-ignored planning material, do not force-add).
 
 ## Where To Start
@@ -156,15 +157,26 @@ Read these in order. Treat the repository as the authority.
   leases and writes are exempt from eviction, so overage is temporary.
   The wiki privacy and architecture pages record the rule. The slice
   commit is `f0735df`.
+- 04-E1 (require the shared direct-message write authority) is committed
+  and test verified. `DirectMessageWriteAuthority` is a required
+  constructor dependency of `DirectMessageViewModel` and
+  `DirectMessageRepository`. Source verified: the Hilt-assisted factory
+  already injected the singleton, so production wiring was shared; the
+  private defaults only fired on direct construction. The slice removes
+  both. `DirectMessageViewModelTest.revokedSharedAuthorityStopsThe
+  ViewModelWrite` covers the revoked path. The ownership page records the
+  rule. The slice commit is `b04b2e8`. Chunk 04-E is split into 04-E1,
+  04-E2 (thread anchor, remove `directLastPosts`), and 04-E3 (provisional
+  identity with a migration).
 
 ## Next Slice
 
-04-D — Done. Start 04-E (remove the DM last-post cache dependence and repair
-the shared write-authority wiring) next. It needs the 04-E thread-anchor,
-provisional-identity, and write-authority wiring decisions and coordinates with
-Plan 02. Then continue through 04-K in the recorded order. 04-K removes the
-dead profile paging authority and bounds the cursor sets. 04-J runs last and
-depends on 04-F through 04-I and 04-K. The last safe code commit is `f0735df`.
+04-E1 — Done. Start 04-E2 (carry a validated thread anchor and remove the DM
+last-post cache) next. It depends on 04-E1 and coordinates with Plan 02. Then
+04-E3 (provisional identity), then continue through 04-K in the recorded order.
+04-K removes the dead profile paging authority and bounds the cursor sets.
+04-J runs last and depends on 04-F through 04-I and 04-K. The last safe code
+commit is `b04b2e8`.
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The
@@ -191,13 +203,14 @@ verification.
    `b62f8c6`. Record blocked device checks honestly.
 4. Plan 04 — In progress. Rebase recorded as a slice plan in
    `docs/agents/tasks/plan04-utility-retention.md`. 04-A is complete at
-   `ee52ba9`, 04-B is complete at `6a87c76`, 04-C is complete at
-   `633cd7a`, and 04-D is complete at `f0735df`. A cleanup-window audit added
-   04-K and prerequisites to 04-E, 04-H, and 04-J: private DM write-authority
-   construction, private registration-cache construction, unreleased authority
-   maps, an unremoved `writeLocks` map, and dead profile paging members.
-   Implement slices 04-E through 04-K in the recorded order. Eight decisions
-   gate 04-E, 04-H, 04-J, and 04-K.
+   `ee52ba9`, 04-B at `6a87c76`, 04-C at `633cd7a`, 04-D at `f0735df`, and
+   04-E1 at `b04b2e8`. A cleanup-window audit added 04-K and prerequisites to
+   04-E, 04-H, and 04-J: private DM write-authority construction, private
+   registration-cache construction, unreleased authority maps, an unremoved
+   `writeLocks` map, and dead profile paging members. 04-E1 corrected the
+   write-authority finding: production already shared the singleton. Implement
+   slices 04-E2, 04-E3, and 04-F through 04-K in the recorded order. Decisions
+   gate 04-E2, 04-E3, 04-H, 04-J, and 04-K.
 5. Device, live-server, and signed-release verification when a device and
    signing inputs exist.
 
@@ -224,7 +237,7 @@ verification.
   force-add `01.md`, `02.md`, `03.md`, `03_corrected.md`, or `04.md`. The Plan
   04 slice plan lives in the tracked `docs/agents/tasks/plan04-utility-retention.md`.
 - The worktree holds the untracked `appsvg/` directory. Do not commit it.
-- No code slice is in progress. 04-D is complete. The last code commit is
-  `f0735df`.
+- No code slice is in progress. 04-E1 is complete. The last code commit is
+  `b04b2e8`.
 - The residual 03-G ordering risk (disk write after revocation, before row
   deletion) stays in the Plan 03 task state.

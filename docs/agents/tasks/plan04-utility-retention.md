@@ -10,9 +10,9 @@
 
 **Started:** 2026-09-16.
 
-**Status:** in progress. 04-A through 04-D are complete. 04-E through 04-K
-remain. The cleanup-window audit added 04-K and prerequisites to 04-E, 04-H, and
-04-J.
+**Status:** in progress. 04-A through 04-D and 04-E1 are complete. 04-E2, 04-E3,
+and 04-F through 04-K remain. The cleanup-window audit added 04-K and
+prerequisites to 04-E, 04-H, and 04-J.
 
 **This task is larger than one safe implementation slice.**
 
@@ -87,14 +87,12 @@ A second audit compared `c78e2cf` to `bc4e13d`. It found new ownership and
 retention defects that the Plan 01, 02, and 03 work introduced. Recheck each
 path at slice start.
 
-- `DirectMessageViewModel` constructs a private `DirectMessageWriteAuthority`
-  at `ui/directmessages/DirectMessageViewModel.kt:38`.
-  `DirectMessageRepository` constructs one at
-  `data/directmessages/DirectMessageRepository.kt:28`. The production call at
-  `ui/directmessages/DirectMessagesHost.kt:32` passes three factory arguments,
-  so both defaults fire. `AccountManager.removeAccount` invalidates only the
-  Hilt singleton at `ui/session/AccountManager.kt:332`. Chunk 04-E must repair
-  this wiring before it removes the DM cache.
+- Corrected. `DirectMessageViewModel` and `DirectMessageRepository` declared
+  private `DirectMessageWriteAuthority` defaults. Source verified on 2026-09-16:
+  the Hilt-assisted factory injects the singleton into the ViewModel, which
+  passes it to the repository, so production wiring was already shared. The
+  defaults only fired on direct construction. 04-E1 removed both defaults and
+  made the authority a required dependency. This finding is closed.
 - `MastodonAuth` constructs a private `AppRegistrationCache` at
   `data/auth/MastodonAuth.kt:26`, `:28`, and `:31`. The Hilt module also
   provides one. Chunk 04-H must confirm every production login path uses the
@@ -167,6 +165,26 @@ first edit of the slice.
    eviction. Overage above the byte budget is allowed while leases are open and
    is pruned after release.
 
+### 04-E Split (recorded 2026-09-16 before implementation)
+
+Chunk 04-E holds three behaviors. Implement each as its own slice.
+
+1. **04-E1 shared write authority.** Make `DirectMessageWriteAuthority` a
+   required constructor dependency of `DirectMessageViewModel` and
+   `DirectMessageRepository`, and remove both private defaults. Add a ViewModel
+   test that a revoked shared authority stops the write.
+2. **04-E2 thread anchor.** Add a validated post anchor to the neutral thread
+   request, carry the conversation identity separately, and remove
+   `directLastPosts`. No schema change.
+3. **04-E3 provisional identity.** Add an explicit provisional/server identity
+   field with a Room migration, and send mark read only for verified server
+   identity.
+
+Decision for 04-E1. Use an explicit required constructor argument. The
+Hilt-assisted factory already injects the singleton into the ViewModel, so
+production wiring is shared. The defaults only fire on direct construction. Do
+not construct a private authority.
+
 ## Slice Plan
 
 Order follows `04.md` section 15. Each slice needs characterization tests before
@@ -179,7 +197,9 @@ behaviors.
 | 04-B | Separate the Unicode catalog from picker presentation. | none | no |
 | 04-C | Replace emoji URL locks with fixed stripes. | none | no |
 | 04-D | Enforce emoji mapping and byte retention with reader leases. | 04-C | yes |
-| 04-E | Remove the DM last-post cache dependence. Repair shared write-authority wiring first. | 04-E decisions, Plan 02 | yes |
+| 04-E1 | Require the shared direct-message write authority. | none | no |
+| 04-E2 | Carry a validated thread anchor and remove the DM last-post cache. | 04-E1, Plan 02 | yes |
+| 04-E3 | Give provisional conversations an explicit identity and verified mark-read. | 04-E2, migration | yes |
 | 04-F | Bound idle Misskey thread continuations. | lifecycle coordination | no |
 | 04-G | Bound HTTP client lookup retention. | none | no |
 | 04-H | Bound capability and registration caches. | 04-H decision, Plan 03 | yes |
@@ -292,6 +312,31 @@ Committed. The slice commit is `f0735df`.
   `ui.emoji` suites, and `MediaImageLoaderTest` pass. `test assembleRelease`
   passes. `:app:ktlintCheck` passes. `:app:lintDebug` passes. Device Coil decode
   and physical rendering stay device-unverified.
+
+### 04-E1 Shared Write Authority
+
+Committed. The slice commit is `b04b2e8`.
+
+- `DirectMessageWriteAuthority` is now a required constructor dependency of
+  `DirectMessageViewModel` and `DirectMessageRepository`. Both private defaults
+  are gone.
+- Source verified: the Hilt-assisted factory already injects the singleton into
+  the ViewModel, and the ViewModel passes that instance to the repository.
+  Production wiring was shared before the slice. The defaults only fired on
+  direct construction. The cleanup-window finding is corrected.
+- `DirectMessageViewModelTest.revokedSharedAuthorityStopsTheViewModelWrite`
+  seeds an unread conversation, invalidates the shared authority, opens the
+  conversation, and asserts the conversation stays unread. A private authority
+  would have accepted the write.
+- `docs/agents/protocol-and-session-ownership.md` records the rule and fixes the
+  stale `issue` method name and the stale `AccountManager` line references.
+- `app/ktlint-baseline.xml` is regenerated for the shifted
+  `DirectMessageViewModel` comment-spacing findings.
+- Verification: `DirectMessageRepositoryTest`, `DirectMessageViewModelTest`
+  (13 tests), `DirectMessageSourceTest`, `DirectMessageScreenTest`, and
+  `ConnectedSessionContextTest` pass. `test assembleRelease` passes.
+  `:app:ktlintCheck` passes. `:app:lintDebug` passes. Device behavior stays
+  device-unverified.
 
 ### 04-A Complete External-Link Ownership
 
@@ -455,9 +500,9 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
   no longer resolve. `TrackingParameterCleanerTest` is in `domain`,
   `MisskeyIntegrationTest` is in `data.misskey`, and `MediaTransitionStateTest`
   is in `ui.media`.
-- 04-E needs a shared write-authority test. 04-H needs a registration-cache
-  wiring test. 04-K needs a profile paging-owner test. Add the selectors after
-  the suites exist.
+- 04-E1 added the shared write-authority test to `DirectMessageViewModelTest`.
+  04-H needs a registration-cache wiring test. 04-K needs a profile
+  paging-owner test. Add the selectors after the suites exist.
 - Use deterministic clocks and barriers. Avoid sleep-based expiry tests and
   immediate garbage-collection assertions.
 - Run heap and disk measurements separately. Record API level, workload, accounts,
@@ -484,11 +529,11 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
 
 - No emulator or device is reachable. Connected instrumentation stays unverified.
 - Live-server and signed-release behavior stay unverified.
-- 04-E needs the threaded request, provisional-identity, and write-authority wiring decisions.
+- 04-E2 needs the threaded-request decision. 04-E3 needs the provisional-identity decision and a migration.
 - 04-H and 04-J need Plan 02 and Plan 03 coordination before shared contract changes.
 - 04-J needs the authority key-release decision. 04-K needs the cursor-bound decision.
 - The 04.md limits are proposals, not measured bounds. Release approval needs measurements.
 
 ## Last safe commit
 
-`f0735df` "Bound emoji storage retention with reader leases".
+`b04b2e8` "Require the shared direct-message write authority".
