@@ -10,7 +10,7 @@
 
 **Started:** 2026-09-16.
 
-**Status:** in progress. 04-A, 04-B, and 04-C are complete. 04-D through 04-K
+**Status:** in progress. 04-A through 04-D are complete. 04-E through 04-K
 remain. The cleanup-window audit added 04-K and prerequisites to 04-E, 04-H, and
 04-J.
 
@@ -51,8 +51,10 @@ test-package mirroring. Recheck every finding at implementation start.
 - 04-B is complete. `DefaultUnicodeEmojis` is declared in
   `ui/emoji/DefaultUnicodeEmoji.kt`. This finding is closed.
 - 04-C is complete. `EmojiAssetStore.urlLocks` is a fixed 64-lock array, so no
-  URL-keyed lock entry remains. This finding is closed. The total budget
-  `MAX_TOTAL_ASSET_BYTES = 128 MiB` is at `:221`. Chunk 04-D is still required.
+  URL-keyed lock entry remains. This finding is closed.
+- 04-D is complete. The emoji store bounds URL mappings at 4,096 and inactive
+  content at 128 MiB, and it holds a closeable lease across a decode. The byte
+  budget is now a constructor parameter, not a constant. This finding is closed.
 - `MastodonDirectMessageService.directLastPosts` is still a
   `mutableMapOf<String, Post>` at `data/mastodon/MastodonDirectMessageService.kt:29`,
   written at `:41`, `:53`, and `:79`. Chunk 04-E is still required.
@@ -145,6 +147,26 @@ first edit of the slice.
 8. **04-K cursor bound.** Choose the bound and the prune trigger for the live
    per-tab requested-cursor sets.
 
+### 04-D Decisions (recorded 2026-09-16 before implementation)
+
+1. **Mapping eviction order.** Access order by the referenced asset
+   `lastUsedEpochMillis` ascending, then canonical URL ascending. The mapping
+   `lastCheckedEpochMillis` is a revalidation clock and is not updated on a
+   fresh hit, so it is not used for eviction and is not called an LRU. No schema
+   change is needed because the asset row already records access.
+2. **Limits.** `maxInactiveUrlMappings` starts at 4,096 and `maxTotalAssetBytes`
+   starts at 128 MiB. Both are constructor parameters. Tests inject small limits.
+3. **Lease.** `EmojiAssetLease` is a closeable handle. `EmojiAssetFetcher` passes
+   it as the `ImageSource` closeable, so Coil releases it on decode success,
+   failure, or cancellation.
+4. **Lock order.** Stripe lock then retention lock. Network fetches and byte
+   streaming run outside the retention lock. Metadata writes, file moves, file
+   deletion, and lease registration run under the retention lock. Cleanup never
+   takes a stripe lock.
+5. **Exemption.** An open lease exempts its URL mapping and its content from
+   eviction. Overage above the byte budget is allowed while leases are open and
+   is pruned after release.
+
 ## Slice Plan
 
 Order follows `04.md` section 15. Each slice needs characterization tests before
@@ -236,8 +258,40 @@ Committed. The slice commit is `633cd7a`.
   declaration line.
 - Verification: focused `EmojiAssetStoreTest` and `EmojiCacheDatabaseTest` pass.
   `test assembleRelease` passes. `:app:ktlintCheck` passes. `:app:lintDebug`
-  passes. Physical picker download latency and device behavior stay
-  device-unverified.
+   passes. Physical picker download latency and device behavior stay
+   device-unverified.
+
+### 04-D Enforce Emoji Storage Retention
+
+Committed. The slice commit is `f0735df`.
+
+- `EmojiAssetStore` bounds URL mappings and inactive content with two
+  constructor parameters. Defaults are 4,096 inactive mappings and 128 MiB.
+- Mapping eviction uses access order: the referenced asset
+  `lastUsedEpochMillis` ascending, then canonical URL ascending.
+  `lastCheckedEpochMillis` is a revalidation clock and is not used for eviction.
+  The mapping and asset metadata did not change, so no migration is needed.
+- Content cleanup deletes unreferenced assets by last-used order toward the byte
+  budget. When all content stays referenced, it evicts the least recently used
+  inactive mapping first, then drops content that no mapping or lease needs.
+- `EmojiAssetLease` is a closeable handle. `EmojiAssetFetcher` passes it as the
+  Coil `ImageSource` closeable, so Coil releases it on decode success, failure,
+  or cancellation. Open leases and in-progress writes are exempt from eviction,
+  so the byte budget can be exceeded temporarily until the last reader releases.
+- Lock order is stripe lock then retention lock. Network fetches and byte
+  streaming run outside the retention lock. Metadata writes, file moves, file
+  deletion, and lease registration run under the retention lock.
+- `EmojiAssetStoreTest` covers mapping count pressure, byte pressure, shared
+  hashes, missing files, failed deletion, restart temp cleanup, a held lease
+  during eviction, and idempotent lease close. The 304 and offline tests stay.
+- `docs/wiki/data-and-privacy.md` records the emoji retention rule, and
+  `docs/wiki/architecture.md` records the bounded asset cache.
+- `app/ktlint-baseline.xml` is regenerated for the shifted annotated `instance`
+  declaration line.
+- Verification: `EmojiAssetStoreTest` (18 tests), the other `data.emoji` and
+  `ui.emoji` suites, and `MediaImageLoaderTest` pass. `test assembleRelease`
+  passes. `:app:ktlintCheck` passes. `:app:lintDebug` passes. Device Coil decode
+  and physical rendering stay device-unverified.
 
 ### 04-A Complete External-Link Ownership
 
@@ -437,4 +491,4 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
 
 ## Last safe commit
 
-`633cd7a` "Bound emoji URL coordination with fixed lock stripes".
+`f0735df` "Bound emoji storage retention with reader leases".
