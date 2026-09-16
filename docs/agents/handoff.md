@@ -51,9 +51,9 @@ Read these in order. Treat the repository as the authority.
   callbacks) is complete. Every slice P1a through P1f is committed and
   test verified. The durable record is
   `docs/agents/tasks/ui-package-migration.md`.
-- Home timeline tab capsule fix (task log `logs/260915-220618.txt`) is
-  committed and test verified. The slice commit is `966dbf5`. The last
-  safe commit is `966dbf5`.
+- Version 0.2.7 release slice (task log `logs/260915-223201.txt`) is
+  committed and test verified. The slice commit is `ce431e1`, tagged
+  `v0.2.7`, pushed with the tag. The last safe commit is `ce431e1`.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
 
