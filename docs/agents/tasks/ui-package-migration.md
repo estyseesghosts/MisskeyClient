@@ -54,12 +54,18 @@ safe implementation slice. It divides into P1a through P1f below.
 - P1b — The Photo Grid group lives in `ui/photogrid/`. Commit `f485281`.
   The six shell suites, the full `test assembleRelease` gate, and
   `lintDebug` pass.
+- P1c — The search group lives in `ui/search/`. Commit `f646b20`. The
+  six shell suites, the full `test assembleRelease` gate, and
+  `lintDebug` pass. One full-gate run hit a `MediaViewerScreenTest`
+  timing flake; the class passes in isolation and the gate is green on
+  re-run.
 
 # Current slice
 
-P1c — Move the search group (`SearchController`, `SearchScreen`) into
-`ui/search/`. Update the package declaration and every importing file in
-`main` and `test`.
+P1d — Move saved collections (`SavedCollectionsHost`,
+`SavedPostsViewModel`) into `ui/saved/` and drafts (`DraftsScreen`)
+into `ui/composer/`. Update the package declaration and every importing
+file in `main` and `test`.
 
 # Files involved
 
@@ -89,15 +95,11 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Next
 
-1. P1c as defined in Current slice above.
-2. P1d — Move saved collections and drafts.
-3. P1c — Move the search group into `ui/search/`.
-4. P1d — Move the saved group into `ui/saved/` and `DraftsScreen`
-   into `ui/composer/`.
-5. P1e — Move `AccountManager` into `ui/session/`.
-6. P1f — Group the destination callbacks into post, draft, and
+1. P1d as defined in Current slice above.
+2. P1e — Move `AccountManager` into `ui/session/`.
+3. P1f — Group the destination callbacks into post, draft, and
    navigation bundles.
-7. After P1: Q1 (ktlint/detekt with baseline; fix wildcard imports and
+4. After P1: Q1 (ktlint/detekt with baseline; fix wildcard imports and
    fully-qualified names), T1 (mirror test packages; merge duplicate
    test classes), V1 (repair instrumentation tests), then the Plan 04
    rebase. See the handoff.
@@ -112,4 +114,4 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Last safe commit
 
-`f485281` "Move Photo Grid group into ui.photogrid".
+`f646b20` "Move search group into ui.search".
