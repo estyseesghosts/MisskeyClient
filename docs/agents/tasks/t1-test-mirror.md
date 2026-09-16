@@ -27,7 +27,7 @@ This task is larger than one safe implementation slice. It divides into T1a thro
 - T1d splits from T1e. T1d moves the three shared fixtures. T1e moves the remaining root tests. The remaining root tests do not use the three fixtures, so the split stays clean.
 - Fixture homes mirror the feature they stub. `AppShellFixtures` -> `ui.shell`. `ComposerFeatureFixtures` -> `ui.composer`. `HomeFeatureFixtures` -> `ui.feed`. `HomeFeatureFixtures` imports `AppShellFixtures`, so it gains an `ui.shell` import.
 - T1e moves only single-owner feature tests. Each target package matches the dominant production owner. `MainActivity` stays in the root package, so the eight screen tests gain a `MainActivity` import.
-- T1f holds the remaining cross-cutting and multi-adapter tests. They need an explicit home decision. The candidates are `Api29CompatibilityTest`, `CrossCuttingTest`, `DirectMessageSourceTest`, `LocalizationResourceTest`, `MastodonIntegrationTest`, `MastodonNotificationSyncTest`, `MastodonSourceContractTest`, `ModerationServiceTest`, `NotificationAdapterContractTest`, `NotificationContractTest`, `ProfileSourceContractTest`, `ProtocolFixtureValidationTest`, `ProductIdentityTest`, `SocialSourceContractTest`, and `WebSocketTransportTest`. The source-contract cluster (`SocialSourceContractTest` plus `MastodonSourceContractTest` and `MisskeyIntegrationTest` users) must move together or stay together. Tests with no single production owner may stay at the root package. `ProductIdentityTest` stays at the root package because `ProductIdentity.kt` is in the root package.
+- T1f holds 16 remaining cross-cutting and multi-adapter tests. They need an explicit home decision. The source-contract cluster (`SocialSourceContractTest`, which also declares `MisskeySourceContractTest`, plus the `MastodonSourceContractTest` and `MisskeyIntegrationTest` users) must move together or stay together. Tests with no single production owner may stay at the root package. `ProductIdentityTest` stays at the root package because `ProductIdentity.kt` is in the root package.
 
 # Completed
 
@@ -43,15 +43,15 @@ T1f is next. Give the cross-cutting and multi-adapter tests an explicit home.
 
 # Files involved
 
-T1f holds 15 files. Each needs a home decision before a move. The candidates:
+T1f holds 16 files. Each needs a home decision before a move. The candidates:
 
 `Api29CompatibilityTest`, `CrossCuttingTest`, `DirectMessageSourceTest`,
 `LocalizationResourceTest`, `MastodonIntegrationTest`,
 `MastodonNotificationSyncTest`, `MastodonSourceContractTest`,
-`ModerationServiceTest`, `NotificationAdapterContractTest`,
-`NotificationContractTest`, `ProfileSourceContractTest`,
-`ProtocolFixtureValidationTest`, `ProductIdentityTest`,
-`SocialSourceContractTest`, `WebSocketTransportTest`.
+`MisskeyIntegrationTest`, `ModerationServiceTest`,
+`NotificationAdapterContractTest`, `NotificationContractTest`,
+`ProfileSourceContractTest`, `ProtocolFixtureValidationTest`,
+`ProductIdentityTest`, `SocialSourceContractTest`, `WebSocketTransportTest`.
 
 `SocialSourceContractTest.kt` declares both `SocialSourceContractTest` and
 `MisskeySourceContractTest`. `MastodonSourceContractTest` and
