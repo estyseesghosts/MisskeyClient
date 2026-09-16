@@ -6,6 +6,23 @@ behind by the S1 and P1 moves. Keep the repository green.
 This task is larger than one safe implementation slice. It divides into
 Q1a and Q1b below. The fully-qualified-name cleanup is deferred.
 
+# Completed
+
+- Q1a — ktlint is wired with a baseline. Commit `39cfec3`. The plugin
+  `org.jlleitschuh.gradle.ktlint` 14.2.0 pins ktlint 1.5.0. `.editorconfig`
+  sets the `android_studio` code style, forbids wildcard imports, keeps
+  Compose PascalCase naming, and disables the wrapping, signature, indent,
+  and line-length rules. The baseline holds 464 findings and was generated
+  from the committed tree in a separate worktree, so it matches what CI
+  builds. Both workflows run `:app:ktlintCheck`.
+
+# Current slice
+
+Q1b is next but is blocked. It removes the 28 wildcard imports. Two of the
+files, `ui/posts/PostRow.kt` and `ui/Components.kt`, currently hold
+uncommitted edits from another author. Do not edit them until those edits
+are committed or set aside. See Blockers.
+
 # Scope Decision
 
 - Tool: ktlint through the `org.jlleitschuh.gradle.ktlint` Gradle plugin
@@ -44,7 +61,10 @@ Q1a and Q1b below. The fully-qualified-name cleanup is deferred.
 
 # Current slice
 
-Q1a. In progress.
+Q1b is next but is blocked. It removes the 28 wildcard imports. Two of the
+files, `ui/posts/PostRow.kt` and `ui/Components.kt`, currently hold
+uncommitted edits from another author. Do not edit them until those edits
+are committed or set aside. See Blockers.
 
 # Files involved
 
@@ -93,6 +113,21 @@ Close standard input. Set an explicit timeout for each Gradle call.
 - Live-server and signed-release behavior stay unverified.
 - The Android 15 system-bar instrumentation failure stays in `logs/BUGS.txt`.
 - `docs/decomposition_3/` is git-ignored. Do not force-add planning files.
+- Concurrent editor: while Q1a was in progress, another author added
+  uncommitted work to about 27 files under `ui/`, plus untracked
+  `ui/BeelineSvgPaths.kt` and `appsvg/`. Commit `39cfec3` stages none of
+  it. Do not commit it, revert it, or stash it. Two of the wildcard files
+  overlap that work, so Q1b needs the overlap resolved first.
+- The concurrent work already breaks `:app:ktlintCheck` with 6 findings
+  that the committed baseline does not cover: `enum-wrapping` in
+  `AppShellState.kt`, `no-unused-imports` in `AccountAvatar.kt`,
+  `no-blank-line-before-rbrace` in `PostShareSheet.kt` and
+  `BeelineSvgPaths.kt`. Whoever commits that work must fix the findings or
+  regenerate the baseline.
+
+# Last safe commit
+
+`39cfec3` "Add ktlint static-analysis gate with a baseline".
 
 # Deferred
 
