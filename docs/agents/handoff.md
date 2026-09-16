@@ -11,7 +11,8 @@ durable record for the completed Q1 work is
 `docs/agents/tasks/q1-static-analysis.md`. The durable record for the
 completed T1 work is `docs/agents/tasks/t1-test-mirror.md`. The active Plan 04
 work is `docs/agents/tasks/plan04-utility-retention.md` (04-A and 04-B are
-complete, 04-C through 04-J remain). The Plan 04 source is
+complete, 04-C through 04-K remain). A cleanup-window audit added 04-K and
+prerequisites to 04-E, 04-H, and 04-J. The Plan 04 source is
 `docs/decomposition_3/04.md` (git-ignored planning material, do not force-add).
 
 ## Where To Start
@@ -139,8 +140,10 @@ Read these in order. Treat the repository as the authority.
 ## Next Slice
 
 04-B — Done. Start 04-C (replace the emoji URL locks with fixed stripes) next.
-It has no dependency. Then continue through 04-J in the recorded order. The
-last safe code commit is `6a87c76`.
+It has no dependency. Then continue through 04-K in the recorded order. 04-K
+removes the dead profile paging authority and bounds the cursor sets. 04-J runs
+last and depends on 04-F through 04-I and 04-K. The last safe code commit is
+`6a87c76`.
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The
@@ -167,8 +170,12 @@ verification.
    `b62f8c6`. Record blocked device checks honestly.
 4. Plan 04 — In progress. Rebase recorded as a slice plan in
    `docs/agents/tasks/plan04-utility-retention.md`. 04-A is complete at
-   `ee52ba9` and 04-B is complete at `6a87c76`. Implement slices 04-C through
-   04-J in the recorded order. Five decisions gate 04-E, 04-H, and 04-J.
+   `ee52ba9` and 04-B is complete at `6a87c76`. A cleanup-window audit added
+   04-K and prerequisites to 04-E, 04-H, and 04-J: private DM write-authority
+   construction, private registration-cache construction, unreleased authority
+   maps, an unremoved `writeLocks` map, and dead profile paging members.
+   Implement slices 04-C through 04-K in the recorded order. Eight decisions
+   gate 04-E, 04-H, 04-J, and 04-K.
 5. Device, live-server, and signed-release verification when a device and
    signing inputs exist.
 

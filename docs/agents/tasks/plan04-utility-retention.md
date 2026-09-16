@@ -10,7 +10,8 @@
 
 **Started:** 2026-09-16.
 
-**Status:** in progress. 04-A and 04-B are complete. 04-C through 04-J remain.
+**Status:** in progress. 04-A and 04-B are complete. 04-C through 04-K remain.
+The cleanup-window audit added 04-K and prerequisites to 04-E, 04-H, and 04-J.
 
 **This task is larger than one safe implementation slice.**
 
@@ -40,22 +41,14 @@ block those boundaries.
 
 ## Rebase Findings
 
-Source verified against `HEAD` at `aecab82` on 2026-09-16. The Plan 04 baseline
+Source verified against `HEAD` at `bc4e13d` on 2026-09-16. The Plan 04 baseline
 `c78e2cf` predates the Plan 01/02/03 completion, the S1/P1/Q1 work, and the T1
 test-package mirroring. Recheck every finding at implementation start.
 
-- `openExternal` still exists. It is declared in `ui/posts/PostRow.kt:131`.
-  `PostRow.kt` is physically under `ui/posts/`, but its package is
-  `me.foxtails.palustris.ui`. The eight feature calls are in `PostRow.kt:309`,
-  `ui/SinglePostScreen.kt:293`, `ui/emoji/InlineEmojiText.kt:94` and `:152`,
-  `ui/notifications/NotificationDetailScreen.kt:89` and `:158`,
-  `ui/profile/ProfileDetails.kt:49`, and `ui/media/MediaViewerScreen.kt:367`.
-  `ExternalLinkHandler.open` still delegates to `ui.openExternal`. No production
-  feature calls `ExternalLinkHandler.open` today. Chunk 04-A is still required.
-  The stale opener import in `ProfileScreen.kt` is gone.
-- `DefaultUnicodeEmojis` is still declared in `ui/emoji/EmojiPicker.kt:91`. Its
-  consumers are `ui/emoji/EmojiPicker.kt:372` and
-  `ui/emoji/EmojiPickerGrouping.kt:40`. Chunk 04-B is still required.
+- 04-A is complete. `openExternal` is gone. `ExternalLinkHandler.open` holds the
+  browser operation. This finding is closed.
+- 04-B is complete. `DefaultUnicodeEmojis` is declared in
+  `ui/emoji/DefaultUnicodeEmoji.kt`. This finding is closed.
 - `EmojiAssetStore.urlLocks` is still a `ConcurrentHashMap<String, Any>` at
   `data/emoji/EmojiAssetStore.kt:37`. The total budget
   `MAX_TOTAL_ASSET_BYTES = 128 MiB` is at `:216`. Chunks 04-C and 04-D are still
@@ -80,10 +73,49 @@ test-package mirroring. Recheck every finding at implementation start.
   The plan's source map needs this correction.
 - The flat `ui/` package holds 28 production files, not the 43 named in the
   earlier audit.
-- A `ktlint` gate with a checked-in baseline now exists. The baseline holds 431
+- A `ktlint` gate with a checked-in baseline now exists. The baseline holds 430
   entries across 216 files and zero `no-wildcard-imports` entries. Slice style
-  must not add findings outside the baseline.
+  must not add findings outside the baseline. Baseline burn-down belongs to a
+  separate static-analysis task, not to Plan 04.
 - Test paths changed under T1. Slice verification must use the mirrored paths.
+
+### Cleanup-Window Findings
+
+A second audit compared `c78e2cf` to `bc4e13d`. It found new ownership and
+retention defects that the Plan 01, 02, and 03 work introduced. Recheck each
+path at slice start.
+
+- `DirectMessageViewModel` constructs a private `DirectMessageWriteAuthority`
+  at `ui/directmessages/DirectMessageViewModel.kt:38`.
+  `DirectMessageRepository` constructs one at
+  `data/directmessages/DirectMessageRepository.kt:28`. The production call at
+  `ui/directmessages/DirectMessagesHost.kt:32` passes three factory arguments,
+  so both defaults fire. `AccountManager.removeAccount` invalidates only the
+  Hilt singleton at `ui/session/AccountManager.kt:332`. Chunk 04-E must repair
+  this wiring before it removes the DM cache.
+- `MastodonAuth` constructs a private `AppRegistrationCache` at
+  `data/auth/MastodonAuth.kt:26`, `:28`, and `:31`. The Hilt module also
+  provides one. Chunk 04-H must confirm every production login path uses the
+  provided singleton.
+- `DraftWriteAuthority` and `DirectMessageWriteAuthority` retain account keys
+  for the process lifetime. Their `generations` and `locks` maps have no
+  removal method. The entries are at `data/auth/DraftWriteAuthority.kt:25-26`
+  and `data/directmessages/DirectMessageWriteAuthority.kt:26-27`. Chunk 04-J
+  is required.
+- `NotificationRepository.kt:54` adds a `writeLocks` map.
+  `removeAccount` removes `states`, `storageHealth`, and `generations` at
+  `NotificationRepository.kt:526-528`, but not `writeLocks`. Chunk 04-J is
+  required.
+- `NotificationSyncOrchestrator.kt:61` adds a second `generations` map to
+  `NoOpNotificationSyncController`. No method removes an entry. Chunk 04-J is
+  required.
+- `ProfileTimelinePager.kt` is the live paging owner. `ProfileViewModel` keeps
+  a dead copy. The dead members are `pageJobs` and `requestedCursors` at
+  `ui/profile/ProfileViewModel.kt:65-66`, `loadPage` at `:475`, and
+  `publishPageFailure` at `:539`. No caller uses them. The live calls are at
+  `:128`, `:134`, and `:606`. Chunk 04-K is required.
+- `ProfileTimelinePager.requestedCursors` at `ui/profile/ProfileTimelinePager.kt:25`
+  grows one cursor set per tab for the pager lifetime. Chunk 04-K is required.
 
 ## Decisions Required Before Implementation
 
@@ -104,6 +136,14 @@ first edit of the slice.
    Plan 02's token allocation. Do not restart at one.
 5. **Retention limits.** Treat all maximum counts and expiry periods as proposed.
    Inject small limits in tests. Require recorded measurements before release.
+6. **04-E write-authority wiring.** Choose assisted injection or an explicit
+   constructor argument so the ViewModel and repository share the singleton that
+   account removal invalidates. Do not construct a private authority.
+7. **04-J authority key release.** Decide when an authority `generations` or
+   `locks` account key is safe to remove. Keep waiter safety. Do not remove a
+   key whose lock has waiters.
+8. **04-K cursor bound.** Choose the bound and the prune trigger for the live
+   per-tab requested-cursor sets.
 
 ## Slice Plan
 
@@ -117,12 +157,13 @@ behaviors.
 | 04-B | Separate the Unicode catalog from picker presentation. | none | no |
 | 04-C | Replace emoji URL locks with fixed stripes. | none | no |
 | 04-D | Enforce emoji mapping and byte retention with reader leases. | 04-C | yes |
-| 04-E | Remove the DM last-post cache dependence. | 04-E decisions, Plan 02 | yes |
+| 04-E | Remove the DM last-post cache dependence. Repair shared write-authority wiring first. | 04-E decisions, Plan 02 | yes |
 | 04-F | Bound idle Misskey thread continuations. | lifecycle coordination | no |
 | 04-G | Bound HTTP client lookup retention. | none | no |
 | 04-H | Bound capability and registration caches. | 04-H decision, Plan 03 | yes |
 | 04-I | Repair media registry hidden-state retention. | none | no |
-| 04-J | Audit correctness-critical retention and publish the inventory. | 04-F..04-I, Plan 02/03 | yes |
+| 04-K | Remove dead profile paging authority and bound the cursor sets. | none | yes |
+| 04-J | Audit correctness-critical retention and publish the inventory. | 04-F..04-I, 04-K, Plan 02/03 | yes |
 
 ## Progress
 
@@ -219,6 +260,11 @@ Committed. The slice commit is `6a87c76`.
 
 ### 04-E Remove DM Cache Dependence
 
+- Repair the shared write authority first. Pass the account-lifecycle singleton
+  through the ViewModel into the repository. Remove both private constructions
+  at `DirectMessageViewModel.kt:38` and `DirectMessageRepository.kt:28`.
+- Test that the ViewModel and repository receive the instance that account
+  removal invalidates. A revoked writer must not mark a conversation read.
 - Remove `directLastPosts`. Remove the send-path insertion.
 - Add the validated post anchor to the neutral thread request. Carry conversation identity separately.
 - Load the anchor through supported status endpoints. Validate origin, ownership, and direct audience.
@@ -257,6 +303,10 @@ Committed. The slice commit is `6a87c76`.
   entries on access and insertion.
 - Remove account entries during account removal. Prevent late old-session publication.
 - Bound `AppRegistrationCache` at 16 entries with 24-hour idle expiry. Use a monotonic clock.
+- Confirm instance wiring. `MastodonAuth` constructs private `AppRegistrationCache`
+  instances at `MastodonAuth.kt:26`, `:28`, and `:31`. Confirm every production
+  login path receives the Hilt singleton. Assert one provided instance serves
+  all construction paths.
 - Keep pending-login credentials captured. Preserve required-scope matching.
 - Tests: same-origin accounts, reauthentication, revoked grants, expiry, capacity,
   late probe completion, scope upgrade, and concurrent creation.
@@ -275,12 +325,35 @@ Committed. The slice commit is `6a87c76`.
 - Set notification dismissal IDs and delivery records to account-lifetime durable retention.
 - Prefer one monotonic generation allocator with entries only for active accounts.
 - Keep account locks alive while waiters hold them.
+- Give the authority maps a release rule. Remove `DraftWriteAuthority` and
+  `DirectMessageWriteAuthority` account keys during account removal after
+  quiescence. Remove `NotificationRepository.writeLocks` entries during account
+  removal. Give `NoOpNotificationSyncController.generations` the same policy as
+  its production sibling or remove it.
+- Treat the authority entries as correctness metadata. Do not add LRU eviction.
+- Add `DraftWriteAuthority`, `DirectMessageWriteAuthority`, and the
+  `writeLocks` map to the inventory with source links.
 - Preserve the existing `MediaImageLoader` limits.
 - Publish a completed retention inventory with source links and measured exceptions.
-- Tests: replay after restart, pagination, re-addition generation invalidation, and
-  retained notification volume.
+- Tests: replay after restart, pagination, re-addition generation invalidation,
+  and retained notification volume. Add a test that proves an authority account
+  key is released during account removal.
 - Gate: every touched long-lived structure has a bounded rule or a justified lifetime.
   No exempt claim without measurements.
+
+### 04-K Bound Profile Paging Authority
+
+- Remove the dead paging copy from `ProfileViewModel`. Remove `pageJobs` and
+  `requestedCursors` at `:65-66`, `loadPage` at `:475`, `publishPageFailure` at
+  `:539`, and the dead clears at `:87`, `:600`, and `:605`.
+- Keep the live `ProfileTimelinePager` behavior unchanged.
+- Bound `ProfileTimelinePager.requestedCursors` at `:25`. Prune a set on refresh
+  and on target change. Keep the duplicate-cursor guard while a request is in
+  flight.
+- Tests: a ViewModel test must fail if the dead members return. Assert a refresh
+  clears the old cursor set and repeated pagination cannot grow a set without
+  bound. Keep duplicate-cursor detection covered.
+- Gate: one paging owner remains. Each cursor set has a prune trigger and a bound.
 
 ## Verification
 
@@ -303,6 +376,9 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
   no longer resolve. `TrackingParameterCleanerTest` is in `domain`,
   `MisskeyIntegrationTest` is in `data.misskey`, and `MediaTransitionStateTest`
   is in `ui.media`.
+- 04-E needs a shared write-authority test. 04-H needs a registration-cache
+  wiring test. 04-K needs a profile paging-owner test. Add the selectors after
+  the suites exist.
 - Use deterministic clocks and barriers. Avoid sleep-based expiry tests and
   immediate garbage-collection assertions.
 - Run heap and disk measurements separately. Record API level, workload, accounts,
@@ -315,6 +391,11 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
 - `ExternalLinkHandler` owns generic opening and depends on no post or profile presentation.
 - The Unicode catalog has one definition and a fixed snapshot test.
 - Every touched long-lived map has a bounded rule or a justified account-lifetime rule.
+- One shared write authority serves the DM ViewModel and repository. One provided
+  registration cache serves every production login path.
+- The authority generation and lock maps have a release rule. No removed account
+  keeps an entry.
+- One profile paging owner remains. Each live cursor set has a prune trigger and a bound.
 - The retention inventory lists source links, limits, measurements, and exceptions.
 - The ownership pages and the human privacy and offline-cache guidance are updated.
 - `test assembleRelease`, `:app:ktlintCheck`, and `:app:lintDebug` pass.
@@ -324,8 +405,9 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
 
 - No emulator or device is reachable. Connected instrumentation stays unverified.
 - Live-server and signed-release behavior stay unverified.
-- 04-E needs the threaded request and provisional-identity decisions.
+- 04-E needs the threaded request, provisional-identity, and write-authority wiring decisions.
 - 04-H and 04-J need Plan 02 and Plan 03 coordination before shared contract changes.
+- 04-J needs the authority key-release decision. 04-K needs the cursor-bound decision.
 - The 04.md limits are proposals, not measured bounds. Release approval needs measurements.
 
 ## Last safe commit
