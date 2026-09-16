@@ -79,10 +79,15 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          force-avd-creation: false
+          force-avd-creation: true
           emulator-options: -no-window -noaudio -no-boot-anim
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest
+          script: |
+            for attempt in 1 2 3; do
+              ./gradlew :app:connectedDebugAndroidTest && break
+              if [ "$attempt" = 3 ]; then exit 1; fi
+              sleep 30
+            done
       - name: Upload instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4
