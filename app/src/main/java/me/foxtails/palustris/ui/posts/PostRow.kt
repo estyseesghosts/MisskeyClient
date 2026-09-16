@@ -92,7 +92,6 @@ import me.foxtails.palustris.ui.feed.Feed
 import me.foxtails.palustris.ui.layout.LegacyFeedBottomClearance
 import me.foxtails.palustris.ui.layout.compactHomeScrollEndClearance
 import androidx.compose.ui.unit.sp
-import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import me.foxtails.palustris.data.media.MediaImageLoader
@@ -122,18 +121,12 @@ import me.foxtails.palustris.ui.motion.PopEffect
 import me.foxtails.palustris.ui.motion.rememberSelectedColor
 import me.foxtails.palustris.ui.motion.springPress
 import me.foxtails.palustris.ui.large.LargeBottomDock
+import me.foxtails.palustris.ui.links.ExternalLinkHandler
 import me.foxtails.palustris.ui.posts.reactionPickerGesture
 import me.foxtails.palustris.ui.components.PillAction
 import me.foxtails.palustris.ui.posts.LocalPostActionOwner
 import me.foxtails.palustris.ui.posts.LocalPostRepostConfirmationOwner
 import me.foxtails.palustris.ui.posts.PostRepostConfirmationOwner
-
-internal fun openExternal(context: Context, url: String?) {
-    val uri = url?.let { me.foxtails.palustris.ui.links.ExternalLinkHandler.prepare(it) }?.toUri() ?: return
-    if (uri.scheme !in listOf("https", "http") || uri.host.isNullOrBlank()) return
-    try { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-    catch (_: android.content.ActivityNotFoundException) { Toast.makeText(context, context.getString(R.string.error_no_app_open_link), Toast.LENGTH_SHORT).show() }
-}
 
 private val PostMetadataVerticalPadding = 2.dp * 1.06f
 private val PostChromeHeight = 44.dp + (PostMetadataVerticalPadding * 2f)
@@ -306,7 +299,7 @@ internal fun PostRow(
                     contentWarningRules,
                     bodyText = quote.text,
                 )
-                OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp), onClick = { openExternal(context, quote.url) }) {
+                OutlinedCard(modifier = Modifier.fillMaxWidth().padding(16.dp), onClick = { ExternalLinkHandler.open(context, quote.url) }) {
                     Column(Modifier.padding(16.dp)) {
                         AccountDisplayName(quote.author, style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.height(8.dp))
@@ -884,7 +877,7 @@ private fun InteractionButton(
 }
 
 internal fun sharePost(context: Context, post: Post, cleanTrackingParameters: Boolean = false) {
-    val text = post.url?.let { me.foxtails.palustris.ui.links.ExternalLinkHandler.prepare(it) } ?: post.text
+    val text = post.url?.let { ExternalLinkHandler.prepare(it) } ?: post.text
     try {
         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"

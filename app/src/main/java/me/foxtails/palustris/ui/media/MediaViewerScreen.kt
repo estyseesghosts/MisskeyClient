@@ -60,7 +60,7 @@ import me.foxtails.palustris.domain.MediaRequestRole
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.ui.AppIcons
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
-import me.foxtails.palustris.ui.openExternal
+import me.foxtails.palustris.ui.links.ExternalLinkHandler
 import me.foxtails.palustris.ui.posts.LocalPostActionOwner
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -364,7 +364,7 @@ fun MediaViewerScreen(
                     menuVisible = menuVisible,
                     onMenuVisibilityChanged = { menuVisible = it },
                     onClose = ::requestClose,
-                    onOpenBrowser = { openExternal(context, attachments[pagerState.currentPage].url) },
+                    onOpenBrowser = { ExternalLinkHandler.open(context, attachments[pagerState.currentPage].url) },
                     onShowDescription = { descriptionVisible = true },
                     onReact = { onReact(request.ownedPost) },
                     onReply = { onReply(request.ownedPost) },

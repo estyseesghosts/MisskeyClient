@@ -20,7 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.R
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
-import me.foxtails.palustris.ui.openExternal
+import me.foxtails.palustris.ui.links.ExternalLinkHandler
 import me.foxtails.palustris.domain.Account
 
 @Composable
@@ -46,7 +46,7 @@ internal fun ProfileDetails(account: Account) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .then(if (clickable) Modifier.clickable { openExternal(context, field.value) } else Modifier)
+                        .then(if (clickable) Modifier.clickable { ExternalLinkHandler.open(context, field.value) } else Modifier)
                         .padding(vertical = 4.dp)
                         .testTag("profile_field_$index"),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),

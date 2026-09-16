@@ -61,6 +61,7 @@ import me.foxtails.palustris.domain.HiddenContentPresentation
 import me.foxtails.palustris.ui.LocalHiddenContentPresentation
 import me.foxtails.palustris.ui.emoji.InlineEmojiText
 import me.foxtails.palustris.ui.emoji.AccountDisplayName
+import me.foxtails.palustris.ui.links.ExternalLinkHandler
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.MediaPage
 import me.foxtails.palustris.ui.media.PostMediaCarousel
@@ -290,7 +291,7 @@ internal fun SinglePostScreen(
             post.quote?.let { quote ->
                 OutlinedCard(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    onClick = { openExternal(context, quote.url) },
+                    onClick = { ExternalLinkHandler.open(context, quote.url) },
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         AccountDisplayName(quote.author, style = MaterialTheme.typography.titleSmall)

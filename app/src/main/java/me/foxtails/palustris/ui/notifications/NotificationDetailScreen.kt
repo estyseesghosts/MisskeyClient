@@ -26,7 +26,7 @@ import me.foxtails.palustris.domain.ValidatedUrl
 import me.foxtails.palustris.domain.ContentWarningRules
 import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.PostRow
-import me.foxtails.palustris.ui.openExternal
+import me.foxtails.palustris.ui.links.ExternalLinkHandler
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.motion.AnimatedStatePane
 
@@ -86,7 +86,7 @@ fun NotificationDetailScreen(
                 Text(stringResource(R.string.notifications_detail_title), style = MaterialTheme.typography.headlineSmall)
                 notification?.let { Text(it.activityLabel(), modifier = Modifier.padding(top = 12.dp)) }
                 Button(
-                    onClick = { openExternal(context, route.url.value) },
+                    onClick = { ExternalLinkHandler.open(context, route.url.value) },
                     modifier = Modifier.padding(top = 20.dp),
                 ) { Text(stringResource(R.string.notifications_open_on_server)) }
             }
@@ -155,7 +155,7 @@ fun NotificationDetailScreen(
                           )
                         ValidatedUrl.https(post.url.orEmpty())?.let { url ->
                             Button(
-                                onClick = { openExternal(context, url.value) },
+                                onClick = { ExternalLinkHandler.open(context, url.value) },
                                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                             ) { Text(stringResource(R.string.notifications_open_on_server)) }
                         }

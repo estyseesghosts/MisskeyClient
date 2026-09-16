@@ -51,7 +51,7 @@ import me.foxtails.palustris.domain.CustomEmoji
 import me.foxtails.palustris.domain.MediaRequestPolicy
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.ui.AppIcons
-import me.foxtails.palustris.ui.openExternal
+import me.foxtails.palustris.ui.links.ExternalLinkHandler
 
 /**
  * One annotated rich-text renderer for emoji-aware text. Post callers can opt into inline
@@ -91,7 +91,7 @@ fun InlineEmojiText(
             textMeasurer = textMeasurer,
             density = density,
             bubbleTextStyle = bubbleTextStyle,
-            onOpenUrl = { url -> onOpenUrl?.invoke(url) ?: openExternal(context, url) },
+            onOpenUrl = { url -> onOpenUrl?.invoke(url) ?: ExternalLinkHandler.open(context, url) },
             onOpenUsername = onOpenUsername,
             onSearchHashtag = onSearchHashtag,
         )
@@ -149,7 +149,7 @@ fun InlineEmojiText(
                 val position = layoutResult?.getOffsetForPosition(offset) ?: return@detectTapGestures
                 annotated.getStringAnnotations(URL_ANNOTATION, position, position)
                     .firstOrNull()?.let { annotation ->
-                        onOpenUrl?.invoke(annotation.item) ?: openExternal(context, annotation.item)
+                        onOpenUrl?.invoke(annotation.item) ?: ExternalLinkHandler.open(context, annotation.item)
                         return@detectTapGestures
                     }
                 if (enableInlineEntities) {
