@@ -1,4 +1,4 @@
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.feed
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -32,8 +32,13 @@ import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
+import me.foxtails.palustris.ui.PhotoGridController
+import me.foxtails.palustris.ui.PhotoGridFeed
+import me.foxtails.palustris.ui.SearchController
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
+import me.foxtails.palustris.ui.requiresSignIn
+import me.foxtails.palustris.ui.sourceErrorMessage
 
 @HiltViewModel(assistedFactory = FeedViewModel.Factory::class)
 class FeedViewModel @AssistedInject constructor(

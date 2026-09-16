@@ -22,7 +22,7 @@ import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.timelineDisplayOrder
 import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
-import me.foxtails.palustris.ui.FeedViewModel
+import me.foxtails.palustris.ui.feed.FeedViewModel
 import me.foxtails.palustris.ui.PhotoGridFeed
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

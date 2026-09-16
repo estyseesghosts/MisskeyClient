@@ -28,7 +28,7 @@ import me.foxtails.palustris.data.auth.DraftStore
 import me.foxtails.palustris.data.auth.InMemoryDraftStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import me.foxtails.palustris.ui.FeedState
+import me.foxtails.palustris.ui.feed.FeedState
 import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.emoji.EmojiCatalogState

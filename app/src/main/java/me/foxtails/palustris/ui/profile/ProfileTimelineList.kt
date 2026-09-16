@@ -47,7 +47,7 @@ import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.ProfileTimelineTab
 import me.foxtails.palustris.R
 import me.foxtails.palustris.ui.AppIcons
-import me.foxtails.palustris.ui.ClientReadyPostActions
+import me.foxtails.palustris.ui.feed.ClientReadyPostActions
 import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.PostRow
 import me.foxtails.palustris.ui.components.FilterChipEntry

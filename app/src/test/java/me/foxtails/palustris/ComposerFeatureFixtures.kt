@@ -8,7 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.PostAction
-import me.foxtails.palustris.ui.HomeFeed
+import me.foxtails.palustris.ui.feed.HomeFeed
 import me.foxtails.palustris.ui.composer.ComposerOverlayHost
 import me.foxtails.palustris.ui.composer.ComposerOwnerContext
 import me.foxtails.palustris.ui.composer.rememberComposerOwner

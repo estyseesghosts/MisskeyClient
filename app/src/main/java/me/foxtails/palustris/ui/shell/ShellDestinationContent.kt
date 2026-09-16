@@ -32,7 +32,7 @@ import me.foxtails.palustris.ui.AppNotificationDetailContent
 import me.foxtails.palustris.ui.AppNotificationsDestinationContent
 import me.foxtails.palustris.ui.Destination
 import me.foxtails.palustris.ui.EmptyState
-import me.foxtails.palustris.ui.HomeFeed
+import me.foxtails.palustris.ui.feed.HomeFeed
 import me.foxtails.palustris.ui.LargePostOrigin
 import me.foxtails.palustris.ui.LocalPage
 import me.foxtails.palustris.ui.PhotoGridScreen

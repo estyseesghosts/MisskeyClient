@@ -15,7 +15,7 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.Protocol
-import me.foxtails.palustris.ui.FeedState
+import me.foxtails.palustris.ui.feed.FeedState
 import me.foxtails.palustris.ui.PalustrisApp
 import org.junit.Rule
 import org.junit.Test

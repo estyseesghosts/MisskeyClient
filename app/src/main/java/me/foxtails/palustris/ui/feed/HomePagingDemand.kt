@@ -1,4 +1,4 @@
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.feed
 
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
 

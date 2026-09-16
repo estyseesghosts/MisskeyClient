@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.ui.components.AccountAvatar
+import me.foxtails.palustris.ui.feed.Feed
 import me.foxtails.palustris.ui.layout.LegacyFeedBottomClearance
 import me.foxtails.palustris.ui.layout.compactHomeScrollEndClearance
 import androidx.compose.ui.unit.sp

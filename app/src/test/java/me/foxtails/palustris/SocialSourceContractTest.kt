@@ -9,7 +9,7 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SourceError
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.ui.FeedState
+import me.foxtails.palustris.ui.feed.FeedState
 import me.foxtails.palustris.ui.requiresSignIn
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals

@@ -23,12 +23,12 @@ import me.foxtails.palustris.domain.ProfileField
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Reaction
 import me.foxtails.palustris.domain.ThreadTreeBuilder
-import me.foxtails.palustris.ui.FeedState
-import me.foxtails.palustris.ui.HomeFeed
+import me.foxtails.palustris.ui.feed.FeedState
+import me.foxtails.palustris.ui.feed.HomeFeed
 import me.foxtails.palustris.ui.LocalMutedHashtags
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.SearchScreen
-import me.foxtails.palustris.ui.AccountSearchState
+import me.foxtails.palustris.ui.feed.AccountSearchState
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.profile.ProfileUiState
 import me.foxtails.palustris.ui.thread.PostThreadPhase
@@ -402,7 +402,7 @@ private fun show(
         var opened: OwnedPost? = null
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                me.foxtails.palustris.ui.HomeFeed(
+                HomeFeed(
                     state = AppShellFixtures.homeFeed(
                         FeedState(
                             posts = listOf(post),
@@ -428,7 +428,7 @@ private fun show(
         var favoured = false
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                me.foxtails.palustris.ui.HomeFeed(
+                HomeFeed(
                     state = AppShellFixtures.homeFeed(
                         FeedState(
                             posts = listOf(post),
@@ -463,7 +463,7 @@ private fun show(
         var clicked: String? = null
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                me.foxtails.palustris.ui.HomeFeed(
+                HomeFeed(
                     state = AppShellFixtures.homeFeed(
                         FeedState(
                             posts = listOf(post),
@@ -829,7 +829,7 @@ private fun show(
         var searched = ""
         compose.activity.runOnUiThread {
             compose.activity.setContent {
-                me.foxtails.palustris.ui.HomeFeed(
+                HomeFeed(
                     state = AppShellFixtures.homeFeed(FeedState(posts = listOf(Post(postId("tap-tag"), account, "Body #one #two", 0, Audience.Public)))),
                     onRefresh = {}, onLoadMore = {}, onSignIn = {}, onSearchHashtag = { searched = it },
                 )

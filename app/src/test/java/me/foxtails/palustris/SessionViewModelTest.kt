@@ -11,7 +11,7 @@ import me.foxtails.palustris.data.misskey.MisskeyErrorMapper
 import me.foxtails.palustris.domain.*
 import me.foxtails.palustris.ui.AccountManager
 import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
-import me.foxtails.palustris.ui.FeedViewModel
+import me.foxtails.palustris.ui.feed.FeedViewModel
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test

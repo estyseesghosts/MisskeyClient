@@ -5,8 +5,8 @@ import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
-import me.foxtails.palustris.ui.FeedState
-import me.foxtails.palustris.ui.HomeFeed
+import me.foxtails.palustris.ui.feed.FeedState
+import me.foxtails.palustris.ui.feed.HomeFeed
 
 /**
  * Feature-level Home feed harness. It composes the Home feed presenter directly,

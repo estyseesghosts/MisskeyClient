@@ -1,4 +1,4 @@
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.feed
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -15,6 +15,7 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
+import me.foxtails.palustris.ui.PhotoGridFeed
 import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState

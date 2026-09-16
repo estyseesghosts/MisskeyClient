@@ -26,7 +26,7 @@ import me.foxtails.palustris.domain.ProfileTimelineTab
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.PalustrisTheme
-import me.foxtails.palustris.ui.FeedState
+import me.foxtails.palustris.ui.feed.FeedState
 import me.foxtails.palustris.ui.profile.ProfileCategory
 import me.foxtails.palustris.ui.profile.ProfilePageState
 import me.foxtails.palustris.ui.profile.ProfileScreen

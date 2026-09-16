@@ -37,7 +37,7 @@ Focused feature hosts own their model, state, actions, and projection registrati
 
 | Host | Owner | Contract |
 | --- | --- | --- |
-| `ui/FeedHost.kt` | Home and Photo Grid `FeedViewModel` | `HomeContract`, `SearchContract`, `PhotoGridContract`, `PostInteractions` |
+| `ui/feed/FeedHost.kt` | Home and Photo Grid `FeedViewModel` | `HomeContract`, `SearchContract`, `PhotoGridContract`, `PostInteractions` |
 | `ui/SavedCollectionsHost.kt` | bookmark and like `SavedPostsViewModel` | `SavedCollections` |
 | `ui/profile/ProfileHost.kt` | `ProfileViewModel` | `ProfileContract` |
 | `ui/thread/ThreadHost.kt` | `PostThreadViewModel` | `ThreadContract` |

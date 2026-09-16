@@ -1,9 +1,9 @@
 package me.foxtails.palustris
 
-import me.foxtails.palustris.ui.HomePagingDemand
-import me.foxtails.palustris.ui.HomePagingInput
-import me.foxtails.palustris.ui.lastVisiblePostIndex
-import me.foxtails.palustris.ui.leadingItemCount
+import me.foxtails.palustris.ui.feed.HomePagingDemand
+import me.foxtails.palustris.ui.feed.HomePagingInput
+import me.foxtails.palustris.ui.feed.lastVisiblePostIndex
+import me.foxtails.palustris.ui.feed.leadingItemCount
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

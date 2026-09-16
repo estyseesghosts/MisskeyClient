@@ -70,6 +70,8 @@ import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.isExactHashtag
 import me.foxtails.palustris.ui.components.AccountAvatar
 import me.foxtails.palustris.ui.components.CategoryChips
+import me.foxtails.palustris.ui.feed.AccountSearchState
+import me.foxtails.palustris.ui.feed.ClientReadyPostActions
 import me.foxtails.palustris.ui.large.LargeBottomDock
 import me.foxtails.palustris.ui.large.LargeSearchDockClearance
 import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding

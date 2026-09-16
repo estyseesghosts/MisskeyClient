@@ -8,6 +8,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.ui.*
+import me.foxtails.palustris.ui.feed.FeedState
 import me.foxtails.palustris.domain.*
 import me.foxtails.palustris.data.auth.AccountRef
 import org.junit.Assert.assertEquals

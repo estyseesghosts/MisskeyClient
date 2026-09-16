@@ -15,7 +15,7 @@ import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.EmojiCapabilities
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.PostAction
-import me.foxtails.palustris.ui.FeedState
+import me.foxtails.palustris.ui.feed.FeedState
 import me.foxtails.palustris.ui.PalustrisApp
 import org.junit.Assert.assertEquals
 import org.junit.Rule
