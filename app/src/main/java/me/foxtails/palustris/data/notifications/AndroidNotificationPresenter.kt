@@ -22,6 +22,7 @@ import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.ui.notifications.NotificationLaunch
 import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
+import me.foxtails.palustris.ui.notifications.text
 
 data class NotificationPresentation(
     val accountId: AccountId,
@@ -90,7 +91,7 @@ class NotificationPresentationFactory @Inject constructor(
         NotificationActivity.Reshare -> context.getString(R.string.notification_activity_reshare)
         NotificationActivity.Quote -> context.getString(R.string.notification_activity_quote)
         NotificationActivity.Favourite -> context.getString(R.string.notification_activity_favourite)
-        is NotificationActivity.EmojiReaction -> context.getString(R.string.notification_activity_reaction, activity.reaction.fallbackText)
+        is NotificationActivity.EmojiReaction -> context.getString(R.string.notification_activity_reaction, activity.reaction.fallbackText.text(context))
         NotificationActivity.Follow -> context.getString(R.string.notification_activity_follow)
         NotificationActivity.FollowRequest -> context.getString(R.string.notification_activity_follow_request)
         NotificationActivity.AcceptedRequest -> context.getString(R.string.notification_activity_accepted_request)

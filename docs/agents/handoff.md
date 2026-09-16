@@ -179,12 +179,13 @@ Read these in order. Treat the repository as the authority.
 ## Next Slice
 
 Localization string extraction is active. The durable record is
-`docs/agents/tasks/localization-string-extraction.md`. Slices 1 and 2 are
-complete and committed. Start slice 3 (domain and data fallback text) next. It
-needs a mechanism decision first: use a stable code that presentation maps to a
-resource, or a `@StringRes` value on the model. Do not add `Context` to the data
-layer. Slice 3 also decides the remaining protocol feature codes that
-`sourceErrorMessage` still interpolates.
+`docs/agents/tasks/localization-string-extraction.md`. Slices 1, 2, and 3 are
+complete and committed. Start slice 4 (data layer error messages) next. It
+covers `FileAppPreferencesRepository`, `NotificationSyncOrchestrator`,
+`DraftActions`, the auth expiry messages, `MisskeyApi`, and `MisskeySource`.
+Those owners have no `Context`. Decide the mechanism first: a `@StringRes` code
+on the error, or a `Context`-backed resolver. Slice 4 also decides the remaining
+protocol feature codes that `sourceErrorMessage` still interpolates.
 
 Plan 04 resumes after the localization task. 04-E2 is Done. Start 04-E3 (give
 provisional conversations an explicit identity
@@ -255,7 +256,7 @@ verification.
   force-add `01.md`, `02.md`, `03.md`, `03_corrected.md`, or `04.md`. The Plan
   04 slice plan lives in the tracked `docs/agents/tasks/plan04-utility-retention.md`.
 - The worktree holds the untracked `appsvg/` directory. Do not commit it.
-- No code slice is in progress for Plan 04. Localization slices 1 and 2 are
+- No code slice is in progress for Plan 04. Localization slices 1, 2, and 3 are
   complete. The last safe commit is the current `HEAD` (`git log -1`).
 - All non-English string catalogs are removed from the app for now. Two
   localization tests were relaxed to tolerate missing catalogs and must be

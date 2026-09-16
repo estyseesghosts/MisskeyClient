@@ -197,6 +197,6 @@ private fun Notification.activityLabel(): String = when (activity) {
         me.foxtails.palustris.domain.NotificationActivity.Reshare -> stringResource(R.string.notification_activity_reshare)
         me.foxtails.palustris.domain.NotificationActivity.Quote -> stringResource(R.string.notification_activity_quote)
         me.foxtails.palustris.domain.NotificationActivity.Favourite -> stringResource(R.string.notification_activity_favourite)
-        is me.foxtails.palustris.domain.NotificationActivity.EmojiReaction -> stringResource(R.string.notification_activity_reaction, activity.reaction.fallbackText)
+        is me.foxtails.palustris.domain.NotificationActivity.EmojiReaction -> stringResource(R.string.notification_activity_reaction, activity.reaction.fallbackText.text())
     else -> stringResource(R.string.notifications_detail_title)
 }

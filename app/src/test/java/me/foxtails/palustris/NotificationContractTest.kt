@@ -8,6 +8,7 @@ import me.foxtails.palustris.domain.AccessStatus
 import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.CapabilityStatus
 import me.foxtails.palustris.domain.NotificationActivity
+import me.foxtails.palustris.domain.NotificationLabel
 import me.foxtails.palustris.domain.NotificationReadStatus
 import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.Protocol
@@ -136,7 +137,7 @@ class NotificationContractTest {
 
         val activity = notification.activity as NotificationActivity.EmojiReaction
         assertEquals(":blob_cat:", activity.reaction.identity)
-        assertEquals("blob_cat", activity.reaction.fallbackText)
+        assertEquals(NotificationLabel.Plain("blob_cat"), activity.reaction.fallbackText)
         assertEquals("blob_cat", activity.reaction.emoji?.shortcode)
         assertEquals("https://cdn.example/emoji/blob_cat.png", activity.reaction.emoji?.staticUrl?.value)
         assertEquals(":blob_cat:", activity.reaction.emoji?.submissionValue)

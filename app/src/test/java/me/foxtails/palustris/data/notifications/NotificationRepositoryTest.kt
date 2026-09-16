@@ -16,6 +16,7 @@ import me.foxtails.palustris.domain.Event
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationAcknowledgement
 import me.foxtails.palustris.domain.NotificationActivity
+import me.foxtails.palustris.domain.NotificationLabel
 import me.foxtails.palustris.domain.NotificationCheckpoint
 import me.foxtails.palustris.domain.NotificationDeliveryState
 import me.foxtails.palustris.domain.NotificationPage
@@ -415,7 +416,7 @@ class NotificationRepositoryTest {
             ValidatedUrl.https("https://example.org/activity/1")!!,
         )
         repository.establishBaseline(token, baselineRequest(), NotificationPage(
-            listOf(notification("unknown", NotificationActivity.Unknown("Unknown", destination))),
+            listOf(notification("unknown", NotificationActivity.Unknown(NotificationLabel.Plain("Unknown"), destination))),
         ))
 
         val restored = NotificationRepository(store).observe(account).value.items.single()

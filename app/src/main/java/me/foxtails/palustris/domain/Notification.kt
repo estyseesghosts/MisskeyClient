@@ -44,22 +44,51 @@ sealed interface NotificationActivity {
     data object DirectMessage : NotificationActivity
 
     sealed interface System : NotificationActivity {
-        data class Moderation(val title: String, val detail: String? = null) : System
-        data class RelationshipChange(val title: String, val detail: String? = null) : System
-        data class RoleOrAchievement(val title: String, val detail: String? = null) : System
-        data class AppEvent(val title: String, val detail: String? = null) : System
+        data class Moderation(val title: NotificationLabel, val detail: String? = null) : System
+        data class RelationshipChange(val title: NotificationLabel, val detail: String? = null) : System
+        data class RoleOrAchievement(val title: NotificationLabel, val detail: String? = null) : System
+        data class AppEvent(val title: NotificationLabel, val detail: String? = null) : System
     }
 
     /** Unknown values remain renderable without exposing the raw protocol payload. */
     data class Unknown(
-        val fallbackText: String,
+        val fallbackText: NotificationLabel,
         val validatedDestination: NotificationDestination? = null,
     ) : NotificationActivity
 }
 
+/**
+ * A display label for an activity.
+ *
+ * A [Plain] label carries text supplied by the server. A [Coded] label names a
+ * bundled string that the presentation layer resolves. Codes stay stable across
+ * builds, so a stored notification keeps its label.
+ */
+sealed interface NotificationLabel {
+    data class Plain(val value: String) : NotificationLabel
+    data class Coded(val code: NotificationLabelCode) : NotificationLabel
+}
+
+/** Bundled activity labels. Presentation maps each code to a string resource. */
+enum class NotificationLabelCode {
+    Reaction,
+    ScheduledPostFailed,
+    ApplicationEvent,
+    AccountAchievement,
+    ModerationEvent,
+    RelationshipChanged,
+    ChatInvitationUnavailable,
+    ExportCompleted,
+    NewSignIn,
+    AccessTokenCreated,
+    TestNotification,
+    NewActivity,
+    AccountEvent,
+}
+
 data class NotificationReaction(
     val identity: String,
-    val fallbackText: String,
+    val fallbackText: NotificationLabel,
     val emoji: CustomEmoji? = null,
 )
 

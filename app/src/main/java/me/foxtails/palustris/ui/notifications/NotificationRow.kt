@@ -122,7 +122,7 @@ fun NotificationRow(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         me.foxtails.palustris.ui.emoji.CustomEmojiImage(
                             emoji = notification.activity.reaction.emoji,
-                            fallbackText = notification.activity.reaction.fallbackText,
+                            fallbackText = notification.activity.reaction.fallbackText.text(),
                             modifier = Modifier.size(20.dp),
                             textStyle = MaterialTheme.typography.labelLarge,
                         )
@@ -264,7 +264,7 @@ private fun NotificationActivity.label(): String = when (this) {
     NotificationActivity.Reshare -> stringResource(R.string.notification_activity_reshare)
     NotificationActivity.Quote -> stringResource(R.string.notification_activity_quote)
     NotificationActivity.Favourite -> stringResource(R.string.notification_activity_favourite)
-    is NotificationActivity.EmojiReaction -> stringResource(R.string.notification_activity_reaction, reaction.fallbackText)
+    is NotificationActivity.EmojiReaction -> stringResource(R.string.notification_activity_reaction, reaction.fallbackText.text())
     NotificationActivity.Follow -> stringResource(R.string.notification_activity_follow)
     NotificationActivity.FollowRequest -> stringResource(R.string.notification_activity_follow_request)
     NotificationActivity.AcceptedRequest -> stringResource(R.string.notification_activity_accepted_request)
@@ -273,9 +273,9 @@ private fun NotificationActivity.label(): String = when (this) {
     NotificationActivity.PostUpdate -> stringResource(R.string.notification_activity_post_update)
     NotificationActivity.QuotedPostUpdate -> stringResource(R.string.notification_activity_quoted_post_update)
     NotificationActivity.DirectMessage -> stringResource(R.string.notification_activity_direct_message)
-    is NotificationActivity.System.Moderation -> title
-    is NotificationActivity.System.RelationshipChange -> title
-    is NotificationActivity.System.RoleOrAchievement -> title
-    is NotificationActivity.System.AppEvent -> title
-    is NotificationActivity.Unknown -> fallbackText
+    is NotificationActivity.System.Moderation -> title.text()
+    is NotificationActivity.System.RelationshipChange -> title.text()
+    is NotificationActivity.System.RoleOrAchievement -> title.text()
+    is NotificationActivity.System.AppEvent -> title.text()
+    is NotificationActivity.Unknown -> fallbackText.text()
 }

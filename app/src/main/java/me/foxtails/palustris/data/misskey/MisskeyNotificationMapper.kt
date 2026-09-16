@@ -8,6 +8,8 @@ import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationDestination
 import me.foxtails.palustris.domain.NotificationGroup
 import me.foxtails.palustris.domain.NotificationGroupId
+import me.foxtails.palustris.domain.NotificationLabel
+import me.foxtails.palustris.domain.NotificationLabelCode
 import me.foxtails.palustris.domain.NotificationReaction
 import me.foxtails.palustris.domain.NotificationTarget
 import org.json.JSONObject
@@ -113,7 +115,9 @@ object MisskeyNotificationMapper {
         ?: mappedPost?.emoji?.get(identity) ?: mappedPost?.emoji?.get(identity.trim(':'))
         return NotificationActivity.EmojiReaction(NotificationReaction(
             identity = identity,
-            fallbackText = identity.trim(':').ifBlank { "Reaction" },
+            fallbackText = identity.trim(':').takeIf(String::isNotBlank)
+                ?.let(NotificationLabel::Plain)
+                ?: NotificationLabel.Coded(NotificationLabelCode.Reaction),
             emoji = emoji,
         ))
     }
@@ -143,19 +147,23 @@ private fun String.toNotificationActivity(json: JSONObject): NotificationActivit
     "followRequestAccepted" -> NotificationActivity.AcceptedRequest
     "pollEnded" -> NotificationActivity.PollResult()
     "scheduledNotePosted" -> NotificationActivity.SubscribedPost
-    "scheduledNotePostFailed" -> NotificationActivity.System.AppEvent("Scheduled post failed")
+    "scheduledNotePostFailed" -> NotificationActivity.System.AppEvent(NotificationLabel.Coded(NotificationLabelCode.ScheduledPostFailed))
     "app" -> NotificationActivity.System.AppEvent(
-        json.nullableString("customHeader") ?: "Application event",
+        json.nullableString("customHeader")?.let(NotificationLabel::Plain)
+            ?: NotificationLabel.Coded(NotificationLabelCode.ApplicationEvent),
         json.nullableString("customBody"),
     )
     "achievementEarned", "achievement", "roleAssigned", "role" ->
-        NotificationActivity.System.RoleOrAchievement(json.nullableString("achievement") ?: "Account achievement")
-    "moderation", "moderationWarning" -> NotificationActivity.System.Moderation("Moderation event")
-    "relationship" -> NotificationActivity.System.RelationshipChange("Relationship changed")
-    "chatRoomInvitationReceived" -> NotificationActivity.Unknown("Chat invitation is not available")
-    "exportCompleted" -> NotificationActivity.System.AppEvent("Export completed")
-    "login" -> NotificationActivity.System.AppEvent("New sign-in")
-    "createToken" -> NotificationActivity.System.AppEvent("Access token created")
-    "test" -> NotificationActivity.System.AppEvent("Test notification")
-    else -> NotificationActivity.Unknown("New activity")
+        NotificationActivity.System.RoleOrAchievement(
+            json.nullableString("achievement")?.let(NotificationLabel::Plain)
+                ?: NotificationLabel.Coded(NotificationLabelCode.AccountAchievement),
+        )
+    "moderation", "moderationWarning" -> NotificationActivity.System.Moderation(NotificationLabel.Coded(NotificationLabelCode.ModerationEvent))
+    "relationship" -> NotificationActivity.System.RelationshipChange(NotificationLabel.Coded(NotificationLabelCode.RelationshipChanged))
+    "chatRoomInvitationReceived" -> NotificationActivity.Unknown(NotificationLabel.Coded(NotificationLabelCode.ChatInvitationUnavailable))
+    "exportCompleted" -> NotificationActivity.System.AppEvent(NotificationLabel.Coded(NotificationLabelCode.ExportCompleted))
+    "login" -> NotificationActivity.System.AppEvent(NotificationLabel.Coded(NotificationLabelCode.NewSignIn))
+    "createToken" -> NotificationActivity.System.AppEvent(NotificationLabel.Coded(NotificationLabelCode.AccessTokenCreated))
+    "test" -> NotificationActivity.System.AppEvent(NotificationLabel.Coded(NotificationLabelCode.TestNotification))
+    else -> NotificationActivity.Unknown(NotificationLabel.Coded(NotificationLabelCode.NewActivity))
 }

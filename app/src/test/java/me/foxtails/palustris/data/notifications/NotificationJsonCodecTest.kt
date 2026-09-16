@@ -23,6 +23,8 @@ import me.foxtails.palustris.domain.NotificationDeliveryState
 import me.foxtails.palustris.domain.NotificationDestination
 import me.foxtails.palustris.domain.NotificationGroup
 import me.foxtails.palustris.domain.NotificationGroupId
+import me.foxtails.palustris.domain.NotificationLabel
+import me.foxtails.palustris.domain.NotificationLabelCode
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.NotificationReaction
 import me.foxtails.palustris.domain.NotificationReadStatus
@@ -224,7 +226,7 @@ class NotificationJsonCodecTest {
         val reaction = item.activity as NotificationActivity.EmojiReaction
 
         assertEquals(":blobcat:", reaction.reaction.identity)
-        assertEquals("blobcat", reaction.reaction.fallbackText)
+        assertEquals(NotificationLabel.Plain("blobcat"), reaction.reaction.fallbackText)
         val emoji = reaction.reaction.emoji
         assertNotNull(emoji)
         assertEquals("blobcat", emoji?.shortcode)
@@ -279,7 +281,7 @@ class NotificationJsonCodecTest {
             NotificationActivity.EmojiReaction(
                 NotificationReaction(
                     identity = ":blobcat:",
-                    fallbackText = "blobcat",
+                    fallbackText = NotificationLabel.Plain("blobcat"),
                     emoji = CustomEmoji(
                         shortcode = "blobcat",
                         animatedUrl = ValidatedUrl.https("https://misskey.example/blobcat.gif"),
@@ -302,24 +304,24 @@ class NotificationJsonCodecTest {
         assertEquals(NotificationActivity.QuotedPostUpdate, items.getValue("a-quoted-update").activity)
         assertEquals(NotificationActivity.DirectMessage, items.getValue("a-direct").activity)
         assertEquals(
-            NotificationActivity.System.Moderation("Moderation", "A post was removed"),
+            NotificationActivity.System.Moderation(NotificationLabel.Plain("Moderation"), "A post was removed"),
             items.getValue("a-system-moderation").activity,
         )
         assertEquals(
-            NotificationActivity.System.RelationshipChange("Follow changed", "A user followed you"),
+            NotificationActivity.System.RelationshipChange(NotificationLabel.Plain("Follow changed"), "A user followed you"),
             items.getValue("a-system-relationship").activity,
         )
         assertEquals(
-            NotificationActivity.System.RoleOrAchievement("New role", "You earned a role"),
+            NotificationActivity.System.RoleOrAchievement(NotificationLabel.Plain("New role"), "You earned a role"),
             items.getValue("a-system-role").activity,
         )
         assertEquals(
-            NotificationActivity.System.AppEvent("Update", "A new version is available"),
+            NotificationActivity.System.AppEvent(NotificationLabel.Plain("Update"), "A new version is available"),
             items.getValue("a-system-app").activity,
         )
         assertEquals(
             NotificationActivity.Unknown(
-                "New thing",
+                NotificationLabel.Plain("New thing"),
                 NotificationDestination.Server(ValidatedUrl.https("https://misskey.example/notice/9")!!),
             ),
             items.getValue("a-unknown").activity,
@@ -904,7 +906,7 @@ class NotificationJsonCodecTest {
             accountId = misskeyReceiver,
             createdAtEpochMillis = 1,
             activity = NotificationActivity.Unknown(
-                fallbackText = "New thing",
+                fallbackText = NotificationLabel.Plain("New thing"),
                 validatedDestination = NotificationDestination.InApp(
                     NotificationTarget.Post(EntityId("https://misskey.example", "post-1")),
                 ),
@@ -917,6 +919,25 @@ class NotificationJsonCodecTest {
         assertNull(decoded.getValue("omit-continuation").group?.actorContinuation)
         val unknown = decoded.getValue("omit-unknown").activity as NotificationActivity.Unknown
         assertNull(unknown.validatedDestination)
+    }
+
+    @Test
+    fun codedLabelsRoundTripWithoutLosingTheirCode() {
+        val codedItem = Notification(
+            id = EntityId("https://misskey.example", "coded-label"),
+            accountId = misskeyReceiver,
+            createdAtEpochMillis = 1,
+            activity = NotificationActivity.System.AppEvent(
+                NotificationLabel.Coded(NotificationLabelCode.ScheduledPostFailed),
+            ),
+            rawType = "scheduledNotePostFailed",
+        )
+        val decoded = decode(encode(NotificationRepositoryState(items = listOf(codedItem)))).items.single().activity
+
+        assertEquals(
+            NotificationActivity.System.AppEvent(NotificationLabel.Coded(NotificationLabelCode.ScheduledPostFailed)),
+            decoded,
+        )
     }
 
     private fun fixture(name: String): JSONObject = JSONObject(fixtureText(name))

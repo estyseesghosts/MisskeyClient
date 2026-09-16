@@ -12,6 +12,8 @@ import me.foxtails.palustris.domain.NotificationDeliveryState
 import me.foxtails.palustris.domain.NotificationDestination
 import me.foxtails.palustris.domain.NotificationGroup
 import me.foxtails.palustris.domain.NotificationGroupId
+import me.foxtails.palustris.domain.NotificationLabel
+import me.foxtails.palustris.domain.NotificationLabelCode
 import me.foxtails.palustris.domain.NotificationPushRegistrationState
 import me.foxtails.palustris.domain.NotificationReaction
 import me.foxtails.palustris.domain.NotificationReadState
@@ -507,7 +509,7 @@ private fun JSONObject.optLongOrNull(key: String): Long? =
 private fun JSONObject.optIntOrNull(key: String): Int? =
     if (has(key) && !isNull(key)) optInt(key) else null
 
-private fun encodeTarget(target: NotificationTarget): JSONObject = JSONObject().apply {    when (target) {
+private fun encodeTarget(target: NotificationTarget): JSONObject = JSONObject().apply { when (target) {
         is NotificationTarget.Post -> put("kind", "post").put("id", encodeEntity(target.id))
         is NotificationTarget.Profile -> put("kind", "profile").put("id", encodeAccountId(target.id))
         is NotificationTarget.Poll -> put("kind", "poll").put("id", encodeEntity(target.id))
@@ -531,7 +533,7 @@ private fun encodeActivity(activity: NotificationActivity): JSONObject = JSONObj
         NotificationActivity.Quote -> put("kind", "quote")
         NotificationActivity.Favourite -> put("kind", "favourite")
         is NotificationActivity.EmojiReaction -> put("kind", "reaction").put("identity", activity.reaction.identity)
-            .put("fallback", activity.reaction.fallbackText)
+            .put("fallback", encodeLabel(activity.reaction.fallbackText))
             .put("emoji", activity.reaction.emoji?.let(::encodeEmoji))
         NotificationActivity.Follow -> put("kind", "follow")
         NotificationActivity.FollowRequest -> put("kind", "follow_request")
@@ -542,14 +544,14 @@ private fun encodeActivity(activity: NotificationActivity): JSONObject = JSONObj
         NotificationActivity.QuotedPostUpdate -> put("kind", "quoted_post_update")
         NotificationActivity.DirectMessage -> put("kind", "direct_message")
         is NotificationActivity.System.Moderation -> put("kind", "system").put("systemKind", "Moderation")
-            .put("title", activity.title).put("detail", activity.detail)
+            .put("title", encodeLabel(activity.title)).put("detail", activity.detail)
         is NotificationActivity.System.RelationshipChange -> put("kind", "system").put("systemKind", "RelationshipChange")
-            .put("title", activity.title).put("detail", activity.detail)
+            .put("title", encodeLabel(activity.title)).put("detail", activity.detail)
         is NotificationActivity.System.RoleOrAchievement -> put("kind", "system").put("systemKind", "RoleOrAchievement")
-            .put("title", activity.title).put("detail", activity.detail)
+            .put("title", encodeLabel(activity.title)).put("detail", activity.detail)
         is NotificationActivity.System.AppEvent -> put("kind", "system").put("systemKind", "AppEvent")
-            .put("title", activity.title).put("detail", activity.detail)
-        is NotificationActivity.Unknown -> put("kind", "unknown").put("fallback", activity.fallbackText)
+            .put("title", encodeLabel(activity.title)).put("detail", activity.detail)
+        is NotificationActivity.Unknown -> put("kind", "unknown").put("fallback", encodeLabel(activity.fallbackText))
             .put("destination", (activity.validatedDestination as? NotificationDestination.Server)?.url?.value)
     }
 }
@@ -561,7 +563,8 @@ private fun decodeActivity(json: JSONObject): NotificationActivity = when (json.
     "quote" -> NotificationActivity.Quote
     "favourite" -> NotificationActivity.Favourite
     "reaction" -> NotificationActivity.EmojiReaction(NotificationReaction(
-        json.optString("identity", "reaction"), json.optString("fallback", "Reaction"),
+        json.optString("identity", "reaction"),
+        decodeLabel(json.opt("fallback"), NotificationLabelCode.Reaction),
         json.optJSONObject("emoji")?.let(::decodeEmoji)
             ?: json.optString("imageUrl").takeIf { it.isNotBlank() }?.let { legacy ->
                 me.foxtails.palustris.domain.ValidatedUrl.https(legacy)?.let { url ->
@@ -584,18 +587,48 @@ private fun decodeActivity(json: JSONObject): NotificationActivity = when (json.
     "quoted_post_update" -> NotificationActivity.QuotedPostUpdate
     "direct_message" -> NotificationActivity.DirectMessage
     "system" -> when (json.optString("systemKind")) {
-        "Moderation" -> NotificationActivity.System.Moderation(json.optString("title"), json.optString("detail").takeIf { it.isNotBlank() })
-        "RelationshipChange" -> NotificationActivity.System.RelationshipChange(json.optString("title"), json.optString("detail").takeIf { it.isNotBlank() })
-        "RoleOrAchievement" -> NotificationActivity.System.RoleOrAchievement(json.optString("title"), json.optString("detail").takeIf { it.isNotBlank() })
-        else -> NotificationActivity.System.AppEvent(json.optString("title"), json.optString("detail").takeIf { it.isNotBlank() })
+        "Moderation" -> NotificationActivity.System.Moderation(
+            decodeLabel(json.opt("title"), NotificationLabelCode.ModerationEvent),
+            json.optString("detail").takeIf { it.isNotBlank() },
+        )
+        "RelationshipChange" -> NotificationActivity.System.RelationshipChange(
+            decodeLabel(json.opt("title"), NotificationLabelCode.RelationshipChanged),
+            json.optString("detail").takeIf { it.isNotBlank() },
+        )
+        "RoleOrAchievement" -> NotificationActivity.System.RoleOrAchievement(
+            decodeLabel(json.opt("title"), NotificationLabelCode.AccountAchievement),
+            json.optString("detail").takeIf { it.isNotBlank() },
+        )
+        else -> NotificationActivity.System.AppEvent(
+            decodeLabel(json.opt("title"), NotificationLabelCode.ApplicationEvent),
+            json.optString("detail").takeIf { it.isNotBlank() },
+        )
     }
     else -> NotificationActivity.Unknown(
-        fallbackText = json.optString("fallback", "New activity"),
+        fallbackText = decodeLabel(json.opt("fallback"), NotificationLabelCode.NewActivity),
         validatedDestination = json.optString("destination")
             .takeIf(String::isNotBlank)
             ?.let(me.foxtails.palustris.domain.ValidatedUrl::https)
             ?.let(me.foxtails.palustris.domain.NotificationDestination::Server),
     )
+}
+
+private fun encodeLabel(label: NotificationLabel): Any = when (label) {
+    is NotificationLabel.Plain -> label.value
+    is NotificationLabel.Coded -> JSONObject().put("code", label.code.name)
+}
+
+/**
+ * Decodes a stored label. A string is server text from an older format. An object
+ * carries a stable code. The fallback covers an unknown or missing code.
+ */
+private fun decodeLabel(value: Any?, fallback: NotificationLabelCode): NotificationLabel = when (value) {
+    is JSONObject -> value.optString("code").takeIf(String::isNotBlank)
+        ?.let { name -> runCatching { NotificationLabelCode.valueOf(name) }.getOrNull() }
+        ?.let(NotificationLabel::Coded)
+        ?: NotificationLabel.Coded(fallback)
+    is String -> NotificationLabel.Plain(value)
+    else -> NotificationLabel.Coded(fallback)
 }
 
 private fun encodeGroup(group: NotificationGroup): JSONObject = JSONObject().apply {

@@ -95,16 +95,48 @@ The removed entries belong to the touched files whose style debt is now fixed.
 Verification: `assembleDebug`, full `testDebugUnitTest` (1070 tests),
 `assembleRelease`, and `ktlintCheck` pass. Source audit: zero unused resources.
 
-### Slice 3 — Domain and data fallback text (planned)
+### Slice 3 — domain fallback labels (complete)
 
-`data/` and `domain/` own English fallbacks such as `MisskeyNotificationMapper`
-`"Reaction"`, `"Scheduled post failed"`, and `NotificationSyncOrchestrator`
-`"Notification sync failed"`. The data layer has no `Context`. Decide the
-mechanism before this slice. Options: a stable code that presentation maps to a
-resource, or a `@StringRes` value carried on the model. Do not add `Context` to
-the data layer. Also decide the remaining protocol feature codes
-(`timeline:Home`, `direct.pagination`, `notifications.followRequest`) that
-`sourceErrorMessage` still interpolates.
+The notification activity fallback labels are the domain-layer user-visible
+text. They are also persisted, so the mechanism must be stable across builds.
+
+- `domain/Notification.kt` adds `NotificationLabel` with `Plain(value)` and
+  `Coded(code)`, and the `NotificationLabelCode` enum. `Plain` carries server
+  text. `Coded` names a bundled string.
+- `System.Moderation`, `System.RelationshipChange`, `System.RoleOrAchievement`,
+  `System.AppEvent`, `Unknown.fallbackText`, and
+  `NotificationReaction.fallbackText` carry a `NotificationLabel`.
+- `ui/notifications/NotificationLabelText.kt` is new. It is the only mapping
+  from a code to a `@StringRes` id. It offers a composable `text()` and a
+  `text(context)` for the presenter.
+- The Misskey and Mastodon mappers emit `Coded` for bundled labels and `Plain`
+  for server text.
+- `NotificationJsonCodec` encodes `Plain` as a JSON string and `Coded` as
+  `{"code":"<enum name>"}`. The decoder accepts both. Old data reads as `Plain`,
+  so the stored format stays compatible. No migration is needed.
+- `NotificationRow`, `NotificationDetailScreen`, and
+  `AndroidNotificationPresenter` resolve the label.
+
+Tests: `NotificationJsonCodecTest.codedLabelsRoundTripWithoutLosingTheirCode`
+covers the new format. Fixtures and existing tests use `Plain` and keep the
+old string format.
+
+Verification: `assembleDebug`, full `testDebugUnitTest` (1071 tests),
+`assembleRelease`, and `ktlintCheck` pass. Source audit: zero unused resources.
+
+### Slice 4 — data layer error messages (planned)
+
+`data/` owns English fallbacks that reach the user:
+`FileAppPreferencesRepository` load and save failures, `NotificationSyncOrchestrator`
+`"Notification sync failed"`, `DraftActions` load and delete failures, the
+`MastodonAuth` and `MisskeyAuth` expiry and incompatible-server messages,
+`MisskeyApi` domain and request failures, and `MisskeySource` webfinger
+validation. The auth classes, orchestrator, and push repository have no
+`Context`. Decide the mechanism: a `@StringRes` code on the error, or a
+`Context`-backed resolver like `UiStrings`. Do not persist a resource id.
+Also decide the protocol feature codes (`timeline:Home`, `direct.pagination`,
+`notifications.followRequest`, `requested feature`) that `sourceErrorMessage`
+still interpolates.
 
 ## Not In Scope
 

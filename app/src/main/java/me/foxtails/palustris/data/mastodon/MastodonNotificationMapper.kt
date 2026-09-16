@@ -9,6 +9,8 @@ import me.foxtails.palustris.domain.NotificationActivity
 import me.foxtails.palustris.domain.NotificationDestination
 import me.foxtails.palustris.domain.NotificationGroup
 import me.foxtails.palustris.domain.NotificationGroupId
+import me.foxtails.palustris.domain.NotificationLabel
+import me.foxtails.palustris.domain.NotificationLabelCode
 import me.foxtails.palustris.domain.NotificationTarget
 import me.foxtails.palustris.domain.Post
 import org.json.JSONObject
@@ -114,7 +116,9 @@ object MastodonNotificationMapper {
         return NotificationActivity.EmojiReaction(
             me.foxtails.palustris.domain.NotificationReaction(
                 identity = identity,
-                fallbackText = identity.trim(':').ifBlank { "Reaction" },
+                fallbackText = identity.trim(':').takeIf(String::isNotBlank)
+                    ?.let(NotificationLabel::Plain)
+                    ?: NotificationLabel.Coded(NotificationLabelCode.Reaction),
                 emoji = emoji,
             ),
         )
@@ -134,10 +138,9 @@ private fun String.toNotificationActivity(isReplyToReceivingAccount: Boolean = f
     "update" -> NotificationActivity.PostUpdate
     "quoted_update" -> NotificationActivity.QuotedPostUpdate
     "admin.sign_up", "admin.report", "moderated", "moderation_warning", "moderation" ->
-        NotificationActivity.System.Moderation("Moderation event")
-    "severed_relationships" -> NotificationActivity.System.RelationshipChange("Relationship changed")
+        NotificationActivity.System.Moderation(NotificationLabel.Coded(NotificationLabelCode.ModerationEvent))
+    "severed_relationships" -> NotificationActivity.System.RelationshipChange(NotificationLabel.Coded(NotificationLabelCode.RelationshipChanged))
     "annual_report", "added_to_collection", "collection_update" ->
-        NotificationActivity.System.AppEvent("Account event")
-    else -> NotificationActivity.Unknown("New activity")
+        NotificationActivity.System.AppEvent(NotificationLabel.Coded(NotificationLabelCode.AccountEvent))
+    else -> NotificationActivity.Unknown(NotificationLabel.Coded(NotificationLabelCode.NewActivity))
 }
-

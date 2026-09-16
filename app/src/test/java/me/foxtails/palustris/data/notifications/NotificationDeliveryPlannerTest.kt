@@ -10,6 +10,7 @@ import me.foxtails.palustris.domain.Connection
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.Notification
 import me.foxtails.palustris.domain.NotificationActivity
+import me.foxtails.palustris.domain.NotificationLabel
 import me.foxtails.palustris.domain.categories
 import me.foxtails.palustris.domain.NotificationCategory
 import me.foxtails.palustris.domain.NotificationReadState
@@ -61,7 +62,7 @@ class NotificationDeliveryPlannerTest {
         assertEquals(setOf(NotificationCategory.Replies), NotificationActivity.Reply.categories())
         assertEquals(setOf(NotificationCategory.Quotes), NotificationActivity.QuotedPostUpdate.categories())
         assertEquals(setOf(NotificationCategory.Polls), NotificationActivity.PollResult().categories())
-        assertEquals(setOf(NotificationCategory.System), NotificationActivity.Unknown("unknown").categories())
+        assertEquals(setOf(NotificationCategory.System), NotificationActivity.Unknown(NotificationLabel.Plain("unknown")).categories())
         assertEquals(setOf(NotificationCategory.Social), NotificationActivity.PostUpdate.categories())
 
         val socialDisabled = planner.plan(
