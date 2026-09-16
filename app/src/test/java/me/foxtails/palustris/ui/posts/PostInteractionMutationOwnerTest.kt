@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.ui.posts
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi

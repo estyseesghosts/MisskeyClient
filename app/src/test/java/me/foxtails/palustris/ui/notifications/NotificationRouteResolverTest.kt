@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.ui.notifications
 
 import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.Connection

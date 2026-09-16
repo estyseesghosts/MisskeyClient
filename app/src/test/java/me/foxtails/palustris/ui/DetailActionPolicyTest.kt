@@ -1,5 +1,6 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.ui
 
+import me.foxtails.palustris.AppShellFixtures
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.EntityId

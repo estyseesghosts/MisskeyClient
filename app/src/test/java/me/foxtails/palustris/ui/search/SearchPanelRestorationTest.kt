@@ -1,10 +1,11 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.ui.search
 
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import me.foxtails.palustris.AppShellFixtures
 import me.foxtails.palustris.ui.PalustrisApp
 import org.junit.Rule
 import org.junit.Test

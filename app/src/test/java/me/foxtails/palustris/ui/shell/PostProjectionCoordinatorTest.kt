@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.ui.shell
 
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId

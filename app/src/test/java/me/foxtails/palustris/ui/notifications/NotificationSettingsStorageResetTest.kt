@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.ui.notifications
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent

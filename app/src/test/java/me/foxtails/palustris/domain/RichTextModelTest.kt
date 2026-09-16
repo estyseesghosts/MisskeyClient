@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.domain
 
 import me.foxtails.palustris.domain.Audience
 import me.foxtails.palustris.domain.CustomEmoji

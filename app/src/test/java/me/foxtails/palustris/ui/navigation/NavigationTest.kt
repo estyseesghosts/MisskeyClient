@@ -1,4 +1,4 @@
-package me.foxtails.palustris
+package me.foxtails.palustris.ui.navigation
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -38,6 +38,8 @@ import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
+import me.foxtails.palustris.AppShellFixtures
+import me.foxtails.palustris.MainActivity
 import me.foxtails.palustris.data.auth.AccountRef
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.AccountId
