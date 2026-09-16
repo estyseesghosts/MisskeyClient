@@ -1,6 +1,7 @@
 package me.foxtails.palustris.data.emoji
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import java.io.File
 import java.io.IOException
 import java.nio.file.AtomicMoveNotSupportedException
@@ -11,7 +12,6 @@ import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.security.MessageDigest
 import java.time.Clock
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
@@ -34,7 +34,12 @@ class EmojiAssetStore(
 ) {
     private val emojiDirectory = File(noBackupDirectory, "emoji")
     private val assetsDirectory = File(emojiDirectory, "assets")
-    private val urlLocks = ConcurrentHashMap<String, Any>()
+
+    // Fixed lock stripes for URL coordination. Different canonical URLs can
+    // share a stripe, so they serialize without becoming the same cache
+    // identity. The array never grows, so no URL key survives a finished or
+    // failed request. Only colliding URLs lose network concurrency.
+    private val urlLocks = Array(URL_LOCK_COUNT) { Any() }
 
     init {
         assetsDirectory.mkdirs()
@@ -43,7 +48,7 @@ class EmojiAssetStore(
 
     suspend fun get(url: String): EmojiAssetFile = withContext(Dispatchers.IO) {
         val canonicalUrl = canonicalUrl(url)
-        val lock = urlLocks.computeIfAbsent(canonicalUrl) { Any() }
+        val lock = urlLocks[stripeIndex(canonicalUrl)]
         synchronized(lock) { load(canonicalUrl) }
     }
 
@@ -217,6 +222,8 @@ class EmojiAssetStore(
         private const val MAPPING_FRESHNESS_MILLIS = 7L * 24L * 60L * 60L * 1000L
         private const val MAX_REDIRECTS = 5
         private const val BUFFER_SIZE = 16 * 1024
+        private const val URL_LOCK_COUNT = 64
+        private const val URL_LOCK_MASK = URL_LOCK_COUNT - 1
         private val REDIRECT_CODES = 300..399
         @Volatile private var instance: EmojiAssetStore? = null
 
@@ -234,6 +241,13 @@ class EmojiAssetStore(
                     .build(),
             ).also { instance = it }
         }
+
+        // The mask keeps the index nonnegative for every hash, including
+        // Int.MIN_VALUE, where abs() would stay negative.
+        internal fun stripeIndex(canonicalUrl: String): Int = canonicalUrl.hashCode() and URL_LOCK_MASK
+
+        @VisibleForTesting
+        internal fun stripeCount(): Int = URL_LOCK_COUNT
 
         fun canonicalUrl(url: String): String {
             val parsed = url.toHttpUrl()
