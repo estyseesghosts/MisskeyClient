@@ -56,9 +56,10 @@ Read these in order. Treat the repository as the authority.
   single-line retry loop, KVM hardware acceleration, default system
   image without Google APIs, repaired `Api29StartupInstrumentedTest`
   call. The slice commit is `b62f8c6`. The last safe commit is `b62f8c6`.
-- Next: move tag `v0.2.7` onto the green tree and push it so the
-  Release workflow builds the signed pre-release. The `release`
-  environment needs a human approval before the signed job runs.
+- `v0.2.7` is released as a GitHub pre-release with the signed
+  `app-release.apk`, title `Beeline 0.2.7`, notes `Making the pain
+  worth it.` Tag `v0.2.7` points at `45e2275`. Release run
+  `35054197234` is green. The last safe commit is `45e2275`.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
 
