@@ -12,8 +12,10 @@ import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.ui.large.LargeNavTarget
 
 internal enum class Destination(@StringRes val labelRes: Int, val icon: ImageVector) {
-    Home(R.string.nav_home, AppIcons.HoneyHome), Search(R.string.nav_search, AppIcons.SearchBeeline),
-    Notifications(R.string.nav_notifications, AppIcons.Mail), Profile(R.string.nav_profile, AppIcons.DefaultUser),
+    Home(R.string.nav_home, AppIcons.HoneyHome),
+    Search(R.string.nav_search, AppIcons.SearchBeeline),
+    Notifications(R.string.nav_notifications, AppIcons.Mail),
+    Profile(R.string.nav_profile, AppIcons.DefaultUser),
 }
 
 internal enum class NotificationsPanel { Notifications, DirectMessages }
@@ -70,4 +72,3 @@ internal fun timelineDescriptionRes(timeline: Timeline): Int = when (timeline) {
     Timeline.Bubble -> R.string.timeline_description_bubble
     Timeline.Federated -> R.string.timeline_description_federated
 }
-
