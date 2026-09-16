@@ -49,6 +49,22 @@ interface EmojiCacheDao {
     @Query("SELECT * FROM emoji_asset_url WHERE canonicalUrl = :canonicalUrl")
     fun assetUrl(canonicalUrl: String): EmojiAssetUrlEntity?
 
+    @Query("SELECT COUNT(*) FROM emoji_asset_url")
+    fun assetUrlCount(): Int
+
+    @Query("SELECT COUNT(*) FROM emoji_asset_url WHERE contentHash = :contentHash")
+    fun assetUrlCountForHash(contentHash: String): Int
+
+    @Query(
+        "SELECT emoji_asset_url.canonicalUrl, emoji_asset_url.contentHash, emoji_asset_url.etag, " +
+            "emoji_asset_url.lastModified, emoji_asset_url.lastCheckedEpochMillis " +
+            "FROM emoji_asset_url " +
+            "LEFT JOIN emoji_asset ON emoji_asset.contentHash = emoji_asset_url.contentHash " +
+            "ORDER BY COALESCE(emoji_asset.lastUsedEpochMillis, 0) ASC, " +
+            "emoji_asset_url.canonicalUrl ASC",
+    )
+    fun assetUrlsByLastUsed(): List<EmojiAssetUrlEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAssetUrl(mapping: EmojiAssetUrlEntity)
 
@@ -60,6 +76,9 @@ interface EmojiCacheDao {
 
     @Query("SELECT * FROM emoji_asset")
     fun assets(): List<EmojiAssetEntity>
+
+    @Query("SELECT COALESCE(SUM(byteSize), 0) FROM emoji_asset")
+    fun assetBytes(): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAsset(asset: EmojiAssetEntity)

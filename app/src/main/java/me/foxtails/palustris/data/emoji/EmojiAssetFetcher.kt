@@ -19,10 +19,12 @@ class EmojiAssetFetcher(
     private val store: EmojiAssetStore,
 ) : Fetcher {
     override suspend fun fetch(): FetchResult {
-        val asset = store.get(data.url)
+        // Coil closes the image source on decode success, failure, or
+        // cancellation, and that closes the lease so eviction can reclaim it.
+        val lease = store.acquire(data.url)
         return SourceResult(
-            source = ImageSource(file = asset.file.toOkioPath()),
-            mimeType = asset.mimeType,
+            source = ImageSource(file = lease.file.toOkioPath(), closeable = lease),
+            mimeType = lease.mimeType,
             dataSource = DataSource.DISK,
         )
     }

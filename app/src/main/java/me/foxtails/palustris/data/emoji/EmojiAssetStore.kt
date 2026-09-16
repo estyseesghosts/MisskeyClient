@@ -20,17 +20,22 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 
-data class EmojiAssetFile(
-    val file: File,
-    val mimeType: String?,
-)
-
-/** Persistent, credential-free, content-addressed storage for custom emoji bytes. */
+/**
+ * Persistent, credential-free, content-addressed storage for custom emoji bytes.
+ *
+ * Retention has two independent limits. [maxInactiveUrlMappings] bounds the
+ * mapping rows, and [maxTotalAssetBytes] bounds the stored bytes. A caller holds
+ * an [EmojiAssetLease] while it reads a file. Open leases and in-progress writes
+ * are exempt from eviction, so the byte limit can be exceeded temporarily until
+ * the last reader releases.
+ */
 class EmojiAssetStore(
     private val noBackupDirectory: File,
     private val dao: EmojiCacheDao,
     private val client: OkHttpClient,
     private val clock: Clock = Clock.systemUTC(),
+    private val maxInactiveUrlMappings: Int = DEFAULT_MAX_INACTIVE_URL_MAPPINGS,
+    private val maxTotalAssetBytes: Long = DEFAULT_MAX_TOTAL_ASSET_BYTES,
 ) {
     private val emojiDirectory = File(noBackupDirectory, "emoji")
     private val assetsDirectory = File(emojiDirectory, "assets")
@@ -41,61 +46,154 @@ class EmojiAssetStore(
     // failed request. Only colliding URLs lose network concurrency.
     private val urlLocks = Array(URL_LOCK_COUNT) { Any() }
 
+    // Guards every metadata write, file move, file deletion, and lease change.
+    // The lock order is urlLocks stripe, then retentionLock. Network fetches and
+    // byte streaming run outside retentionLock, so no database work spans a
+    // network call. Cleanup never takes a stripe lock.
+    private val retentionLock = Any()
+    private val activeUrls = mutableMapOf<String, Int>()
+    private val activeContent = mutableMapOf<String, Int>()
+
     init {
         assetsDirectory.mkdirs()
         sweepTemporaryFiles()
     }
 
-    suspend fun get(url: String): EmojiAssetFile = withContext(Dispatchers.IO) {
+    /** Resolve [url] and hold its file for the caller. Close the lease when done. */
+    suspend fun acquire(url: String): EmojiAssetLease = withContext(Dispatchers.IO) {
         val canonicalUrl = canonicalUrl(url)
         val lock = urlLocks[stripeIndex(canonicalUrl)]
         synchronized(lock) { load(canonicalUrl) }
     }
 
-    private fun load(canonicalUrl: String): EmojiAssetFile {
+    private fun load(canonicalUrl: String): EmojiAssetLease {
         val now = clock.millis()
-        val mapping = dao.assetUrl(canonicalUrl)
-        val existing = mapping?.let(::existingAsset)
-        if (mapping != null && existing != null && now - mapping.lastCheckedEpochMillis < MAPPING_FRESHNESS_MILLIS) {
-            return touch(existing, now)
-        }
+        val cached = synchronized(retentionLock) { cachedLease(canonicalUrl, now) }
+        if (cached != null) return cached
+        return download(canonicalUrl, now)
+    }
 
-        return try {
-            download(canonicalUrl, mapping, existing, now)
+    /** Return a lease for a fresh cached file, or null when a download is needed. */
+    private fun cachedLease(canonicalUrl: String, now: Long): EmojiAssetLease? {
+        val mapping = dao.assetUrl(canonicalUrl) ?: return null
+        val existing = existingAsset(mapping) ?: return null
+        if (now - mapping.lastCheckedEpochMillis >= MAPPING_FRESHNESS_MILLIS) return null
+        return registerLease(canonicalUrl, touch(existing, now))
+    }
+
+    private fun download(canonicalUrl: String, now: Long): EmojiAssetLease {
+        val state = synchronized(retentionLock) {
+            val mapping = dao.assetUrl(canonicalUrl)
+            DownloadState(mapping, mapping?.let(::existingAsset))
+        }
+        val outcome = try {
+            fetchAsset(canonicalUrl, state.mapping, state.existing)
         } catch (error: IOException) {
-            if (existing != null) touch(existing, now) else throw error
+            val existing = state.existing ?: throw error
+            return synchronized(retentionLock) { registerLease(canonicalUrl, touch(existing, now)) }
+        }
+        return synchronized(retentionLock) { publish(canonicalUrl, state, outcome, now) }
+    }
+
+    private fun publish(
+        canonicalUrl: String,
+        state: DownloadState,
+        outcome: FetchOutcome,
+        now: Long,
+    ): EmojiAssetLease = when (outcome) {
+        FetchOutcome.NotModified -> {
+            val mapping = requireNotNull(state.mapping) { "A 304 needs a stored mapping." }
+            val existing = requireNotNull(state.existing) { "A 304 needs a stored asset." }
+            dao.insertAssetUrl(mapping.copy(lastCheckedEpochMillis = now))
+            registerLease(canonicalUrl, touch(existing, now))
+        }
+        is FetchOutcome.FreshBytes -> {
+            val destination = File(noBackupDirectory, outcome.relativePath)
+            destination.parentFile?.mkdirs()
+            try {
+                moveAtomically(outcome.temporary, destination)
+            } finally {
+                outcome.temporary.delete()
+            }
+            val entity = EmojiAssetEntity(
+                contentHash = outcome.contentHash,
+                relativePath = outcome.relativePath,
+                mimeType = outcome.mimeType,
+                byteSize = outcome.byteSize,
+                lastUsedEpochMillis = now,
+            )
+            dao.insertAsset(entity)
+            dao.insertAssetUrl(
+                EmojiAssetUrlEntity(
+                    canonicalUrl = canonicalUrl,
+                    contentHash = outcome.contentHash,
+                    etag = outcome.etag,
+                    lastModified = outcome.lastModified,
+                    lastCheckedEpochMillis = now,
+                ),
+            )
+            // Register the lease before retention runs so the new content and
+            // its mapping are exempt from the eviction pass that follows.
+            val lease = registerLease(canonicalUrl, StoredAsset(entity, destination))
+            enforceRetention()
+            lease
         }
     }
 
-    private fun download(
+    private fun fetchAsset(
         canonicalUrl: String,
         mapping: EmojiAssetUrlEntity?,
         existing: StoredAsset?,
-        now: Long,
-    ): EmojiAssetFile {
+    ): FetchOutcome {
         fetch(canonicalUrl, mapping).use { response ->
-            when {
-                response.code == HTTP_NOT_MODIFIED && existing != null && mapping != null -> {
-                    dao.insertAssetUrl(mapping.copy(lastCheckedEpochMillis = now))
-                    return touch(existing, now)
-                }
-                response.isSuccessful -> {
-                    val asset = writeResponse(response, now)
-                    dao.insertAsset(asset.entity)
-                    dao.insertAssetUrl(
-                        EmojiAssetUrlEntity(
-                            canonicalUrl = canonicalUrl,
-                            contentHash = asset.entity.contentHash,
-                            etag = response.header("ETag"),
-                            lastModified = response.header("Last-Modified"),
-                            lastCheckedEpochMillis = now,
-                        ),
-                    )
-                    cleanupUnusedAssets()
-                    return EmojiAssetFile(asset.file, asset.entity.mimeType)
-                }
-                else -> throw AssetDownloadException("Emoji asset request returned HTTP ${response.code}")
+            if (response.code == HTTP_NOT_MODIFIED && mapping != null && existing != null) {
+                return FetchOutcome.NotModified
             }
+            if (!response.isSuccessful) {
+                throw AssetDownloadException("Emoji asset request returned HTTP ${response.code}")
+            }
+            return writeFreshBytes(response)
+        }
+    }
+
+    private fun writeFreshBytes(response: Response): FetchOutcome.FreshBytes {
+        val body = response.body ?: throw AssetDownloadException("Emoji asset response had no body")
+        if (body.contentLength() > MAX_ASSET_BYTES) {
+            throw AssetDownloadException("Emoji asset exceeds the size limit")
+        }
+        val temporary = File(assetsDirectory, ".tmp-${UUID.randomUUID()}")
+        var byteSize = 0L
+        val digest = MessageDigest.getInstance("SHA-256")
+        try {
+            body.byteStream().use { input ->
+                temporary.outputStream().use { output ->
+                    val buffer = ByteArray(BUFFER_SIZE)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        byteSize += count
+                        if (byteSize > MAX_ASSET_BYTES) {
+                            throw AssetDownloadException("Emoji asset exceeds the size limit")
+                        }
+                        digest.update(buffer, 0, count)
+                        output.write(buffer, 0, count)
+                    }
+                }
+            }
+            if (byteSize == 0L) throw AssetDownloadException("Emoji asset response was empty")
+            val contentHash = digest.digest().hex()
+            return FetchOutcome.FreshBytes(
+                temporary = temporary,
+                contentHash = contentHash,
+                relativePath = "emoji/assets/${contentHash.take(2)}/$contentHash",
+                mimeType = response.header("Content-Type")?.substringBefore(';')?.trim(),
+                byteSize = byteSize,
+                etag = response.header("ETag"),
+                lastModified = response.header("Last-Modified"),
+            )
+        } catch (error: Throwable) {
+            temporary.delete()
+            throw error
         }
     }
 
@@ -130,72 +228,95 @@ class EmojiAssetStore(
         error("unreachable")
     }
 
-    private fun writeResponse(response: Response, now: Long): StoredAsset {
-        val body = response.body ?: throw AssetDownloadException("Emoji asset response had no body")
-        if (body.contentLength() > MAX_ASSET_BYTES) {
-            throw AssetDownloadException("Emoji asset exceeds the size limit")
-        }
-        val temporary = File(assetsDirectory, ".tmp-${UUID.randomUUID()}")
-        var byteSize = 0L
-        val digest = MessageDigest.getInstance("SHA-256")
-        try {
-            body.byteStream().use { input ->
-                temporary.outputStream().use { output ->
-                    val buffer = ByteArray(BUFFER_SIZE)
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        byteSize += count
-                        if (byteSize > MAX_ASSET_BYTES) {
-                            throw AssetDownloadException("Emoji asset exceeds the size limit")
-                        }
-                        digest.update(buffer, 0, count)
-                        output.write(buffer, 0, count)
-                    }
-                }
-            }
-            if (byteSize == 0L) throw AssetDownloadException("Emoji asset response was empty")
-            val contentHash = digest.digest().hex()
-            val relativePath = "emoji/assets/${contentHash.take(2)}/$contentHash"
-            val destination = File(noBackupDirectory, relativePath)
-            destination.parentFile?.mkdirs()
-            moveAtomically(temporary, destination)
-            return StoredAsset(
-                entity = EmojiAssetEntity(
-                    contentHash = contentHash,
-                    relativePath = relativePath,
-                    mimeType = response.header("Content-Type")?.substringBefore(';')?.trim(),
-                    byteSize = byteSize,
-                    lastUsedEpochMillis = now,
-                ),
-                file = destination,
-            )
-        } finally {
-            temporary.delete()
-        }
-    }
-
     private fun existingAsset(mapping: EmojiAssetUrlEntity): StoredAsset? {
         val entity = dao.asset(mapping.contentHash) ?: return null
         val file = File(noBackupDirectory, entity.relativePath)
         return file.takeIf(File::isFile)?.let { StoredAsset(entity, it) }
     }
 
-    private fun touch(asset: StoredAsset, now: Long): EmojiAssetFile {
+    private fun touch(asset: StoredAsset, now: Long): StoredAsset {
         val updated = asset.entity.copy(lastUsedEpochMillis = now)
         dao.insertAsset(updated)
-        return EmojiAssetFile(asset.file, updated.mimeType)
+        return StoredAsset(updated, asset.file)
     }
 
-    private fun cleanupUnusedAssets() {
-        var totalBytes = dao.assets().sumOf { it.byteSize }
-        if (totalBytes <= MAX_TOTAL_ASSET_BYTES) return
-        dao.unreferencedAssets().forEach { asset ->
-            if (totalBytes <= MAX_TOTAL_ASSET_BYTES) return
-            dao.deleteAsset(asset.contentHash)
-            File(noBackupDirectory, asset.relativePath).delete()
-            totalBytes -= asset.byteSize
+    private fun registerLease(canonicalUrl: String, asset: StoredAsset): EmojiAssetLease {
+        val contentHash = asset.entity.contentHash
+        activeUrls[canonicalUrl] = (activeUrls[canonicalUrl] ?: 0) + 1
+        activeContent[contentHash] = (activeContent[contentHash] ?: 0) + 1
+        return EmojiAssetLease(file = asset.file, mimeType = asset.entity.mimeType) {
+            releaseLease(canonicalUrl, contentHash)
         }
+    }
+
+    private fun releaseLease(canonicalUrl: String, contentHash: String) {
+        synchronized(retentionLock) {
+            decrement(activeUrls, canonicalUrl)
+            decrement(activeContent, contentHash)
+            enforceRetention()
+        }
+    }
+
+    private fun decrement(counts: MutableMap<String, Int>, key: String) {
+        val remaining = (counts[key] ?: 1) - 1
+        if (remaining <= 0) counts.remove(key) else counts[key] = remaining
+    }
+
+    private fun enforceRetention() {
+        pruneInactiveMappings()
+        pruneInactiveContent()
+    }
+
+    /** Remove the least recently used inactive mappings above the count limit. */
+    private fun pruneInactiveMappings() {
+        var overflow = dao.assetUrlCount() - maxInactiveUrlMappings
+        if (overflow <= 0) return
+        for (mapping in dao.assetUrlsByLastUsed()) {
+            if (overflow <= 0) return
+            if (activeUrls.containsKey(mapping.canonicalUrl)) continue
+            dao.deleteAssetUrl(mapping.canonicalUrl)
+            overflow--
+        }
+    }
+
+    /** Remove inactive content toward the byte budget, evicting mappings if needed. */
+    private fun pruneInactiveContent() {
+        var total = dao.assetBytes()
+        if (total <= maxTotalAssetBytes) return
+        total = deleteUnreferenced(total)
+        if (total <= maxTotalAssetBytes) return
+        // All remaining content is referenced. Evict the least recently used
+        // inactive mapping, then drop its content once it has no other mapping.
+        for (mapping in dao.assetUrlsByLastUsed()) {
+            if (total <= maxTotalAssetBytes) return
+            if (activeUrls.containsKey(mapping.canonicalUrl)) continue
+            dao.deleteAssetUrl(mapping.canonicalUrl)
+            if (dao.assetUrlCountForHash(mapping.contentHash) > 0) continue
+            val asset = dao.asset(mapping.contentHash) ?: continue
+            if (activeContent.containsKey(asset.contentHash)) continue
+            if (deleteStoredAsset(asset)) total -= asset.byteSize
+        }
+    }
+
+    private fun deleteUnreferenced(total: Long): Long {
+        var remaining = total
+        for (asset in dao.unreferencedAssets()) {
+            if (remaining <= maxTotalAssetBytes) return remaining
+            if (activeContent.containsKey(asset.contentHash)) continue
+            if (deleteStoredAsset(asset)) remaining -= asset.byteSize
+        }
+        return remaining
+    }
+
+    /**
+     * Delete one unused asset. A missing file still removes the row. A failed
+     * file deletion keeps the row so a later cleanup retries it.
+     */
+    private fun deleteStoredAsset(asset: EmojiAssetEntity): Boolean {
+        val file = File(noBackupDirectory, asset.relativePath)
+        if (file.exists() && !file.delete()) return false
+        dao.deleteAsset(asset.contentHash)
+        return true
     }
 
     private fun sweepTemporaryFiles() {
@@ -215,15 +336,35 @@ class EmojiAssetStore(
         }
     }
 
+    private sealed interface FetchOutcome {
+        data object NotModified : FetchOutcome
+
+        class FreshBytes(
+            val temporary: File,
+            val contentHash: String,
+            val relativePath: String,
+            val mimeType: String?,
+            val byteSize: Long,
+            val etag: String?,
+            val lastModified: String?,
+        ) : FetchOutcome
+    }
+
+    private data class DownloadState(
+        val mapping: EmojiAssetUrlEntity?,
+        val existing: StoredAsset?,
+    )
+
     companion object {
         private const val HTTP_NOT_MODIFIED = 304
         private const val MAX_ASSET_BYTES = 10L * 1024L * 1024L
-        private const val MAX_TOTAL_ASSET_BYTES = 128L * 1024L * 1024L
         private const val MAPPING_FRESHNESS_MILLIS = 7L * 24L * 60L * 60L * 1000L
         private const val MAX_REDIRECTS = 5
         private const val BUFFER_SIZE = 16 * 1024
         private const val URL_LOCK_COUNT = 64
         private const val URL_LOCK_MASK = URL_LOCK_COUNT - 1
+        internal const val DEFAULT_MAX_INACTIVE_URL_MAPPINGS = 4_096
+        internal const val DEFAULT_MAX_TOTAL_ASSET_BYTES = 128L * 1024L * 1024L
         private val REDIRECT_CODES = 300..399
         @Volatile private var instance: EmojiAssetStore? = null
 

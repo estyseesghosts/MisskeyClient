@@ -29,7 +29,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -62,8 +65,8 @@ class EmojiAssetStoreTest {
     fun identicalBytesAcrossUrlsShareOnePhysicalAsset() = runBlocking {
         val store = store { request -> response(request, 200, "same-bytes".toByteArray()) }
 
-        val first = store.get("https://cdn.example/first.png")
-        val second = store.get("https://cdn.example/second.png")
+        val first = store.acquire("https://cdn.example/first.png")
+        val second = store.acquire("https://cdn.example/second.png")
 
         assertEquals(first.file, second.file)
         assertEquals(1, database.emojiCacheDao().assets().size)
@@ -84,9 +87,9 @@ class EmojiAssetStoreTest {
             }
         }
 
-        val first = store.get("https://cdn.example/blob.png")
+        val first = store.acquire("https://cdn.example/blob.png")
         clock.nowMillis = 8L * 24L * 60L * 60L * 1000L
-        val second = store.get("https://cdn.example/blob.png")
+        val second = store.acquire("https://cdn.example/blob.png")
 
         assertEquals(first.file, second.file)
         assertEquals(2, calls)
@@ -103,9 +106,9 @@ class EmojiAssetStoreTest {
             else throw IOException("offline")
         }
 
-        val first = store.get("https://cdn.example/blob.png")
+        val first = store.acquire("https://cdn.example/blob.png")
         clock.nowMillis = 8L * 24L * 60L * 60L * 1000L
-        val second = store.get("https://cdn.example/blob.png")
+        val second = store.acquire("https://cdn.example/blob.png")
 
         assertEquals(first.file, second.file)
         assertEquals(2, calls)
@@ -118,7 +121,7 @@ class EmojiAssetStoreTest {
 
         var rejected = false
         try {
-            runBlocking { store.get("http://cdn.example/blob.png") }
+            runBlocking { store.acquire("http://cdn.example/blob.png") }
         } catch (_: IllegalArgumentException) {
             rejected = true
         }
@@ -143,7 +146,7 @@ class EmojiAssetStoreTest {
         val requests = (1..4).map {
             async(Dispatchers.IO) {
                 barrier.await(10, TimeUnit.SECONDS)
-                store.get("https://cdn.example/shared.png")
+                store.acquire("https://cdn.example/shared.png")
             }
         }
 
@@ -169,9 +172,9 @@ class EmojiAssetStoreTest {
             response(request, 200, request.url.toString().toByteArray())
         }
 
-        val first = async(Dispatchers.IO) { store.get(firstUrl) }
+        val first = async(Dispatchers.IO) { store.acquire(firstUrl) }
         assertTrue(firstStarted.await(10, TimeUnit.SECONDS))
-        val second = async(Dispatchers.IO) { store.get(secondUrl) }
+        val second = async(Dispatchers.IO) { store.acquire(secondUrl) }
         releaseFirst.countDown()
 
         assertNotEquals(first.await().file, second.await().file)
@@ -191,9 +194,9 @@ class EmojiAssetStoreTest {
             response(request, 200, request.url.toString().toByteArray())
         }
 
-        val first = async(Dispatchers.IO) { store.get(firstUrl) }
+        val first = async(Dispatchers.IO) { store.acquire(firstUrl) }
         assertTrue(firstStarted.await(10, TimeUnit.SECONDS))
-        val second = async(Dispatchers.IO) { store.get(secondUrl) }
+        val second = async(Dispatchers.IO) { store.acquire(secondUrl) }
 
         val secondFile = withTimeout(10_000) { second.await() }
         releaseFirst.countDown()
@@ -212,13 +215,13 @@ class EmojiAssetStoreTest {
 
         var failed = false
         try {
-            store.get("https://cdn.example/retry.png")
+            store.acquire("https://cdn.example/retry.png")
         } catch (_: IOException) {
             failed = true
         }
         assertTrue(failed)
 
-        val recovered = store.get("https://cdn.example/retry.png")
+        val recovered = store.acquire("https://cdn.example/retry.png")
         assertTrue(recovered.file.isFile)
         assertEquals(2, calls.get())
     }
@@ -234,14 +237,14 @@ class EmojiAssetStoreTest {
         }
 
         val pending = launch(Dispatchers.IO) {
-            runCatching { store.get("https://cdn.example/cancel.png") }
+            runCatching { store.acquire("https://cdn.example/cancel.png") }
         }
         assertTrue(started.await(10, TimeUnit.SECONDS))
         pending.cancel()
         release.countDown()
         pending.join()
 
-        val recovered = withTimeout(10_000) { store.get("https://cdn.example/cancel.png") }
+        val recovered = withTimeout(10_000) { store.acquire("https://cdn.example/cancel.png") }
         assertTrue(recovered.file.isFile)
     }
 
@@ -257,6 +260,165 @@ class EmojiAssetStoreTest {
 
         assertEquals(64, stripes)
         assertEquals(10_000, used.sum())
+    }
+
+    @Test
+    fun mappingCountIsBoundedAndEvictsLeastRecentlyUsed() = runBlocking {
+        val clock = MutableClock(0L)
+        val store = store(clock, maxInactiveUrlMappings = 2) { request ->
+            response(request, 200, request.url.toString().toByteArray())
+        }
+
+        store.acquire("https://cdn.example/one.png").close()
+        clock.nowMillis = 10
+        store.acquire("https://cdn.example/two.png").close()
+        clock.nowMillis = 20
+        store.acquire("https://cdn.example/three.png").close()
+
+        val dao = database.emojiCacheDao()
+        assertEquals(2, dao.assetUrlCount())
+        assertNull(dao.assetUrl("https://cdn.example/one.png"))
+
+        clock.nowMillis = 30
+        store.acquire("https://cdn.example/two.png").close()
+        clock.nowMillis = 40
+        store.acquire("https://cdn.example/four.png").close()
+
+        assertEquals(2, dao.assetUrlCount())
+        assertNull(dao.assetUrl("https://cdn.example/three.png"))
+        assertNotNull(dao.assetUrl("https://cdn.example/two.png"))
+        assertNotNull(dao.assetUrl("https://cdn.example/four.png"))
+    }
+
+    @Test
+    fun byteBudgetEvictsInactiveMappingsAndContent() = runBlocking {
+        val clock = MutableClock(0L)
+        var counter = 0
+        val store = store(clock, maxInactiveUrlMappings = 100, maxTotalAssetBytes = 25) { request ->
+            response(request, 200, ByteArray(10) { counter++.toByte() })
+        }
+
+        store.acquire("https://cdn.example/a.png").close()
+        clock.nowMillis = 10
+        store.acquire("https://cdn.example/b.png").close()
+        clock.nowMillis = 20
+        store.acquire("https://cdn.example/c.png").close()
+
+        val dao = database.emojiCacheDao()
+        assertEquals(20, dao.assetBytes())
+        assertEquals(2, dao.assetUrlCount())
+        assertNull(dao.assetUrl("https://cdn.example/a.png"))
+        assertNotNull(dao.assetUrl("https://cdn.example/c.png"))
+    }
+
+    @Test
+    fun sharedContentSurvivesMappingEviction() = runBlocking {
+        val store = store(maxInactiveUrlMappings = 1) { request ->
+            response(request, 200, "shared".toByteArray())
+        }
+
+        store.acquire("https://cdn.example/a.png").close()
+        store.acquire("https://cdn.example/b.png").close()
+
+        val dao = database.emojiCacheDao()
+        assertEquals(1, dao.assetUrlCount())
+        assertEquals(1, dao.assets().size)
+        assertNull(dao.assetUrl("https://cdn.example/a.png"))
+        assertNotNull(dao.assetUrl("https://cdn.example/b.png"))
+    }
+
+    @Test
+    fun openLeaseExemptsContentFromEvictionAndPrunesAfterRelease() = runBlocking {
+        val clock = MutableClock(0L)
+        var counter = 0
+        val store = store(clock, maxInactiveUrlMappings = 100, maxTotalAssetBytes = 15) { request ->
+            response(request, 200, ByteArray(10) { counter++.toByte() })
+        }
+
+        val first = store.acquire("https://cdn.example/held.png")
+        clock.nowMillis = 10
+        val second = store.acquire("https://cdn.example/other.png")
+
+        val dao = database.emojiCacheDao()
+        assertTrue(first.file.isFile)
+        assertEquals(20, dao.assetBytes())
+
+        first.close()
+        assertFalse(first.file.exists())
+        assertEquals(10, dao.assetBytes())
+        second.close()
+    }
+
+    @Test
+    fun missingFileIsDownloadedAgain() = runBlocking {
+        val calls = AtomicInteger(0)
+        val store = store { request ->
+            calls.incrementAndGet()
+            response(request, 200, "content".toByteArray())
+        }
+
+        val lease = store.acquire("https://cdn.example/missing.png")
+        val path = lease.file
+        lease.close()
+        assertTrue(path.delete())
+
+        val restored = store.acquire("https://cdn.example/missing.png")
+        assertEquals(2, calls.get())
+        assertTrue(restored.file.isFile)
+        restored.close()
+    }
+
+    @Test
+    fun failedFileDeletionKeepsTheRowForRetry() = runBlocking {
+        val clock = MutableClock(0L)
+        var counter = 0
+        val store = store(clock, maxInactiveUrlMappings = 100, maxTotalAssetBytes = 15) { request ->
+            response(request, 200, ByteArray(10) { counter++.toByte() })
+        }
+
+        val dao = database.emojiCacheDao()
+        val first = store.acquire("https://cdn.example/first.png")
+        val firstHash = dao.assetUrl("https://cdn.example/first.png")!!.contentHash
+        val firstFile = first.file
+        first.close()
+
+        // A non-empty directory at the asset path makes file deletion fail.
+        assertTrue(firstFile.delete())
+        assertTrue(firstFile.mkdirs())
+        File(firstFile, "child").writeText("x")
+
+        clock.nowMillis = 10
+        val second = store.acquire("https://cdn.example/second.png")
+        assertTrue(firstFile.exists())
+        assertNotNull(dao.asset(firstHash))
+
+        File(firstFile, "child").delete()
+        firstFile.delete()
+        second.close()
+        assertNull(dao.asset(firstHash))
+        assertEquals(10, dao.assetBytes())
+    }
+
+    @Test
+    fun restartSweepsTemporaryFiles() {
+        val assets = File(noBackupDirectory, "emoji/assets").apply { mkdirs() }
+        val temporary = File(assets, ".tmp-leftover").apply { writeText("partial") }
+
+        store { request -> response(request, 200, byteArrayOf(1)) }
+
+        assertFalse(temporary.exists())
+    }
+
+    @Test
+    fun leaseCloseIsIdempotent() = runBlocking {
+        val store = store { request -> response(request, 200, "content".toByteArray()) }
+
+        val lease = store.acquire("https://cdn.example/idempotent.png")
+        lease.close()
+        lease.close()
+
+        assertTrue(lease.file.isFile)
+        assertEquals(1, database.emojiCacheDao().assetUrlCount())
     }
 
     private fun collidingUrls(): Pair<String, String> {
@@ -283,6 +445,8 @@ class EmojiAssetStoreTest {
 
     private fun store(
         clock: Clock = Clock.fixed(Instant.ofEpochMilli(0L), ZoneId.of("UTC")),
+        maxInactiveUrlMappings: Int = EmojiAssetStore.DEFAULT_MAX_INACTIVE_URL_MAPPINGS,
+        maxTotalAssetBytes: Long = EmojiAssetStore.DEFAULT_MAX_TOTAL_ASSET_BYTES,
         responder: (Request) -> Response,
     ): EmojiAssetStore = EmojiAssetStore(
         noBackupDirectory = noBackupDirectory,
@@ -291,6 +455,8 @@ class EmojiAssetStoreTest {
             .addInterceptor { chain -> responder(chain.request()) }
             .build(),
         clock = clock,
+        maxInactiveUrlMappings = maxInactiveUrlMappings,
+        maxTotalAssetBytes = maxTotalAssetBytes,
     )
 
     private fun response(

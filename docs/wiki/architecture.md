@@ -64,7 +64,7 @@ Keep three identities separate:
 - Pending authentication is encrypted in `pending.enc` and expires after 15 minutes.
 - Notifications use the Room database `notifications.db` with explicit migrations.
 - Direct messages use the Room database `directmessages.db` under `noBackupFilesDir`.
-- The emoji catalog uses `EmojiCacheDatabase`.
+- The emoji catalog and asset cache use `EmojiCacheDatabase` under `noBackupFilesDir`. Asset bytes are bounded by URL mapping count and a total byte target, and a reader lease protects a file from eviction while a decoder reads it.
 - Preferences are file-backed for the application, posts, the emoji picker, and Photo Grid.
 - Drafts use `EncryptedDraftStore` and the same encrypted account storage key.
 
