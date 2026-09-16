@@ -15,6 +15,7 @@
     <string name="common_refresh">重新整理</string>
     <string name="composer_content_warning">內容警告</string>
     <string name="composer_emoji">:)</string>
+    <string name="composer_new_post">新的貼文</string>
     <string name="composer_publish">貼文</string>
     <string name="composer_remove_quote">移除</string>
     <string name="composer_visibility">可見性</string>
@@ -77,13 +78,20 @@
     <string name="post_action_repost">轉發</string>
     <string name="post_action_share">分享</string>
     <string name="post_reply">回覆</string>
+    <string name="post_share_block_with_handle">封鎖 %1$s？</string>
     <string name="post_share_clip_label">貼文</string>
+    <string name="post_share_confirm_block_with_handle">確認封鎖 %1$s？</string>
     <string name="post_share_copied">已複製至剪貼簿</string>
     <string name="post_share_copy_link">複製</string>
     <string name="post_share_heading">分享</string>
+    <string name="post_share_mute_with_handle">靜音 %1$s？</string>
+    <string name="post_share_report_title">檢舉 %1$s</string>
+    <string name="post_share_report_with_handle">檢舉 %1$s？</string>
     <string name="post_share_system">分享</string>
     <string name="post_share_unblock">解除封鎖</string>
+    <string name="post_share_unblock_with_handle">解除封鎖 %1$s？</string>
     <string name="post_share_unmute">取消靜音</string>
+    <string name="post_share_unmute_with_handle">取消靜音 %1$s？</string>
     <string name="profile_action_bookmarks">書籤</string>
     <string name="profile_action_drafts">草稿</string>
     <string name="profile_action_likes">按讚</string>
@@ -98,6 +106,7 @@
     <string name="profile_editor_bot">機器人帳號</string>
     <string name="profile_editor_close">關閉</string>
     <string name="profile_editor_display_name">顯示名稱</string>
+    <string name="profile_editor_handle">使用者名稱</string>
     <string name="profile_editor_save">儲存</string>
     <string name="profile_editor_title">編輯個人檔案</string>
     <string name="profile_follow">追蹤</string>
@@ -113,6 +122,7 @@
     <string name="search_category_hashtags">主題標籤</string>
     <string name="search_category_news">最新消息</string>
     <string name="search_category_profiles">個人檔案</string>
+    <string name="search_placeholder_handle">搜尋 @handle@server</string>
     <string name="settings_blocked_users">已封鎖使用者</string>
     <string name="settings_choose_account">選擇帳號</string>
     <string name="settings_display">顯示</string>
@@ -125,6 +135,8 @@
     <string name="settings_moderation_hashtag_value">#%1$s</string>
     <string name="settings_moderation_load_more">載入更多</string>
     <string name="settings_moderation_remove">移除</string>
+    <string name="settings_moderation_unblock_title">解除封鎖帳號？</string>
+    <string name="settings_moderation_unmute_title">取消靜音帳號？</string>
     <string name="settings_muted_users">已靜音使用者</string>
     <string name="settings_notifications">通知</string>
     <string name="settings_privacy">隱私</string>
@@ -134,6 +146,7 @@
     <string name="settings_title">設定</string>
     <string name="setup_heart">&lt;3</string>
     <string name="setup_next">下一步</string>
+    <string name="setup_server_placeholder">輸入伺服器</string>
     <string name="setup_sign_in">登入</string>
     <string name="setup_welcome_back">歡迎回來</string>
     <string name="setup_wordmark">beeline</string>
@@ -144,4 +157,5 @@
     <string name="timeline_federated">聯邦時間軸</string>
     <string name="timeline_home">首頁</string>
     <string name="timeline_local">本站時間軸</string>
+    <string name="timeline_social">社交</string>
 </resources>

@@ -15,6 +15,7 @@
     <string name="common_refresh">刷新</string>
     <string name="composer_content_warning">内容警告</string>
     <string name="composer_emoji">:)</string>
+    <string name="composer_new_post">新的帖子</string>
     <string name="composer_publish">发布</string>
     <string name="composer_remove_quote">移除</string>
     <string name="composer_visibility">可见性</string>
@@ -79,13 +80,20 @@
     <string name="post_action_repost">转发</string>
     <string name="post_action_share">分享</string>
     <string name="post_reply">回复</string>
+    <string name="post_share_block_with_handle">屏蔽 %1$s？</string>
     <string name="post_share_clip_label">帖子</string>
+    <string name="post_share_confirm_block_with_handle">确认屏蔽 %1$s？</string>
     <string name="post_share_copied">已复制到剪贴板</string>
     <string name="post_share_copy_link">复制</string>
     <string name="post_share_heading">分享</string>
+    <string name="post_share_mute_with_handle">隐藏 %1$s？</string>
+    <string name="post_share_report_title">举报 %1$s</string>
+    <string name="post_share_report_with_handle">举报 %1$s？</string>
     <string name="post_share_system">分享</string>
     <string name="post_share_unblock">取消屏蔽</string>
+    <string name="post_share_unblock_with_handle">取消屏蔽 %1$s？</string>
     <string name="post_share_unmute">取消隐藏</string>
+    <string name="post_share_unmute_with_handle">取消隐藏 %1$s？</string>
     <string name="profile_action_bookmarks">书签</string>
     <string name="profile_action_drafts">草稿</string>
     <string name="profile_action_likes">点赞</string>
@@ -95,8 +103,10 @@
     <string name="profile_edit">修改个人资料</string>
     <string name="profile_edit_description">修改个人资料</string>
     <string name="profile_editor_add_field">添加字段</string>
+    <string name="profile_editor_biography">个人简介</string>
     <string name="profile_editor_close">关闭</string>
     <string name="profile_editor_display_name">显示名称</string>
+    <string name="profile_editor_handle">用户名</string>
     <string name="profile_editor_save">保存</string>
     <string name="profile_editor_title">修改个人资料</string>
     <string name="profile_follow">关注</string>
@@ -112,6 +122,7 @@
     <string name="search_category_hashtags">话题标签</string>
     <string name="search_category_news">新闻</string>
     <string name="search_category_profiles">个人资料</string>
+    <string name="search_placeholder_handle">搜索 @handle@server</string>
     <string name="settings_blocked_users">屏蔽的用户</string>
     <string name="settings_choose_account">选择账户</string>
     <string name="settings_display">显示</string>
@@ -124,6 +135,8 @@
     <string name="settings_moderation_hashtag_value">#%1$s</string>
     <string name="settings_moderation_load_more">加载更多</string>
     <string name="settings_moderation_remove">移除</string>
+    <string name="settings_moderation_unblock_title">取消屏蔽账户？</string>
+    <string name="settings_moderation_unmute_title">取消隐藏账户？</string>
     <string name="settings_muted_users">已隐藏的用户</string>
     <string name="settings_notifications">通知</string>
     <string name="settings_privacy">隐私</string>
@@ -133,6 +146,7 @@
     <string name="settings_title">设置</string>
     <string name="setup_heart">&lt;3</string>
     <string name="setup_next">下一步</string>
+    <string name="setup_server_placeholder">输入服务器</string>
     <string name="setup_sign_in">登录</string>
     <string name="setup_welcome_back">欢迎回来</string>
     <string name="setup_wordmark">beeline</string>
@@ -143,4 +157,5 @@
     <string name="timeline_federated">跨站公共时间线</string>
     <string name="timeline_home">主页</string>
     <string name="timeline_local">本站时间线</string>
+    <string name="timeline_social">社交</string>
 </resources>
