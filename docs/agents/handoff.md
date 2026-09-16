@@ -4,15 +4,16 @@
 `docs/agents/tasks/decomposition-01-02-completion.md`. The durable record for the completed
 Plan 03 work is `docs/agents/tasks/plan03-protocol-notifications.md`. The corrected audit of
 Plans 01, 02, and 03 is `docs/decomposition_3/03_corrected.md` (git-ignored planning material,
-do not force-add). The durable record for the active S1 work is
-`docs/agents/tasks/palustrisapp-decomposition.md`.
+do not force-add). The durable record for the completed S1 work is
+`docs/agents/tasks/palustrisapp-decomposition.md`. The durable record for
+the active P1 work is `docs/agents/tasks/ui-package-migration.md`.
 
 ## Where To Start
 
 Read these in order. Treat the repository as the authority.
 
 1. `AGENTS.md`.
-2. `docs/agents/tasks/palustrisapp-decomposition.md`.
+2. `docs/agents/tasks/ui-package-migration.md`.
 3. `docs/decomposition_3/03_corrected.md`.
 4. `docs/agents/app-shell-ownership.md` and `docs/agents/protocol-and-session-ownership.md`.
 5. `docs/agents/decomposition-01-02-acceptance-matrix.md`.
@@ -42,20 +43,22 @@ Read these in order. Treat the repository as the authority.
   slice commit is `4c97d43`.
 - S1 (split `PalustrisApp.kt`) is complete. The shell is 622 lines and
   owns navigation and placement. Feature state lives in the overlay
-  holder, the destination content, and the overlay host. The last safe
-  commit is `4c97d43`.
+  holder, the destination content, and the overlay host.
+- P1a (move the feed group into `ui/feed/`) is committed and test
+  verified. The slice commit is `5cb8342`. The P1 task-state file names
+  P1b as the current slice. The last safe commit is `5cb8342`.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
 
 ## Next Slice
 
-P1 — Finish the `ui/` package migration. Move the flat feature files
-(`FeedViewModel`, `HomeFeed`, search, Photo Grid, saved collections,
-`AccountManager` out of `ui/`) into feature packages. Behavior-neutral.
-Group the `ShellDestinationContent` branch callbacks into narrow param
-bundles to replace the 37-parameter signature. Open a dedicated
-task-state file for P1 with its own verification before implementation.
-The S1 task-state file stays as the completed record.
+P1b — Move the Photo Grid group (`PhotoGridController`,
+`PhotoGridFeedState`, `PhotoGridScreen`) into `ui/photogrid/`.
+Behavior-neutral. Keep test files in place and update import paths
+only. Run the six shell suites plus the full gate. Commit only when
+green. Full scope, files, and verification commands are in
+`docs/agents/tasks/ui-package-migration.md`. Do not duplicate that file
+here.
 
 ## After S1
 
