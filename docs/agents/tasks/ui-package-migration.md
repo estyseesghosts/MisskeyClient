@@ -59,13 +59,20 @@ safe implementation slice. It divides into P1a through P1f below.
   `lintDebug` pass. One full-gate run hit a `MediaViewerScreenTest`
   timing flake; the class passes in isolation and the gate is green on
   re-run.
+- P1d — The saved group (`SavedCollectionsHost`, `SavedPostsViewModel`,
+  `SavedPostsScreen`, `SavedPostsState`) lives in `ui/saved/`, and
+  `DraftsScreen` lives in `ui/composer/`. Commit `c54e7cb`. The six
+  shell suites, the full `test assembleRelease` gate, and `lintDebug`
+  pass. The P1d table row already named all five files; the slice now
+  matches it.
 
 # Current slice
 
-P1d — Move saved collections (`SavedCollectionsHost`,
-`SavedPostsViewModel`) into `ui/saved/` and drafts (`DraftsScreen`)
-into `ui/composer/`. Update the package declaration and every importing
-file in `main` and `test`.
+P1e — Move `AccountManager` into `ui/session/`. Update the package
+declaration and every importing file in `main` and `test`. `ui/session/`
+already owns `ConnectedSessionHost` and the entry store, so most
+references stay in-package. Check `ui/saved/SavedCollectionsHost.kt`,
+which imports `ui.AccountManager` after P1d.
 
 # Files involved
 
@@ -95,11 +102,10 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Next
 
-1. P1d as defined in Current slice above.
-2. P1e — Move `AccountManager` into `ui/session/`.
-3. P1f — Group the destination callbacks into post, draft, and
+1. P1e as defined in Current slice above.
+2. P1f — Group the destination callbacks into post, draft, and
    navigation bundles.
-4. After P1: Q1 (ktlint/detekt with baseline; fix wildcard imports and
+3. After P1: Q1 (ktlint/detekt with baseline; fix wildcard imports and
    fully-qualified names), T1 (mirror test packages; merge duplicate
    test classes), V1 (repair instrumentation tests), then the Plan 04
    rebase. See the handoff.
@@ -114,4 +120,4 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Last safe commit
 
-`f646b20` "Move search group into ui.search".
+`c54e7cb` "Move saved group into ui.saved and drafts into ui.composer".
