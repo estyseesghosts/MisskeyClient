@@ -2,7 +2,7 @@
 
 Mirror test packages to production packages. Merge the two duplicate test class names. Keep behavior unchanged. Keep the repository green.
 
-This task is larger than one safe implementation slice. It divides into T1a through T1f below. The fully-qualified-name cleanup stays deferred to its own task.
+This task was larger than one safe implementation slice. It divided into T1a through T1f. All slices are complete. The fully-qualified-name cleanup stays deferred to its own task.
 
 # Invariants
 
@@ -27,7 +27,8 @@ This task is larger than one safe implementation slice. It divides into T1a thro
 - T1d splits from T1e. T1d moves the three shared fixtures. T1e moves the remaining root tests. The remaining root tests do not use the three fixtures, so the split stays clean.
 - Fixture homes mirror the feature they stub. `AppShellFixtures` -> `ui.shell`. `ComposerFeatureFixtures` -> `ui.composer`. `HomeFeatureFixtures` -> `ui.feed`. `HomeFeatureFixtures` imports `AppShellFixtures`, so it gains an `ui.shell` import.
 - T1e moves only single-owner feature tests. Each target package matches the dominant production owner. `MainActivity` stays in the root package, so the eight screen tests gain a `MainActivity` import.
-- T1f holds 16 remaining cross-cutting and multi-adapter tests. They need an explicit home decision. The source-contract cluster (`SocialSourceContractTest`, which also declares `MisskeySourceContractTest`, plus the `MastodonSourceContractTest` and `MisskeyIntegrationTest` users) must move together or stay together. Tests with no single production owner may stay at the root package. `ProductIdentityTest` stays at the root package because `ProductIdentity.kt` is in the root package.
+- T1f moves only adapter-specific source tests. `MastodonIntegrationTest`, `MastodonNotificationSyncTest`, and `MastodonSourceContractTest` move to `data.mastodon`. `MisskeyIntegrationTest` moves to `data.misskey`. The shared protocol-neutral base `SocialSourceContractTest` (which also declares the `MisskeySourceContractTest` base) stays at the root package, so the moved subclasses gain an import.
+- T1f keeps 12 tests at the root package because no single production package owns them. Cross-adapter: `ProfileSourceContractTest`, `NotificationContractTest`, `NotificationAdapterContractTest`, `DirectMessageSourceTest`, `ModerationServiceTest`, `WebSocketTransportTest`. Cross-cutting or platform: `CrossCuttingTest`, `Api29CompatibilityTest`, `ProtocolFixtureValidationTest`, `LocalizationResourceTest`. `ProductIdentityTest` because `ProductIdentity.kt` is in the root package. `SocialSourceContractTest` because it is the shared contract base.
 
 # Completed
 
@@ -36,28 +37,15 @@ This task is larger than one safe implementation slice. It divides into T1a thro
 - T1c — Moved 17 UI feature tests into mirrored packages. Commit `42e85e7`. Physical file moves plus the package line. The 8 fixture users also gain `AppShellFixtures`, `ComposerFeatureFixtures` or `HomeFeatureFixtures`, and `MainActivity` imports because those declarations stay in the root package. The slice regenerates `app/ktlint-baseline.xml` (old root paths out, new mirrored paths in, zero `no-wildcard-imports` entries). Focused tests, `test assembleRelease`, and `ktlintCheck` pass.
 - T1d — Moved the three shared test fixtures into mirrored packages. Commit `404b356`. `AppShellFixtures` -> `ui.shell`. `ComposerFeatureFixtures` -> `ui.composer`. `HomeFeatureFixtures` -> `ui.feed`. The eight users point at the new packages and drop the now same-package imports. `HomeFeatureFixtures` imports `AppShellFixtures`. The slice regenerates `app/ktlint-baseline.xml` under the new paths (432 entries across 216 files, zero `no-wildcard-imports` entries). Focused tests, `test assembleRelease`, `ktlintCheck`, and `lintDebug` pass.
 - T1e — Moved 34 single-owner root tests into mirrored packages. Commit `00a49ff`. UI homes: `ui.localization` (2), `ui.session` (3), `ui.directmessages` (2), `ui.feed` (2), `ui.settings` (4), `ui.large` (1), `ui.media` (3), `ui.motion` (2), `ui.notifications` (2), `ui.photogrid` (2), `ui.profile` (2), `ui.saved` (2), `ui.thread` (1), `ui.navigation` (2), `ui.composer` (1), and flat `ui` (2). Data home: `data.notifications.push` (1). Eight screen tests gain a `MainActivity` import. The slice regenerates `app/ktlint-baseline.xml` under the new paths (431 entries across 216 files, zero `no-wildcard-imports` entries). Focused tests, `test assembleRelease`, `ktlintCheck`, and `lintDebug` pass.
+- T1f — Moved the adapter-specific source tests into mirrored packages. Commit `aecab82`. `MastodonIntegrationTest`, `MastodonNotificationSyncTest`, and `MastodonSourceContractTest` move to `data.mastodon`. `MisskeyIntegrationTest` moves to `data.misskey`. The shared `SocialSourceContractTest` base stays at the root package, so `MastodonSourceContractTest` and `MisskeyIntegrationTest` gain a base import. The slice regenerates `app/ktlint-baseline.xml` for the two relocated entries. Focused tests, `test assembleRelease`, `ktlintCheck`, and `lintDebug` pass.
 
 # Current slice
 
-T1f is next. Give the cross-cutting and multi-adapter tests an explicit home.
+T1 is complete. The next unrelated task is V1 (test repair and de-flaking), then the Plan 04 rebase.
 
 # Files involved
 
-T1f holds 16 files. Each needs a home decision before a move. The candidates:
-
-`Api29CompatibilityTest`, `CrossCuttingTest`, `DirectMessageSourceTest`,
-`LocalizationResourceTest`, `MastodonIntegrationTest`,
-`MastodonNotificationSyncTest`, `MastodonSourceContractTest`,
-`MisskeyIntegrationTest`, `ModerationServiceTest`,
-`NotificationAdapterContractTest`, `NotificationContractTest`,
-`ProfileSourceContractTest`, `ProtocolFixtureValidationTest`,
-`ProductIdentityTest`, `SocialSourceContractTest`, `WebSocketTransportTest`.
-
-`SocialSourceContractTest.kt` declares both `SocialSourceContractTest` and
-`MisskeySourceContractTest`. `MastodonSourceContractTest` and
-`MisskeyIntegrationTest` extend them. Move the cluster together or keep it
-together. `ProductIdentityTest` stays at the root package because
-`ProductIdentity.kt` is in the root package.
+T1 is done. The root package keeps 12 tests because no single production package owns them: `SocialSourceContractTest`, `ProfileSourceContractTest`, `NotificationContractTest`, `NotificationAdapterContractTest`, `DirectMessageSourceTest`, `ModerationServiceTest`, `WebSocketTransportTest`, `CrossCuttingTest`, `Api29CompatibilityTest`, `ProtocolFixtureValidationTest`, `LocalizationResourceTest`, and `ProductIdentityTest`.
 
 # Verification
 
@@ -92,4 +80,4 @@ Close standard input. Set an explicit timeout for each Gradle call.
 
 # Last safe commit
 
-`00a49ff` "Move remaining single-owner root tests into mirrored packages".
+`aecab82` "Move adapter-specific source tests into mirrored packages".
