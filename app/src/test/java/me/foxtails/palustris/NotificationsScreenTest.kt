@@ -1,7 +1,20 @@
 package me.foxtails.palustris
 
 import androidx.activity.compose.setContent
-import androidx.compose.ui.test.*
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import me.foxtails.palustris.ui.NotificationsUiState
 import me.foxtails.palustris.ui.notifications.NotificationsScreen
