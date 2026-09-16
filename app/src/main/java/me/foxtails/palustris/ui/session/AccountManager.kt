@@ -1,4 +1,4 @@
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.session
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -48,7 +48,7 @@ import me.foxtails.palustris.domain.PushSessionState
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.SourceError
-import me.foxtails.palustris.ui.session.ConnectedSessionContext
+import me.foxtails.palustris.ui.sourceErrorMessage
 import org.json.JSONObject
 
 data class SessionUi(

@@ -21,7 +21,6 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.CreatePostRequest
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostPreferences
-import me.foxtails.palustris.ui.AccountManager
 import me.foxtails.palustris.ui.feed.FeedHost
 import me.foxtails.palustris.ui.PalustrisApp
 import me.foxtails.palustris.ui.saved.SavedCollectionsHost

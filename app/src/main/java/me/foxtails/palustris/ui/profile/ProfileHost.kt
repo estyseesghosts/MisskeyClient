@@ -15,7 +15,7 @@ import me.foxtails.palustris.domain.EditableProfilePatch
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SocialSource
-import me.foxtails.palustris.ui.AccountManager
+import me.foxtails.palustris.ui.session.AccountManager
 import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.shell.PostProjectionCoordinator
 import me.foxtails.palustris.ui.shell.ProfileContract

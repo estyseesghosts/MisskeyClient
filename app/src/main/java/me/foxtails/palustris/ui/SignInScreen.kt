@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import me.foxtails.palustris.R
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
+import me.foxtails.palustris.ui.session.SessionUi
 import me.foxtails.palustris.ui.setup.SetupInitialScreen
 import me.foxtails.palustris.ui.setup.SetupIntroductionScreen
 import me.foxtails.palustris.ui.setup.SetupServerScreen

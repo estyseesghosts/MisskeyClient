@@ -51,7 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.R
 import me.foxtails.palustris.data.misskey.ServerAddress
-import me.foxtails.palustris.ui.SessionUi
+import me.foxtails.palustris.ui.session.SessionUi
 
 @Composable
 internal fun SetupInitialScreen(onNewUser: () -> Unit, onSignIn: () -> Unit) {

@@ -49,6 +49,7 @@ import me.foxtails.palustris.ui.notifications.NotificationLaunchHost
 import me.foxtails.palustris.ui.notifications.NotificationLaunchRouter
 import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.session.ConnectedSessionHost
+import me.foxtails.palustris.ui.session.AccountManager
 import me.foxtails.palustris.ui.settings.SettingsOverlayHost
 
 @Composable

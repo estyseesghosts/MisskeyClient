@@ -18,7 +18,7 @@ import me.foxtails.palustris.domain.AccountId
 import me.foxtails.palustris.domain.EntityId
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
-import me.foxtails.palustris.ui.AccountManager
+import me.foxtails.palustris.ui.session.AccountManager
 import me.foxtails.palustris.ui.navigation.AppRoute
 import me.foxtails.palustris.ui.notifications.NotificationLaunch
 import me.foxtails.palustris.ui.notifications.NotificationLaunchHost

@@ -9,7 +9,7 @@ import me.foxtails.palustris.data.auth.*
 import me.foxtails.palustris.data.misskey.ApiFailure
 import me.foxtails.palustris.data.misskey.MisskeyErrorMapper
 import me.foxtails.palustris.domain.*
-import me.foxtails.palustris.ui.AccountManager
+import me.foxtails.palustris.ui.session.AccountManager
 import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
 import me.foxtails.palustris.ui.feed.FeedViewModel
 import org.json.JSONObject

@@ -41,7 +41,7 @@ import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.Session
 import me.foxtails.palustris.domain.SocialSource
-import me.foxtails.palustris.ui.AccountManager
+import me.foxtails.palustris.ui.session.AccountManager
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
