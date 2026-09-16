@@ -12,16 +12,32 @@ Q1a and Q1b below. The fully-qualified-name cleanup is deferred.
   `org.jlleitschuh.gradle.ktlint` 14.2.0 pins ktlint 1.5.0. `.editorconfig`
   sets the `android_studio` code style, forbids wildcard imports, keeps
   Compose PascalCase naming, and disables the wrapping, signature, indent,
-  and line-length rules. The baseline holds 464 findings and was generated
-  from the committed tree in a separate worktree, so it matches what CI
-  builds. Both workflows run `:app:ktlintCheck`.
+  and line-length rules. The baseline was generated from the committed
+  tree in a separate worktree, so it matches what CI builds. Both
+  workflows run `:app:ktlintCheck`.
+- Q1b — Clear the six ktlint findings that the icon commit `b331dab` left
+  on `main`. Commit `6c3f4f5`. The enum entries in `AppShellState.kt` move
+  to separate lines, `AccountAvatar.kt` drops two unused imports, and
+  `PostShareSheet.kt` and `BeelineSvgPaths.kt` drop a blank line before a
+  closing brace.
+- Q1b2 — The same commit left three unit tests failing. Commit `e5c77ad`.
+  Restore `nav_direct_messages` to `Direct messages` and update
+  `ProfileScreenTest` to walk the new two-step unfollow confirmation.
+- Q1c — Remove the 12 wildcard imports from `app/src/main`. Commit
+  `99bc0ed`. Files: `MisskeyAuth`, `MisskeyApi`, `Components`,
+  `PalustrisApp`, `CompactOverlayMetrics`, `PostRow`. Imports only.
+- Q1d — Remove the 16 wildcard imports from `app/src/test` and
+  `app/src/androidTest`. Commit `37d8cac`. Imports only. The baseline now
+  holds zero `no-wildcard-imports` entries, so the rule guards all Kotlin
+  sources with no exceptions.
+
+Q1 is complete. `:app:ktlintCheck`, `test assembleRelease`, and
+`:app:lintDebug` pass. The 28 wildcard imports are gone. The
+fully-qualified-name cleanup stays deferred.
 
 # Current slice
 
-Q1b is next but is blocked. It removes the 28 wildcard imports. Two of the
-files, `ui/posts/PostRow.kt` and `ui/Components.kt`, currently hold
-uncommitted edits from another author. Do not edit them until those edits
-are committed or set aside. See Blockers.
+None. Q1 is complete. Next is T1.
 
 # Scope Decision
 
@@ -113,21 +129,10 @@ Close standard input. Set an explicit timeout for each Gradle call.
 - Live-server and signed-release behavior stay unverified.
 - The Android 15 system-bar instrumentation failure stays in `logs/BUGS.txt`.
 - `docs/decomposition_3/` is git-ignored. Do not force-add planning files.
-- Concurrent editor: while Q1a was in progress, another author added
-  uncommitted work to about 27 files under `ui/`, plus untracked
-  `ui/BeelineSvgPaths.kt` and `appsvg/`. Commit `39cfec3` stages none of
-  it. Do not commit it, revert it, or stash it. Two of the wildcard files
-  overlap that work, so Q1b needs the overlap resolved first.
-- The concurrent work already breaks `:app:ktlintCheck` with 6 findings
-  that the committed baseline does not cover: `enum-wrapping` in
-  `AppShellState.kt`, `no-unused-imports` in `AccountAvatar.kt`,
-  `no-blank-line-before-rbrace` in `PostShareSheet.kt` and
-  `BeelineSvgPaths.kt`. Whoever commits that work must fix the findings or
-  regenerate the baseline.
 
 # Last safe commit
 
-`39cfec3` "Add ktlint static-analysis gate with a baseline".
+`37d8cac` "Replace test-source wildcard imports with explicit imports".
 
 # Deferred
 

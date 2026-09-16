@@ -62,21 +62,22 @@ Read these in order. Treat the repository as the authority.
   worth it.` Tag `v0.2.7` points at `45e2275`. Release run
   `35054197234` is green. The handoff record commit is `11d5ba1`. The
   last safe commit is `11d5ba1`.
-- Q1a — ktlint is wired with a baseline and runs in both workflows. The
-  slice commit is `39cfec3`. The durable record is
-  `docs/agents/tasks/q1-static-analysis.md`.
-- Q1b — remove the 28 wildcard imports. Blocked. Two wildcard files,
-  `ui/posts/PostRow.kt` and `ui/Components.kt`, hold uncommitted edits
-  from a concurrent author. Resolve that overlap first.
+- Q1 (ktlint gate and wildcard removal) is complete. Slices: `39cfec3`
+  (gate and baseline), `6c3f4f5` (clear the icon commit findings),
+  `e5c77ad` (restore the Direct messages label and cover the unfollow
+  confirmation), `99bc0ed` (main wildcard imports), `37d8cac` (test
+  wildcard imports). The baseline holds zero `no-wildcard-imports`
+  entries. `ktlintCheck`, `test assembleRelease`, and `lintDebug` pass.
+  The durable record is `docs/agents/tasks/q1-static-analysis.md`.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
 
 ## Next Slice
 
-Q1b — remove the 28 wildcard imports, then regenerate the baseline so
-the `no-wildcard-imports` rule stays enforced. Blocked until the
-concurrent edits to `ui/posts/PostRow.kt` and `ui/Components.kt` are
-committed or set aside. Then T1, V1, and the Plan 04 rebase in order.
+T1 — Mirror test packages to production packages and merge the two
+duplicate-named test classes (`EmojiCatalogViewModelTest`,
+`PostActionOwnerTest`). Then V1 and the Plan 04 rebase. The
+fully-qualified-name cleanup stays deferred to its own task.
 
 ## Remaining Migration Queue
 
@@ -111,11 +112,6 @@ task-state file and verification.
 
 ## Known Blockers
 
-- A concurrent author is editing `ui/` right now. About 27 files hold
-  uncommitted edits, plus untracked `ui/BeelineSvgPaths.kt` and `appsvg/`.
-  Do not commit, revert, or stash that work. Q1b overlaps it in
-  `ui/posts/PostRow.kt` and `ui/Components.kt`. That work also breaks
-  `:app:ktlintCheck` with 6 baseline-uncovered findings.
 - No emulator or device is reachable. Connected instrumentation stays unverified.
 - Live-server and signed-release behavior stay unverified.
 - The Android 15 system-bar instrumentation failure stays in `logs/BUGS.txt`.
