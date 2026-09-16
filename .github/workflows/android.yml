@@ -81,11 +81,11 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
-          target: google_apis
+          target: default
           arch: x86_64
           profile: pixel_2
           force-avd-creation: true
-          disable-linux-hw-acceleration: false
+          disable-linux-hw-accel: false
           emulator-options: -no-window -noaudio -no-boot-anim
           disable-animations: true
           script: for attempt in 1 2 3; do ./gradlew :app:connectedDebugAndroidTest && break; if [ "$attempt" = 3 ]; then exit 1; fi; sleep 30; done
