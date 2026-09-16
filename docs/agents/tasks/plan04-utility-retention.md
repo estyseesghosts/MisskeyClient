@@ -10,8 +10,9 @@
 
 **Started:** 2026-09-16.
 
-**Status:** in progress. 04-A and 04-B are complete. 04-C through 04-K remain.
-The cleanup-window audit added 04-K and prerequisites to 04-E, 04-H, and 04-J.
+**Status:** in progress. 04-A, 04-B, and 04-C are complete. 04-D through 04-K
+remain. The cleanup-window audit added 04-K and prerequisites to 04-E, 04-H, and
+04-J.
 
 **This task is larger than one safe implementation slice.**
 
@@ -49,10 +50,9 @@ test-package mirroring. Recheck every finding at implementation start.
   browser operation. This finding is closed.
 - 04-B is complete. `DefaultUnicodeEmojis` is declared in
   `ui/emoji/DefaultUnicodeEmoji.kt`. This finding is closed.
-- `EmojiAssetStore.urlLocks` is still a `ConcurrentHashMap<String, Any>` at
-  `data/emoji/EmojiAssetStore.kt:37`. The total budget
-  `MAX_TOTAL_ASSET_BYTES = 128 MiB` is at `:216`. Chunks 04-C and 04-D are still
-  required.
+- 04-C is complete. `EmojiAssetStore.urlLocks` is a fixed 64-lock array, so no
+  URL-keyed lock entry remains. This finding is closed. The total budget
+  `MAX_TOTAL_ASSET_BYTES = 128 MiB` is at `:221`. Chunk 04-D is still required.
 - `MastodonDirectMessageService.directLastPosts` is still a
   `mutableMapOf<String, Post>` at `data/mastodon/MastodonDirectMessageService.kt:29`,
   written at `:41`, `:53`, and `:79`. Chunk 04-E is still required.
@@ -209,10 +209,35 @@ Committed. The slice commit is `6a87c76`.
 - Verification: `DefaultUnicodeEmojiTest`, `EmojiPickerTest`,
   `EmojiCatalogViewModelTest`, `HomeFeedTest`, and `SignInScreenTest` pass.
   `test assembleRelease` passes. `:app:ktlintCheck` passes. `:app:lintDebug`
-  passes. No baseline change is needed. Physical rendering stays
+   passes. No baseline change is needed. Physical rendering stays
+   device-unverified.
+
+### 04-C Bound Emoji Coordination
+
+Committed. The slice commit is `633cd7a`.
+
+- `EmojiAssetStore.urlLocks` is now `Array(URL_LOCK_COUNT) { Any() }`, a fixed
+  array of 64 locks. No URL-keyed lock entry remains, and the structure has
+  constant size.
+- `get` canonicalizes the URL before coordination, selects
+  `stripeIndex(canonicalUrl)`, and holds the stripe across lookup, revalidation,
+  and asset publication. Download, timeout, redirect, and byte-limit behavior is
+  unchanged.
+- `stripeIndex` uses `canonicalUrl.hashCode() and URL_LOCK_MASK`. The mask keeps
+  the index nonnegative for every hash, including `Int.MIN_VALUE`, where `abs`
+  would stay negative.
+- Different canonical URLs can share a stripe. They serialize without becoming
+  the same cache identity. Only colliding URLs lose network concurrency.
+- `EmojiAssetStoreTest` gains concurrent same-URL requests with a barrier and one
+  download, a deliberate stripe collision with latches and separate identity,
+  independent stripes, failure followed by retry, cancellation that releases the
+  stripe, and 10,000 unique URLs against the constant 64-stripe structure.
+- `app/ktlint-baseline.xml` is regenerated for the shifted annotated `instance`
+  declaration line.
+- Verification: focused `EmojiAssetStoreTest` and `EmojiCacheDatabaseTest` pass.
+  `test assembleRelease` passes. `:app:ktlintCheck` passes. `:app:lintDebug`
+  passes. Physical picker download latency and device behavior stay
   device-unverified.
-
-
 
 ### 04-A Complete External-Link Ownership
 
@@ -412,4 +437,4 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
 
 ## Last safe commit
 
-`6a87c76` "Move the Unicode catalog out of EmojiPicker".
+`633cd7a` "Bound emoji URL coordination with fixed lock stripes".

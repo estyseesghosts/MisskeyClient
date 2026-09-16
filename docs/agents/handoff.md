@@ -10,8 +10,8 @@ the completed P1 work is `docs/agents/tasks/ui-package-migration.md`. The
 durable record for the completed Q1 work is
 `docs/agents/tasks/q1-static-analysis.md`. The durable record for the
 completed T1 work is `docs/agents/tasks/t1-test-mirror.md`. The active Plan 04
-work is `docs/agents/tasks/plan04-utility-retention.md` (04-A and 04-B are
-complete, 04-C through 04-K remain). A cleanup-window audit added 04-K and
+work is `docs/agents/tasks/plan04-utility-retention.md` (04-A, 04-B, and 04-C
+are complete, 04-D through 04-K remain). A cleanup-window audit added 04-K and
 prerequisites to 04-E, 04-H, and 04-J. The Plan 04 source is
 `docs/decomposition_3/04.md` (git-ignored planning material, do not force-add).
 
@@ -136,14 +136,24 @@ Read these in order. Treat the repository as the authority.
   `ui.emoji` package, so no caller changed. `DefaultUnicodeEmojiTest`
   pins the order with a fixed snapshot resource. The slice commit is
   `6a87c76`.
+- 04-C (replace the emoji URL locks with fixed stripes) is committed and
+  test verified. `EmojiAssetStore.urlLocks` is a fixed 64-lock array.
+  `stripeIndex` uses `hashCode() and mask`, so the index stays
+  nonnegative without `abs`. Canonicalization stays before
+  coordination. Revised `EmojiAssetStoreTest` covers concurrent
+  same-URL requests, deliberate collisions, independent stripes,
+  failure and retry, cancellation, and 10,000 unique URLs against the
+  constant structure. The slice also regenerates
+  `app/ktlint-baseline.xml` for the shifted annotated declaration. The
+  slice commit is `633cd7a`.
 
 ## Next Slice
 
-04-B — Done. Start 04-C (replace the emoji URL locks with fixed stripes) next.
-It has no dependency. Then continue through 04-K in the recorded order. 04-K
-removes the dead profile paging authority and bounds the cursor sets. 04-J runs
-last and depends on 04-F through 04-I and 04-K. The last safe code commit is
-`6a87c76`.
+04-C — Done. Start 04-D (enforce emoji mapping and byte retention with reader
+leases) next. It depends on 04-C. Then continue through 04-K in the recorded
+order. 04-K removes the dead profile paging authority and bounds the cursor
+sets. 04-J runs last and depends on 04-F through 04-I and 04-K. The last safe
+code commit is `633cd7a`.
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The
@@ -170,12 +180,13 @@ verification.
    `b62f8c6`. Record blocked device checks honestly.
 4. Plan 04 — In progress. Rebase recorded as a slice plan in
    `docs/agents/tasks/plan04-utility-retention.md`. 04-A is complete at
-   `ee52ba9` and 04-B is complete at `6a87c76`. A cleanup-window audit added
-   04-K and prerequisites to 04-E, 04-H, and 04-J: private DM write-authority
-   construction, private registration-cache construction, unreleased authority
-   maps, an unremoved `writeLocks` map, and dead profile paging members.
-   Implement slices 04-C through 04-K in the recorded order. Eight decisions
-   gate 04-E, 04-H, 04-J, and 04-K.
+   `ee52ba9`, 04-B is complete at `6a87c76`, and 04-C is complete at
+   `633cd7a`. A cleanup-window audit added 04-K and prerequisites to 04-E,
+   04-H, and 04-J: private DM write-authority construction, private
+   registration-cache construction, unreleased authority maps, an unremoved
+   `writeLocks` map, and dead profile paging members. Implement slices 04-D
+   through 04-K in the recorded order. Eight decisions gate 04-E, 04-H, 04-J,
+   and 04-K.
 5. Device, live-server, and signed-release verification when a device and
    signing inputs exist.
 
@@ -202,7 +213,7 @@ verification.
   force-add `01.md`, `02.md`, `03.md`, `03_corrected.md`, or `04.md`. The Plan
   04 slice plan lives in the tracked `docs/agents/tasks/plan04-utility-retention.md`.
 - The worktree holds the untracked `appsvg/` directory. Do not commit it.
-- No code slice is in progress. 04-B is complete. The last code commit is
-  `6a87c76`.
+- No code slice is in progress. 04-C is complete. The last code commit is
+  `633cd7a`.
 - The residual 03-G ordering risk (disk write after revocation, before row
   deletion) stays in the Plan 03 task state.
