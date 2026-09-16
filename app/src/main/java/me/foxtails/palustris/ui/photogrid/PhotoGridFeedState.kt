@@ -1,4 +1,4 @@
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.photogrid
 
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Timeline

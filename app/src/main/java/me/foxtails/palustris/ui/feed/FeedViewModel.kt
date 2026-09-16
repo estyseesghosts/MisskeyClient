@@ -32,8 +32,8 @@ import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.effectiveTargetId
 import me.foxtails.palustris.domain.mergeExternalActionFields
 import me.foxtails.palustris.data.notifications.NotificationSyncOrchestrator
-import me.foxtails.palustris.ui.PhotoGridController
-import me.foxtails.palustris.ui.PhotoGridFeed
+import me.foxtails.palustris.ui.photogrid.PhotoGridController
+import me.foxtails.palustris.ui.photogrid.PhotoGridFeed
 import me.foxtails.palustris.ui.SearchController
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner

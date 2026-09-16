@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.photogrid
 
 import me.foxtails.palustris.ui.layout.CompactFilterDockHeight
 import me.foxtails.palustris.ui.layout.CompactOverlayHorizontalPadding
@@ -74,8 +74,15 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Timeline
 import me.foxtails.palustris.domain.isExactHashtag
 import me.foxtails.palustris.domain.timelineDisplayOrder
+import me.foxtails.palustris.ui.AppIcons
+import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.components.FilterChipEntry
 import me.foxtails.palustris.ui.components.FilterChipRow
+import me.foxtails.palustris.ui.postHashtags
+import me.foxtails.palustris.ui.LocalContentWarningRules
+import me.foxtails.palustris.ui.LocalHiddenContentPresentation
+import me.foxtails.palustris.ui.LocalMutedHashtags
+import me.foxtails.palustris.ui.timelineLabelRes
 import me.foxtails.palustris.ui.large.LargeBottomDock
 import me.foxtails.palustris.ui.large.LargeBottomDockClearance
 import me.foxtails.palustris.ui.media.SensitiveMediaTile

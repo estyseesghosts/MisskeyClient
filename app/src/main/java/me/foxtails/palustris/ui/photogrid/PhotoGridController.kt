@@ -1,4 +1,4 @@
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.photogrid
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +22,8 @@ import me.foxtails.palustris.domain.timelineDisplayOrder
 import me.foxtails.palustris.domain.timelineStatus
 import me.foxtails.palustris.domain.validateExactHashtag
 import me.foxtails.palustris.ui.feed.Feed
+import me.foxtails.palustris.ui.requiresSignIn
+import me.foxtails.palustris.ui.sourceErrorMessage
 
 internal class PhotoGridController(
     private val accountId: AccountId,

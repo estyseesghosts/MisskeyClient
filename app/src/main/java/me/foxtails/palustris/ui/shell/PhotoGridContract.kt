@@ -1,7 +1,7 @@
 package me.foxtails.palustris.ui.shell
 
-import me.foxtails.palustris.ui.PhotoGridFeed
-import me.foxtails.palustris.ui.PhotoGridFeedState
+import me.foxtails.palustris.ui.photogrid.PhotoGridFeed
+import me.foxtails.palustris.ui.photogrid.PhotoGridFeedState
 
 /**
  * Photo Grid presentation.

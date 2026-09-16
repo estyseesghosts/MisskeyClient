@@ -35,7 +35,7 @@ import me.foxtails.palustris.ui.EmptyState
 import me.foxtails.palustris.ui.feed.HomeFeed
 import me.foxtails.palustris.ui.LargePostOrigin
 import me.foxtails.palustris.ui.LocalPage
-import me.foxtails.palustris.ui.PhotoGridScreen
+import me.foxtails.palustris.ui.photogrid.PhotoGridScreen
 import me.foxtails.palustris.ui.SearchPanel
 import me.foxtails.palustris.ui.SearchScreen
 import me.foxtails.palustris.ui.large.LargeBottomDock

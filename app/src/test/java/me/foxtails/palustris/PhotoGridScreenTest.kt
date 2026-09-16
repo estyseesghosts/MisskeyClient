@@ -20,13 +20,13 @@ import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.ui.PalustrisTheme
-import me.foxtails.palustris.ui.PhotoGridFeedState
-import me.foxtails.palustris.ui.PhotoGridScreen
+import me.foxtails.palustris.ui.photogrid.PhotoGridFeedState
+import me.foxtails.palustris.ui.photogrid.PhotoGridScreen
 import me.foxtails.palustris.ui.Destination
 import me.foxtails.palustris.ui.SearchPanel
 import me.foxtails.palustris.ui.large.LargeNavTarget
-import me.foxtails.palustris.ui.photoGridAspectRatio
-import me.foxtails.palustris.ui.photoGridItems
+import me.foxtails.palustris.ui.photogrid.photoGridAspectRatio
+import me.foxtails.palustris.ui.photogrid.photoGridItems
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

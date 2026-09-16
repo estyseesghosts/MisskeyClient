@@ -15,7 +15,7 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.ui.PhotoGridFeed
+import me.foxtails.palustris.ui.photogrid.PhotoGridFeed
 import me.foxtails.palustris.ui.session.ConnectedEntryStore
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
