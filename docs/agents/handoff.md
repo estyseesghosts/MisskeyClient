@@ -51,9 +51,14 @@ Read these in order. Treat the repository as the authority.
   callbacks) is complete. Every slice P1a through P1f is committed and
   test verified. The durable record is
   `docs/agents/tasks/ui-package-migration.md`.
-- Version 0.2.7 release slice (task log `logs/260915-223201.txt`) is
-  committed and test verified. The slice commit is `ce431e1`, tagged
-  `v0.2.7`, pushed with the tag. The last safe commit is `ce431e1`.
+- CI is green on run `35053164957`: unit/lint/build plus the API 29 smoke
+  job, 10 of 10 instrumented tests pass. Fixes: fresh AVD, 3-attempt
+  single-line retry loop, KVM hardware acceleration, default system
+  image without Google APIs, repaired `Api29StartupInstrumentedTest`
+  call. The slice commit is `b62f8c6`. The last safe commit is `b62f8c6`.
+- Next: move tag `v0.2.7` onto the green tree and push it so the
+  Release workflow builds the signed pre-release. The `release`
+  environment needs a human approval before the signed job runs.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
 
