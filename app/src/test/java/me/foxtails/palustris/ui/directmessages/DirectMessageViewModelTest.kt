@@ -488,4 +488,38 @@ class DirectMessageViewModelTest {
             Dispatchers.resetMain()
         }
     }
+
+    @Test
+    fun revokedSharedAuthorityStopsTheViewModelWrite() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val source = GatedDirectSource()
+            val store = InMemoryDirectMessageStore()
+            val authority = DirectMessageWriteAuthority()
+            val generation = authority.activate(accountId)
+            val model = DirectMessageViewModel(
+                accountId = accountId,
+                source = source,
+                writeGeneration = generation,
+                store = store,
+                ioDispatcher = StandardTestDispatcher(testScheduler),
+                writeAuthority = authority,
+            )
+            advanceUntilIdle()
+            val conversationA = conversation("a", "a-last", recipientA).copy(unread = true)
+            store.save(accountId, conversationA)
+
+            // Account removal invalidates the shared authority before the thread
+            // load finishes. The ViewModel must not mark the conversation read.
+            authority.invalidate(accountId)
+            model.openConversation(conversationA)
+            advanceUntilIdle()
+            source.completeThread(0, listOf(post("a-1", recipientA)))
+            advanceUntilIdle()
+
+            assertTrue(store.conversation(accountId, conversationA.id)?.unread == true)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
 }

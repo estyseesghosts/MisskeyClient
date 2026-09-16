@@ -25,7 +25,9 @@ class DirectMessageRepository(
     private val store: DirectMessageStore,
     private val writeGeneration: Long,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val authority: DirectMessageWriteAuthority = DirectMessageWriteAuthority(),
+    // Required, not defaulted. The account lifecycle owner invalidates one
+    // authority per account. A private instance would accept revoked writes.
+    private val authority: DirectMessageWriteAuthority,
 ) {
     suspend fun conversations(cursor: String? = null): Page<DirectConversation> = withContext(ioDispatcher) {
         // Capture the local previews before the request. A write accepted while the request is in

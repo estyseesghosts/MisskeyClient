@@ -376,9 +376,9 @@
         <error line="3" column="1" source="standard:import-ordering" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/directmessages/DirectMessageViewModel.kt">
-        <error line="50" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="52" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="54" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="53" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="55" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="57" column="5" source="standard:spacing-between-declarations-with-comments" />
     </file>
     <file name="src/main/java/me/foxtails/palustris/ui/emoji/EmojiGridScrollbar.kt">
         <error line="1" column="1" source="standard:filename" />

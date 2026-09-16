@@ -35,7 +35,10 @@ class DirectMessageViewModel @AssistedInject constructor(
     @Assisted private val writeGeneration: Long,
     store: DirectMessageStore,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val writeAuthority: DirectMessageWriteAuthority = DirectMessageWriteAuthority(),
+    // One writer authority per account lifecycle owner. The Hilt singleton that
+    // AccountManager.removeAccount invalidates is required here and passed to the
+    // repository, so a revoked writer cannot publish a conversation state change.
+    private val writeAuthority: DirectMessageWriteAuthority,
 ) : ViewModel() {
     private val directSource = source as? DirectMessageSource
     private val repository = directSource?.let {

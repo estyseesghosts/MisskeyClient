@@ -206,15 +206,21 @@ repository so committed state stays deterministic under `runTest`.
 
 `data/directmessages/DirectMessageWriteAuthority.kt` owns one writer generation for each account.
 
-- `issue` returns the generation for a new writer.
+- `activate` returns the generation for a new writer.
 - `isCurrent` compares a generation with the current value.
 - `commitIfCurrent` runs a block under the account lock when the generation is current.
 - `invalidate` revokes writers without deleting rows.
 - `invalidateAndDelete` revokes writers and deletes rows in one serialized boundary.
 
+One writer authority serves one account lifecycle owner. `DirectMessageViewModel` receives the
+Hilt singleton as a required constructor argument and passes that same instance to
+`DirectMessageRepository`. Neither declares a private authority. The assisted factory injects the
+singleton, so the ViewModel, the repository, and `AccountManager` share the instance that account
+removal invalidates. Slice 04-E1 removed the private defaults.
+
 `AccountManager.removeAccount` calls `invalidateAndDelete` before it deletes the store rows
-(`AccountManager.kt:326`). It revokes the draft writer and calls `deleteAll` in one serialized
-boundary (`AccountManager.kt:330-331`).
+(`AccountManager.kt:332-334`). It revokes the draft writer and calls `deleteAll` in one serialized
+boundary (`AccountManager.kt:336-338`).
 
 C-03 closed the direct-message gap. `DirectMessageRepository.markRead` routes its local write
 through `commitIfCurrent` (commit `bfbd7ed`). Activation, revocation, deletion, and accepted writes
@@ -233,7 +239,7 @@ direct-message store, deletes drafts, removes the emoji catalog and picker prefe
 the session, and updates the account index.
 
 The account-removal draft gap from an earlier review is closed. `AccountManager.removeAccount`
-revokes the draft writer and deletes rows in one serialized boundary (`AccountManager.kt:330-331`).
+revokes the draft writer and deletes rows in one serialized boundary (`AccountManager.kt:336-338`).
 The stale claim in older ownership and bug records is removed.
 
 ## Affected Tests
