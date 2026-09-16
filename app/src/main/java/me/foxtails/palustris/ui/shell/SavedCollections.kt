@@ -3,7 +3,7 @@ package me.foxtails.palustris.ui.shell
 import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.SavedPostsKind
-import me.foxtails.palustris.ui.SavedPostsUiState
+import me.foxtails.palustris.ui.saved.SavedPostsUiState
 
 /**
  * Bookmark collection presentation.

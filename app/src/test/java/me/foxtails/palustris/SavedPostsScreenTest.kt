@@ -16,9 +16,9 @@ import me.foxtails.palustris.domain.Post
 import me.foxtails.palustris.domain.PostInteractionCounts
 import me.foxtails.palustris.domain.Protocol
 import me.foxtails.palustris.domain.Reaction
-import me.foxtails.palustris.ui.SavedPostsScreen
-import me.foxtails.palustris.ui.SavedPostsCollection
-import me.foxtails.palustris.ui.SavedPostsUiState
+import me.foxtails.palustris.ui.saved.SavedPostsScreen
+import me.foxtails.palustris.ui.saved.SavedPostsCollection
+import me.foxtails.palustris.ui.saved.SavedPostsUiState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

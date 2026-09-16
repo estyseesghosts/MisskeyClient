@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.saved
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,6 +29,9 @@ import androidx.compose.foundation.layout.asPaddingValues
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.R
 import me.foxtails.palustris.domain.PostAction
+import me.foxtails.palustris.ui.AppIcons
+import me.foxtails.palustris.ui.EmptyState
+import me.foxtails.palustris.ui.PostRow
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.motion.LocalPalustrisMotionScheme
 

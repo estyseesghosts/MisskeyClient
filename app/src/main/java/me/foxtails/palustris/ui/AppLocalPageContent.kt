@@ -8,7 +8,10 @@ import me.foxtails.palustris.domain.EmojiChoice
 import me.foxtails.palustris.domain.OwnedPost
 import me.foxtails.palustris.domain.PostAction
 import me.foxtails.palustris.domain.PostDraft
+import me.foxtails.palustris.ui.composer.DraftsScreen
 import me.foxtails.palustris.ui.media.MediaOpenRequest
+import me.foxtails.palustris.ui.saved.SavedPostsScreen
+import me.foxtails.palustris.ui.saved.SavedPostsUiState
 
 @Composable
 internal fun AppLocalPageContent(

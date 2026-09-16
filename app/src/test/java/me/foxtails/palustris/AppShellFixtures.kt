@@ -45,7 +45,7 @@ import me.foxtails.palustris.ui.shell.DraftsContract
 import me.foxtails.palustris.ui.shell.HomeContract
 import me.foxtails.palustris.ui.shell.HomeFeedUiState
 import me.foxtails.palustris.ui.shell.LikesContract
-import me.foxtails.palustris.ui.SavedPostsUiState
+import me.foxtails.palustris.ui.saved.SavedPostsUiState
 import me.foxtails.palustris.ui.shell.NotificationsContract
 import me.foxtails.palustris.ui.shell.NotificationSettingsContract
 import me.foxtails.palustris.ui.shell.PhotoGridContract

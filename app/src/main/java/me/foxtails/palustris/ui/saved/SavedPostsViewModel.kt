@@ -1,4 +1,4 @@
-package me.foxtails.palustris.ui
+package me.foxtails.palustris.ui.saved
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -26,6 +26,8 @@ import me.foxtails.palustris.ui.feed.Feed
 import me.foxtails.palustris.ui.feed.FeedViewModel
 import me.foxtails.palustris.ui.posts.PostInteractionExecutionAuthority
 import me.foxtails.palustris.ui.posts.PostInteractionMutationOwner
+import me.foxtails.palustris.ui.requiresSignIn
+import me.foxtails.palustris.ui.sourceErrorMessage
 
 @HiltViewModel(assistedFactory = SavedPostsViewModel.Factory::class)
 class SavedPostsViewModel @AssistedInject constructor(

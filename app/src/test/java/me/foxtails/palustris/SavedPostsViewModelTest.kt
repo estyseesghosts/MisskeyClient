@@ -21,8 +21,8 @@ import me.foxtails.palustris.domain.SavedPostsKind
 import me.foxtails.palustris.domain.ServerCapabilities
 import me.foxtails.palustris.domain.SocialSource
 import me.foxtails.palustris.domain.Timeline
-import me.foxtails.palustris.ui.SavedPostsCollection
-import me.foxtails.palustris.ui.SavedPostsViewModel
+import me.foxtails.palustris.ui.saved.SavedPostsCollection
+import me.foxtails.palustris.ui.saved.SavedPostsViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
