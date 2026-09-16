@@ -10,9 +10,9 @@ the completed P1 work is `docs/agents/tasks/ui-package-migration.md`. The
 durable record for the completed Q1 work is
 `docs/agents/tasks/q1-static-analysis.md`. The durable record for the
 completed T1 work is `docs/agents/tasks/t1-test-mirror.md`. The active Plan 04
-work is `docs/agents/tasks/plan04-utility-retention.md` (slice plan only, no
-code change yet). The Plan 04 source is `docs/decomposition_3/04.md` (git-ignored
-planning material, do not force-add).
+work is `docs/agents/tasks/plan04-utility-retention.md` (04-A is complete, 04-B
+through 04-J remain). The Plan 04 source is `docs/decomposition_3/04.md`
+(git-ignored planning material, do not force-add).
 
 ## Where To Start
 
@@ -124,13 +124,18 @@ Read these in order. Treat the repository as the authority.
   slice also regenerates `app/ktlint-baseline.xml`. Focused tests,
   `test assembleRelease`, `ktlintCheck`, and `lintDebug` pass. The slice
   commit is `aecab82`. T1 is complete.
+- 04-A (complete external-link ownership) is committed and test
+  verified. `ExternalLinkHandler.open` holds the full browser operation,
+  the `ui.openExternal` declaration and imports are gone, and the eight
+  feature calls use the handler. `ExternalLinkHandlerTest` is new. The
+  slice commit is `ee52ba9`.
 
 ## Next Slice
 
-T1 — Done. The Plan 04 rebase is recorded as a slice plan in
-`docs/agents/tasks/plan04-utility-retention.md`. Implement slices 04-A through
-04-J in the recorded order. 04-A and 04-B are independent structural moves and
-are safe to start first. The last safe code commit is `aecab82`.
+04-A — Done. Start 04-B (separate the Unicode catalog from picker
+presentation) next. It has no dependency and is an independent structural move.
+Then continue through 04-J in the recorded order. The last safe code commit is
+`ee52ba9`.
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The
@@ -140,8 +145,9 @@ to its own task.
 
 ## Remaining Migration Queue
 
-The S1, P1, and Q1 series are complete. T1 is in progress. Do these in
-order. Each needs its own task-state file and verification.
+The S1, P1, and Q1 series are complete. T1 is complete. Plan 04 is in
+progress. Do these in order. Each needs its own task-state file and
+verification.
 
 1. Q1 — Done. ktlint gate with a baseline. Wildcard imports are gone.
 2. T1 — Done. T1a through T1f are complete. Merge of the two
@@ -154,10 +160,10 @@ order. Each needs its own task-state file and verification.
    `RoomNotificationStoreInstrumentedTest` and de-flake the two known timing
    tests. The `Api29StartupInstrumentedTest` repair is already done in
    `b62f8c6`. Record blocked device checks honestly.
-4. Plan 04 — Rebase recorded as a slice plan in
-   `docs/agents/tasks/plan04-utility-retention.md`. Implement slices 04-A
-   through 04-J in the recorded order. Five decisions gate 04-E, 04-H, and
-   04-J.
+4. Plan 04 — In progress. Rebase recorded as a slice plan in
+   `docs/agents/tasks/plan04-utility-retention.md`. 04-A is complete at
+   `ee52ba9`. Implement slices 04-B through 04-J in the recorded order. Five
+   decisions gate 04-E, 04-H, and 04-J.
 5. Device, live-server, and signed-release verification when a device and
    signing inputs exist.
 
@@ -184,6 +190,7 @@ order. Each needs its own task-state file and verification.
   force-add `01.md`, `02.md`, `03.md`, `03_corrected.md`, or `04.md`. The Plan
   04 slice plan lives in the tracked `docs/agents/tasks/plan04-utility-retention.md`.
 - The worktree holds the untracked `appsvg/` directory. Do not commit it.
-- No code slice is in progress. The last code commit is `aecab82`.
+- No code slice is in progress. 04-A is complete. The last code commit is
+  `ee52ba9`.
 - The residual 03-G ordering risk (disk write after revocation, before row
   deletion) stays in the Plan 03 task state.

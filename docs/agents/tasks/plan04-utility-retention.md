@@ -10,7 +10,7 @@
 
 **Started:** 2026-09-16.
 
-**Status:** planned. This file is the durable slice plan. It records no source change.
+**Status:** in progress. 04-A is complete. 04-B through 04-J remain.
 
 **This task is larger than one safe implementation slice.**
 
@@ -123,6 +123,33 @@ behaviors.
 | 04-H | Bound capability and registration caches. | 04-H decision, Plan 03 | yes |
 | 04-I | Repair media registry hidden-state retention. | none | no |
 | 04-J | Audit correctness-critical retention and publish the inventory. | 04-F..04-I, Plan 02/03 | yes |
+
+## Progress
+
+### 04-A Complete External-Link Ownership
+
+Committed. The slice commit is `ee52ba9`. Source verified against `HEAD` at
+`aecab82` before the edit.
+
+- `ExternalLinkHandler.open` holds the full browser operation. It prepares each
+  URL once, accepts only HTTP or HTTPS with a nonblank host, starts at most one
+  `Intent.ACTION_VIEW`, and shows the standard error Toast on
+  `ActivityNotFoundException`.
+- The `ui.openExternal` declaration is gone. The eight feature calls now use
+  `ExternalLinkHandler.open`. No declaration, call, or import of `openExternal`
+  remains.
+- `prepare` stays for the share sheet and the copy path. The preference Boolean
+  is the only handler state.
+- `ExternalLinkHandlerTest` is new. It records launched intents, resets the
+  preference, and covers the null and blank no-op, the non-HTTP and blank-host
+  no-op, the single view intent, tracking cleanup, and the missing-browser Toast.
+- `app/ktlint-baseline.xml` is regenerated for the relocated `PostRow` and
+  `SinglePostScreen` entries. The removed `PostRow` keyword-spacing finding is
+  gone.
+- Verification: focused tests pass. `test assembleRelease` passes.
+  `:app:ktlintCheck` passes. `:app:lintDebug` passes. Physical launch behavior
+  stays device-unverified.
+
 
 ### 04-A Complete External-Link Ownership
 
@@ -281,4 +308,4 @@ $env:GRADLE_OPTS="-Dorg.gradle.daemon=false"
 
 ## Last safe commit
 
-`aecab82` "Move adapter-specific source tests into mirrored packages".
+`ee52ba9` "Move generic browser handling into ExternalLinkHandler".
