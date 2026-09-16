@@ -6,7 +6,8 @@ Plan 03 work is `docs/agents/tasks/plan03-protocol-notifications.md`. The correc
 Plans 01, 02, and 03 is `docs/decomposition_3/03_corrected.md` (git-ignored planning material,
 do not force-add). The durable record for the completed S1 work is
 `docs/agents/tasks/palustrisapp-decomposition.md`. The durable record for
-the active P1 work is `docs/agents/tasks/ui-package-migration.md`.
+the completed P1 work is `docs/agents/tasks/ui-package-migration.md`. The
+durable record for the active Q1 work is `docs/agents/tasks/q1-static-analysis.md`.
 
 ## Where To Start
 
@@ -55,43 +56,37 @@ Read these in order. Treat the repository as the authority.
   job, 10 of 10 instrumented tests pass. Fixes: fresh AVD, 3-attempt
   single-line retry loop, KVM hardware acceleration, default system
   image without Google APIs, repaired `Api29StartupInstrumentedTest`
-  call. The slice commit is `b62f8c6`. The last safe commit is `b62f8c6`.
+  call. The CI repair slice is `b62f8c6`.
 - `v0.2.7` is released as a GitHub pre-release with the signed
   `app-release.apk`, title `Beeline 0.2.7`, notes `Making the pain
   worth it.` Tag `v0.2.7` points at `45e2275`. Release run
-  `35054197234` is green. The last safe commit is `45e2275`.
+  `35054197234` is green. The handoff record commit is `11d5ba1`. The
+  last safe commit is `11d5ba1`.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
 
 ## Next Slice
 
 Q1 — Add ktlint or detekt with a baseline. Fix the wildcard imports
-and the fully-qualified names left behind by the S1 and P1 moves (12
-wildcard imports and several fully-qualified names, including the
-`ui.*` path/package mismatches found in P1b-P1d). Smallest change with
-the broadest payoff. Open a dedicated task-state file with its own
-verification before implementation. Then T1, V1, and the Plan 04 rebase
-in order.
+and the fully-qualified names left behind by the S1 and P1 moves. The
+task state is `docs/agents/tasks/q1-static-analysis.md`. Then T1, V1, and
+the Plan 04 rebase in order.
 
-## After S1
+## Remaining Migration Queue
 
-Do these in order. Each needs its own task-state file and verification.
+The S1 and P1 series are complete. Do these in order. Each needs its own
+task-state file and verification.
 
-1. P1 — Finish the `ui/` package migration. Move the flat feature files
-   (`FeedViewModel`, `HomeFeed`, search, Photo Grid, saved collections,
-   `AccountManager` out of `ui/`) into feature packages. Behavior-neutral.
-   Group the `ShellDestinationContent` branch callbacks into narrow param
-   bundles to replace the 37-parameter signature.
-2. Q1 — Add ktlint or detekt with a baseline. Fix the 12 wildcard imports
+1. Q1 — Add ktlint or detekt with a baseline. Fix the wildcard imports
    and the fully-qualified names. Smallest change with the broadest payoff.
-3. T1 — Mirror test packages to production packages. Merge the two
+2. T1 — Mirror test packages to production packages. Merge the two
    duplicate-named test classes (`EmojiCatalogViewModelTest`,
    `PostActionOwnerTest`).
-4. V1 — Repair `Api29StartupInstrumentedTest` and
-   `RoomNotificationStoreInstrumentedTest`. De-flake the two known timing
-   tests. Record blocked device checks honestly.
-5. Plan 04 rebase (`docs/decomposition_3/04.md`), then implementation.
-6. Device, live-server, and signed-release verification when a device and
+3. V1 — Repair `RoomNotificationStoreInstrumentedTest` and de-flake the
+   two known timing tests. The `Api29StartupInstrumentedTest` repair is
+   already done in `b62f8c6`. Record blocked device checks honestly.
+4. Plan 04 rebase (`docs/decomposition_3/04.md`), then implementation.
+5. Device, live-server, and signed-release verification when a device and
    signing inputs exist.
 
 ## Process Rules
