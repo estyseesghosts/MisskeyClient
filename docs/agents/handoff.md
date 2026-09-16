@@ -44,19 +44,18 @@ Read these in order. Treat the repository as the authority.
 - S1 (split `PalustrisApp.kt`) is complete. The shell is 622 lines and
   owns navigation and placement. Feature state lives in the overlay
   holder, the destination content, and the overlay host.
-- P1a (move the feed group into `ui/feed/`) is committed and test
-  verified. The slice commit is `5cb8342`. The P1 task-state file names
-  P1b as the current slice. The last safe commit is `5cb8342`.
+- P1b (move the Photo Grid group into `ui/photogrid/`) is committed and
+  test verified. The slice commit is `f485281`. The P1 task-state file
+  names P1c as the current slice. The last safe commit is `f485281`.
 - Plan 01 and Plan 02 exit conditions are met except blocked device
   verification.
 
 ## Next Slice
 
-P1b — Move the Photo Grid group (`PhotoGridController`,
-`PhotoGridFeedState`, `PhotoGridScreen`) into `ui/photogrid/`.
-Behavior-neutral. Keep test files in place and update import paths
-only. Run the six shell suites plus the full gate. Commit only when
-green. Full scope, files, and verification commands are in
+P1c — Move the search group (`SearchController`, `SearchScreen`) into
+`ui/search/`. Behavior-neutral. Keep test files in place and update
+import paths only. Run the six shell suites plus the full gate. Commit
+only when green. Full scope, files, and verification commands are in
 `docs/agents/tasks/ui-package-migration.md`. Do not duplicate that file
 here.
 

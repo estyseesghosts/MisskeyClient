@@ -51,12 +51,15 @@ safe implementation slice. It divides into P1a through P1f below.
 - P1a — The feed group lives in `ui/feed/`. Commit `5cb8342`. The six
   shell suites, the full `test assembleRelease` gate, and `lintDebug`
   pass.
+- P1b — The Photo Grid group lives in `ui/photogrid/`. Commit `f485281`.
+  The six shell suites, the full `test assembleRelease` gate, and
+  `lintDebug` pass.
 
 # Current slice
 
-P1b — Move the Photo Grid group (`PhotoGridController`,
-`PhotoGridFeedState`, `PhotoGridScreen`) into `ui/photogrid/`. Update
-the package declaration and every importing file in `main` and `test`.
+P1c — Move the search group (`SearchController`, `SearchScreen`) into
+`ui/search/`. Update the package declaration and every importing file in
+`main` and `test`.
 
 # Files involved
 
@@ -86,8 +89,8 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Next
 
-1. P1b as defined in Current slice above.
-2. P1c — Move the search group into `ui/search/`.
+1. P1c as defined in Current slice above.
+2. P1d — Move saved collections and drafts.
 3. P1c — Move the search group into `ui/search/`.
 4. P1d — Move the saved group into `ui/saved/` and `DraftsScreen`
    into `ui/composer/`.
@@ -109,4 +112,4 @@ No emulator is reachable. Connected instrumentation stays unverified.
 
 # Last safe commit
 
-`5cb8342` "Move feed group into ui.feed".
+`f485281` "Move Photo Grid group into ui.photogrid".
