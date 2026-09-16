@@ -101,15 +101,26 @@ Read these in order. Treat the repository as the authority.
   `app/ktlint-baseline.xml` under the new paths. Focused tests,
   `test assembleRelease`, `ktlintCheck`, and `lintDebug` pass. The slice
   commit is `404b356`.
+- T1e (move 34 single-owner root tests into mirrored packages) is
+  committed and test verified. The tests move to `ui.localization`,
+  `ui.session`, `ui.directmessages`, `ui.feed`, `ui.settings`, `ui.large`,
+  `ui.media`, `ui.motion`, `ui.notifications`, `ui.photogrid`,
+  `ui.profile`, `ui.saved`, `ui.thread`, `ui.navigation`, `ui.composer`,
+  flat `ui`, and `data.notifications.push`. Eight screen tests gain a
+  `MainActivity` import. The slice also regenerates
+  `app/ktlint-baseline.xml` under the new paths. Focused tests,
+  `test assembleRelease`, `ktlintCheck`, and `lintDebug` pass. The slice
+  commit is `00a49ff`.
 
 ## Next Slice
 
-T1d — Done. T1e is next: move the 50 remaining root tests into mirrored
-packages after per-file owner mapping. Cross-cutting tests and the
-multi-adapter contracts need an explicit home decision; some may stay at
-the root package when no production package owns them. Then V1 and the
-Plan 04 rebase. The fully-qualified-name cleanup stays deferred to its
-own task.
+T1e — Done. T1f is next: give the 15 cross-cutting and multi-adapter
+tests an explicit home. `SocialSourceContractTest.kt` declares both
+`SocialSourceContractTest` and `MisskeySourceContractTest`, so the
+source-contract cluster must move together or stay together.
+`ProductIdentityTest` stays at the root package because `ProductIdentity.kt`
+is in the root package. Then V1 and the Plan 04 rebase. The
+fully-qualified-name cleanup stays deferred to its own task.
 
 ## Remaining Migration Queue
 
@@ -117,12 +128,12 @@ The S1, P1, and Q1 series are complete. T1 is in progress. Do these in
 order. Each needs its own task-state file and verification.
 
 1. Q1 — Done. ktlint gate with a baseline. Wildcard imports are gone.
-2. T1 — In progress. T1a, T1b, T1c, and T1d are done. Next: T1e
-    remaining root tests. Merge of the two duplicate-named test classes
+2. T1 — In progress. T1a through T1e are done. Next: T1f cross-cutting
+    and multi-adapter tests. Merge of the two duplicate-named test classes
     (`EmojiCatalogViewModelTest`, `PostActionOwnerTest`) is done in
     `7018105`. Data and domain owner moves are done in `f65a10a`. UI
     feature moves are done in `42e85e7`. Fixture moves are done in
-    `404b356`.
+    `404b356`. Single-owner root test moves are done in `00a49ff`.
 3. V1 — Repair `RoomNotificationStoreInstrumentedTest` and de-flake the
    two known timing tests. The `Api29StartupInstrumentedTest` repair is
    already done in `b62f8c6`. Record blocked device checks honestly.
