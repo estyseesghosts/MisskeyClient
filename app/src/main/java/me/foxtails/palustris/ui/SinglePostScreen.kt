@@ -87,6 +87,7 @@ internal fun SinglePostScreen(
     onSearchHashtag: (String) -> Unit = {},
     onOpenHashtagBubble: ((OwnedPost, List<String>, androidx.compose.ui.geometry.Rect) -> Unit)? = null,
     onOpenReactionBubble: ((OwnedPost, androidx.compose.ui.geometry.Rect) -> Unit)? = null,
+    onOpenReactionPicker: (OwnedPost) -> Unit = {},
     onOpenMedia: (MediaOpenRequest) -> Unit = {},
     onOpenUrl: ((String) -> Unit)? = null,
     onOpenUsername: ((String) -> Unit)? = null,
@@ -138,8 +139,9 @@ internal fun SinglePostScreen(
                             onOpenProfile = onOpenProfile,
                             onSearchHashtag = onSearchHashtag,
                             onOpenHashtagBubble = onOpenHashtagBubble,
-                            onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
-                            onOpenMedia = onOpenMedia,
+                             onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
+                             onOpenReactionPicker = onOpenReactionPicker,
+                             onOpenMedia = onOpenMedia,
                             truncateBody = false,
                             quoteEnabled = quoteEnabled,
                             onQuote = onQuote,
@@ -161,9 +163,10 @@ internal fun SinglePostScreen(
                         onReaction = onReaction,
                         onOpenProfile = onOpenProfile,
                         onSearchHashtag = onSearchHashtag,
-                        onOpenHashtagBubble = onOpenHashtagBubble,
-                        onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
-                        onOpenMedia = onOpenMedia,
+                         onOpenHashtagBubble = onOpenHashtagBubble,
+                         onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
+                         onOpenReactionPicker = onOpenReactionPicker,
+                         onOpenMedia = onOpenMedia,
                         truncateBody = false,
                         quoteEnabled = quoteEnabled,
                         onQuote = onQuote,
@@ -192,9 +195,8 @@ internal fun SinglePostScreen(
                 if (LocalHiddenContentPresentation.current == HiddenContentPresentation.Placeholder) {
                      Text(stringResource(R.string.content_hidden_settings), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            } else {
-
-            PostMetadataRow(
+             } else {
+             PostMetadataRow(
                 post = post,
                 filteredHashtags = presentation.filteredHashtags.takeIf { contentVisible }.orEmpty(),
                 onOpenProfile = { onOpenProfile(post.author) },
@@ -224,9 +226,10 @@ internal fun SinglePostScreen(
                  onBookmark = onBookmark,
                  onReaction = onReaction,
                  quoteEnabled = quoteEnabled,
-                 onQuote = onQuote,
-                  onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
-                   onShare = { target, bounds -> postActionOwner?.open(target, bounds) },
+                   onQuote = onQuote,
+                   onOpenReactionBubble = onOpenReactionBubble ?: { _, _ -> },
+                   onOpenReactionPicker = onOpenReactionPicker,
+                    onShare = { target, bounds -> postActionOwner?.open(target, bounds) },
                 )
               if (post.reactions.any { it.count > 0 }) {
                   ReactionRow(
@@ -328,8 +331,8 @@ internal fun SinglePostScreen(
                             onOpenProfile = onOpenProfile ?: {},
                             onSearchHashtag = onSearchHashtag ?: {},
                             onOpenHashtagBubble = onOpenHashtagBubble,
-                            onOpenReactionBubble = onOpenReactionBubble,
-                            onOpenMedia = onOpenMedia,
+                         onOpenReactionBubble = onOpenReactionBubble,
+                         onOpenMedia = onOpenMedia,
                             onOpenUrl = onOpenUrl,
                             onOpenUsername = onOpenUsername,
                             quoteEnabled = quoteEnabled,

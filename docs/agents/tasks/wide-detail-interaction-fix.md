@@ -1,13 +1,14 @@
 # Task State: Wide Detail Interaction Fix
 
-**Status:** complete. The PhotoGrid detail now uses the shared repost confirmation default.
+**Status:** complete. Detail surfaces now use the shared interaction callbacks.
 
 **Source verified:** `ui/posts/PostRow.kt` and `ui/SinglePostScreen.kt`.
 
-**Test verified:** `SinglePostScreenTest.photoPostDetailShowsRepostConfirmation` passes.
+**Test verified:** `SinglePostScreenTest`, `test`, `assembleRelease`, `lintDebug`, and
+`ktlintCheck` pass after callback wiring changes.
 
 **Device verified:** unavailable. Physical wide-layout interaction remains unverified.
 
 The interaction row owns its default `PostRepostConfirmationOwner` request. Feed callers no
-longer provide a duplicate forwarding lambda. The PhotoGrid detail therefore shows the same
-confirmation surface as feed rows.
+longer provide a duplicate forwarding lambda. Detail surfaces now receive the same reaction
+bubble and picker callbacks as feed rows. Selected icon tint remains the shared primary accent.
