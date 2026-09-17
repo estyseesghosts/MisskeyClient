@@ -1,0 +1,33 @@
+Release v0.2.8 push log.
+
+Goal: push the v0.2.8 release to GitHub and confirm a signed release APK builds.
+
+Slices:
+- 503e711: bump product version to 0.2.8 and default version code to 2008.
+  Files: app/build.gradle.kts, ProductIdentityTest.kt, docs/wiki/overview.md.
+- 5a7aae5: remove 29 stale locale keys that left the default catalog.
+  Files: values-de, values-es, values-fr, values-hi, values-ja, values-ko
+  strings.xml. The keys (bare post_share_*, emoji section and pin actions,
+  notifications_loading) have no code use. The default catalog and the
+  _with_handle variants are unchanged.
+
+Affected behavior: none. Release metadata and dead translation lines only.
+
+Risks:
+- Tag v0.2.8 first pointed at 503e711. Checks failed on two unit tests.
+  The tag moved to 5a7aae5 after the fix. No GitHub release existed before
+  the green run, so no release was replaced.
+- NotificationsViewModelTest dismiss failure is an UncaughtExceptionsBeforeTest
+  isolation flake. It passes alone and is already tracked in logs/BUGS.txt.
+- Local worktree keeps unrelated deletions (values-in-rID, values-night/themes,
+  values-ru) and untracked files (appsvg, two PNG files). The release commit
+  does not touch them. Six restored locale files now match the fix commit.
+  Re-deleting them locally is safe when that cleanup slice lands.
+
+Verification:
+- Local ProductIdentityTest passes. Local assembleRelease builds
+  app-release-unsigned.apk.
+- Release run 35184242661 is green: unit tests, lint, ktlint, debug APK,
+  signed release APK, signature check, pre-release creation.
+- Release v0.2.8 title Beeline 0.2.8 carries app-release.apk (65663876 bytes).
+- Device and live-server checks remain unavailable.
