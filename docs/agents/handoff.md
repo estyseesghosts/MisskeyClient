@@ -70,6 +70,17 @@ Read these in order. Treat the repository as the authority.
   worth it.` Tag `v0.2.7` points at `45e2275`. Release run
   `35054197234` is green. The handoff record commit is `11d5ba1`. The
   last safe commit is `11d5ba1`.
+- `v0.2.8` is released as a GitHub pre-release with the signed
+  `app-release.apk` (65,663,876 bytes), title `Beeline 0.2.8`, notes
+  `Making the pain worth it.` Tag `v0.2.8` points at `5a7aae5`.
+  Release run `35184242661` is green. The version slice is `503e711`.
+  The locale-key fix slice is `5a7aae5`. The first tag push failed
+  checks on two unit tests: `LocalizationResourceTest.
+  localeResourcesMatchTheDefaultCatalog` (stale keys in six locale
+  catalogs) and `NotificationsViewModelTest.
+  dismissRemovesRowWhenProtocolHasNoServerDismissEndpoint`
+  (`UncaughtExceptionsBeforeTest`, passes alone, known isolation flake).
+  The fix slice removes 29 stale lines and the rerun is green.
 - Q1 (ktlint gate and wildcard removal) is complete. Slices: `39cfec3`
   (gate and baseline), `6c3f4f5` (clear the icon commit findings),
   `e5c77ad` (restore the Direct messages label and cover the unfollow
