@@ -216,8 +216,10 @@ Read these in order. Treat the repository as the authority.
    `docs/agents/tasks/plan04-utility-retention.md`.
 
 The wide detail interaction fix is complete in the current slice. Wide detail now routes focal
-mutations through `PostThreadViewModel`, which renders the focal state. Its full gate passes.
-Continue with Plan 04 after preserving unrelated worktree changes.
+mutations through `PostThreadViewModel` for the full single-post lifetime, including initial thread
+acquisition. `SinglePostScreenTest.wideMisskeyDetailRendersAllUpdatedInteractionStates` covers the
+full-width image presentation, and the focused detail tests pass. Continue with Plan 04 after
+preserving unrelated worktree changes.
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The

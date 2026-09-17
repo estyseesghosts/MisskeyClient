@@ -1,12 +1,14 @@
 # Task State: Wide Detail Interaction Fix
 
-**Status:** complete. Wide detail routes focal mutations through the owner that renders it.
+**Status:** complete. Wide detail selects the thread mutation owner for its complete single-post
+lifetime, including the initial thread-loading composition.
 
-**Source verified:** `ui/posts/PostRow.kt` and `ui/SinglePostScreen.kt`.
+**Source verified:** `ui/PalustrisApp.kt`, `ui/AppLargeDetailPane.kt`, `ui/SinglePostScreen.kt`,
+`ui/posts/PostRow.kt`, and `ui/thread/PostThreadViewModel.kt`.
 
-**Test verified:** `DetailActionPolicyTest.activeThreadOwnsWideDetailMutations` and
-`PostThreadViewModelTest.wideMastodonDetailMutationsUpdateTheFocalPostAndRollbackOnFailure`,
-focused unit tests, the full unit test suite, release build, lint, and ktlint pass.
+**Test verified:** `DetailActionPolicyTest`, `PostThreadViewModelTest`, and
+`SinglePostScreenTest.wideMisskeyDetailRendersAllUpdatedInteractionStates` pass. The focused detail
+test task passes.
 
 **Device verified:** unavailable. Physical wide-layout interaction remains unverified.
 
@@ -14,5 +16,8 @@ The interaction row owns its default `PostRepostConfirmationOwner` request. Wide
 active `PostThreadViewModel` for focal mutations because it renders `selectedThreadState.focal`.
 The thread owner emits accepted updates to the coordinator, so feed projections remain shared.
 Compact detail keeps its existing feed owner because it renders the selected navigation snapshot.
-The focused tests verify Mastodon-shaped source operations, immediate focal state, and rollback.
+The defect was a timing-dependent owner selection in `ui/PalustrisApp.kt`: wide detail used the
+collection owner until a matching thread state existed. The fix keeps the thread owner bound for
+the full wide-detail lifetime. The Misskey rendering regression confirms that updated interaction
+fields change the selected control state after recomposition.
 Physical device and live-server behavior remain unverified.

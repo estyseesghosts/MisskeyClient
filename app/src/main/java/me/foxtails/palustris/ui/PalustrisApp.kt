@@ -453,7 +453,12 @@ fun PalustrisApp(
                                   profile = profile,
                                   bookmarks = bookmarks,
                                   fallback = DetailActions(onReact, handleReply, onReshare, onBookmark, onReaction),
-                                  thread = selectedThreadState?.let { thread },
+                                  // Wide detail owns its focal state even while the thread is
+                                  // still acquiring. Do not let the first composition route a
+                                  // mutation through the collection snapshot owner.
+                                  thread = thread.takeIf {
+                                      navigator.singlePost != null && navigator.singlePostOrigin.supportsComments()
+                                  },
                               )
                              AppLargeDetailPane(
                                  selected = selectedThreadState?.focal ?: latestSelectedPost(),

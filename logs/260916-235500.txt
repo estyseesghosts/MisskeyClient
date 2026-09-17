@@ -1,0 +1,26 @@
+# Wide detail interaction state
+
+Goal: make favorite, reaction, repost, and bookmark changes immediately visible in the wide
+single-post view with full-width images for Misskey and Mastodon sessions.
+
+This task is larger than one safe implementation slice.
+
+Slices:
+1. Add a regression test for the wide detail rendering contract and identify the missing state
+   transition.
+2. Fix the wide detail interaction state and selected icon presentation.
+3. Run focused and required project verification, then update the durable records.
+
+Affected areas: `ui/PalustrisApp.kt`, `ui/AppLargeDetailPane.kt`, `ui/SinglePostScreen.kt`,
+`ui/posts/PostRow.kt`, thread state tests, and wide detail UI tests.
+
+Initial finding: `PalustrisApp` selected the thread mutation owner only when a matching thread state
+already existed. Wide detail could therefore use the collection owner during its initial loading
+composition, while rendering the selected snapshot instead of the thread focal state.
+
+Slice 1 and slice 2 result: the wide route now binds the thread owner for the full detail lifetime.
+The focused detail tests pass, including Misskey selected interaction rendering.
+
+Risks: stale navigation snapshots can overwrite optimistic thread state; reaction-backed Misskey
+favorites and Mastodon favorites use different normalized fields; physical wide-layout rendering
+and live-server behavior may be unavailable locally.

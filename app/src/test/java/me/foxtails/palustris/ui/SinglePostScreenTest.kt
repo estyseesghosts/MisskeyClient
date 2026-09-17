@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -216,6 +217,55 @@ class SinglePostScreenTest {
         compose.onNodeWithContentDescription("Unfavorite").assertIsDisplayed()
         compose.onNodeWithContentDescription("Remove bookmark").assertIsDisplayed()
         compose.onNodeWithContentDescription("Undo repost").assertIsDisplayed()
+    }
+
+    @Test
+    fun wideMisskeyDetailRendersAllUpdatedInteractionStates() {
+        val misskeyAccount = account.copy(
+            id = AccountId(Connection("https://misskey.example", Protocol.MISSKEY), "person"),
+        )
+        val post = Post(
+            EntityId("https://misskey.example", "misskey-photo-state"),
+            misskeyAccount,
+            "Misskey photo state",
+            0,
+            Audience.Public,
+            attachments = listOf(image("misskey-photo-state")),
+        )
+        var displayed by mutableStateOf(OwnedPost(misskeyAccount.id, post))
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SinglePostScreen(
+                    ownedPost = displayed,
+                    presentation = SinglePostPresentation.PhotoGrid,
+                    onClose = {},
+                    availableActions = PostAction.entries.toSet(),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Favorite").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Bookmark").assertIsDisplayed()
+
+        compose.activity.runOnUiThread {
+            displayed = displayed.copy(
+                post = displayed.post.copy(
+                    favourited = true,
+                    myReaction = "👍",
+                    selectedReactions = listOf(
+                        me.foxtails.palustris.domain.EmojiChoice("👍", "👍", null),
+                    ),
+                    reposted = true,
+                    saved = true,
+                ),
+            )
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Unfavorite").assertIsSelected()
+        compose.onNodeWithContentDescription("Undo repost").assertIsSelected()
+        compose.onNodeWithContentDescription("Remove bookmark").assertIsSelected()
     }
 
     @Test fun standardPresentationUsesThePostRowEvenWhenPhotosExist() {
