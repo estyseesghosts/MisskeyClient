@@ -37,8 +37,8 @@ class DetailActionPolicyTest {
         val profile = AppShellFixtures.profileContract(onReact = { _, _ -> profileReactions++ })
         val bookmarks = AppShellFixtures.bookmarks(onReact = { _, _ -> bookmarkReactions++ })
 
-        detailActionsFor(LargePostOrigin.Profile, false, AppShellFixtures.thread(), profile, bookmarks, recorder.fallback()).react(post, choice)
-        detailActionsFor(LargePostOrigin.Saved, false, AppShellFixtures.thread(), profile, bookmarks, recorder.fallback()).react(post, choice)
+        detailActionsFor(LargePostOrigin.Profile, profile, bookmarks, recorder.fallback()).react(post, choice)
+        detailActionsFor(LargePostOrigin.Saved, profile, bookmarks, recorder.fallback()).react(post, choice)
 
         assertEquals(1, profileReactions)
         assertEquals(1, bookmarkReactions)
@@ -50,8 +50,6 @@ class DetailActionPolicyTest {
         val recorder = Recorder()
         detailActionsFor(
             origin = LargePostOrigin.Home,
-            threadActive = false,
-            thread = AppShellFixtures.thread(),
             profile = AppShellFixtures.profileContract(),
             bookmarks = AppShellFixtures.bookmarks(),
             fallback = recorder.fallback(),
@@ -61,7 +59,7 @@ class DetailActionPolicyTest {
     }
 
     @Test
-    fun activeThreadOwnsEveryMutation() {
+    fun activeThreadDoesNotReplaceSharedMutationOwner() {
         var favorite = 0
         var reshare = 0
         var bookmark = 0
@@ -69,13 +67,6 @@ class DetailActionPolicyTest {
         val recorder = Recorder()
         val actions = detailActionsFor(
             origin = LargePostOrigin.Home,
-            threadActive = true,
-            thread = AppShellFixtures.thread(
-                onFavorite = { favorite++ },
-                onRepost = { reshare++ },
-                onBookmark = { bookmark++ },
-                onReact = { _, _ -> react++ },
-            ),
             profile = AppShellFixtures.profileContract(),
             bookmarks = AppShellFixtures.bookmarks(),
             fallback = recorder.fallback(),
@@ -87,10 +78,14 @@ class DetailActionPolicyTest {
         actions.react(post, choice)
         actions.reply(post)
 
-        assertEquals(1, favorite)
-        assertEquals(1, reshare)
-        assertEquals(1, bookmark)
-        assertEquals(1, react)
+        assertEquals(0, favorite)
+        assertEquals(0, reshare)
+        assertEquals(0, bookmark)
+        assertEquals(0, react)
+        assertEquals(1, recorder.favorite)
+        assertEquals(1, recorder.reshare)
+        assertEquals(1, recorder.bookmark)
+        assertEquals(1, recorder.react)
         assertEquals(1, recorder.reply)
     }
 }

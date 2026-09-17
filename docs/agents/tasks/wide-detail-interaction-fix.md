@@ -12,4 +12,6 @@
 
 The interaction row owns its default `PostRepostConfirmationOwner` request. Feed callers no
 longer provide a duplicate forwarding lambda. Detail surfaces now receive the same reaction
-bubble and picker callbacks as feed rows. Selected icon tint remains the shared primary accent.
+bubble and picker callbacks as feed rows. Detail mutations use the shared feed interaction owner,
+so optimistic state reaches Photo Grid and thread projections immediately. Selected icon tint
+remains the shared primary accent.
