@@ -215,8 +215,7 @@ Read these in order. Treat the repository as the authority.
    depends on 04-F through 04-I and 04-K. The durable record is
    `docs/agents/tasks/plan04-utility-retention.md`.
 
-The wide detail interaction fix is complete at the current uncommitted worktree. Its focused
-test passes. Commit it before starting Plan 04.
+The wide detail interaction fix is complete in commit `f8a2cdc`. Its focused test passes.
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The
