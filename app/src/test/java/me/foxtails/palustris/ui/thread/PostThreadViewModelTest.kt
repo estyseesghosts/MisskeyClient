@@ -120,6 +120,42 @@ class PostThreadViewModelTest {
     }
 
     @Test
+    fun wideMastodonDetailMutationsUpdateTheFocalPostAndRollbackOnFailure() = runTest {
+        val source = FakeSource()
+        val model = PostThreadViewModel(account, source, sessionRevision = 8L)
+
+        model.activate(focal, supportsComments = true)
+        advanceUntilIdle()
+
+        model.favorite(model.state.value.focal!!)
+        assertTrue(model.state.value.focal!!.post.favourited)
+        advanceUntilIdle()
+        assertEquals(listOf("focal"), source.favouriteCalls)
+
+        model.reshare(model.state.value.focal!!)
+        assertTrue(model.state.value.focal!!.post.reposted)
+        advanceUntilIdle()
+        assertEquals(listOf("focal"), source.reshareCalls)
+
+        model.bookmark(model.state.value.focal!!)
+        assertTrue(model.state.value.focal!!.post.saved)
+        advanceUntilIdle()
+        assertEquals(listOf("focal"), source.savedCalls)
+
+        source.failMutations = true
+        model.favorite(model.state.value.focal!!)
+        model.reshare(model.state.value.focal!!)
+        model.bookmark(model.state.value.focal!!)
+        assertFalse(model.state.value.focal!!.post.favourited)
+        assertFalse(model.state.value.focal!!.post.reposted)
+        assertFalse(model.state.value.focal!!.post.saved)
+        advanceUntilIdle()
+        assertTrue(model.state.value.focal!!.post.favourited)
+        assertTrue(model.state.value.focal!!.post.reposted)
+        assertTrue(model.state.value.focal!!.post.saved)
+    }
+
+    @Test
     fun publishedReplyIncrementsKnownReplyCount() = runTest {
         val parent = focal.copy(post = focal.post.copy(
             interactionCounts = PostInteractionCounts(replyCount = 2),
@@ -426,6 +462,10 @@ class PostThreadViewModelTest {
         )
         var threadCalls = 0
         var continuationCalls = false
+        val favouriteCalls = mutableListOf<String>()
+        val reshareCalls = mutableListOf<String>()
+        val savedCalls = mutableListOf<String>()
+        var failMutations = false
 
         override suspend fun timeline(timeline: Timeline, cursor: String?): Page<Post> = Page(emptyList())
 
@@ -436,7 +476,22 @@ class PostThreadViewModelTest {
         }
 
         override suspend fun setPrimaryFavourite(id: EntityId, favouriteEmoji: String, selected: Boolean) =
-            PostActionResult(selected = selected)
+            PostActionResult(selected = selected).also {
+                favouriteCalls += id.value
+                if (failMutations) throw java.io.IOException("favorite failed")
+            }
+
+        override suspend fun setReshared(id: EntityId, selected: Boolean, ownRepostId: EntityId?): PostActionResult {
+            reshareCalls += id.value
+            if (failMutations) throw java.io.IOException("repost failed")
+            return PostActionResult(selected = selected, createdRepostId = ownRepostId)
+        }
+
+        override suspend fun setSaved(id: EntityId, selected: Boolean): PostActionResult {
+            savedCalls += id.value
+            if (failMutations) throw java.io.IOException("bookmark failed")
+            return PostActionResult(selected = selected)
+        }
     }
 
     private class GatedThreadSource(

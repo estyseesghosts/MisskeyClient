@@ -451,9 +451,10 @@ fun PalustrisApp(
                               val detail = detailActionsFor(
                                   origin = navigator.singlePostOrigin,
                                   profile = profile,
-                                 bookmarks = bookmarks,
-                                 fallback = DetailActions(onReact, handleReply, onReshare, onBookmark, onReaction),
-                             )
+                                  bookmarks = bookmarks,
+                                  fallback = DetailActions(onReact, handleReply, onReshare, onBookmark, onReaction),
+                                  thread = selectedThreadState?.let { thread },
+                              )
                              AppLargeDetailPane(
                                  selected = selectedThreadState?.focal ?: latestSelectedPost(),
                                  origin = navigator.singlePostOrigin,

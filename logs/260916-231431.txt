@@ -1,0 +1,9 @@
+# Wide detail interaction fix
+
+Goal: restore favorite, repost, and bookmark interaction feedback in the signed-in wide detail path.
+
+Planned slice: route wide focal mutations through the thread owner, add owner and rollback tests, update task records, and run Gradle verification.
+
+Affected areas: `ui/PalustrisApp.kt`, `ui/DetailActionPolicy.kt`, `ui/thread/PostThreadViewModel.kt`, and their tests.
+
+Risks: stale thread projections, account or session mismatch, and failed network operations must not corrupt optimistic state.

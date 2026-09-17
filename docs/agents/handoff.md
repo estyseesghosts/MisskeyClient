@@ -215,8 +215,9 @@ Read these in order. Treat the repository as the authority.
    depends on 04-F through 04-I and 04-K. The durable record is
    `docs/agents/tasks/plan04-utility-retention.md`.
 
-The wide detail interaction fix is complete in the current uncommitted worktree. Its full gate
-passes. Commit the effective-target projection change before starting Plan 04.
+The wide detail interaction fix is complete in the current slice. Wide detail now routes focal
+mutations through `PostThreadViewModel`, which renders the focal state. Its full gate passes.
+Continue with Plan 04 after preserving unrelated worktree changes.
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The

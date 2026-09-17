@@ -46,8 +46,8 @@ Focused feature hosts own their model, state, actions, and projection registrati
 | `ui/directmessages/DirectMessagesHost.kt` | `DirectMessageViewModel` | `DirectMessagesContract` |
 | `ui/emoji/EmojiHost.kt` | `EmojiCatalogViewModel` | `EmojiPresentation` |
 
-`ui/DetailActionPolicy.kt` resolves the origin-based post-action handlers. Compact and wide detail
-surfaces share it, so one origin resolves to the same owner.
+`ui/DetailActionPolicy.kt` resolves the origin-based post-action handlers. Compact detail uses its
+feed owner. Wide detail passes the active thread owner because that owner renders the focal post.
 
 `ui/posts/PostRow.kt` owns the shared `InteractionRow` behavior. Its default repost confirmation
 uses `PostRepostConfirmationOwner`, so detail callers do not implement a second forwarding path.

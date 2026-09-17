@@ -9,6 +9,7 @@ import me.foxtails.palustris.ui.DetailActions
 import me.foxtails.palustris.ui.LargePostOrigin
 import me.foxtails.palustris.ui.detailActionsFor
 import me.foxtails.palustris.ui.shell.AppShellFixtures
+import me.foxtails.palustris.ui.shell.ThreadContract
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -59,7 +60,7 @@ class DetailActionPolicyTest {
     }
 
     @Test
-    fun activeThreadDoesNotReplaceSharedMutationOwner() {
+    fun activeThreadOwnsWideDetailMutations() {
         var favorite = 0
         var reshare = 0
         var bookmark = 0
@@ -70,6 +71,19 @@ class DetailActionPolicyTest {
             profile = AppShellFixtures.profileContract(),
             bookmarks = AppShellFixtures.bookmarks(),
             fallback = recorder.fallback(),
+            thread = ThreadContract(
+                state = null,
+                actions = object : ThreadContract.Actions {
+                    override fun activate(post: OwnedPost?, enabled: Boolean) = Unit
+                    override fun deactivate() = Unit
+                    override fun refresh() = Unit
+                    override fun continueAcquisition() = Unit
+                    override fun favorite(post: OwnedPost) { favorite++ }
+                    override fun repost(post: OwnedPost) { reshare++ }
+                    override fun bookmark(post: OwnedPost) { bookmark++ }
+                    override fun react(post: OwnedPost, choice: EmojiChoice) { react++ }
+                },
+            ),
         )
 
         actions.favorite(post)
@@ -78,14 +92,14 @@ class DetailActionPolicyTest {
         actions.react(post, choice)
         actions.reply(post)
 
-        assertEquals(0, favorite)
-        assertEquals(0, reshare)
-        assertEquals(0, bookmark)
-        assertEquals(0, react)
-        assertEquals(1, recorder.favorite)
-        assertEquals(1, recorder.reshare)
-        assertEquals(1, recorder.bookmark)
-        assertEquals(1, recorder.react)
+        assertEquals(1, favorite)
+        assertEquals(1, reshare)
+        assertEquals(1, bookmark)
+        assertEquals(1, react)
+        assertEquals(0, recorder.favorite)
+        assertEquals(0, recorder.reshare)
+        assertEquals(0, recorder.bookmark)
+        assertEquals(0, recorder.react)
         assertEquals(1, recorder.reply)
     }
 }
