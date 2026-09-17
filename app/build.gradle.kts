@@ -2,9 +2,9 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.io.File
 
 val productName = "Beeline"
-val productVersion = "0.2.7"
+val productVersion = "0.2.8"
 val configuredVersionName = providers.gradleProperty("versionName").orElse(productVersion).get()
-val configuredVersionCode = providers.gradleProperty("versionCode").map { it.toInt() }.getOrElse(2007)
+val configuredVersionCode = providers.gradleProperty("versionCode").map { it.toInt() }.getOrElse(2008)
 val releaseStoreFile = providers.environmentVariable("RELEASE_STORE_FILE").map { File(it) }
 val releaseSigningAvailable = providers.environmentVariable("RELEASE_STORE_FILE")
     .zip(providers.environmentVariable("RELEASE_KEY_ALIAS")) { path, alias -> File(path).isFile && alias.isNotBlank() }
