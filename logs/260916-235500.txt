@@ -19,7 +19,9 @@ already existed. Wide detail could therefore use the collection owner during its
 composition, while rendering the selected snapshot instead of the thread focal state.
 
 Slice 1 and slice 2 result: the wide route now binds the thread owner for the full detail lifetime.
-The focused detail tests pass, including Misskey selected interaction rendering.
+Follow-up investigation found that Photo Grid could still retain the navigator snapshot while the
+thread held the optimistic update. The route now synchronizes a matching Photo Grid navigator
+snapshot from the thread focal state. Focused detail and thread tests pass.
 
 Risks: stale navigation snapshots can overwrite optimistic thread state; reaction-backed Misskey
 favorites and Mastodon favorites use different normalized fields; physical wide-layout rendering

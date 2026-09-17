@@ -250,6 +250,19 @@ fun PalustrisApp(
     LaunchedEffect(navigator.singlePost?.post?.id, navigator.singlePostOrigin, navigator.singlePostOrigin.supportsComments()) {
         thread.actions.activate(navigator.singlePost, navigator.singlePostOrigin.supportsComments())
     }
+    LaunchedEffect(navigator.singlePostOrigin, navigator.singlePost?.post?.id, thread.state?.focal) {
+        if (navigator.singlePostOrigin != LargePostOrigin.PhotoGrid) return@LaunchedEffect
+        val selected = navigator.singlePost ?: return@LaunchedEffect
+        val focal = thread.state?.focal ?: return@LaunchedEffect
+        if (focal.fetchedBy == selected.fetchedBy &&
+            focal.sessionRevision == selected.sessionRevision &&
+            focal.effectiveTargetId() == selected.effectiveTargetId()
+        ) {
+            // Keep the wide Photo Grid detail snapshot aligned with the thread owner after an
+            // optimistic mutation. Without this, the navigator can keep rendering stale fields.
+            navigator.singlePost = focal
+        }
+    }
     LaunchedEffect(navigator.destination, navigator.page, navigator.overlayKey, navigator.sheet, overlay.profileDialog, overlay.signOutDialog, overlay.mediaRequest, navigator.singlePost, navigator.notificationRoute) {
         overlay.clearPostActionBubble()
         postActionOwner?.dismiss()

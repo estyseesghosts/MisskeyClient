@@ -215,11 +215,11 @@ Read these in order. Treat the repository as the authority.
    depends on 04-F through 04-I and 04-K. The durable record is
    `docs/agents/tasks/plan04-utility-retention.md`.
 
-The wide detail interaction fix is complete in the current slice. Wide detail now routes focal
-mutations through `PostThreadViewModel` for the full single-post lifetime, including initial thread
-acquisition. `SinglePostScreenTest.wideMisskeyDetailRendersAllUpdatedInteractionStates` covers the
-full-width image presentation, and the focused detail tests pass. Continue with Plan 04 after
-preserving unrelated worktree changes.
+The wide detail interaction fix is complete in the current slice. Photo Grid wide detail routes
+focal mutations through `PostThreadViewModel` and synchronizes the matching navigator snapshot after
+optimistic updates. `SinglePostScreenTest.wideMisskeyDetailRendersAllUpdatedInteractionStates`
+covers the full-width image presentation, and focused detail/thread tests pass. Device verification
+remains unavailable. Continue with Plan 04 after preserving unrelated worktree changes.
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The
