@@ -1,10 +1,15 @@
 package me.foxtails.palustris.ui
 
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -82,6 +87,110 @@ class SinglePostScreenTest {
             .performTouchInput { swipeLeft() }
         compose.waitForIdle()
         compose.onNodeWithText("2 / 2").assertIsDisplayed()
+    }
+
+    @Test fun wideDetailUsesFiveToFourViewportWhenSpacePermits() {
+        val post = Post(
+            EntityId("https://example.org", "wide-roomy"),
+            account,
+            "Wide roomy body",
+            0,
+            Audience.Public,
+            attachments = listOf(image("wide-roomy")),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                Box(Modifier.requiredSize(360.dp, 800.dp)) {
+                    SinglePostScreen(
+                        OwnedPost(account.id, post),
+                        SinglePostPresentation.PhotoGrid,
+                        onClose = {},
+                        embedded = true,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        val density = compose.activity.resources.displayMetrics.density
+        val pager = compose.onNodeWithTag("single_post_photo_pager", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(360f * density, pager.width, 2f)
+        assertEquals(450f * density, pager.height, 2f)
+        assertTrue(pager.height >= pager.width)
+        compose.onNodeWithText("Wide roomy body").assertIsDisplayed()
+        val body = compose.onNodeWithText("Wide roomy body")
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(pager.bottom <= body.top)
+    }
+
+    @Test fun wideDetailClampsMediaHeightWhenSpaceIsLimited() {
+        val post = Post(
+            EntityId("https://example.org", "wide-tight"),
+            account,
+            "Wide tight body",
+            0,
+            Audience.Public,
+            attachments = listOf(image("wide-tight")),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                Box(Modifier.requiredSize(360.dp, 500.dp)) {
+                    SinglePostScreen(
+                        OwnedPost(account.id, post),
+                        SinglePostPresentation.PhotoGrid,
+                        onClose = {},
+                        embedded = true,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        val density = compose.activity.resources.displayMetrics.density
+        val pager = compose.onNodeWithTag("single_post_photo_pager", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(360f * density, pager.width, 2f)
+        assertEquals(236f * density, pager.height, 2f)
+        compose.onNodeWithText("Wide tight body").assertIsDisplayed()
+    }
+
+    @Test fun compactDetailUsesTallViewportWhenSpacePermits() {
+        val post = Post(
+            EntityId("https://example.org", "compact-tall"),
+            account,
+            "Compact tall body",
+            0,
+            Audience.Public,
+            attachments = listOf(image("compact-tall")),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                Box(Modifier.requiredSize(360.dp, 800.dp)) {
+                    SinglePostScreen(
+                        OwnedPost(account.id, post),
+                        SinglePostPresentation.PhotoGrid,
+                        onClose = {},
+                        embedded = false,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        val density = compose.activity.resources.displayMetrics.density
+        val pager = compose.onNodeWithTag("single_post_photo_pager", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(360f * density, pager.width, 2f)
+        assertEquals(450f * density, pager.height, 2f)
+        assertTrue(pager.height >= pager.width)
+        compose.onNodeWithText("Compact tall body").assertIsDisplayed()
+        val body = compose.onNodeWithText("Compact tall body")
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(pager.bottom <= body.top)
     }
 
     @Test fun photoPostKeepsTheCompleteBodyWithoutFeedTruncation() {

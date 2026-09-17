@@ -221,6 +221,14 @@ optimistic updates. `SinglePostScreenTest.wideMisskeyDetailRendersAllUpdatedInte
 covers the full-width image presentation, and focused detail/thread tests pass. Device verification
 remains unavailable. Continue with Plan 04 after preserving unrelated worktree changes.
 
+The Photo Grid detail photo sizing slice is complete and uncommitted. Photo Grid
+detail uses a square to 5:4 photo viewport from the detail viewport in compact
+and wide layouts (`ui/photogrid/PhotoPagerSizing.kt`, `ui/SinglePostScreen.kt`).
+`SinglePostScreenTest` covers 5:4, clamp, and compact cases. `ktlintCheck` and
+`test assembleRelease` pass. The durable record is
+`docs/agents/tasks/wide-detail-photo-sizing.md`. Device rendering remains
+unverified.
+
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The
 `Api29StartupInstrumentedTest` repair is already done in `b62f8c6`. Record

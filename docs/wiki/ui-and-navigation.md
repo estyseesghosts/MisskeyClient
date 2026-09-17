@@ -1,8 +1,8 @@
 # UI and Navigation
 
-Status: planned  
-Owner: UI maintainers  
-Last reviewed: 2026-09-16  
+Status: planned
+Owner: UI maintainers
+Last reviewed: 2026-09-17
 Stale when: A destination, layout policy, restoration rule, or accessibility requirement changes.
 
 Sources: `AGENTS.md`, `ui/`, Compose tests, and instrumented tests.
@@ -34,4 +34,15 @@ favourites only to the signed-in account.
 Sources: `ui/profile/ProfileCategory.kt`, `ui/profile/ProfileTimelineList.kt`,
 `ui/profile/ProfileViewModel.kt`, `data/mastodon/MastodonProfileService.kt`,
 `data/misskey/MisskeyProfileService.kt`, `ProfileScreenTest`.
+
+## Photo Grid Detail Media
+
+Photo Grid detail sizes the photo pager from the detail viewport in compact
+and wide layouts. The pager keeps full width. The height stays between
+square and 5:4 vertical. The calculation reserves 64 dp for the header and
+200 dp for post content. A short viewport clamps the media to the largest
+safe height. The post body stays below the media.
+
+Sources: `ui/SinglePostScreen.kt`, `ui/photogrid/PhotoPagerSizing.kt`,
+`SinglePostScreenTest`.
 

@@ -47,6 +47,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.foxtails.palustris.domain.Account
 import me.foxtails.palustris.domain.Attachment
@@ -65,6 +66,7 @@ import me.foxtails.palustris.ui.links.ExternalLinkHandler
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.MediaPage
 import me.foxtails.palustris.ui.media.PostMediaCarousel
+import me.foxtails.palustris.ui.photogrid.resolveWidePhotoPagerHeight
 import me.foxtails.palustris.ui.thread.PostThreadPhase
 import me.foxtails.palustris.ui.thread.PostThreadUiState
 import me.foxtails.palustris.ui.thread.ThreadedReplyRow
@@ -107,15 +109,17 @@ internal fun SinglePostScreen(
 
     key(ownedPost.fetchedBy, post.id.connection, post.id.value, presentation) {
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-            val listState = rememberLazyListState()
-            LazyColumn(
-                state = listState,
-                modifier = modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .testTag("single_post_content"),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp),
-            ) {
+            BoxWithConstraints(modifier.fillMaxSize()) {
+                val detailViewportHeight = maxHeight
+                val listState = rememberLazyListState()
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .testTag("single_post_content"),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp),
+                ) {
                 item("single-post-header", contentType = "header") {
                     Row(
                         modifier = Modifier.fillMaxWidth().then(if (embedded) Modifier else Modifier.statusBarsPadding())
@@ -204,7 +208,7 @@ internal fun SinglePostScreen(
                 onOpenHashtagBubble = onOpenHashtagBubble,
                 postOwned = ownedPost,
             )
-             PhotoPager(ownedPost, photos)
+              PhotoPager(ownedPost, photos, viewportHeight = detailViewportHeight)
              val remainingAttachmentIndices = post.attachments.indices.filter { index ->
                  post.attachments[index].kind != MediaKind.Image && post.attachments[index].kind != MediaKind.AnimatedImage
              }
@@ -363,6 +367,7 @@ internal fun SinglePostScreen(
                         ThreadStatus(state, onThreadRefresh, onThreadContinue)
                     }
                 }
+                }
             }
         }
     }
@@ -398,11 +403,22 @@ private fun ThreadStatus(
 }
 
 @Composable
-private fun PhotoPager(ownedPost: OwnedPost, photos: List<Attachment>) {
+private fun PhotoPager(
+    ownedPost: OwnedPost,
+    photos: List<Attachment>,
+    viewportHeight: Dp? = null,
+) {
     val pagerState = rememberPagerState { photos.size }
     val revealedPages = remember { mutableStateMapOf<Int, Boolean>() }
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("single_post_photo_pager")) {
-        val photoHeight = (maxWidth * .75f).coerceAtLeast(240.dp)
+        // The pager uses the detail viewport so square media fills the pager
+        // width without horizontal letterboxing. This applies in compact and
+        // wide layouts.
+        val photoHeight = if (viewportHeight != null) {
+            resolveWidePhotoPagerHeight(maxWidth, viewportHeight)
+        } else {
+            (maxWidth * .75f).coerceAtLeast(240.dp)
+        }
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth().height(photoHeight),
