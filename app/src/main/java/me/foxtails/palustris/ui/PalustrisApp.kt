@@ -448,11 +448,9 @@ fun PalustrisApp(
                         },
                          detailContent = { paneModifier ->
                              val threadEnabled = selectedThreadState != null && navigator.singlePostOrigin.supportsComments()
-                             val detail = detailActionsFor(
-                                 origin = navigator.singlePostOrigin,
-                                 threadActive = threadEnabled,
-                                 thread = thread,
-                                 profile = profile,
+                              val detail = detailActionsFor(
+                                  origin = navigator.singlePostOrigin,
+                                  profile = profile,
                                  bookmarks = bookmarks,
                                  fallback = DetailActions(onReact, handleReply, onReshare, onBookmark, onReaction),
                              )
@@ -595,11 +593,9 @@ fun PalustrisApp(
          if (!largePresentation) {
              navigator.singlePost?.let { post ->
                  val threadEnabled = selectedThreadState != null && navigator.singlePostOrigin.supportsComments()
-                 val detail = detailActionsFor(
-                     origin = navigator.singlePostOrigin,
-                     threadActive = threadEnabled,
-                     thread = thread,
-                     profile = profile,
+                  val detail = detailActionsFor(
+                      origin = navigator.singlePostOrigin,
+                      profile = profile,
                      bookmarks = bookmarks,
                      fallback = DetailActions(onReact, handleReply, onReshare, onBookmark, onReaction),
                  )
