@@ -1,6 +1,9 @@
 package me.foxtails.palustris.ui
 
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -181,6 +184,38 @@ class SinglePostScreenTest {
 
         compose.onNodeWithContentDescription("Repost").performClick()
         compose.onNodeWithTag("repost_confirmation", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test fun photoPostDetailRendersUpdatedInteractionState() {
+        val post = Post(
+            EntityId("https://example.org", "photo-state"),
+            account,
+            "Photo state",
+            0,
+            Audience.Public,
+            attachments = listOf(image("photo-state")),
+        )
+        var displayed by mutableStateOf(OwnedPost(account.id, post))
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SinglePostScreen(
+                    ownedPost = displayed,
+                    presentation = SinglePostPresentation.PhotoGrid,
+                    onClose = {},
+                    availableActions = PostAction.entries.toSet(),
+                )
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Favorite").assertIsDisplayed()
+
+        compose.activity.runOnUiThread {
+            displayed = displayed.copy(post = displayed.post.copy(favourited = true, saved = true, reposted = true))
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Unfavorite").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Remove bookmark").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Undo repost").assertIsDisplayed()
     }
 
     @Test fun standardPresentationUsesThePostRowEvenWhenPhotosExist() {

@@ -4,7 +4,8 @@
 
 **Source verified:** `ui/posts/PostRow.kt` and `ui/SinglePostScreen.kt`.
 
-**Test verified:** `SinglePostScreenTest`, `test`, `assembleRelease`, `lintDebug`, and
+**Test verified:** `SinglePostScreenTest.photoPostDetailRendersUpdatedInteractionState`,
+`test`, `assembleRelease`, `lintDebug`, and
 `ktlintCheck` pass after callback wiring changes.
 
 **Device verified:** unavailable. Physical wide-layout interaction remains unverified.
