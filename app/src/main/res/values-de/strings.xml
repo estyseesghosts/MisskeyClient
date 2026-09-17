@@ -21,8 +21,6 @@
     <string name="notifications_push_provider">Push-Anbieter</string>
     <string name="emoji_add_reaction">Reaktion hinzufügen</string>
     <string name="emoji_picker_retry">Erneut versuchen</string>
-    <string name="emoji_unicode_section">Standard-Emoji</string>
-    <string name="emoji_recent_section">Zuletzt</string>
 
     <string name="profile_editor_title">Profil bearbeiten</string>
     <string name="profile_editor_close">Schließen</string>
@@ -90,20 +88,13 @@
     <string name="notifications_settings_quotes">Zitate</string>
     <string name="notifications_settings_polls">Umfragen</string>
     <string name="emoji_group_custom">Benutzerdefinierte Emojis</string>
-    <string name="emoji_pin_action">Anheften</string>
-    <string name="emoji_remove_action">Entfernen</string>
     <string name="post_action_hashtags_close">Schließen</string>
     <string name="profile_editor_add_field">Zusatzfeld hinzufügen</string>
     <string name="post_action_favorite">Favorisieren</string>
     <string name="post_share_copy_link">Kopieren</string>
     <string name="post_share_system">Teilen</string>
-    <string name="post_share_follow">Folgen</string>
-    <string name="post_share_unfollow">Entfolgen</string>
-    <string name="post_share_block">Sperren</string>
     <string name="post_share_unblock">Entblocken</string>
-    <string name="post_share_mute">Stummschalten</string>
     <string name="post_share_unmute">Stummschaltung aufheben</string>
-    <string name="post_share_report">Melden</string>
     <string name="post_share_heading">Teilen</string>
     <string name="action_cancel">Abbrechen</string>
     <string name="post_share_copied">In die Zwischenablage kopiert</string>

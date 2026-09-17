@@ -1,7 +1,6 @@
 <resources>
     <string name="notifications_title">सूचनाएं</string>
     <string name="notifications_empty_title">सब कुछ देख लिया गया</string>
-    <string name="notifications_loading">सूचनाएं लोड हो रही हैं</string>
     <string name="notifications_retry">पुनः प्रयास करें</string>
     <string name="notifications_dismiss">खारिज करें</string>
     <string name="direct_messages_connect_title">संदेश देखने के लिए खाता जोड़ें</string>
