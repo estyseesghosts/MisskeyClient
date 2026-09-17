@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
@@ -155,6 +156,31 @@ class SinglePostScreenTest {
 
         compose.onNodeWithContentDescription("Repost").performTouchInput { longClick() }
         assertEquals(1, quotes)
+    }
+
+    @Test fun photoPostDetailShowsRepostConfirmation() {
+        val post = Post(
+            EntityId("https://example.org", "photo-repost"),
+            account,
+            "Photo repost",
+            0,
+            Audience.Public,
+            attachments = listOf(image("photo-repost")),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                SinglePostScreen(
+                    ownedPost = OwnedPost(account.id, post),
+                    presentation = SinglePostPresentation.PhotoGrid,
+                    onClose = {},
+                    availableActions = setOf(PostAction.Reshare),
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription("Repost").performClick()
+        compose.onNodeWithTag("repost_confirmation", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun standardPresentationUsesThePostRowEvenWhenPhotosExist() {

@@ -1,6 +1,7 @@
 # Handoff
 
-**Status:** current pointer. The durable record for the completed 01/02 series is
+**Status:** current pointer. The durable record for the completed wide detail interaction fix is
+`docs/agents/tasks/wide-detail-interaction-fix.md`. The durable record for the completed 01/02 series is
 `docs/agents/tasks/decomposition-01-02-completion.md`. The durable record for the completed
 Plan 03 work is `docs/agents/tasks/plan03-protocol-notifications.md`. The corrected audit of
 Plans 01, 02, and 03 is `docs/decomposition_3/03_corrected.md` (git-ignored planning material,
@@ -213,6 +214,9 @@ Read these in order. Treat the repository as the authority.
    profile paging authority and bounds the cursor sets. 04-J runs last and
    depends on 04-F through 04-I and 04-K. The durable record is
    `docs/agents/tasks/plan04-utility-retention.md`.
+
+The wide detail interaction fix is complete at the current uncommitted worktree. Its focused
+test passes. Commit it before starting Plan 04.
 
 V1 stays device-blocked: repair `RoomNotificationStoreInstrumentedTest` and
 de-flake the two known timing tests when a device or emulator exists. The

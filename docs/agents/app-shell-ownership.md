@@ -49,6 +49,9 @@ Focused feature hosts own their model, state, actions, and projection registrati
 `ui/DetailActionPolicy.kt` resolves the origin-based post-action handlers. Compact and wide detail
 surfaces share it, so one origin resolves to the same owner.
 
+`ui/posts/PostRow.kt` owns the shared `InteractionRow` behavior. Its default repost confirmation
+uses `PostRepostConfirmationOwner`, so detail callers do not implement a second forwarding path.
+
 `SettingsOverlayHost` in `ui/settings/` owns the settings route, settings models, and settings
 commands. It publishes the validated account set and delays account models until the restored
 index is validated. `NotificationLaunchHost` in `ui/notifications/` owns launch delivery. It acknowledges

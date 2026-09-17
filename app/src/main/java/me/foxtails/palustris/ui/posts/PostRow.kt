@@ -351,8 +351,7 @@ internal fun PostRow(
                  onOpenReactionBubble(target, bounds)
              },
              onOpenReactionPicker = onOpenReactionPicker,
-             onRepostConfirmationRequest = { target, bounds -> repostConfirmationOwner.request(target, bounds) },
-             repostConfirmationOwner = repostConfirmationOwner,
+              repostConfirmationOwner = repostConfirmationOwner,
               onShare = { target, bounds -> postActionOwner?.open(target, bounds) },
           )
       }
@@ -688,8 +687,10 @@ internal fun InteractionRow(
     onQuote: (OwnedPost) -> Unit,
     onOpenReactionBubble: (OwnedPost, Rect) -> Unit,
     onOpenReactionPicker: (OwnedPost) -> Unit = {},
-    onRepostConfirmationRequest: (OwnedPost, Rect) -> Unit = { _, _ -> },
     repostConfirmationOwner: PostRepostConfirmationOwner = LocalPostRepostConfirmationOwner.current,
+    onRepostConfirmationRequest: (OwnedPost, Rect) -> Unit = { target, bounds ->
+        repostConfirmationOwner.request(target, bounds)
+    },
     onShare: (OwnedPost, Rect) -> Unit,
 ) {
     val context = LocalContext.current
