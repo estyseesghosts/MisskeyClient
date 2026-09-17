@@ -156,7 +156,11 @@ internal class PhotoGridController(
     fun updatePost(id: EntityId, transform: (Post) -> Post) {
         _state.value = _state.value.copy(
             posts = _state.value.posts.map { owned ->
-                if (owned.post.id == id) owned.copy(post = transform(owned.post)) else owned
+                if (owned.post.id == id || owned.effectiveTargetId() == id) {
+                    owned.copy(post = transform(owned.post))
+                } else {
+                    owned
+                }
             },
         )
     }
