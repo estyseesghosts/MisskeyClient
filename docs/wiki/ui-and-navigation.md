@@ -37,11 +37,22 @@ Sources: `ui/profile/ProfileCategory.kt`, `ui/profile/ProfileTimelineList.kt`,
 
 ## Photo Grid Detail Media
 
-Photo Grid detail sizes the photo pager from the detail viewport in compact
-and wide layouts. The pager keeps full width. The height stays between
-square and 5:4 vertical. The calculation reserves 64 dp for the header and
-200 dp for post content. A short viewport clamps the media to the largest
-safe height. The post body stays below the media.
+Photo Grid detail sizes the photo pager from known attachment dimensions
+in compact and wide layouts. The pager keeps full width. The pager keeps
+`ContentScale.Fit`. The post body stays below the media.
+
+The height follows the active photo aspect. Square through 4:5 uses the
+natural height. Media at or wider than 16:9 uses the natural short height.
+The short height prevents vertical letterboxing. Media taller than 4:5
+stays capped at the 4:5 viewport. A short viewport clamps the height to
+the available space. The calculation reserves 64 dp for the header and
+200 dp for post content.
+
+Unknown or invalid dimensions use the square to 5:4 viewport fallback.
+Multi-photo posts share one stable height across all pages. The shared
+height is the smallest aspect-aware height. The shared height prevents
+vertical letterboxing for the active photo. Horizontal letterboxing on
+taller pages is the accepted tradeoff.
 
 Sources: `ui/SinglePostScreen.kt`, `ui/photogrid/PhotoPagerSizing.kt`,
 `SinglePostScreenTest`.

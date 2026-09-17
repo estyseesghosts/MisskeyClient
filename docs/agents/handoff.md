@@ -222,10 +222,16 @@ covers the full-width image presentation, and focused detail/thread tests pass. 
 remains unavailable. Continue with Plan 04 after preserving unrelated worktree changes.
 
 The Photo Grid detail photo sizing slice is complete and uncommitted. Photo Grid
-detail uses a square to 5:4 photo viewport from the detail viewport in compact
+detail uses aspect-aware heights from known attachment dimensions in compact
 and wide layouts (`ui/photogrid/PhotoPagerSizing.kt`, `ui/SinglePostScreen.kt`).
-`SinglePostScreenTest` covers 5:4, clamp, and compact cases. `ktlintCheck` and
-`test assembleRelease` pass. The durable record is
+Square through 4:5 uses the natural height. Media at or wider than 16:9 uses
+the natural short height. Media taller than 4:5 stays capped at 4:5. Short
+viewports clamp to the available height. Unknown dimensions use the square to
+5:4 fallback. Multi-photo posts share the smallest height across pages.
+`SinglePostScreenTest` covers 1:1, 4:5, 16:9, wider-than-16:9, taller-than-4:5,
+limited viewport, missing dimensions, invalid dimensions, and shared height.
+`SinglePostScreenTest` (23 tests), `ktlintCheck`, and `test assembleRelease`
+pass. The durable record is
 `docs/agents/tasks/wide-detail-photo-sizing.md`. Device rendering remains
 unverified.
 

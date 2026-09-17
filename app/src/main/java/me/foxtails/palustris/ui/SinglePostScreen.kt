@@ -66,7 +66,7 @@ import me.foxtails.palustris.ui.links.ExternalLinkHandler
 import me.foxtails.palustris.ui.media.MediaOpenRequest
 import me.foxtails.palustris.ui.media.MediaPage
 import me.foxtails.palustris.ui.media.PostMediaCarousel
-import me.foxtails.palustris.ui.photogrid.resolveWidePhotoPagerHeight
+import me.foxtails.palustris.ui.photogrid.resolveSharedPhotoPagerHeight
 import me.foxtails.palustris.ui.thread.PostThreadPhase
 import me.foxtails.palustris.ui.thread.PostThreadUiState
 import me.foxtails.palustris.ui.thread.ThreadedReplyRow
@@ -411,11 +411,12 @@ private fun PhotoPager(
     val pagerState = rememberPagerState { photos.size }
     val revealedPages = remember { mutableStateMapOf<Int, Boolean>() }
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("single_post_photo_pager")) {
-        // The pager uses the detail viewport so square media fills the pager
-        // width without horizontal letterboxing. This applies in compact and
-        // wide layouts.
+        // The pager uses one shared aspect-aware height in compact and wide
+        // layouts. Single photos use their natural height. Multi-photo posts
+        // share the smallest height so the active photo never gains vertical
+        // letterboxing and the pager height stays stable across pages.
         val photoHeight = if (viewportHeight != null) {
-            resolveWidePhotoPagerHeight(maxWidth, viewportHeight)
+            resolveSharedPhotoPagerHeight(maxWidth, viewportHeight, photos)
         } else {
             (maxWidth * .75f).coerceAtLeast(240.dp)
         }

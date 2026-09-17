@@ -96,7 +96,7 @@ class SinglePostScreenTest {
             "Wide roomy body",
             0,
             Audience.Public,
-            attachments = listOf(image("wide-roomy")),
+            attachments = listOf(image("wide-roomy", width = 800, height = 1000)),
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
@@ -164,7 +164,7 @@ class SinglePostScreenTest {
             "Compact tall body",
             0,
             Audience.Public,
-            attachments = listOf(image("compact-tall")),
+            attachments = listOf(image("compact-tall", width = 800, height = 1000)),
         )
         compose.activity.runOnUiThread {
             compose.activity.setContent {
@@ -191,6 +191,184 @@ class SinglePostScreenTest {
         val body = compose.onNodeWithText("Compact tall body")
             .fetchSemanticsNode().boundsInRoot
         assertTrue(pager.bottom <= body.top)
+    }
+
+    @Test fun squarePhotoUsesNaturalHeightInCompact() {
+        assertAspectPager(
+            id = "square-compact",
+            body = "Square compact body",
+            width = 1000,
+            height = 1000,
+            boxWidth = 360.dp,
+            boxHeight = 800.dp,
+            embedded = false,
+            expectedWidthDp = 360f,
+            expectedHeightDp = 360f,
+        )
+    }
+
+    @Test fun fourToFivePhotoUsesNaturalHeightInWide() {
+        assertAspectPager(
+            id = "four-five-wide",
+            body = "Four five wide body",
+            width = 800,
+            height = 1000,
+            boxWidth = 360.dp,
+            boxHeight = 800.dp,
+            embedded = true,
+            expectedWidthDp = 360f,
+            expectedHeightDp = 450f,
+        )
+    }
+
+    @Test fun sixteenToNinePhotoUsesNaturalHeightInWide() {
+        assertAspectPager(
+            id = "sixteen-nine-wide",
+            body = "Sixteen nine wide body",
+            width = 1600,
+            height = 900,
+            boxWidth = 360.dp,
+            boxHeight = 800.dp,
+            embedded = true,
+            expectedWidthDp = 360f,
+            expectedHeightDp = 202.5f,
+        )
+    }
+
+    @Test fun widerThanSixteenToNineUsesNaturalHeightInCompact() {
+        assertAspectPager(
+            id = "wider-compact",
+            body = "Wider compact body",
+            width = 2100,
+            height = 900,
+            boxWidth = 360.dp,
+            boxHeight = 800.dp,
+            embedded = false,
+            expectedWidthDp = 360f,
+            expectedHeightDp = 154.3f,
+        )
+    }
+
+    @Test fun tallerThanFourToFiveCapsAtFourToFiveInWide() {
+        assertAspectPager(
+            id = "taller-wide",
+            body = "Taller wide body",
+            width = 600,
+            height = 1200,
+            boxWidth = 360.dp,
+            boxHeight = 800.dp,
+            embedded = true,
+            expectedWidthDp = 360f,
+            expectedHeightDp = 450f,
+        )
+    }
+
+    @Test fun shortViewportClampsSquarePhotoToAvailableHeight() {
+        assertAspectPager(
+            id = "square-tight",
+            body = "Square tight body",
+            width = 1000,
+            height = 1000,
+            boxWidth = 360.dp,
+            boxHeight = 500.dp,
+            embedded = true,
+            expectedWidthDp = 360f,
+            expectedHeightDp = 236f,
+        )
+    }
+
+    @Test fun shortViewportKeepsNaturalWideHeightWhenItFits() {
+        assertAspectPager(
+            id = "wide-tight-natural",
+            body = "Wide tight natural body",
+            width = 1600,
+            height = 900,
+            boxWidth = 360.dp,
+            boxHeight = 500.dp,
+            embedded = false,
+            expectedWidthDp = 360f,
+            expectedHeightDp = 202.5f,
+        )
+    }
+
+    @Test fun missingDimensionsUseViewportFallback() {
+        assertAspectPager(
+            id = "missing-dims",
+            body = "Missing dims body",
+            width = null,
+            height = null,
+            boxWidth = 360.dp,
+            boxHeight = 800.dp,
+            embedded = true,
+            expectedWidthDp = 360f,
+            expectedHeightDp = 450f,
+        )
+    }
+
+    @Test fun invalidDimensionsUseViewportFallback() {
+        assertAspectPager(
+            id = "invalid-dims",
+            body = "Invalid dims body",
+            width = 0,
+            height = 0,
+            boxWidth = 360.dp,
+            boxHeight = 800.dp,
+            embedded = false,
+            expectedWidthDp = 360f,
+            expectedHeightDp = 450f,
+        )
+    }
+
+    @Test fun multiPhotoPostSharesOneStableHeightAcrossPages() {
+        val post = Post(
+            EntityId("https://example.org", "multi-shared"),
+            account,
+            "Multi shared body",
+            0,
+            Audience.Public,
+            attachments = listOf(
+                image("multi-square", width = 1000, height = 1000),
+                image("multi-wide", width = 1600, height = 900),
+            ),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                Box(Modifier.requiredSize(360.dp, 800.dp)) {
+                    SinglePostScreen(
+                        OwnedPost(account.id, post),
+                        SinglePostPresentation.PhotoGrid,
+                        onClose = {},
+                        embedded = true,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        val density = compose.activity.resources.displayMetrics.density
+        val first = compose.onNodeWithTag("single_post_photo_pager", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(360f * density, first.width, 2f)
+        assertEquals(202.5f * density, first.height, 3f)
+        compose.onNodeWithText("Multi shared body").assertIsDisplayed()
+        val body = compose.onNodeWithText("Multi shared body")
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(first.bottom <= body.top)
+        compose.onNodeWithText("1 / 2").assertIsDisplayed()
+
+        compose.onNodeWithTag("single_post_photo_pager", useUnmergedTree = true)
+            .performTouchInput { swipeLeft() }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("2 / 2").assertIsDisplayed()
+        val second = compose.onNodeWithTag("single_post_photo_pager", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(360f * density, second.width, 2f)
+        assertEquals(202.5f * density, second.height, 3f)
+        val bodyAfter = compose.onNodeWithText("Multi shared body")
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(second.bottom <= bodyAfter.top)
     }
 
     @Test fun photoPostKeepsTheCompleteBodyWithoutFeedTruncation() {
@@ -472,12 +650,57 @@ class SinglePostScreenTest {
         compose.onNodeWithText("0 reposts").assertIsDisplayed()
     }
 
-    private fun image(id: String) = Attachment(
+    private fun assertAspectPager(
+        id: String,
+        body: String,
+        width: Int?,
+        height: Int?,
+        boxWidth: androidx.compose.ui.unit.Dp,
+        boxHeight: androidx.compose.ui.unit.Dp,
+        embedded: Boolean,
+        expectedWidthDp: Float,
+        expectedHeightDp: Float,
+    ) {
+        val post = Post(
+            EntityId("https://example.org", id),
+            account,
+            body,
+            0,
+            Audience.Public,
+            attachments = listOf(image(id, width = width, height = height)),
+        )
+        compose.activity.runOnUiThread {
+            compose.activity.setContent {
+                Box(Modifier.requiredSize(boxWidth, boxHeight)) {
+                    SinglePostScreen(
+                        OwnedPost(account.id, post),
+                        SinglePostPresentation.PhotoGrid,
+                        onClose = {},
+                        embedded = embedded,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        val density = compose.activity.resources.displayMetrics.density
+        val pager = compose.onNodeWithTag("single_post_photo_pager", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(expectedWidthDp * density, pager.width, 3f)
+        assertEquals(expectedHeightDp * density, pager.height, 3f)
+        compose.onNodeWithText(body).assertIsDisplayed()
+        val bodyBounds = compose.onNodeWithText(body)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(pager.bottom <= bodyBounds.top)
+    }
+
+    private fun image(id: String, width: Int? = 640, height: Int? = 480) = Attachment(
         id = id,
         url = "https://cdn.example/$id.jpg",
         mimeType = "image/jpeg",
         kind = MediaKind.Image,
-        width = 640,
-        height = 480,
+        width = width,
+        height = height,
     )
 }
